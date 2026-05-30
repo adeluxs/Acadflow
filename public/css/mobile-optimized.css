@@ -1,0 +1,169 @@
+/** Mobile Optimizations for UniFlow PWA */
+
+/* Touch optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Increase tap target sizes for touch devices */
+    button, 
+    [type="button"], 
+    [type="submit"], 
+    a {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 12px 16px;
+    }
+    
+    input[type="checkbox"],
+    input[type="radio"] {
+        min-width: 24px;
+        min-height: 24px;
+    }
+    
+    /* Remove hover effects on touch */
+    .hove:*:hover {
+        /* disabled for touch */
+    }
+}
+
+/* PWA standalone mode adjustments */
+@media all and (display-mode: standalone) {
+    /* Adjust for no browser UI */
+    body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    nav {
+        padding-top: env(safe-area-inset-top);
+    }
+}
+
+/* iOS PWA adjustments */
+@supports (-webkit-touch-callout: none) {
+    /* Prevent zoom on focus */
+    input, select, textarea {
+        font-size: 16px !important;
+    }
+    
+    /* Hide scrollbar */
+    ::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* Fast clicks */
+* {
+    touch-action: manipulation;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    h1 {
+        font-size: 1.5rem;
+    }
+    
+    h2 {
+        font-size: 1.25rem;
+    }
+    
+    /* Stack grids */
+    .grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Offline indicator animation */
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+#offline-banner {
+    animation: slideDown 0.3s ease-out;
+}
+
+/* Sync indicator pulse */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s infinite;
+}
+
+/* PWA install prompt slide up */
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+#pwa-install-prompt {
+    animation: slideUp 0.3s ease-out;
+}
+
+/* Safe area insets for notched devices */
+.safe-area-top {
+    padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Prevent text selection on UI elements */
+button, a {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Loading states */
+.loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #ccc;
+    border-top-color: #4f46e5;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

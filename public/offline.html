@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UniFlow - Offline</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 400px;
+        }
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+        p { opacity: 0.9; margin-bottom: 2rem; line-height: 1.6; }
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2rem;
+            font-size: 0.875rem;
+        }
+        .pulse {
+            width: 8px;
+            height: 8px;
+            background: #fbbf24;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .cached-links {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .cached-links a {
+            color: white;
+            text-decoration: none;
+            padding: 0.75rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 0.5rem;
+            transition: background 0.2s;
+        }
+        .cached-links a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">📴</div>
+        <h1>You're Offline</h1>
+        <p>Don't worry! You can still access previously loaded content. UniFlow will automatically sync when your connection returns.</p>
+        
+        <div class="status">
+            <div class="pulse"></div>
+            <span id="status-text">Checking connection...</span>
+        </div>
+
+        <div class="cached-links" id="cached-links">
+            <a href="/dashboard">📊 Dashboard</a>
+            <a href="/courses">📚 My Courses</a>
+            <a href="/submissions">📝 My Submissions</a>
+            <a href="/notifications">🔔 Notifications</a>
+        </div>
+    </div>
+
+    <script>
+        // Check connection status
+        function updateStatus() {
+            const statusText = document.getElementById('status-text');
+            if (navigator.onLine) {
+                statusText.textContent = 'Back online! Syncing...';
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                statusText.textContent = 'Waiting for connection...';
+            }
+        }
+
+        window.addEventListener('online', updateStatus);
+        window.addEventListener('offline', updateStatus);
+        updateStatus();
+
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/serviceworker.js')
+                .then(() => console.log('SW registered from offline page'))
+                .catch(err => console.error('SW registration failed:', err));
+        }
+
+        // Show cached links if available
+        if ('caches' in window) {
+            caches.keys().then(names => {
+                if (names.length > 0) {
+                    document.getElementById('cached-links').style.display = 'flex';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

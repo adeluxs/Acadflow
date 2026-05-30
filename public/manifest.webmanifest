@@ -1,0 +1,60 @@
+{
+    "name": "UniFlow - University Academic Management",
+    "short_name": "UniFlow",
+    "description": "Complete academic workflow platform for universities",
+    "start_url": "/dashboard",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#4f46e5",
+    "orientation": "any",
+    "categories": ["education", "productivity"],
+    "lang": "en-US",
+    "dir": "ltr",
+    "icons": [
+        {
+            "src": "/icons/icon-192x192.svg",
+            "sizes": "192x192",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-512x512.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "/screenshots/desktop-1.svg",
+            "sizes": "1280x720",
+            "type": "image/svg+xml",
+            "form_factor": "wide",
+            "label": "Dashboard view"
+        },
+        {
+            "src": "/screenshots/mobile-1.svg",
+            "sizes": "390x844",
+            "type": "image/svg+xml",
+            "form_factor": "narrow",
+            "label": "Mobile dashboard"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "View Submissions",
+            "short_name": "Submissions",
+            "description": "View your submissions",
+            "url": "/submissions",
+            "icons": [{ "src": "/icons/submission-96x96.png", "sizes": "96x96" }]
+        },
+        {
+            "name": "Check Attendance",
+            "short_name": "Attendance",
+            "description": "Check in for class",
+            "url": "/attendance/check-in",
+            "icons": [{ "src": "/icons/attendance-96x96.png", "sizes": "96x96" }]
+        }
+    ],
+    "prefer_related_applications": false
+}
