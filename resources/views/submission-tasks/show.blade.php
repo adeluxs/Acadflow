@@ -1,0 +1,290 @@
+@extends('layouts.app')
+
+@section('title', $task->title)
+
+@section('content')
+<div class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex justify-between items-start mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">{{ $task->title }}</h1>
+            <p class="text-gray-600 mt-2">{{ $task->description }}</p>
+            <div class="flex gap-4 mt-4 text-sm">
+                <span class="px-3 py-1 rounded-full 
+                    {{ $task->status === 'published' ? 'bg-green-100 text-green-800' : '' }}
+                    {{ $task->status === 'draft' ? 'bg-yellow-100 text-yellow-800' : '' }}
+                    {{ $task->status === 'closed' ? 'bg-red-100 text-red-800' : '' }}
+                ">
+                    {{ ucfirst($task->status) }}
+                </span>
+                <span class="text-gray-700">Type: <strong>{{ ucfirst($task->type) }}</strong></span>
+            </div>
+        </div>
+        
+        <div class="text-right">
+            @if($task->status === 'draft')
+                <a href="{{ route('submission-tasks.edit', [$course, $task]) }}" 
+                   class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm mb-2 block">
+                    Edit
+                </a>
+                <form action="{{ route('submission-tasks.publish', [$course, $task]) }}" method="POST" class="inline">
+                    @csrf
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"
+                            onclick="return confirm('Publish this assignment?')">
+                        Publish
+                    </button>
+                </form>
+            @elseif($task->status === 'published')
+                <form action="{{ route('submission-tasks.close', [$course, $task]) }}" method="POST" class="inline">
+                    @csrf
+                    <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition text-sm"
+                            onclick="return confirm('Close this assignment?')">
+                        Close
+                    </button>
+                </form>
+            @endif
+        </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-8 mb-8">
+        <!-- Left: Details -->
+        <div class="col-span-2">
+            <!-- Instructions -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Instructions</h2>
+                <div class="prose prose-sm max-w-none">
+                    {!! nl2br(e($task->instructions)) !!}
+                </div>
+            </div>
+
+            <!-- File Requirements -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">File Requirements</h2>
+                <ul class="space-y-3">
+                    <li class="flex justify-between">
+                        <span class="text-gray-700">Allowed Formats:</span>
+                         <span class="font-semibold">{{ implode(', ', $task->allowed_file_types ?? []) }}</span>
+                    </li>
+                    <li class="flex justify-between">
+                        <span class="text-gray-700">Max File Size:</span>
+                        <span class="font-semibold">{{ $task->max_file_size_mb }} MB</span>
+                    </li>
+                    <li class="flex justify-between">
+                        <span class="text-gray-700">File Count:</span>
+                        <span class="font-semibold">{{ $task->min_file_count }} - {{ $task->max_file_count }} files</span>
+                    </li>
+                    <li class="flex justify-between">
+                        <span class="text-gray-700">Max Resubmissions:</span>
+                        <span class="font-semibold">{{ $task->max_resubmissions ?? 'Unlimited' }}</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Attachments -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-900">Supporting Materials</h2>
+                    @if($task->status === 'draft' || $task->status === 'published')
+                        <button onclick="document.getElementById('attachmentForm').style.display = 'block'"
+                                class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+                            + Add File
+                        </button>
+                    @endif
+                </div>
+
+                <!-- Upload Form (Hidden) -->
+                <div id="attachmentForm" class="bg-gray-50 p-4 rounded mb-4" style="display: none;">
+                     <form action="{{ route('submission-tasks.attachment.upload', [$course, $task]) }}" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        <div class="mb-4">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">File Type</label>
+                            <select name="type" class="w-full px-3 py-2 border rounded-lg text-sm" required>
+                                <option value="">Select type</option>
+                                <option value="template">Template</option>
+                                <option value="guide">Guide</option>
+                                <option value="rubric">Rubric</option>
+                                <option value="example">Example</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">File</label>
+                            <input type="file" name="file" class="w-full" required>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="submit" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+                                Upload
+                            </button>
+                            <button type="button" onclick="document.getElementById('attachmentForm').style.display = 'none'"
+                                    class="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Attachments List -->
+                @if($task->attachments && $task->attachments->count() > 0)
+                    <div class="space-y-2">
+                        @foreach($task->attachments as $attachment)
+                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded border">
+                            <div>
+                                <p class="font-semibold text-gray-900">{{ $attachment->file_name }}</p>
+                                <p class="text-xs text-gray-600">{{ ucfirst($attachment->type) }}</p>
+                            </div>
+                            <div class="flex gap-2">
+                                 <a href="{{ route('submission-tasks.attachment.download', [$course, $task, $attachment]) }}"
+                                    class="text-blue-600 hover:underline text-sm">Download</a>
+                                @if($task->status === 'draft' || $task->status === 'published')
+                                    <form action="{{ route('submission-tasks.attachment.delete', [$course, $task, $attachment]) }}" 
+                                          method="POST" class="inline">
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="text-red-600 hover:underline text-sm"
+                                                onclick="return confirm('Delete this file?')">Delete</button>
+                                    </form>
+                                @endif
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-gray-500 text-sm">No supporting materials uploaded yet.</p>
+                @endif
+            </div>
+        </div>
+
+        <!-- Right: Sidebar -->
+        <div>
+            <!-- Key Dates -->
+            <div class="bg-blue-50 rounded-lg p-6 mb-6">
+                <h3 class="font-bold text-gray-900 mb-4">Important Dates</h3>
+                <ul class="space-y-3 text-sm">
+                    <li>
+                        <p class="text-gray-600">Opens</p>
+                        <p class="font-semibold">{{ $task->open_at?->format('M d, Y H:i') ?? 'Not set' }}</p>
+                    </li>
+                    <li>
+                        <p class="text-gray-600">Due (Soft)</p>
+                        <p class="font-semibold">{{ $task->due_date?->format('M d, Y H:i') ?? 'Not set' }}</p>
+                    </li>
+                    <li>
+                        <p class="text-gray-600">Hard Deadline</p>
+                        <p class="font-semibold">{{ $task->late_deadline?->format('M d, Y H:i') ?? 'Not set' }}</p>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Submission Stats -->
+            <div class="bg-green-50 rounded-lg p-6 mb-6">
+                <h3 class="font-bold text-gray-900 mb-4">Submissions</h3>
+                <div class="text-3xl font-bold text-green-600">{{ $submissions_count ?? 0 }}</div>
+                <p class="text-sm text-gray-600 mt-1">of {{ $enrolled_count ?? 0 }} enrolled students</p>
+                <div class="mt-4 w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-green-600 h-2 rounded-full" 
+                         style="width: {{ ($enrolled_count ?? 0) > 0 ? (($submissions_count ?? 0) / ($enrolled_count ?? 1) * 100) : 0 }}%">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Late Penalty Info -->
+            <div class="bg-yellow-50 rounded-lg p-6">
+                <h3 class="font-bold text-gray-900 mb-3">Late Submission Policy</h3>
+                <ul class="space-y-2 text-sm">
+                    <li class="flex items-start gap-2">
+                        <span class="text-yellow-600 font-bold">•</span>
+                        <span>{{ $task->allow_late_submissions ? 'Late submissions allowed' : 'No late submissions' }}</span>
+                    </li>
+                    @if($task->allow_late_submissions)
+                        <li class="flex items-start gap-2">
+                            <span class="text-yellow-600 font-bold">•</span>
+                            <span>{{ $task->late_submission_penalty_percent }}% penalty applied</span>
+                        </li>
+                    @endif
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submissions List -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-900 mb-4">Student Submissions</h2>
+        
+        @if($submissions && $submissions->count() > 0)
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-900">Student</th>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-900">Status</th>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-900">Submitted</th>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-900">Grade</th>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-900">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($submissions as $submission)
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-3 text-gray-900">{{ $submission->user->name }}</td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 text-xs rounded 
+                                    {{ $submission->status === 'submitted' ? 'bg-green-100 text-green-800' : '' }}
+                                    {{ $submission->status === 'draft' ? 'bg-yellow-100 text-yellow-800' : '' }}
+                                    {{ $submission->is_late ? 'bg-red-100 text-red-800' : '' }}
+                                ">
+                                    {{ $submission->is_late ? 'Late' : ucfirst($submission->status) }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-gray-600">
+                                {{ $submission->submitted_at?->format('M d, H:i') ?? 'Not submitted' }}
+                            </td>
+                            <td class="px-4 py-3 font-semibold text-gray-900">
+                                {{ $submission->grade?->score ?? '-' }}/{{ $task->max_score }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <a href="{{ route('submissions.review', $submission) }}"
+                                   class="text-blue-600 hover:underline text-sm">Review</a>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @else
+            <p class="text-gray-500 text-center py-8">No submissions yet.</p>
+        @endif
+    </div>
+    </div>
+
+    <!-- Non-Submitters List -->
+    @if(isset($nonSubmitters) && $nonSubmitters->count() > 0)
+        <div class="bg-white rounded-lg shadow p-6 mt-8">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">Students Not Submitted</h2>
+            <p class="text-sm text-gray-600 mb-4">{{ $nonSubmitters->count() }} enrolled students have not submitted this assignment.</p>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-900">Student ID</th>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-900">Name</th>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-900">Email</th>
+                            <th class="px-4 py-2 text-left font-semibold text-gray-900">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($nonSubmitters as $student)
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="px-4 py-3 text-gray-900">{{ $student->student_id ?? 'N/A' }}</td>
+                                <td class="px-4 py-3 text-gray-900">{{ $student->first_name }} {{ $student->last_name }}</td>
+                                <td class="px-4 py-3 text-gray-600">{{ $student->email }}</td>
+                                <td class="px-4 py-3">
+                                    <a href="mailto:{{ $student->email }}" class="text-blue-600 hover:underline text-sm">Send Reminder</a>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+@endsection

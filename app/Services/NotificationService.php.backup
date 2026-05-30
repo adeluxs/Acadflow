@@ -1,0 +1,628 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\NotificationType;
+use App\Models\Enrollment;
+use App\Models\Notification;
+use App\Models\NotificationLog;
+use App\Models\NotificationSetting;
+use App\Models\Setting;
+use App\Models\User;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+
+class NotificationService
+{
+    public function __construct(
+        private ?PushNotificationService $pushService = null
+    ) {}
+
+    /**
+     * Send notification to a user via all enabled channels
+     */
+    public function send(User $user, NotificationType $type, string $title, string $message, array $data = []): void
+    {
+        // Check global channel toggles
+        $globalInAppEnabled = $this->isGlobalChannelEnabled('in_app');
+        $globalPushEnabled = $this->isGlobalChannelEnabled('push');
+        $globalEmailEnabled = $this->isGlobalChannelEnabled('email');
+
+        $notification = null;
+
+        // Create in-app notification (unless globally disabled)
+        if ($globalInAppEnabled) {
+            $notification = $user->notifications()->create([
+                'uuid' => Str::uuid(),
+                'type' => $type->value,
+                'title' => $title,
+                'message' => $message,
+                'data' => $data,
+            ]);
+
+            // Log database delivery
+            $this->logDeliveryAttempt($notification, $user, 'database', 'success');
+        }
+
+        $settings = $this->getSettings($user);
+
+        // Try push notification first
+        $pushSent = false;
+        if ($globalPushEnabled && ($settings?->push_enabled ?? true) && $this->pushService) {
+            $pushSent = $this->sendPushNotification($user, $title, $message, $data, $notification);
+        }
+
+        // Email: send if enabled, OR as fallback if push failed
+        if ($globalEmailEnabled && ($settings?->email_enabled ?? true)) {
+            if ($this->shouldSendEmail($user, $type) || !$pushSent) {
+                $this->sendEmailNotification($user, $type, $title, $message, $data, $notification);
+            }
+        }
+    }
+
+    /**
+     * Send push notification
+     */
+    protected function sendPushNotification(User $user, string $title, string $message, array $data, $notification): bool
+    {
+        try {
+            $result = $this->pushService->send($user, $title, $message, $data);
+            $count = $result ? 1 : 0;
+            
+            if ($notification) {
+                $this->logDeliveryAttempt($notification, $user, 'push', $count > 0 ? 'success' : 'failed');
+            }
+            
+            return $count > 0;
+        } catch (\Exception $e) {
+            if ($notification) {
+                $this->logDeliveryAttempt($notification, $user, 'push', 'failed', $e->getMessage());
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Send email notification with template
+     */
+    protected function sendEmailNotification(User $user, NotificationType $type, string $title, string $message, array $data, $notification): void
+    {
+        try {
+            $template = $this->getEmailTemplate($type, $data);
+            
+            Mail::raw($template['body'], function ($mail) use ($user, $template, $title) {
+                $mail->to($user->email)
+                    ->subject($template['subject'] ?? $title);
+            });
+
+            if ($notification) {
+                $this->logDeliveryAttempt($notification, $user, 'email', 'success');
+            }
+        } catch (\Exception $e) {
+            if ($notification) {
+                $this->logDeliveryAttempt($notification, $user, 'email', 'failed', $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Get user's notification settings
+     */
+    protected function getSettings(User $user): ?NotificationSetting
+    {
+        return NotificationSetting::where('user_id', $user->id)->first();
+    }
+
+    /**
+     * Check if should send email for this notification type
+     */
+    protected function shouldSendEmail(User $user, NotificationType $type): bool
+    {
+        $settings = $this->getSettings($user);
+        
+        return match($type) {
+            NotificationType::MATERIAL_UPLOADED => $settings?->notify_on_material_upload ?? true,
+            NotificationType::ASSIGNMENT_CREATED => $settings?->notify_on_assignment ?? true,
+            NotificationType::NEW_DISCUSSION => $settings?->notify_on_discussion ?? true,
+            NotificationType::SUBMISSION_CONFIRMATION => $settings?->notify_on_submission ?? true,
+            NotificationType::SYSTEM_ANNOUNCEMENT => $settings?->notify_on_announcement ?? true,
+            default => true,
+        };
+    }
+
+    /**
+     * Get email template for notification type
+     */
+    protected function getEmailTemplate(NotificationType $type, array $data): array
+    {
+        return match($type) {
+            NotificationType::MATERIAL_UPLOADED => [
+                'subject' => 'New Material Uploaded',
+                'body' => "New materials have been uploaded to your course.\n" .
+                         ($data['course_name'] ?? 'Course'),
+            ],
+            NotificationType::ASSIGNMENT_CREATED => [
+                'subject' => 'New Assignment',
+                'body' => "A new assignment has been created.\n" .
+                         ($data['task_title'] ?? 'Assignment'),
+            ],
+            default => [
+                'subject' => 'Notification',
+                'body' => $data['message'] ?? 'You have a new notification.',
+            ],
+        };
+    }
+
+    /**
+     * Check if a channel is globally enabled (admin-controlled)
+     */
+    protected function isGlobalChannelEnabled(string $channel): bool
+    {
+        $key = "notifications_{$channel}_enabled";
+        try {
+            $setting = Setting::where('key', $key)->first();
+            
+            return $setting ? (string) $setting->value === '1' : true;
+        } catch (\Exception $e) {
+            return true;
+        }
+    }
+
+    /**
+     * Log a delivery attempt to notification_logs
+     */
+    protected function logDeliveryAttempt($notification, User $user, string $channel, string $status, ?string $error = null): void
+    {
+        if (! $notification) {
+            return;
+        }
+
+        try {
+            NotificationLog::create([
+                'notification_id' => $notification->id,
+                'user_id' => $user->id,
+                'channel' => $channel,
+                'status' => $status,
+                'error_message' => $error,
+                'attempted_at' => now(),
+                'attempt_count' => 1,
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to log notification delivery', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+}
+
+        // Email: send if enabled, OR as fallback if push failed
+        if ($globalEmailEnabled && ($settings?->email_enabled ?? true)) {
+            if ($this->shouldSendEmail($user, $type) || !$pushSent) {
+                $this->sendEmailNotification($user, $type, $title, $message, $data, $notification);
+            }
+        }
+    }
+
+    /**
+     * Send push notification
+     */
+    protected function sendPushNotification(User $user, string $title, string $message, array $data, $notification): bool
+    {
+        try {
+            $result = $this->pushService->send($user, $title, $message, $data);
+            $count = $result ? 1 : 0;
+            
+            if ($notification) {
+                $this->logDeliveryAttempt($notification, $user, 'push', $count > 0 ? 'success' : 'failed');
+            }
+            
+            return $count > 0;
+        } catch (\Exception $e) {
+            if ($notification) {
+                $this->logDeliveryAttempt($notification, $user, 'push', 'failed', $e->getMessage());
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Send email notification with template
+     */
+    protected function sendEmailNotification(User $user, NotificationType $type, string $title, string $message, array $data, $notification): void
+    {
+        try {
+            $template = $this->getEmailTemplate($type, $data);
+            
+            Mail::raw($template['body'], function ($mail) use ($user, $template, $title) {
+                $mail->to($user->email)
+                    ->subject($template['subject'] ?? $title);
+            });
+
+            if ($notification) {
+                $this->logDeliveryAttempt($notification, $user, 'email', 'success');
+            }
+        } catch (\Exception $e) {
+            if ($notification) {
+                $this->logDeliveryAttempt($notification, $user, 'email', 'failed', $e->getMessage());
+            }
+        }
+    }
+
+        $settings = $this->getSettings($user);
+
+        // Try push notification first
+        $pushSent = false;
+        if ($globalPushEnabled && $settings?->push_enabled && $this->pushService) {
+            $pushSent = $this->sendPushNotification($user, $title, $message, $data, $notification);
+        }
+
+        // Email: send if enabled, OR as fallback if push failed
+        if ($globalEmailEnabled && $settings?->email_enabled) {
+            if ($this->shouldSendEmail($user, $type) || ! $pushSent) {
+                $this->sendEmailNotification($user, $type, $title, $message, $data, $notification);
+            }
+        }
+    }
+
+    /**
+     * Check if a channel is globally enabled (admin-controlled)
+     */
+    protected function isGlobalChannelEnabled(string $channel): bool
+    {
+        $key = "notifications_{$channel}_enabled";
+        try {
+            $setting = Setting::where('key', $key)->first();
+
+            return $setting ? (string) $setting->value === '1' : true;
+        } catch (\Exception $e) {
+            return true;
+        }
+    }
+
+    /**
+     * Log a delivery attempt to notification_logs
+     */
+    protected function logDeliveryAttempt($notification, User $user, string $channel, string $status, ?string $error = null): void
+    {
+        if (! $notification) {
+            return;
+        }
+
+        try {
+            NotificationLog::create([
+                'notification_id' => $notification->id,
+                'user_id' => $user->id,
+                'channel' => $channel,
+                'status' => $status,
+                'error_message' => $error,
+                'attempted_at' => now(),
+                'attempt_count' => 1,
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to log notification delivery', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Send push notification to user. Returns true if at least one device was reached.
+     */
+    protected function sendPushNotification(User $user, string $title, string $message, array $data, $notification = null): bool
+    {
+        try {
+            if (! $this->pushService) {
+                return false;
+            }
+
+            $count = $this->pushService->send($user, $title, $message, array_merge($data, [
+                'notification_id' => $notification?->id,
+            ]));
+
+            $this->logDeliveryAttempt($notification, $user, 'push', $count > 0 ? 'success' : 'failed');
+
+            return $count > 0;
+        } catch (\Exception $e) {
+            Log::error('Push notification failed', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            $this->logDeliveryAttempt($notification, $user, 'push', 'failed', $e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
+     * Send email notification with template
+     */
+    protected function sendEmailNotification(User $user, NotificationType $type, string $title, string $message, array $data, $notification = null): void
+    {
+        try {
+            $template = $this->getEmailTemplate($type, $data);
+
+            Mail::send('emails.notification', [
+                'title' => $template['subject'],
+                'body' => $template['body'],
+                'user' => $user,
+                'data' => $data,
+            ], function ($mail) use ($user, $template) {
+                $mail->to($user->email)
+                    ->subject($template['subject']);
+            });
+
+            $this->logDeliveryAttempt($notification, $user, 'email', 'success');
+        } catch (\Exception $e) {
+            Log::error('Email notification failed', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            $this->logDeliveryAttempt($notification, $user, 'email', 'failed', $e->getMessage());
+        }
+    }
+
+    /**
+     * Check if email should be sent based on user preferences
+     */
+    protected function shouldSendEmail(User $user, NotificationType $type): bool
+    {
+        $settings = $this->getSettings($user);
+
+        if (! $settings) {
+            return true;
+        }
+
+        return match ($type) {
+            NotificationType::SUBMISSION_RECEIVED,
+            NotificationType::COMMENT_ADDED,
+            NotificationType::CORRECTION_REQUESTED,
+            NotificationType::APPROVAL_GRANTED,
+            NotificationType::DEADLINE_APPROACHING,
+            NotificationType::OVERDUE_SUBMISSION => $settings->submission_notifications,
+            NotificationType::GRADE_POSTED => $settings->grade_notifications,
+            NotificationType::ATTENDANCE_STARTED,
+            NotificationType::ATTENDANCE_CLOSED => $settings->attendance_notifications,
+            NotificationType::PAYMENT_RECEIVED,
+            NotificationType::PAYMENT_OVERDUE => $settings->billing_notifications,
+            default => true,
+        };
+    }
+
+    /**
+     * Get email template based on notification type
+     */
+    protected function getEmailTemplate(NotificationType $type, array $data): array
+    {
+        $title = $data['title'] ?? 'Notification';
+        $courseName = $data['course_name'] ?? 'Course';
+        $studentName = $data['student_name'] ?? 'Student';
+        $grade = $data['grade'] ?? 'N/A';
+        $feedback = $data['feedback'] ?? '';
+        $deadline = $data['deadline'] ?? '';
+        $amount = $data['amount'] ?? '';
+        $materialTitle = $data['material_title'] ?? '';
+        $enrollmentCode = $data['enrollment_code'] ?? '';
+
+        return match ($type) {
+            NotificationType::SUBMISSION_RECEIVED => [
+                'subject' => 'New Submission Received - '.$title,
+                'body' => "We have received a new submission for {$title}.\n\nStudent: {$studentName}\nCourse: {$courseName}",
+            ],
+            NotificationType::COMMENT_ADDED => [
+                'subject' => 'New Comment - '.$title,
+                'body' => "A new comment has been added to your submission '{$title}'.\n\nView the submission to see the comment.",
+            ],
+            NotificationType::CORRECTION_REQUESTED => [
+                'subject' => 'Correction Requested - '.$title,
+                'body' => "Your lecturer has requested corrections for '{$title}'.\n\nPlease review the feedback and resubmit your work.",
+            ],
+            NotificationType::APPROVAL_GRANTED => [
+                'subject' => 'Submission Approved - '.$title,
+                'body' => "Great news! Your submission '{$title}' has been approved.\n\nGrade: {$grade}",
+            ],
+            NotificationType::GRADE_POSTED => [
+                'subject' => 'Grade Posted - '.$title,
+                'body' => "Your grade has been posted for '{$title}'.\n\nGrade: {$grade}\nFeedback: {$feedback}",
+            ],
+            NotificationType::DEADLINE_APPROACHING => [
+                'subject' => 'Deadline Reminder - '.$title,
+                'body' => "Reminder: The deadline for '{$title}' is approaching.\n\nDue Date: {$deadline}\n\nSubmit your work before the deadline to avoid late penalties.",
+            ],
+            NotificationType::OVERDUE_SUBMISSION => [
+                'subject' => 'Overdue Submission - '.$title,
+                'body' => "Attention: Your submission '{$title}' is now overdue.\n\nPlease submit as soon as possible or contact your lecturer.",
+            ],
+            NotificationType::ATTENDANCE_STARTED => [
+                'subject' => 'Attendance Session Started - '.$courseName,
+                'body' => "Attendance is now open for {$courseName}.\n\nPlease check in using the app.",
+            ],
+            NotificationType::PAYMENT_RECEIVED => [
+                'subject' => 'Payment Received',
+                'body' => "We have received your payment of {$amount}.\n\nThank you!",
+            ],
+            NotificationType::COURSE_INVITATION => [
+                'subject' => 'Course Invitation - '.$courseName,
+                'body' => "You have been invited to join the course '{$courseName}'.\n\nUse the enrollment code: {$enrollmentCode}",
+            ],
+            NotificationType::NEW_MATERIAL => [
+                'subject' => 'New Course Material - '.$courseName,
+                'body' => "New materials have been uploaded to '{$courseName}'.\n\nTitle: {$materialTitle}",
+            ],
+            NotificationType::ASSIGNMENT_CREATED => [
+                'subject' => 'New Assignment - '.$title,
+                'body' => "A new assignment '{$title}' has been created for {$courseName}.\n\nCheck the course page for details.",
+            ],
+            NotificationType::NEW_QUESTION => [
+                'subject' => 'New Question - '.$title,
+                'body' => "A new question has been posted: '{$title}'.\n\nCourse: {$courseName}",
+            ],
+            NotificationType::NEW_REPLY => [
+                'subject' => 'New Reply - '.$title,
+                'body' => "A new reply to your question: '{$title}'.\n\nCheck the discussion thread.",
+            ],
+            NotificationType::SYSTEM_ANNOUNCEMENT => [
+                'subject' => 'System Announcement',
+                'body' => $data['message'] ?? 'System announcement from UniAcademic.',
+            ],
+            default => [
+                'subject' => $title ?? 'UniAcademic Notification',
+                'body' => $data['message'] ?? '',
+            ],
+        };
+    }
+
+    /**
+     * Format email body with standard template
+     */
+    protected function formatEmail(string $content): string
+    {
+        return "UniAcademic Notification\n\n".
+            str_repeat('-', 50)."\n\n".
+            $content."\n\n".
+            str_repeat('-', 50)."\n\n".
+            "This is an automated message from UniAcademic.\n".
+            'Manage your notification preferences in your account settings.';
+    }
+
+    /**
+     * Get user notification settings (auto-create if missing)
+     */
+    protected function getSettings(User $user): ?NotificationSetting
+    {
+        return NotificationSetting::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'email_enabled' => true,
+                'push_enabled' => true,
+                'submission_notifications' => true,
+                'grade_notifications' => true,
+                'attendance_notifications' => true,
+                'billing_notifications' => true,
+            ]
+        );
+    }
+
+    /**
+     * Send notification to multiple users
+     */
+    public function sendToMany(array $userIds, NotificationType $type, string $title, string $message): void
+    {
+        foreach ($userIds as $userId) {
+            $user = User::find($userId);
+            if ($user) {
+                $this->send($user, $type, $title, $message);
+            }
+        }
+    }
+
+    /**
+     * Send notification to all students in a course
+     */
+    public function sendToCourse(int $courseId, NotificationType $type, string $title, string $message): void
+    {
+        $enrolledStudents = Enrollment::where('course_id', $courseId)
+            ->where('status', 'enrolled')
+            ->pluck('user_id');
+
+        $this->sendToMany($enrolledStudents->toArray(), $type, $title, $message);
+    }
+
+    /**
+     * Mark notification as read
+     */
+    public function markAsRead(User $user, int $notificationId): void
+    {
+        $user->unreadNotifications()
+            ->where('id', $notificationId)
+            ->update(['read_at' => now()]);
+    }
+
+    /**
+     * Get user's notification settings
+     */
+    protected function getSettings(User $user): ?NotificationSetting
+    {
+        return NotificationSetting::where('user_id', $user->id)->first();
+    }
+
+    /**
+     * Check if should send email for this notification type
+     */
+    protected function shouldSendEmail(User $user, NotificationType $type): bool
+    {
+        $settings = $this->getSettings($user);
+        
+        return match($type) {
+            NotificationType::MATERIAL_UPLOADED => $settings?->notify_on_material_upload ?? true,
+            NotificationType::ASSIGNMENT_CREATED => $settings?->notify_on_assignment ?? true,
+            NotificationType::NEW_DISCUSSION => $settings?->notify_on_discussion ?? true,
+            NotificationType::SUBMISSION_CONFIRMATION => $settings?->notify_on_submission ?? true,
+            NotificationType::SYSTEM_ANNOUNCEMENT => $settings?->notify_on_announcement ?? true,
+            default => true,
+        };
+    }
+
+    /**
+     * Get email template for notification type
+     */
+    protected function getEmailTemplate(NotificationType $type, array $data): array
+    {
+        return match($type) {
+            NotificationType::MATERIAL_UPLOADED => [
+                'subject' => 'New Material Uploaded',
+                'body' => "New materials have been uploaded to your course.\n\n" . ($data['course_name'] ?? 'Course'),
+            ],
+            NotificationType::ASSIGNMENT_CREATED => [
+                'subject' => 'New Assignment',
+                'body' => "A new assignment has been created.\n\n" . ($data['task_title'] ?? 'Assignment'),
+            ],
+            default => [
+                'subject' => 'Notification',
+                'body' => $data['message'] ?? 'You have a new notification.',
+            ],
+        };
+    }
+}
+
+    /**
+     * Log delivery status
+     */
+    protected function logDelivery(?Notification $notification, string $channel, string $status, ?User $user = null): void
+    {
+        if (! $notification) {
+            return;
+        }
+
+        NotificationLog::create([
+            'notification_id' => $notification->id,
+            'user_id' => $user?->id ?? $notification->user_id,
+            'channel' => $channel,
+            'status' => $status,
+            'attempted_at' => now(),
+            'attempt_count' => 1,
+        ]);
+    }
+
+    /**
+     * Get notification message based on type
+     */
+    public static function getNotificationMessage(NotificationType $type, array $data): string
+    {
+        return match ($type) {
+            NotificationType::SUBMISSION_RECEIVED => "New submission: {$data['title']}",
+            NotificationType::COMMENT_ADDED => "New comment on: {$data['title']}",
+            NotificationType::CORRECTION_REQUESTED => "Correction requested for: {$data['title']}",
+            NotificationType::APPROVAL_GRANTED => "Submission approved: {$data['title']}",
+            NotificationType::GRADE_POSTED => "Grade posted for: {$data['title']}",
+            NotificationType::PAYMENT_RECEIVED => "Payment of {$data['amount']} received",
+            NotificationType::ATTENDANCE_STARTED => "Attendance session started for {$data['course']}",
+            NotificationType::ATTENDANCE_CLOSED => 'Attendance session closed',
+            NotificationType::DEADLINE_APPROACHING => "Deadline approaching: {$data['title']}",
+            NotificationType::OVERDUE_SUBMISSION => "Overdue: {$data['title']}",
+            NotificationType::COURSE_INVITATION => "Course invitation: {$data['course_name']}",
+            NotificationType::NEW_MATERIAL => "New material in: {$data['course_name']}",
+            default => 'System notification',
+        };
+    }
+}

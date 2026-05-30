@@ -1,0 +1,90 @@
+<?php
+
+/**
+ * Fix all migrations to be idempotent
+ * Run: php fix_migrations_idempotent.php
+ */
+
+$dir = __DIR__ . '/';
+$files = glob($dir . '*.php');
+
+$fixed = 0;
+$skipped = 0;
+
+foreach ($files as $file) {
+    $content = file_get_contents($file);
+    
+    // Skip if already has hasTable check
+    if (strpos($content, 'hasTable(') !== false) {
+        echo "Already idempotent: " . basename($file) . PHP_EOL;
+        $skipped++;
+        continue;
+    }
+    
+    // Find Schema::create patterns
+    preg_match_all("/Schema::create\(['\"]([^'\"]+)['\"],\s*function\s*\(Blueprint\s*\\\$table\)\s*\{/m", $content, $matches, PREG_SET_ORDER);
+    
+    if (empty($matches)) {
+        echo "No Schema::create found: " . basename($file) . PHP_EOL;
+        $skipped++;
+        continue;
+    }
+    
+    $newContent = $content;
+    
+    foreach ($matches as $match) {
+        $fullMatch = $match[0];
+        $tableName = $match[1];
+        
+        // Create the replacement with hasTable check
+        $replacement = "if (!Schema::hasTable('$tableName')) {\n" .
+                       "            Schema::create('$tableName', function (Blueprint \$table) {\n" .
+                       "                // Migration content here\n" .
+                       "            }\n" .
+                       "        }";
+        
+        // More robust replacement - find the actual content
+        $pattern = "/Schema::create\('$tableName',\s*function\s*\(Blueprint\s*\\\$table\)\s*\{/";
+        if (preg_match($pattern, $newContent, $m, PREG_OFFSET_CAPTURE)) {
+            // Find the matching closing brace
+            $start = $m[0][1];
+            $braceCount = 0;
+            $end = $start;
+            $inFunction = false;
+            
+            for ($i = $start; $i < strlen($newContent); $i++) {
+                if ($newContent[$i] === '{') {
+                    $braceCount++;
+                    $inFunction = true;
+                } elseif ($newContent[$i] === '}') {
+                    $braceCount--;
+                    if ($inFunction && $braceCount === 0) {
+                        $end = $i + 1;
+                        break;
+                    }
+                }
+            }
+            
+            if ($end > $start) {
+                $before = substr($newContent, 0, $start);
+                $migrationCode = substr($newContent, $start, $end - $start);
+                $after = substr($newContent, $end);
+                
+                // Add hasTable check
+                $newMigrationCode = "if (!Schema::hasTable('$tableName')) {\n" .
+                                     "            " . str_replace("\n", "\n            ", $migrationCode) . "\n" .
+                                     "        }";
+                
+                $newContent = $before . $newMigrationCode . $after;
+            }
+        }
+    }
+    
+    if ($newContent !== $content) {
+        file_put_contents($file, $newContent);
+        echo "Fixed: " . basename($file) . PHP_EOL;
+        $fixed++;
+    }
+}
+
+echo PHP_EOL . "Done! Fixed: $fixed, Skipped: $skipped" . PHP_EOL;

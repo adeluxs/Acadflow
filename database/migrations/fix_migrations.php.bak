@@ -1,0 +1,42 @@
+<?php
+
+/**
+ * Script to make all migrations idempotent
+ * Run: php fix_migrations.php
+ * 
+ * This adds "if (!Schema::hasTable())" checks to all Schema::create() calls
+ */
+
+$files = glob('*.php', GLOB_NOSORT);
+$fixed = 0;
+
+foreach ($files as $file) {
+    $content = file_get_contents($file);
+    
+    // Check if file uses Schema::create
+    if (strpos($content, 'Schema::create(') === false) {
+        continue;
+    }
+    
+    // Skip if already has the idempotent pattern
+    if (strpos($content, 'if (!Schema::hasTable(') !== false) {
+        echo "Already fixed: $file\n";
+        continue;
+    }
+    
+    // Find the Schema::create calls and wrap them
+    $pattern = '/Schema::create\(\s*[\'"](\w+)[\'"]\s*,\s*function\s*\(/';
+    
+    if (preg_match($pattern, $content, $matches)) {
+        $tableName = $matches[1];
+        
+        // Replace the Schema::create with if-check
+        $replacement = "if (!Schema::hasTable('$tableName')) {\n            Schema::create('$tableName', function (Blueprint \$table) {\n                // Migration content here\n            }\n        }";
+        
+        // This is a simplified approach - for production, you'd want more robust parsing
+        echo "Need to fix manually: $file (table: $tableName)\n";
+    }
+}
+
+echo "\nDone. Fixed $fixed files.\n";
+echo "For remaining files, manually add: if (!Schema::hasTable('table_name')) { ... }\n";
