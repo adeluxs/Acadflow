@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use App\Enums\Permission;
@@ -87,12 +89,12 @@ class User extends Authenticatable
 
     public function canGradeSubmission(Submission $submission): bool
     {
-        if (! $this->hasPermission(Permission::GRADE_SUBMISSION)) {
-            return false;
-        }
-
         if ($this->isSuperAdmin() || $this->isUniversityAdmin() || $this->isDepartmentAdmin()) {
             return true;
+        }
+
+        if (! $this->hasPermission(Permission::GRADE_SUBMISSION)) {
+            return false;
         }
 
         return $submission->course->lecturer_id === $this->id;
@@ -127,6 +129,9 @@ class User extends Authenticatable
         'is_active',
         'email_verified_at',
         'last_login_at',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_confirmed_at',
     ];
 
     protected $hidden = [

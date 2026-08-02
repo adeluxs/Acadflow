@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceRecord;
@@ -8,9 +10,9 @@ use App\Models\Department;
 use App\Models\Faculty;
 use App\Models\Invoice;
 use App\Models\Submission;
-use App\Models\Subscription;
 use App\Models\University;
 use App\Models\User;
+use App\Models\UserSubscription;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -109,14 +111,14 @@ class AdminController extends Controller
             $subscription = null;
 
             if ($validated['role'] === 'university_admin') {
-                // Check university-level subscription
-                $subscription = Subscription::where('university_id', $user->university_id)
+                $subscription = UserSubscription::where('university_id', $user->university_id)
                     ->where('status', 'active')
+                    ->whereHas('plan', fn ($q) => $q->where('plan_type', '!=', 'b2c'))
                     ->first();
             } elseif ($validated['role'] === 'department_admin') {
-                // Check department-level subscription
-                $subscription = Subscription::where('department_id', $validated['department_id'])
+                $subscription = UserSubscription::where('department_id', $validated['department_id'])
                     ->where('status', 'active')
+                    ->whereHas('plan', fn ($q) => $q->where('plan_type', '!=', 'b2c'))
                     ->first();
             }
 
@@ -171,12 +173,13 @@ class AdminController extends Controller
     {
         $roleName = ucfirst(str_replace('_', ' ', $user->role));
         $loginUrl = route('login');
+        $siteName = \App\Services\SettingService::get('site_name', 'UniAcademic');
         
-        $subject = 'Invitation to UniFlow - '.$roleName.' Account';
+        $subject = 'Invitation to '.$siteName.' - '.$roleName.' Account';
         $body = "
             Hello,
             
-            You have been invited to join UniFlow as a {$roleName}.
+            You have been invited to join {$siteName} as a {$roleName}.
             
             Your login credentials are:
             Email: {$user->email}
@@ -187,7 +190,7 @@ class AdminController extends Controller
             After logging in, please update your profile and change your password.
             
             Thanks,
-            UniFlow Team
+            {$siteName} Team
         ";
 
         \Illuminate\Support\Facades\Mail::raw($body, function ($message) use ($user, $subject) {

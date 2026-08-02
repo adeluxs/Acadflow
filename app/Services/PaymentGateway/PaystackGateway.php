@@ -89,7 +89,7 @@ class PaystackGateway extends AbstractGateway
         ];
     }
 
-    public function refund(string $transactionId, float $amount = null): array
+    public function refund(string $transactionId, ?float $amount = null): array
     {
         $payload = [
             'transaction' => $transactionId,

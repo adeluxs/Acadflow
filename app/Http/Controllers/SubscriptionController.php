@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\SubscriptionPlan;
@@ -108,7 +110,7 @@ class SubscriptionController extends Controller
             'user_id' => $user->id,
             'payment_gateway_id' => $this->getGatewayId($request->gateway),
             'amount' => $amount,
-            'currency' => 'USD',
+            'currency' => \App\Services\SettingService::get('currency', 'USD'),
             'type' => 'payment',
             'status' => 'pending',
         ]);
@@ -120,7 +122,7 @@ class SubscriptionController extends Controller
             'email' => $user->email,
             'amount' => $amount,
             'reference' => $transaction->uuid,
-            'currency' => 'USD',
+            'currency' => \App\Services\SettingService::get('currency', 'USD'),
             'callback_url' => route('subscription.payment.callback', $transaction->uuid),
             'user_id' => $user->id,
             'metadata' => [

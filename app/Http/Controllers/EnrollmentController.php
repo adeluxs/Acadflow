@@ -6,7 +6,7 @@ use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Invoice;
 use App\Models\Semester;
-use App\Models\Subscription;
+use App\Models\UserSubscription;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -45,8 +45,10 @@ class EnrollmentController extends Controller
             ->first();
 
         // Allow enrollment if paid or if within grace period
-        $subscription = Subscription::where('university_id', Auth::user()->university_id)
+        $subscription = UserSubscription::where('university_id', Auth::user()->university_id)
+            ->where('status', 'active')
             ->where('is_active', true)
+            ->whereHas('plan', fn ($q) => $q->where('plan_type', '!=', 'b2c'))
             ->first();
 
         $graceDays = $subscription?->grace_days ?? 7;

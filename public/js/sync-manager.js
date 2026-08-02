@@ -1,5 +1,5 @@
 /**
- * UniFlow PWA Sync Manager
+ * AcadFlow PWA Sync Manager
  * Handles offline queue, sync, and state management
  */
 

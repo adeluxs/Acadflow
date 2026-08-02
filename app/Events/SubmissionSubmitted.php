@@ -48,7 +48,7 @@ class SubmissionSubmitted implements ShouldBroadcastNow
             'student' => $this->submission->user->full_name,
             'type' => NotificationType::SUBMISSION_RECEIVED->value,
             'message' => "New submission: {$this->submission->title} from {$this->submission->user->full_name}",
-            'url' => route('lecturer.submission.review', $this->submission),
+            'url' => route('submissions.review', $this->submission),
         ];
     }
 }

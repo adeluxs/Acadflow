@@ -28,15 +28,20 @@ enum NotificationType: string
     // Course related
     case COURSE_INVITATION = 'course_invitation';
     case NEW_MATERIAL = 'new_material';
+    case MATERIAL_UPLOADED = 'material_uploaded';
     case ASSIGNMENT_CREATED = 'assignment_created';
 
     // Discussion related
     case NEW_QUESTION = 'new_question';
     case NEW_REPLY = 'new_reply';
+    case NEW_DISCUSSION = 'new_discussion';
 
     // System
     case SYSTEM_ANNOUNCEMENT = 'system_announcement';
     case ENROLLMENT_CONFIRMED = 'enrollment_confirmed';
+
+    // AI Academic Assistant
+    case AI_ANALYSIS_READY = 'ai_analysis_ready';
 
     public function label(): string
     {
@@ -56,11 +61,14 @@ enum NotificationType: string
             self::OVERDUE_SUBMISSION => 'Overdue Submission',
             self::COURSE_INVITATION => 'Course Invitation',
             self::NEW_MATERIAL => 'New Material',
+            self::MATERIAL_UPLOADED => 'Material Uploaded',
             self::ASSIGNMENT_CREATED => 'Assignment Created',
             self::NEW_QUESTION => 'New Question',
             self::NEW_REPLY => 'New Reply',
+            self::NEW_DISCUSSION => 'New Discussion',
             self::SYSTEM_ANNOUNCEMENT => 'System Announcement',
             self::ENROLLMENT_CONFIRMED => 'Enrollment Confirmed',
+            self::AI_ANALYSIS_READY => 'AI Analysis Ready',
         };
     }
 

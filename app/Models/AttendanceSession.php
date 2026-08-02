@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class AttendanceSession extends Model
 {
@@ -24,6 +25,15 @@ class AttendanceSession extends Model
         'check_in_window',
         'late_threshold',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $session) {
+            if (empty($session->uuid)) {
+                $session->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     protected function casts(): array
     {

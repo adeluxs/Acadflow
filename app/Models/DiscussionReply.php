@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class DiscussionReply extends Model
 {
@@ -21,6 +22,15 @@ class DiscussionReply extends Model
         'like_count',
         'accepted_at',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $reply) {
+            if (empty($reply->uuid)) {
+                $reply->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     protected function casts(): array
     {

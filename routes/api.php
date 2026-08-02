@@ -25,6 +25,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/password/reset', [AuthController::class, 'resetPassword']);
+    Route::get('/settings/public', [\App\Http\Controllers\SettingsController::class, 'publicSettings'])->name('api.settings.public');
 });
 
 // Protected API Routes
@@ -108,4 +109,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'subscription.feature:allow_api
     Route::get('/push/subscriptions', [PushNotificationController::class, 'subscriptions']);
     Route::get('/push/vapid-public-key', [PushNotificationController::class, 'vapidPublicKey']);
     Route::post('/push/test', [PushNotificationController::class, 'test']);
+
+    // Offline Sync
+    Route::post('/sync/process', [\App\Http\Controllers\Api\SyncController::class, 'process'])->name('api.sync.process');
 });

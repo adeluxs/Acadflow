@@ -33,7 +33,7 @@
                     @foreach($submission->versions as $version)
                         <li class="flex items-center justify-between p-3 bg-gray-50 rounded">
                             <span>{{ $version->file_name }}</span>
-                            <a href="{{ route('submissions.download', ['submission' => $submission, 'version' => $version->id]) }}" 
+                            <a href="{{ route('submission-versions.download', ['submission' => $submission, 'version' => $version->id]) }}" 
                                 class="text-indigo-600 hover:underline text-sm">
                                 Download
                             </a>
@@ -102,6 +102,33 @@
             @if($submission->grade->feedback)
                 <p class="text-gray-600 mt-2">{{ $submission->grade->feedback }}</p>
             @endif
+        </div>
+        @endif
+
+        @php
+            $aiAnalyses = \App\Models\AiAnalysis::where('submission_id', $submission->id)
+                ->where('status', 'completed')
+                ->orderByDesc('created_at')
+                ->get();
+        @endphp
+        @if($aiAnalyses->isNotEmpty())
+        <div class="bg-white p-6 rounded-lg shadow mt-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold">AI Analysis</h3>
+                <a href="{{ route('ai.submission.analysis', $submission) }}" class="text-indigo-600 hover:underline text-sm">
+                    View details
+                </a>
+            </div>
+            <ul class="space-y-2">
+                @foreach($aiAnalyses as $ai)
+                    <li class="flex items-center justify-between text-sm">
+                        <span class="capitalize">{{ str_replace('_', ' ', $ai->feature) }}</span>
+                        <span class="font-medium">
+                            @if(!is_null($ai->score)) {{ $ai->score }}/100 @else {{ ucfirst($ai->status) }} @endif
+                        </span>
+                    </li>
+                @endforeach
+            </ul>
         </div>
         @endif
     </div>

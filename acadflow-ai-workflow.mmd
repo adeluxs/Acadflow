@@ -1,0 +1,114 @@
+flowchart TD
+    subgraph A["👤 User Actions"]
+        A1["Student creates submission<br/>(with optional files)"]
+        A2["Lecturer reviews submission"]
+        A3["Lecturer triggers AI analysis"]
+        A4["Lecturer sets layout prefs"]
+        A5["Admin configures AI settings"]
+    end
+
+    subgraph B["🌐 Controllers & Routes"]
+        B1["SubmissionController::store()<br/>Atomic: create submission + versions"]
+        B2["SubmissionController::submit()<br/>Fires SubmissionAiAnalysisRequested"]
+        B3["AiController::reanalyze()<br/>Manual lecturer trigger"]
+        B4["AiController::lecturerLayoutPreferences()<br/>GET /lecturer/ai/layout-preferences"]
+        B5["AiController::saveLecturerLayoutPreferences()<br/>POST"]
+        B6["AiController::settings() / updateSettings()<br/>Admin AI config"]
+    end
+
+    subgraph C["⚡ Async Event Pipeline"]
+        C1["event(new SubmissionAiAnalysisRequested)"]
+        C2["EventServiceProvider<br/>maps to DispatchSubmissionAiAnalysis"]
+        C3["DispatchSubmissionAiAnalysis::handle()<br/>foreach features → dispatch job"]
+        C4["ProcessSubmissionAiAnalysis<br/>(queued job)"]
+        C5["Queue Worker<br/>php artisan queue:work"]
+    end
+
+    subgraph D["🧠 AI Manager (Single Gateway)"]
+        D1["AiManager::analyze()"]
+        D2["Mode router:<br/>rule_based / provider / hybrid"]
+        D3["Cache lookup<br/>(AiCache)"]
+        D4["resolveLayoutRequirements()<br/>Lecturer pref → Institution → Config"]
+        D5["RuleEngine::run()"]
+        D6["ExternalProvider::handle()<br/>OpenAI / Claude / Gemini /<br/>DeepSeek / Azure / Ollama"]
+        D7["AiAnalytics::record()<br/>→ ai_usage_logs"]
+    end
+
+    subgraph E["📦 Rule Engine Packs"]
+        E1["AcademicRulePack<br/>word count, vague language"]
+        E2["AssignmentRulePack<br/>required sections"]
+        E3["ProjectRulePack<br/>abstract, chapters, refs"]
+        E4["SiwesRulePack<br/>SIWES-specific"]
+        E5["CitationRulePack<br/>style, URLs, DOI"]
+        E6["FormattingRulePack<br/>TOC, figures, tables"]
+        E7["TemplateRulePack<br/>template sections, branding"]
+        E8["LayoutRulePack ⚡<br/>fonts · margins · spacing<br/>page size · numbering"]
+        E9["DeadlineRulePack"]
+        E10["InstitutionRulePack"]
+        E11["PlagiarismRulePack"]
+        E12["DiscussionRulePack"]
+    end
+
+    subgraph F["🔍 PdfDocumentAnalyzer"]
+        F1["PdfDocumentAnalyzer"]
+        F2["Page dimensions<br/>(MediaBox / CropBox)"]
+        F3["Font extraction +<br/>normalization<br/>TimesNewRomanPS-BoldMT<br/>→ Times New Roman"]
+        F4["Text Matrix<br/>(X, Y coordinates, font sizes)"]
+        F5["Footer text analysis<br/>(page numbering detection)"]
+        F6["Line spacing<br/>(Y-deltas)"]
+    end
+
+    subgraph G["💾 Data Layer"]
+        G1["submissions"]
+        G2["submission_versions"]
+        G3["ai_usage_logs"]
+        G4["ai_analyses"]
+        G5["lecturer_layout_preferences"]
+        G6["tools_settings<br/>(SettingService)"]
+        G7["jobs table<br/>(queue)"]
+        G8["Cache store"]
+    end
+
+    A1 --> B1 --> G1 & G2
+    A2 --> B2
+    A3 --> B3
+    A4 --> B4 --> B5 --> G5
+    A5 --> B6 --> G6
+
+    B2 --> C1
+    B3 --> C1
+    C1 --> C2 --> C3 --> C4
+    C5 --> C4
+
+    C4 --> D1
+    D1 --> D2
+    D2 --> D3
+    D3 -->|hit| D7 --> D8
+    D3 -->|miss| D4
+    D4 --> D5
+    D2 -->|provider/hybrid| D6
+    D6 --> D7
+    D5 --> D7
+    D7 --> D8
+
+    D5 --> E1 & E2 & E3 & E4 & E5 & E6 & E7 & E8 & E9 & E10 & E11 & E12
+
+    E8 --> F1
+    F1 --> F2 & F3 & F4 & F5 & F6
+
+    E8 -.reads.-> G5
+    E8 -.reads.-> G6
+    E8 -.reads.-> G2
+
+    D3 -.r/w.-> G8
+    C4 -.→. G7
+    D7 -.→. G3
+    D8 -.→. G4
+
+    style A fill:#6366f1,color:#fff
+    style B fill:#3b82f6,color:#fff
+    style C fill:#8b5cf6,color:#fff
+    style D fill:#ec4899,color:#fff
+    style E fill:#f59e0b,color:#fff
+    style F fill:#14b8a6,color:#fff
+    style G fill:#22c55e,color:#fff

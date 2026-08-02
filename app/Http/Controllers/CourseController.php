@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\Course;
@@ -17,9 +19,14 @@ class CourseController extends Controller
     {
         $user = Auth::user();
         
+        $currentSemester = \App\Services\SettingService::getCurrentSemester();
+        $semesterName = $currentSemester; // 'first', 'second', or 'summer'
+        
         $enrollments = Enrollment::where('user_id', $user->id)
             ->where('status', 'enrolled')
-            ->with('course.department')
+            ->with(['course.department', 'semester' => function ($query) use ($semesterName) {
+                $query->where('name', 'like', '%' . $semesterName . '%');
+            }])
             ->get();
 
         return view('courses.index', compact('enrollments'));
@@ -42,7 +49,7 @@ class CourseController extends Controller
             ->exists();
 
         // Allow access if: enrolled student, assigned lecturer, or admin/role that manages courses
-        if (! $isEnrolled && ! $isLecturer && ! $user->hasAnyRole(['department_admin', 'university_admin', 'super_admin'])) {
+        if (! $isEnrolled && ! $isLecturer && ! ($user->isDepartmentAdmin() || $user->isUniversityAdmin() || $user->isSuperAdmin())) {
             abort(403, 'Access denied. You must be enrolled in this course or assigned as a lecturer.');
         }
 

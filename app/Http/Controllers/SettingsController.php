@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
+use App\Enums\Permission;
 use App\Models\AuditLog;
 use App\Models\FeatureFlag;
 use App\Models\Setting;
@@ -79,6 +82,7 @@ class SettingsController extends Controller
 
         // Clear cache
         Cache::forget('settings.all');
+        Cache::forget('setting.' . $key);
 
         return back()->with('success', "Setting '{$setting->key}' updated successfully.");
     }
@@ -102,22 +106,24 @@ class SettingsController extends Controller
                 $setting->update(['value' => $value]);
                 
                 // Log the change if audit logging is enabled
-                if (config('settings.enable_audit_logs', true)) {
+                if (\App\Services\SettingService::get('enable_audit_logs', true)) {
                     AuditLog::log(
                         'setting_updated',
                         $user->id,
                         Setting::class,
                         $setting->id,
-                        $key,
                         $oldValue,
                         $value,
                         $request->ip(),
                         $request->userAgent()
                     );
                 }
+                
+                // Clear individual cache
+                Cache::forget('settings.' . $key);
+                Cache::forget('setting.' . $key);
             }
         }
-
         Cache::forget('settings.all');
 
         return back()->with('success', 'Settings updated successfully.');
@@ -140,6 +146,26 @@ class SettingsController extends Controller
         ]);
 
         return back()->with('success', "Feature flag '{$featureFlag->name}' updated.");
+    }
+
+    /**
+     * Get public settings as JSON (no auth required)
+     */
+    public function publicSettings()
+    {
+        $settings = [
+            'site_name' => SettingService::get('site_name', 'UniAcademic'),
+            'site_tagline' => SettingService::get('site_tagline', 'University Academic Management Platform'),
+            'support_email' => SettingService::get('support_email', 'support@example.com'),
+            'timezone' => SettingService::get('timezone', 'UTC'),
+            'site_logo' => SettingService::get('site_logo'),
+            'site_favicon' => SettingService::get('site_favicon'),
+            'default_language' => SettingService::get('default_language', 'en'),
+            'pwa_enabled' => SettingService::isPwaEnabled(),
+            'maintenance_mode' => SettingService::isMaintenanceMode(),
+        ];
+
+        return response()->json($settings);
     }
 
     /**
@@ -178,13 +204,13 @@ class SettingsController extends Controller
             'orientation' => SettingService::get('pwa_orientation', 'portrait-primary'),
             'icons' => [
                 [
-                    'src' => '/icons/icon-192x192.png',
+                    'src' => SettingService::get('site_logo') ?: '/icons/icon-192x192.png',
                     'sizes' => '192x192',
                     'type' => 'image/png',
                     'purpose' => 'any maskable'
                 ],
                 [
-                    'src' => '/icons/icon-512x512.png',
+                    'src' => SettingService::get('site_logo') ?: '/icons/icon-512x512.png',
                     'sizes' => '512x512',
                     'type' => 'image/png',
                     'purpose' => 'any maskable'

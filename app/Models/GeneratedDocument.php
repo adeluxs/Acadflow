@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class GeneratedDocument extends Model
 {
@@ -17,6 +18,15 @@ class GeneratedDocument extends Model
         'file_size',
         'status',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $document) {
+            if (empty($document->uuid)) {
+                $document->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     public function user(): BelongsTo
     {

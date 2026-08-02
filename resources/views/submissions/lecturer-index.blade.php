@@ -27,37 +27,95 @@
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {{ $submission->user->first_name }} {{ $submission->user->last_name }}
                                     </td>
+
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {{ $submission->course->code }}
                                     </td>
+
                                     <td class="px-6 py-4 text-sm text-gray-900">
                                         {{ \Str::limit($submission->title, 30) }}
                                     </td>
+
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                        <span class="px-2 py-1 rounded-full text-xs font-semibold 
-                                            @if($submission->status === 'submitted') bg-yellow-100 text-yellow-800
-                                            @elseif($submission->status === 'graded') bg-green-100 text-green-800
-                                            @elseif($submission->status === 'under_review') bg-blue-100 text-blue-800
-                                            @else bg-gray-100 text-gray-800 @endif">
+                                        <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                            @if($submission->status === 'submitted')
+                                                bg-yellow-100 text-yellow-800
+                                            @elseif($submission->status === 'graded')
+                                                bg-green-100 text-green-800
+                                            @elseif($submission->status === 'under_review')
+                                                bg-blue-100 text-blue-800
+                                            @else
+                                                bg-gray-100 text-gray-800
+                                            @endif">
                                             {{ ucfirst(str_replace('_', ' ', $submission->status)) }}
                                         </span>
                                     </td>
+
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {{ $submission->submitted_at?->format('M d, Y') ?? 'Pending' }}
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                        <a href="{{ route('submissions.review', $submission) }}" 
-                                           class="text-indigo-600 hover:text-indigo-900 font-medium">
-                                            Review
-                                        </a>
-                                        @can('feature', 'document_generation')
-                                            <br>
-                                            <a href="{{ route('export.grade-report', $submission) }}" 
-                                               class="text-green-600 hover:text-green-900 text-xs font-medium"
-                                               target="_blank">
-                                                📄 Grade Report
+
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex flex-col gap-2">
+
+                                            <!-- Review -->
+                                            <a href="{{ route('submissions.review', $submission) }}"
+                                                class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 transition-colors">
+
+                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                    class="w-4 h-4"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                    stroke-width="2">
+                                                    <path stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm6 0s-3-7-9-7-9 7-9 7 3 7 9 7 9-7 9-7z" />
+                                                </svg>
+
+                                                <span>Review</span>
                                             </a>
-                                        @endcan
+
+                                            <!-- AI Analysis -->
+                                            <a href="{{ route('ai.submission.analysis', $submission) }}"
+                                                class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-purple-600 text-white text-xs font-medium hover:bg-purple-700 transition-colors">
+
+                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                    class="w-4 h-4"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                    stroke-width="2">
+                                                    <path stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                        d="M9.75 3v2.25M14.25 3v2.25M3 9.75h2.25M18.75 9.75H21M5.636 5.636l1.591 1.591M16.773 16.773l1.591 1.591M5.636 18.364l1.591-1.591M16.773 7.227l1.591-1.591M12 7a5 5 0 100 10 5 5 0 000-10z" />
+                                                </svg>
+
+                                                <span>AI Analysis</span>
+                                            </a>
+
+                                            @can('feature', 'document_generation')
+                                                <!-- Grade Report -->
+                                                <a href="{{ route('export.grade-report', $submission) }}"
+                                                    target="_blank"
+                                                    class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors">
+
+                                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                                        class="w-4 h-4"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        stroke="currentColor"
+                                                        stroke-width="2">
+                                                        <path stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                            d="M9 12h6m-6 4h6M8 4h8l4 4v12a2 2 0 01-2 2H8a2 2 0 01-2-2V6a2 2 0 012-2z" />
+                                                    </svg>
+
+                                                    <span>Grade Report</span>
+                                                </a>
+                                            @endcan
+
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach

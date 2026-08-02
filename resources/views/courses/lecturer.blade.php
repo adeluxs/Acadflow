@@ -15,9 +15,6 @@
                     <span>{{ $course->enrollments->count() }} Students</span>
                 </div>
                 <div class="mt-4">
-                    <a href="{{ route('submissions.review', ['submission' => 0]) }}" class="text-indigo-600 hover:text-indigo-900">View Submissions</a>
-                </div>
-                <div class="mt-4">
                     <a href="{{ route('courses.show', $course) }}" class="text-indigo-600 hover:text-indigo-900">View Course</a>
                 </div>
             </div>

@@ -26,6 +26,7 @@ class SubmissionVersion extends Model
             'version_number' => 'integer',
             'file_size' => 'integer',
             'is_current' => 'boolean',
+            'created_at' => 'datetime',
         ];
     }
 

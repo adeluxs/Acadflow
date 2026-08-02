@@ -49,7 +49,7 @@
                                     <p class="font-medium text-gray-900">{{ $version->file_name }}</p>
                                     <p class="text-sm text-gray-600">v{{ $version->version_number }} • {{ number_format($version->file_size / 1024, 2) }} KB • {{ $version->created_at?->format('M d, Y H:i') ?? 'Unknown' }}</p>
                                 </div>
-                                <a href="{{ route('submissions.download', ['submission' => $submission, 'version' => $version->id]) }}" 
+                                <a href="{{ route('submission-versions.download', ['submission' => $submission, 'version' => $version->id]) }}" 
                                    class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">
                                     Download
                                 </a>

@@ -18,7 +18,10 @@ class RoleMiddleware
         $userRole = $request->user()->role;
 
         if (! in_array($userRole, $roles)) {
-            abort(403, 'Unauthorized access.');
+            $adminRoles = ['super_admin', 'university_admin', 'department_admin'];
+            if (! in_array($userRole, $adminRoles)) {
+                abort(403, 'Unauthorized access.');
+            }
         }
 
         return $next($request);

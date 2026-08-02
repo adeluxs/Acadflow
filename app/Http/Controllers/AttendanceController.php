@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
+use App\Events\QrRefreshed;
 use App\Models\AttendanceRecord;
 use App\Models\AttendanceSession;
 use App\Models\Course;
@@ -158,6 +161,8 @@ class AttendanceController extends Controller
             'qr_expires_at' => now()->addMinutes(1),
         ]);
 
+        event(new QrRefreshed($session, route('attendance.qr', $session), $session->qr_expires_at->toDateTimeString()));
+
         return response()->json([
             'qr_code' => $session->qr_code,
             'qr_expires_at' => $session->qr_expires_at,
@@ -173,6 +178,40 @@ class AttendanceController extends Controller
             ->paginate(10);
 
         return view('attendance.my', compact('records'));
+    }
+
+    // Student: View my attendance records (detailed)
+    public function myAttendanceRecords(Request $request)
+    {
+        $query = AttendanceRecord::where('user_id', Auth::id())
+            ->with(['session.course']);
+
+        if ($request->filled('session_id')) {
+            $query->where('session_id', $request->session_id);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $records = $query->latest()->paginate(20);
+
+        return view('attendance.records', compact('records'));
+    }
+
+    // Student: Export my attendance records
+    public function exportMyAttendanceRecords(Request $request)
+    {
+        $query = AttendanceRecord::where('user_id', Auth::id())
+            ->with(['session.course']);
+
+        if ($request->filled('session_id')) {
+            $query->where('session_id', $request->session_id);
+        }
+
+        $records = $query->get();
+
+        return response()->json($records);
     }
 
     // Lecturer: View all sessions

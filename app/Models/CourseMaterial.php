@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class CourseMaterial extends Model
 {
@@ -32,6 +33,15 @@ class CourseMaterial extends Model
         'published_at',
         'download_count',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $material) {
+            if (empty($material->uuid)) {
+                $material->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     protected function casts(): array
     {

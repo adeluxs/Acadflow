@@ -1,8 +1,12 @@
 <?php
 
+use App\Http\Middleware\CheckMaintenanceMode;
+use App\Http\Middleware\CheckSessionTimeout;
+use App\Http\Middleware\ConcurrentSessionLimitMiddleware;
 use App\Http\Middleware\PermissionMiddleware;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Middleware\SubscriptionFeatureMiddleware;
+use App\Http\Middleware\TwoFactorMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -24,10 +28,16 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         
         // Add maintenance mode check (runs on web routes)
-        $middleware->append(\App\Http\Middleware\CheckMaintenanceMode::class);
+        $middleware->append(CheckMaintenanceMode::class);
         
         // Add session timeout check (runs on web routes after auth)
-        $middleware->append(\App\Http\Middleware\CheckSessionTimeout::class);
+        $middleware->append(CheckSessionTimeout::class);
+        
+        // Add concurrent session limit check (runs on web routes after auth)
+        $middleware->append(ConcurrentSessionLimitMiddleware::class);
+        
+        // Add 2FA check (runs on web routes after auth)
+        $middleware->append(TwoFactorMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (TokenMismatchException $e) {

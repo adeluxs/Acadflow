@@ -1,0 +1,22 @@
+<?php
+
+namespace Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
+
+class FacultyFactory extends Factory
+{
+    public function definition(): array
+    {
+        return [
+            'uuid' => fake()->uuid(),
+            'university_id' => \App\Models\University::factory(),
+            'name' => fake()->words(2, true),
+            'short_name' => fake()->bothify('???'),
+            'code' => fake()->bothify('???'),
+            'dean_id' => null,
+            'is_active' => true,
+        ];
+    }
+}

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\Payment;
-use App\Models\Subscription;
+use App\Models\UserSubscription;
 use Illuminate\Http\Request;
 
 class BillingController extends Controller
@@ -108,7 +108,7 @@ class BillingController extends Controller
 
     public function subscriptions(Request $request)
     {
-        $query = Subscription::with(['university']);
+        $query = UserSubscription::with(['university', 'plan']);
         $user = $request->user();
 
         if (! $user->isAdmin()) {

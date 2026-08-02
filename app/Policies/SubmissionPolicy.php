@@ -27,8 +27,8 @@ class SubmissionPolicy
             return true;
         }
 
-        return $user->hasPermission(Permission::VIEW_COURSE_SUBMISSIONS)
-            && $user->canViewCourseSubmissions($submission->course);
+        return $user->hasPermission(Permission::VIEW_COURSE_SUBMISSIONS);
+            
     }
 
     public function create(User $user): bool
@@ -103,5 +103,20 @@ class SubmissionPolicy
     {
         return $user->hasPermission(Permission::EXPORT_GRADES)
             && $user->canViewCourseSubmissions($submission->course);
+    }
+
+    public function submit(User $user, Submission $submission): bool
+    {
+        if ($user->id === $submission->user_id) {
+            return in_array($submission->status, ['draft', 'correction_requested']);
+        }
+
+        if ($submission->group_id && GroupMember::where('group_id', $submission->group_id)
+            ->where('user_id', $user->id)
+            ->exists()) {
+            return in_array($submission->status, ['draft', 'correction_requested']);
+        }
+
+        return false;
     }
 }

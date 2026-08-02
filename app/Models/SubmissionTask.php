@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,7 +12,7 @@ use Illuminate\Support\Str;
 
 class SubmissionTask extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, HasFactory;
 
     protected $fillable = [
         'uuid',
@@ -69,7 +70,15 @@ class SubmissionTask extends Model
         ];
     }
 
-   
+    protected static function booted(): void
+    {
+        static::creating(function (self $task) {
+            if (empty($task->uuid)) {
+                $task->uuid = (string) Str::uuid();
+            }
+        });
+    }
+
 
     // Relationships
     public function course(): BelongsTo

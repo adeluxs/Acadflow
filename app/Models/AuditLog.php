@@ -7,14 +7,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AuditLog extends Model
 {
+    public $timestamps = false;
+
     protected $fillable = [
         'user_id',
         'action',
-        'model_type',
-        'model_id',
-        'field_name',
-        'old_value',
-        'new_value',
+        'entity_type',
+        'entity_id',
+        'old_values',
+        'new_values',
         'ip_address',
         'user_agent',
     ];
@@ -40,7 +41,6 @@ class AuditLog extends Model
         ?int $userId = null,
         ?string $modelType = null,
         ?int $modelId = null,
-        ?string $fieldName = null,
         mixed $oldValue = null,
         mixed $newValue = null,
         ?string $ipAddress = null,
@@ -49,11 +49,10 @@ class AuditLog extends Model
         return static::create([
             'user_id' => $userId,
             'action' => $action,
-            'model_type' => $modelType,
-            'model_id' => $modelId,
-            'field_name' => $fieldName,
-            'old_value' => is_string($oldValue) ? $oldValue : json_encode($oldValue),
-            'new_value' => is_string($newValue) ? $newValue : json_encode($newValue),
+            'entity_type' => $modelType,
+            'entity_id' => $modelId,
+            'old_values' => json_encode($oldValue),
+            'new_values' => json_encode($newValue),
             'ip_address' => $ipAddress,
             'user_agent' => $userAgent,
         ]);

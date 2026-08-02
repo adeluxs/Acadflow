@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Discussion extends Model
 {
@@ -25,6 +26,15 @@ class Discussion extends Model
         'resolved_at',
         'resolved_by',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $discussion) {
+            if (empty($discussion->uuid)) {
+                $discussion->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     protected function casts(): array
     {

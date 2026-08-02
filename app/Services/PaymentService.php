@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Enums\InvoiceStatus;
@@ -7,13 +9,13 @@ use App\Enums\PaymentStatus;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Semester;
-use App\Models\Subscription;
 use App\Models\User;
+use App\Models\UserSubscription;
 use Illuminate\Support\Str;
 
 class PaymentService
 {
-    public function generateInvoice(User $user, Semester $semester, Subscription $subscription): Invoice
+    public function generateInvoice(User $user, Semester $semester, UserSubscription $subscription): Invoice
     {
         $existingInvoice = Invoice::where('user_id', $user->id)
             ->where('semester_id', $semester->id)
@@ -39,7 +41,11 @@ class PaymentService
 
     public function generateInvoicesForSemester(Semester $semester): int
     {
-        $subscription = $semester->academicSession->university->subscription;
+        $subscription = $semester->academicSession->university->userSubscriptions()
+            ->where('status', 'active')
+            ->where('is_active', true)
+            ->whereHas('plan', fn ($q) => $q->where('plan_type', '!=', 'b2c'))
+            ->first();
 
         if (! $subscription) {
             return 0;
@@ -130,7 +136,7 @@ class PaymentService
         return false;
     }
 
-    public function getPaymentStats(Subscription $subscription): array
+    public function getPaymentStats(UserSubscription $subscription): array
     {
         $invoices = Invoice::where('subscription_id', $subscription->id);
 
@@ -145,7 +151,7 @@ class PaymentService
         ];
     }
 
-    protected function calculateAmount(Subscription $subscription, User $user): float
+    protected function calculateAmount(UserSubscription $subscription, User $user): float
     {
         $billingModel = $subscription->billing_model;
 
@@ -167,7 +173,7 @@ class PaymentService
         return 'PAY-'.strtoupper(Str::random(12));
     }
 
-    protected function calculateCollectionRate(Subscription $subscription): float
+    protected function calculateCollectionRate(UserSubscription $subscription): float
     {
         $invoices = Invoice::where('subscription_id', $subscription->id);
         $total = $invoices->count();

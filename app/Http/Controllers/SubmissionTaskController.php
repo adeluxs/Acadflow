@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Events\AssignmentCreated;
@@ -97,7 +99,7 @@ class SubmissionTaskController extends Controller
             'min_group_size' => 'required_if:allow_group_submissions,true|integer|min:1|max:10',
             'max_group_size' => 'required_if:allow_group_submissions,true|integer|min:1|max:10',
             'allowed_file_types' => 'nullable|string',
-            'max_file_size_mb' => 'required|integer|min:1|max:500',
+            'max_file_size_mb' => 'required|integer|min:1|max:' . \App\Services\SettingService::getMaxUploadSize() / (1024 * 1024),
             'max_file_count' => 'required|integer|min:1|max:20',
             'min_file_count' => 'required|integer|min:1',
             'rubric_id' => 'nullable|exists:submission_rubrics,id',
@@ -109,6 +111,9 @@ class SubmissionTaskController extends Controller
             'semester_id' => 'required|exists:semesters,id',
             'is_visible_to_students' => 'boolean',
         ]);
+
+        // Apply global academic settings as defaults
+        $validated['allow_late_submissions'] = $validated['allow_late_submissions'] ?? \App\Services\SettingService::get('allow_late_submissions', true);
 
         Log::info('Validation passed', ['validated_keys' => array_keys($validated)]);
 
@@ -167,7 +172,7 @@ class SubmissionTaskController extends Controller
                 }
             }
 
-            return redirect()->route('submission-tasks.show', [$course, $task])
+            return redirect()->route('submission-tasks.lecturer.show', [$course, $task])
                 ->with('success', 'Assignment created successfully.');
         } catch (\Exception $e) {
             Log::error('Failed to create submission task', [
@@ -294,7 +299,7 @@ public function showForLecturer(Course $course, SubmissionTask $task)
             'allow_group_submissions' => 'boolean',
             'min_group_size' => 'integer|min:1|max:10',
             'max_group_size' => 'integer|min:1|max:10',
-            'max_file_size_mb' => 'required|integer|min:1|max:500',
+            'max_file_size_mb' => 'required|integer|min:1|max:' . \App\Services\SettingService::getMaxUploadSize() / (1024 * 1024),
             'max_file_count' => 'required|integer|min:1|max:20',
             'min_file_count' => 'required|integer|min:1',
             'rubric_id' => 'nullable|exists:submission_rubrics,id',
@@ -382,7 +387,7 @@ public function showForLecturer(Course $course, SubmissionTask $task)
         $this->authorize('update', $task);
 
         $validated = $request->validate([
-            'file' => 'required|file|max:51200',
+            'file' => 'required|file|max:' . (\App\Services\SettingService::getMaxUploadSize() / 1024),
             'type' => 'required|in:template,guide,rubric,example,other',
             'description' => 'nullable|string|max:500',
             'is_required' => 'boolean',

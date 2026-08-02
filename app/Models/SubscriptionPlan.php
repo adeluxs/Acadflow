@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class SubscriptionPlan extends Model
 {
     protected $fillable = [
+        'uuid',
         'name',
         'display_name',
         'description',
@@ -50,6 +51,15 @@ class SubscriptionPlan extends Model
         'pricing_note',
         'sort_order',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $plan) {
+            if (empty($plan->uuid)) {
+                $plan->uuid = (string) \Illuminate\Support\Str::uuid();
+            }
+        });
+    }
 
     protected $casts = [
         'plan_type' => 'string',

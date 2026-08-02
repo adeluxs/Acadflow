@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'sms' => [
+        'base_url' => env('SMS_BASE_URL', 'https://api.sms-provider.com/v1'),
+        'sender_id' => env('SMS_SENDER_ID', 'AcadFlow'),
+        'api_key' => env('SMS_API_KEY', ''),
+    ],
+
 ];

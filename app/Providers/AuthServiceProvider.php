@@ -7,6 +7,7 @@ use App\Models\Course;
 use App\Models\CourseMaterial;
 use App\Models\Discussion;
 use App\Models\DiscussionReply;
+use App\Models\Faculty;
 use App\Models\Invoice;
 use App\Models\Submission;
 use App\Models\University;
@@ -16,6 +17,7 @@ use App\Policies\CourseMaterialPolicy;
 use App\Policies\CoursePolicy;
 use App\Policies\DiscussionPolicy;
 use App\Policies\DiscussionReplyPolicy;
+use App\Policies\FacultyPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\SubmissionPolicy;
 use App\Policies\UniversityPolicy;
@@ -37,6 +39,7 @@ class AuthServiceProvider extends ServiceProvider
         Invoice::class => InvoicePolicy::class,
         University::class => UniversityPolicy::class,
         SubscriptionPlan::class => SubscriptionPlanPolicy::class,
+        Faculty::class => FacultyPolicy::class,
     ];
 
     public function boot(): void

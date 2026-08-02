@@ -15,7 +15,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-gray-700 text-sm font-bold mb-2">Application Name</label>
-                        <input type="text" class="w-full px-3 py-2 border rounded" value="UniAcademic">
+                        <input type="text" class="w-full px-3 py-2 border rounded" value="{{ \App\Services\SettingService::get('site_name', 'UniAcademic') }}">
                     </div>
                     <div>
                         <label class="block text-gray-700 text-sm font-bold mb-2">Timezone</label>

@@ -18,8 +18,8 @@
         </p>
         
         <p class="text-sm text-gray-500">
-            Contact <a href="mailto:{{ config('app.support_email', 'support@example.com') }}" class="text-blue-600 hover:underline">
-                support
+            Contact <a href="mailto:{{ \App\Services\SettingService::get('support_email', 'support@example.com') }}" class="text-blue-600 hover:underline">
+                {{ \App\Services\SettingService::get('support_email', 'support') }}
             </a> if you need immediate assistance.
         </p>
     </div>

@@ -57,4 +57,9 @@ class University extends Model
     {
         return $this->hasMany(Subscription::class);
     }
+
+    public function userSubscriptions(): HasMany
+    {
+        return $this->hasMany(UserSubscription::class);
+    }
 }

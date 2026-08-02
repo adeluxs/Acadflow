@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Events\SubmissionConfirmation;
@@ -17,6 +19,7 @@ use App\Services\SubscriptionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -138,6 +141,22 @@ class SubmissionController extends Controller
             }
         }
 
+        // Validate optional initial file uploads using the same rules as the
+        // standalone upload endpoint (plan limit + allowed mimes).
+        $maxFileSizeBytes = $this->subscriptionService->getUploadLimitForUser($request->user());
+        $maxFileSizeKb = $maxFileSizeBytes / 1024;
+        $allowedMimes = implode(',', SettingService::getAllowedExtensions());
+
+        $request->validate([
+            'files' => 'nullable|array|max:10',
+            'files.*' => 'file|mimes:'.$allowedMimes.'|max:'.$maxFileSizeKb,
+        ]);
+
+        $files = $request->file('files', []);
+        if (count($files) > 10) {
+            return back()->withInput()->with('error', 'You can attach at most 10 files per submission.');
+        }
+
         $semester = Semester::where('is_active', true)->first();
 
         $submissionData = [
@@ -156,7 +175,52 @@ class SubmissionController extends Controller
             $submissionData['group_id'] = $validated['group_id'];
         }
 
-        $submission = Submission::create($submissionData);
+        // Atomic operation: create the submission and its initial version(s)
+        // in a single transaction so a partial failure (e.g. storage error)
+        // never leaves an orphaned submission with missing files.
+        $submission = DB::transaction(function () use ($submissionData, $files, $request) {
+            $submission = Submission::create($submissionData);
+
+            if (empty($files)) {
+                return $submission;
+            }
+
+            // If the draft already has versions, mark them as not current
+            // before attaching the new ones so there is always exactly one
+            // current version.
+            $submission->versions()->where('is_current', true)->update(['is_current' => false]);
+
+            $studentId = Auth::user()->student_id ?? 'user'.Auth::id();
+            $nextVersion = $submission->version ?? 1; // fallback if model returns null
+
+            foreach ($files as $file) {
+                $extension = $file->getClientOriginalExtension();
+                $safeType = Str::slug($submission->type);
+                $safeDate = now()->format('YmdHis');
+                $generatedName = "{$studentId}_{$safeType}_{$safeDate}.{$extension}";
+                $path = $file->storeAs('submissions/'.$submission->uuid, $generatedName);
+
+                SubmissionVersion::create([
+                    'submission_id' => $submission->id,
+                    'version_number' => $nextVersion,
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_path' => $path,
+                    'file_size' => $file->getSize(),
+                    'mime_type' => $file->getMimeType(),
+                    'uploaded_by' => Auth::id(),
+                    'is_current' => true,
+                ]);
+
+                $nextVersion++;
+            }
+
+            // Persist the next version counter so subsequent uploads continue
+            // the sequence.
+            $submission->version = $nextVersion;
+            $submission->save();
+
+            return $submission;
+        });
 
         return redirect()->route('submissions.show', $submission);
     }
@@ -265,8 +329,11 @@ class SubmissionController extends Controller
             event(new SubmissionSubmitted($submission, $submission->course, $lecturer));
         }
 
+        // Trigger asynchronous AI analysis (validator + plagiarism) without blocking.
+        event(new \App\Events\SubmissionAiAnalysisRequested($submission, $submission->user));
+
         return redirect()->route('submissions.show', $submission)
-            ->with('success', 'Submission submitted successfully.');
+            ->with('success', 'Submission submitted successfully. AI analysis is running in the background.');
     }
 
     public function download(SubmissionVersion $version)
@@ -545,15 +612,7 @@ class SubmissionController extends Controller
 
     public function grade(Request $request, Submission $submission)
     {
-        $user = Auth::user();
-        if (! $user->isLecturer()) {
-            abort(403);
-        }
-
-        $canGrade = $submission->course->lecturerAssignments()->where('user_id', $user->id)->exists();
-        if (! $canGrade) {
-            abort(403);
-        }
+        $this->authorize('grade', $submission);
 
         $validated = $request->validate([
             'score' => 'required|numeric|min:0|max:100',

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Models\User;
@@ -28,7 +30,7 @@ class SubscriptionService
         $plan = $subscription->plan;
 
         // Check file size against plan limit (max_file_upload_size_mb field)
-        $maxFileSize = $plan->max_file_upload_size_mb ?? config('app.default_max_file_size_mb', 50);
+        $maxFileSize = $plan->max_file_upload_size_mb ?? (int) (\App\Services\SettingService::getMaxUploadSize() / (1024 * 1024));
         if ($fileSizeBytes > ($maxFileSize * 1024 * 1024)) {
             return false;
         }
@@ -119,7 +121,7 @@ class SubscriptionService
         }
 
         $plan = $subscription->plan;
-        $maxMB = $plan->max_file_upload_size_mb ?? 50;
+        $maxMB = $plan->max_file_upload_size_mb ?? (int) (SettingService::getMaxUploadSize() / (1024 * 1024));
         return $maxMB * 1024 * 1024;
     }
 
@@ -230,7 +232,7 @@ class SubscriptionService
         $plan = $subscription->plan;
 
         // Check file size against plan limit (max_file_upload_size_mb)
-        $maxFileSizeMB = $plan->max_file_upload_size_mb ?? 50;
+        $maxFileSizeMB = $plan->max_file_upload_size_mb ?? (int) (SettingService::getMaxUploadSize() / (1024 * 1024));
         if ($fileSize > ($maxFileSizeMB * 1024 * 1024)) {
             $errors[] = "File size exceeds your plan's limit of {$maxFileSizeMB}MB.";
         }

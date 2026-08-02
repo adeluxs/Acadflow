@@ -219,185 +219,171 @@
         </div>
         @endif
 
-        <!-- Feature Flags -->
-        <div class="bg-white rounded-lg shadow mb-6">
-            <div class="px-6 py-4 border-b">
-                <h2 class="text-lg font-bold">Feature Flags</h2>
-                <p class="text-sm text-gray-600">Enable/disable specific platform features</p>
-            </div>
-            <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    @foreach($featureFlags as $flag)
-                        <div class="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
-                            <div>
-                                <p class="font-medium text-sm">{{ \Str::title(str_replace('_', ' ', $flag->name)) }}</p>
-                                @if($flag->description)
-                                    <p class="text-xs text-gray-500">{{ $flag->description }}</p>
-                                @endif
-                            </div>
-                            <form method="POST" action="{{ route('admin.settings.toggle-flag', $flag) }}">
-                                @csrf
-                                <button type="submit" 
-                                        class="px-3 py-1 rounded text-xs font-medium transition-colors
-                                               {{ $flag->is_enabled ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-700 hover:bg-gray-400' }}">
-                                    {{ $flag->is_enabled ? 'On' : 'Off' }}
-                                </button>
-                            </form>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        </div>
-
-        <!-- Payment Gateway Settings -->
-        <div id="payment-gateways" class="bg-white rounded-lg shadow mb-6">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <div>
-                    <h2 class="text-lg font-bold">Payment Gateways</h2>
-                    <p class="text-sm text-gray-600">Configure payment providers for subscription billing</p>
-                </div>
-                <a href="{{ route('admin.payment-gateways.create') }}" 
-                   class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">
-                    + Add Gateway
-                </a>
-            </div>
-            <div class="p-6">
-                @if($paymentGateways->isEmpty())
-                    <p class="text-gray-500 text-center py-8">No payment gateways configured. Add one to start accepting payments.</p>
-                @else
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        @foreach($paymentGateways as $gateway)
-                            <div class="border rounded-lg p-4 {{ $gateway->is_active ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200' }}">
-                                <div class="flex justify-between items-start mb-3">
-                                    <div>
-                                        <h3 class="font-bold text-gray-900">{{ $gateway->name }}</h3>
-                                        <p class="text-xs text-gray-500">{{ $gateway->description ?? $gateway->code }}</p>
-                                    </div>
-                                    @if($gateway->is_test_mode)
-                                        <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded">Test</span>
-                                    @endif
-                                </div>
-                                
-                                <div class="space-y-2 mb-4">
-                                    <div class="flex items-center text-sm">
-                                        <span class="w-20 text-gray-500">Status:</span>
-                                        <span class="px-2 py-0.5 rounded text-xs {{ $gateway->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                            {{ $gateway->is_active ? 'Active' : 'Inactive' }}
-                                        </span>
-                                    </div>
-                                    <div class="flex items-center text-sm">
-                                        <span class="w-20 text-gray-500">Configured:</span>
-                                        <span class="text-sm {{ $gateway->credentials ? 'text-green-600' : 'text-red-600' }}">
-                                            {{ $gateway->credentials ? '✓' : '✗' }}
-                                        </span>
-                                    </div>
-                                    @if($gateway->transactions_count > 0)
-                                        <div class="flex items-center text-sm">
-                                            <span class="w-20 text-gray-500">Transactions:</span>
-                                            <span class="text-sm text-gray-700">{{ $gateway->transactions_count }}</span>
-                                        </div>
-                                    @endif
-                                </div>
-                                
-                                <div class="flex gap-2">
-                                    <a href="{{ route('admin.payment-gateways.edit', $gateway) }}" 
-                                       class="flex-1 text-center px-3 py-1.5 bg-white border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50">
-                                        Edit
-                                    </a>
-                                    @if(!$gateway->is_active)
-                                        <form method="POST" action="{{ route('admin.payment-gateways.destroy', $gateway) }}" 
-                                              onsubmit="return confirm('Delete this gateway?')">
-                                            @csrf @method('DELETE')
-                                            <button type="submit" class="px-3 py-1.5 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200">
-                                                Delete
-                                            </button>
-                                        </form>
-                                    @endif
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
-        </div>
-
-        <!-- Subscription Plans -->
-        <div class="bg-white rounded-lg shadow mb-6">
-            <div class="px-6 py-4 border-b flex justify-between items-center">
-                <div>
-                    <h2 class="text-lg font-bold">Subscription Plans</h2>
-                    <p class="text-sm text-gray-600">Manage subscription tiers and pricing</p>
-                </div>
-                <a href="{{ route('admin.subscription-plans.create') }}" 
-                   class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">
-                    + Add Plan
-                </a>
-            </div>
-            <div class="p-6">
-                <table class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-2 text-left text-sm">Plan Name</th>
-                            <th class="px-4 py-2 text-left text-sm">Type</th>
-                            <th class="px-4 py-2 text-left text-sm">Price</th>
-                            <th class="px-4 py-2 text-left text-sm">Max Courses</th>
-                            <th class="px-4 py-2 text-left text-sm">Max Storage</th>
-                            <th class="px-4 py-2 text-left text-sm">Status</th>
-                            <th class="px-4 py-2 text-left text-sm">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($subscriptionPlans as $plan)
-                            <tr class="border-b hover:bg-gray-50">
-                                <td class="px-4 py-3">
-                                    {{ $plan->display_name }}
-                                    @if($plan->is_recommended)
-                                        <span class="ml-2 bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">Recommended</span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3">
-                                    <span class="px-2 py-1 rounded text-xs {{ $plan->plan_type === 'b2b' ? 'bg-purple-100 text-purple-800' : ($plan->plan_type === 'free' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800') }}">
-                                        {{ strtoupper($plan->plan_type) }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3">${{ number_format($plan->price_per_month, 2) }}/mo</td>
-                                <td class="px-4 py-3">{{ $plan->max_courses ?? 'Unlimited' }}</td>
-                                <td class="px-4 py-3">{{ $plan->max_storage_gb ?? 'Unlimited' }} GB</td>
-                                <td class="px-4 py-3">
-                                    <span class="px-2 py-1 rounded text-xs {{ $plan->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                        {{ $plan->is_active ? 'Active' : 'Inactive' }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <a href="{{ route('admin.subscription-plans.edit', $plan) }}" class="text-blue-600 hover:underline text-sm">Edit</a>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
         <div class="flex justify-end">
             <button type="submit" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">
                 Save All Settings
             </button>
         </div>
     </form>
+
+    <!-- Feature Flags -->
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="px-6 py-4 border-b">
+            <h2 class="text-lg font-bold">Feature Flags</h2>
+            <p class="text-sm text-gray-600">Enable/disable specific platform features</p>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                @foreach($featureFlags as $flag)
+                    <div class="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
+                        <div>
+                            <p class="font-medium text-sm">{{ \Str::title(str_replace('_', ' ', $flag->name)) }}</p>
+                            @if($flag->description)
+                                <p class="text-xs text-gray-500">{{ $flag->description }}</p>
+                            @endif
+                        </div>
+                        <form method="POST" action="{{ route('admin.settings.toggle-flag', $flag) }}">
+                            @csrf
+                            <button type="submit" 
+                                    class="px-3 py-1 rounded text-xs font-medium transition-colors
+                                           {{ $flag->is_enabled ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-700 hover:bg-gray-400' }}">
+                                {{ $flag->is_enabled ? 'On' : 'Off' }}
+                            </button>
+                        </form>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Gateway Settings -->
+    <div id="payment-gateways" class="bg-white rounded-lg shadow mb-6">
+        <div class="px-6 py-4 border-b flex justify-between items-center">
+            <div>
+                <h2 class="text-lg font-bold">Payment Gateways</h2>
+                <p class="text-sm text-gray-600">Configure payment providers for subscription billing</p>
+            </div>
+            <a href="{{ route('admin.payment-gateways.create') }}" 
+               class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">
+               + Add Gateway
+            </a>
+        </div>
+        <div class="p-6">
+            @if($paymentGateways->isEmpty())
+                <p class="text-gray-500 text-center py-8">No payment gateways configured. Add one to start accepting payments.</p>
+            @else
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach($paymentGateways as $gateway)
+                        <div class="border rounded-lg p-4 {{ $gateway->is_active ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200' }}">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <h3 class="font-bold text-gray-900">{{ $gateway->name }}</h3>
+                                    <p class="text-xs text-gray-500">{{ $gateway->description ?? $gateway->code }}</p>
+                                </div>
+                                @if($gateway->is_test_mode)
+                                    <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded">Test</span>
+                                @endif
+                            </div>
+                            
+                            <div class="space-y-2 mb-4">
+                                <div class="flex items-center text-sm">
+                                    <span class="w-20 text-gray-500">Status:</span>
+                                    <span class="px-2 py-0.5 rounded text-xs {{ $gateway->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                        {{ $gateway->is_active ? 'Active' : 'Inactive' }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center text-sm">
+                                    <span class="w-20 text-gray-500">Configured:</span>
+                                    <span class="text-sm {{ $gateway->credentials ? 'text-green-600' : 'text-red-600' }}">
+                                        {{ $gateway->credentials ? '✓' : '✗' }}
+                                    </span>
+                                </div>
+                                @if($gateway->transactions_count > 0)
+                                    <div class="flex items-center text-sm">
+                                        <span class="w-20 text-gray-500">Transactions:</span>
+                                        <span class="text-sm text-gray-700">{{ $gateway->transactions_count }}</span>
+                                    </div>
+                                @endif
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <a href="{{ route('admin.payment-gateways.edit', $gateway) }}" 
+                                   class="flex-1 text-center px-3 py-1.5 bg-white border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50">
+                                    Edit
+                                </a>
+                                @if(!$gateway->is_active)
+                                    <form method="POST" action="{{ route('admin.payment-gateways.destroy', $gateway) }}" 
+                                          onsubmit="return confirm('Delete this gateway?')">
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="px-3 py-1.5 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200">
+                                            Delete
+                                        </button>
+                                    </form>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    </div>
+
+    <!-- Subscription Plans -->
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="px-6 py-4 border-b flex justify-between items-center">
+            <div>
+                <h2 class="text-lg font-bold">Subscription Plans</h2>
+                <p class="text-sm text-gray-600">Manage subscription tiers and pricing</p>
+            </div>
+            <a href="{{ route('admin.subscription-plans.create') }}" 
+               class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">
+               + Add Plan
+            </a>
+        </div>
+        <div class="p-6">
+            <table class="w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-sm">Plan Name</th>
+                        <th class="px-4 py-2 text-left text-sm">Type</th>
+                        <th class="px-4 py-2 text-left text-sm">Price</th>
+                        <th class="px-4 py-2 text-left text-sm">Max Courses</th>
+                        <th class="px-4 py-2 text-left text-sm">Max Storage</th>
+                        <th class="px-4 py-2 text-left text-sm">Status</th>
+                        <th class="px-4 py-2 text-left text-sm">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($subscriptionPlans as $plan)
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-3">
+                                {{ $plan->display_name }}
+                                @if($plan->is_recommended)
+                                    <span class="ml-2 bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">Recommended</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 rounded text-xs {{ $plan->plan_type === 'b2b' ? 'bg-purple-100 text-purple-800' : ($plan->plan_type === 'free' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800') }}">
+                                    {{ strtoupper($plan->plan_type) }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">${{ number_format($plan->price_per_month, 2) }}/mo</td>
+                            <td class="px-4 py-3">{{ $plan->max_courses ?? 'Unlimited' }}</td>
+                            <td class="px-4 py-3">{{ $plan->max_storage_gb ?? 'Unlimited' }} GB</td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 rounded text-xs {{ $plan->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                    {{ $plan->is_active ? 'Active' : 'Inactive' }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <a href="{{ route('admin.subscription-plans.edit', $plan) }}" class="text-blue-600 hover:underline text-sm">Edit</a>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
-@section('scripts')
-<script>
-    // Smooth scroll for anchor links
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        });
-    });
-</script>
-@endsection
 @endsection

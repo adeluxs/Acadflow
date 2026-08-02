@@ -58,5 +58,28 @@ class Subscription extends Model
         $now = now();
         return $this->start_date <= $now && $this->end_date >= $now;
     }
+
+    /**
+     * Get status based on is_active and date range.
+     * Maintains backward compatibility for code referencing ->status
+     */
+    public function getStatusAttribute(): string
+    {
+        if (! $this->is_active) {
+            return 'inactive';
+        }
+
+        $now = now();
+
+        if ($this->start_date && $now->lt($this->start_date)) {
+            return 'pending';
+        }
+
+        if ($this->end_date && $now->gt($this->end_date)) {
+            return 'expired';
+        }
+
+        return 'active';
+    }
 }
 

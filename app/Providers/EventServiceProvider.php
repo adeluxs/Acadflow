@@ -11,7 +11,9 @@ use App\Events\NewMaterialUploaded;
 use App\Events\SubmissionApproved;
 use App\Events\SubmissionConfirmation;
 use App\Events\SubmissionSubmitted;
+use App\Events\SubmissionAiAnalysisRequested;
 use App\Events\SystemAnnouncementBroadcast;
+use App\Listeners\DispatchSubmissionAiAnalysis;
 use App\Listeners\SendAssignmentCreatedNotification;
 use App\Listeners\SendAttendanceStartedNotification;
 use App\Listeners\SendCorrectionRequestedNotification;
@@ -71,6 +73,11 @@ class EventServiceProvider extends ServiceProvider
         // System events
         SystemAnnouncementBroadcast::class => [
             SendSystemAnnouncement::class,
+        ],
+
+        // AI events
+        SubmissionAiAnalysisRequested::class => [
+            DispatchSubmissionAiAnalysis::class,
         ],
     ];
 

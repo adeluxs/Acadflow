@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UniFlow - Offline</title>
+    <title>Offline</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -69,7 +69,7 @@
     <div class="container">
         <div class="icon">📴</div>
         <h1>You're Offline</h1>
-        <p>Don't worry! You can still access previously loaded content. UniFlow will automatically sync when your connection returns.</p>
+        <p id="offline-message">Don't worry! You can still access previously loaded content. We will automatically sync when your connection returns.</p>
         
         <div class="status">
             <div class="pulse"></div>
@@ -85,6 +85,19 @@
     </div>
 
     <script>
+        // Dynamically load site name from settings
+        fetch('/api/v1/settings/public')
+            .then(res => res.json())
+            .then(data => {
+                const siteName = data.site_name || 'UniAcademic';
+                document.title = siteName + ' - Offline';
+                document.getElementById('offline-message').textContent = 
+                    "Don't worry! You can still access previously loaded content. " + siteName + " will automatically sync when your connection returns.";
+            })
+            .catch(() => {
+                document.title = 'UniAcademic - Offline';
+            });
+
         // Check connection status
         function updateStatus() {
             const statusText = document.getElementById('status-text');

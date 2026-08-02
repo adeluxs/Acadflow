@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\User;
@@ -56,7 +58,7 @@ class WebAuthController extends Controller
         // Build password rules based on settings
         $passwordRules = array_merge(
             ['required', 'string', 'confirmed'],
-            SettingService::getPasswordRules()
+            //SettingService::getPasswordRules()
         );
         
         $validated = $request->validate([

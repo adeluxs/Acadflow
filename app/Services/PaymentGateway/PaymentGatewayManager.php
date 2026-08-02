@@ -27,7 +27,7 @@ class PaymentGatewayManager
         $this->gateways[$code] = $gatewayClass;
     }
 
-    public function gateway(string $code = null): GatewayInterface
+    public function gateway(?string $code = null): GatewayInterface
     {
         $code = $code ?? $this->getDefaultGateway();
         

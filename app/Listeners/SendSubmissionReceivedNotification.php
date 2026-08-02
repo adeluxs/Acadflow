@@ -30,7 +30,7 @@ class SendSubmissionReceivedNotification implements ShouldQueue
                 'submission_id' => $event->submission->uuid,
                 'title' => $event->submission->title,
                 'student' => $event->submission->user->full_name,
-                'url' => route('lecturer.submission.review', $event->submission),
+                'url' => route('submissions.review', $event->submission),
             ]
         );
     }

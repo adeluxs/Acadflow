@@ -1,11 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Semester;
-use App\Models\Subscription;
 use App\Models\User;
 use App\Models\UserSubscription;
 use Illuminate\Http\Request;
@@ -150,10 +151,9 @@ class BillingController extends Controller
     {
         $user = Auth::user();
 
-        // Show institutional subscriptions (university/department level)
-        $query = Subscription::with('university', 'department');
+        $query = UserSubscription::with(['university', 'department', 'plan'])
+            ->whereHas('plan', fn ($q) => $q->where('plan_type', '!=', 'b2c'));
 
-        // Filter by scope based on role
         if ($user->isUniversityAdmin()) {
             $query->where('university_id', $user->university_id);
         } elseif ($user->isDepartmentAdmin()) {
@@ -168,21 +168,24 @@ class BillingController extends Controller
     // Admin: Generate invoices for semester (institutional billing)
     public function generateInvoices(Semester $semester)
     {
-        $subscription = Subscription::where('university_id', Auth::user()->university_id)
+        $user = Auth::user();
+
+        $subscription = UserSubscription::where('university_id', $user->university_id)
+            ->where('status', 'active')
             ->where('is_active', true)
+            ->whereHas('plan', fn ($q) => $q->where('plan_type', '!=', 'b2c'))
             ->first();
 
         if (! $subscription) {
             return back()->with('error', 'No active institutional subscription.');
         }
 
-        $students = User::where('university_id', Auth::user()->university_id)
+        $students = User::where('university_id', $user->university_id)
             ->where('role', 'student')
             ->where('is_active', true)
             ->get();
 
         foreach ($students as $student) {
-            // Check if invoice already exists
             $exists = Invoice::where('user_id', $student->id)
                 ->where('semester_id', $semester->id)
                 ->exists();
@@ -193,7 +196,7 @@ class BillingController extends Controller
                     'user_id' => $student->id,
                     'semester_id' => $semester->id,
                     'subscription_id' => $subscription->id,
-                    'amount' => $subscription->price_per_student,
+                    'amount' => $subscription->price_per_student ?? $subscription->amount,
                     'status' => 'pending',
                     'due_date' => $semester->end_date,
                 ]);

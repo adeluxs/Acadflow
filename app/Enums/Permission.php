@@ -99,6 +99,10 @@ enum Permission: string
     case DEPARTMENT_SETTINGS = 'department_settings';
     case MANAGE_EMAIL_TEMPLATES = 'manage_email_templates';
 
+    // AI Academic Assistant
+    case MANAGE_AI_SETTINGS = 'manage_ai_settings';
+    case VIEW_AI_ANALYTICS = 'view_ai_analytics';
+
     public static function forRole(string $role): array
     {
         return match ($role) {
@@ -111,7 +115,7 @@ enum Permission: string
         };
     }
 
-    private static function superAdminPermissions(): array
+    public static function superAdminPermissions(): array
     {
         return [
             self::VIEW_ALL_USERS,
@@ -158,10 +162,12 @@ enum Permission: string
             self::SYSTEM_CONFIG,
             self::UNIVERSITY_SETTINGS,
             self::MANAGE_EMAIL_TEMPLATES,
+            self::MANAGE_AI_SETTINGS,
+            self::VIEW_AI_ANALYTICS,
         ];
     }
 
-    private static function universityAdminPermissions(): array
+    public static function universityAdminPermissions(): array
     {
         return [
             self::VIEW_ALL_USERS,
@@ -202,10 +208,12 @@ enum Permission: string
             self::SEND_SYSTEM_NOTIFICATION,
             self::RECEIVE_NOTIFICATIONS,
             self::UNIVERSITY_SETTINGS,
+            self::MANAGE_AI_SETTINGS,
+            self::VIEW_AI_ANALYTICS,
         ];
     }
 
-    private static function departmentAdminPermissions(): array
+    public static function departmentAdminPermissions(): array
     {
         return [
             self::VIEW_ALL_USERS,
@@ -243,6 +251,8 @@ enum Permission: string
             self::SEND_SYSTEM_NOTIFICATION,
             self::RECEIVE_NOTIFICATIONS,
             self::DEPARTMENT_SETTINGS,
+            self::MANAGE_AI_SETTINGS,
+            self::VIEW_AI_ANALYTICS,
             self::CREATE_SUBMISSION_TASK,
             self::MANAGE_SUBMISSION_TASK,
             self::VIEW_SUBMISSION_TASKS,
@@ -250,7 +260,7 @@ enum Permission: string
         ];
     }
 
-    private static function lecturerPermissions(): array
+    public static function lecturerPermissions(): array
     {
         return [
             self::VIEW_OWN_PROFILE,
@@ -289,7 +299,7 @@ enum Permission: string
         ];
     }
 
-    private static function studentPermissions(): array
+    public static function studentPermissions(): array
     {
         return [
             self::VIEW_OWN_PROFILE,

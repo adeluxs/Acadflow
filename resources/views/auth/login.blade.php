@@ -5,7 +5,7 @@
 @section('content')
 <div class="max-w-md mx-auto mt-8">
     <div class="bg-white p-8 rounded-lg shadow">
-        <h2 class="text-2xl font-bold mb-6 text-center">Login to UniAcademic</h2>
+        <h2 class="text-2xl font-bold mb-6 text-center">Login to {{ \App\Services\SettingService::get('site_name', 'UniAcademic') }}</h2>
 
         @if(session('error'))
             <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">

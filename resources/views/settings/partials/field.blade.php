@@ -36,6 +36,25 @@
         <option value="4.0" {{ $value === '4.0' ? 'selected' : '' }}>4.0 GPA Scale</option>
         <option value="10" {{ $value === '10' ? 'selected' : '' }}>10-Point Scale</option>
     </select>
+@elseif($key === 'timezone')
+    <select name="settings[{{ $key }}]" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">Select Timezone</option>
+        @foreach(['Africa/Lagos','Africa/Accra','Africa/Cairo','Africa/Johannesburg','Africa/Nairobi','America/New_York','America/Los_Angeles','America/Chicago','Europe/London','Europe/Paris','Europe/Berlin','Asia/Tokyo','Asia/Shanghai','Asia/Kolkata','Asia/Dubai','Australia/Sydney','Pacific/Auckland'] as $tz)
+            <option value="{{ $tz }}" {{ $value === $tz ? 'selected' : '' }}>{{ $tz }}</option>
+        @endforeach
+    </select>
+@elseif($key === 'default_language')
+    <select name="settings[{{ $key }}]" class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        @foreach(['en'=>'English','fr'=>'French','es'=>'Spanish','de'=>'German','pt'=>'Portuguese','ar'=>'Arabic','zh'=>'Chinese','ja'=>'Japanese','yo'=>'Yoruba','ha'=>'Hausa'] as $lang => $label)
+            <option value="{{ $lang }}" {{ $value === $lang ? 'selected' : '' }}>{{ $label }}</option>
+        @endforeach
+    </select>
+@elseif($key === 'site_logo' || $key === 'site_favicon')
+    <input type="text" name="settings[{{ $key }}]" 
+           value="{{ $value }}"
+           placeholder="Enter URL or path to {{ $key === 'site_logo' ? 'logo' : 'favicon' }}"
+           class="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
+    <p class="text-xs text-gray-500 mt-1">Enter a URL or relative path (e.g., /images/logo.png)</p>
 @elseif(str_contains($key, 'date') || str_contains($key, 'time'))
     <input type="date" name="settings[{{ $key }}]" 
            value="{{ $value }}"

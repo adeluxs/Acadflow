@@ -133,8 +133,11 @@ class SubmissionController extends Controller
 
     public function upload(Request $request, Submission $submission)
     {
+        $allowedMimes = implode(',', \App\Services\SettingService::getAllowedExtensions());
+        $maxFileSizeKb = (int) (\App\Services\SettingService::getMaxUploadSize() / 1024);
+
         $request->validate([
-            'file' => 'required|file|mimes:pdf,doc,docx,zip,jpg,jpeg,png|max:51200',
+            'file' => 'required|file|mimes:' . $allowedMimes . '|max:' . $maxFileSizeKb,
         ]);
 
         if ($submission->user_id !== Auth::id()) {

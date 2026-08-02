@@ -80,6 +80,6 @@ enum AttendanceSessionStatus: string
             self::ACTIVE => 'Active',
             self::CLOSED => 'Closed',
             self::CANCELLED => 'Cancelled',
-        ];
+        };
     }
 }

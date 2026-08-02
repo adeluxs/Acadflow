@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class Defense extends Model
 {
@@ -19,6 +20,15 @@ class Defense extends Model
         'score',
         'feedback',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $defense) {
+            if (empty($defense->uuid)) {
+                $defense->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     protected function casts(): array
     {

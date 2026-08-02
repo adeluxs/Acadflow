@@ -16,6 +16,7 @@ class SettingsSeeder extends Seeder
             'support_email' => ['value' => 'support@uniflow.edu', 'type' => 'string', 'group' => 'general', 'description' => 'Support contact email'],
             'timezone' => ['value' => 'UTC', 'type' => 'string', 'group' => 'general', 'description' => 'Default timezone'],
             'maintenance_mode' => ['value' => false, 'type' => 'boolean', 'group' => 'general', 'description' => 'Enable maintenance mode'],
+            'maintenance_mode_bypass_routes' => ['value' => 'login,logout,api/*', 'type' => 'string', 'group' => 'general', 'description' => 'Comma-separated routes allowed during maintenance mode'],
             'site_logo' => ['value' => '', 'type' => 'string', 'group' => 'general', 'description' => 'Site logo URL or path'],
             'site_favicon' => ['value' => '', 'type' => 'string', 'group' => 'general', 'description' => 'Favicon URL or path'],
             'default_language' => ['value' => 'en', 'type' => 'string', 'group' => 'general', 'description' => 'Default language code'],
@@ -66,6 +67,7 @@ class SettingsSeeder extends Seeder
             'lockout_duration_minutes' => ['value' => 15, 'type' => 'integer', 'group' => 'security', 'description' => 'Account lockout duration in minutes'],
             'enable_audit_logs' => ['value' => true, 'type' => 'boolean', 'group' => 'security', 'description' => 'Enable audit logging'],
             'audit_log_retention_days' => ['value' => 365, 'type' => 'integer', 'group' => 'security', 'description' => 'Audit log retention period in days'],
+            'max_concurrent_sessions' => ['value' => 3, 'type' => 'integer', 'group' => 'security', 'description' => 'Maximum concurrent sessions per user'],
 
             // PWA Settings
             'pwa_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'pwa', 'description' => 'Enable PWA installation'],
@@ -90,6 +92,38 @@ class SettingsSeeder extends Seeder
             'enable_archive' => ['value' => false, 'type' => 'boolean', 'group' => 'storage', 'description' => 'Enable automatic archiving'],
             'archive_after_days' => ['value' => 365, 'type' => 'integer', 'group' => 'storage', 'description' => 'Archive files after days'],
         ];
+
+        // AI Academic Assistant Settings (Phase 6)
+        $aiSettings = [
+            'ai_mode' => ['value' => 'rule_based', 'type' => 'string', 'group' => 'ai', 'description' => 'AI mode: rule_based, provider, hybrid, disabled'],
+            'ai_default_provider' => ['value' => 'rule_based', 'type' => 'string', 'group' => 'ai', 'description' => 'Default AI provider'],
+            'ai_fallback_provider' => ['value' => 'rule_based', 'type' => 'string', 'group' => 'ai', 'description' => 'Fallback AI provider'],
+            'ai_similarity_threshold' => ['value' => 20, 'type' => 'integer', 'group' => 'ai', 'description' => 'Plagiarism similarity threshold (%)'],
+            'ai_request_timeout' => ['value' => 30, 'type' => 'integer', 'group' => 'ai', 'description' => 'Provider request timeout (seconds)'],
+            'ai_max_tokens' => ['value' => 2048, 'type' => 'integer', 'group' => 'ai', 'description' => 'Maximum tokens per request'],
+            'ai_daily_request_limit' => ['value' => 1000, 'type' => 'integer', 'group' => 'ai', 'description' => 'Daily AI request limit'],
+            'ai_monthly_request_limit' => ['value' => 30000, 'type' => 'integer', 'group' => 'ai', 'description' => 'Monthly AI request limit'],
+            'ai_max_cost' => ['value' => 100, 'type' => 'integer', 'group' => 'ai', 'description' => 'Maximum monthly AI cost (USD)'],
+            'ai_enable_rule_engine' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable rule-based engine'],
+            'ai_enable_external_ai' => ['value' => false, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable external AI providers'],
+            'ai_enable_hybrid_mode' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable hybrid AI mode'],
+            'ai_enable_cache' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable AI response caching'],
+            'ai_enable_logging' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable AI usage logging'],
+            'ai_feature_submission_validator' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable submission validator'],
+            'ai_feature_plagiarism' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable plagiarism detection'],
+            'ai_feature_writing_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable writing assistant'],
+            'ai_feature_citation_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable citation assistant'],
+            'ai_feature_project_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable project assistant'],
+            'ai_feature_siwes_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable SIWES assistant'],
+            'ai_feature_study_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable study assistant'],
+            'ai_feature_material_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable material assistant'],
+            'ai_feature_lecturer_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable lecturer assistant'],
+            'ai_feature_discussion_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable discussion assistant'],
+            'ai_feature_ai_search' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable AI semantic search'],
+            'ai_feature_ai_analytics' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable AI analytics'],
+        ];
+
+        $settings = array_merge($settings, $aiSettings);
 
         foreach ($settings as $key => $data) {
             Setting::updateOrCreate(

@@ -10,7 +10,7 @@
                 <h1 class="text-2xl font-bold">Compare Versions</h1>
                 <p class="text-gray-600">{{ $submission->title }} &middot; {{ ucfirst($submission->type) }}</p>
             </div>
-            <a href="{{ route('lecturer.submission.review', $submission) }}" class="text-indigo-600 hover:underline">Back to review</a>
+            <a href="{{ route('submissions.review', $submission) }}" class="text-indigo-600 hover:underline">Back to review</a>
         </div>
 
         <div class="grid gap-4 lg:grid-cols-2">

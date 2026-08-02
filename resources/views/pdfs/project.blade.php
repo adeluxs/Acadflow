@@ -51,7 +51,7 @@
 
     <div class="footer">
         <p>Generated on {{ $generated_at->format('F d, Y H:i:s') }}</p>
-        <p>UniAcademic - University Academic Management Platform</p>
+        <p>{{ \App\Services\SettingService::get('site_name', 'UniAcademic') }} - University Academic Management Platform</p>
     </div>
 </body>
 </html>

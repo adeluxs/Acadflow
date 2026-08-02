@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Models\Enrollment;
@@ -32,6 +34,15 @@ class SubmissionValidator
         // Check if student has paid for the semester
         if (! $this->hasPaidForSemester($student, $task->semester)) {
             $errors[] = 'You must complete payment for this semester before submitting work.';
+        }
+
+        // Check max attempts per assignment
+        $maxAttempts = \App\Services\SettingService::get('max_attempts_per_assignment', 3);
+        $existingSubmissions = Submission::where('user_id', $student->id)
+            ->where('assignment_id', $task->id)
+            ->count();
+        if ($existingSubmissions >= $maxAttempts) {
+            $errors[] = "You have reached the maximum number of submission attempts ({$maxAttempts}).";
         }
 
         // Check if task is published
@@ -193,7 +204,7 @@ class SubmissionValidator
         }
 
         // Check if within grace period (default 7 days from semester start)
-        $graceEnd = $semester->start_date->addDays(config('billing.grace_period_days', 7));
+        $graceEnd = $semester->start_date->addDays(\App\Services\SettingService::get('grace_period_days', 7));
         if (now()->lessThanOrEqualTo($graceEnd)) {
             return true;
         }

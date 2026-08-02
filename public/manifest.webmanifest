@@ -1,6 +1,6 @@
 {
-    "name": "UniFlow - University Academic Management",
-    "short_name": "UniFlow",
+    "name": "AcadFlow - University Academic Management",
+    "short_name": "AcadFlow",
     "description": "Complete academic workflow platform for universities",
     "start_url": "/dashboard",
     "display": "standalone",

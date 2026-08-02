@@ -19,17 +19,28 @@ use App\Http\Controllers\WebAuthController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\LecturerAssignmentController;
 use App\Http\Controllers\Admin\PaymentGatewayController;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\TwoFactorAuthenticationController;
+use App\Http\Controllers\StudentImportController;
+use App\Http\Controllers\AiController;
 use Illuminate\Support\Facades\Route;
 
 // PWA manifest (dynamic)
 Route::get('/manifest.webmanifest', [SettingsController::class, 'pwaManifest'])->name('pwa.manifest');
 
 // Public routes
-Route::get('/', fn () => redirect()->route('login'))->name('home');
+Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : view('landing'))->name('home');
 Route::get('/login', [WebAuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [WebAuthController::class, 'login']);
 Route::get('/register', [WebAuthController::class, 'showRegisterForm'])->name('register');
-Route::post('/register', [WebAuthController::class, 'register']);
+Route::post('/register', [WebAuthController::class, 'register'])->name('store-register');
+Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
+Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
+Route::get('/reset-password/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
+Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('password.store');
+Route::get('/two-factor-challenge', [TwoFactorAuthenticationController::class, 'showChallengeForm'])->name('two-factor.challenge');
+Route::post('/two-factor-challenge', [TwoFactorAuthenticationController::class, 'confirm'])->name('two-factor.confirm');
 Route::post('/logout', [WebAuthController::class, 'logout'])->name('logout');
 
 // Protected routes
@@ -41,13 +52,9 @@ Route::middleware('auth')->group(function () {
     Route::redirect('/admin/dashboard', '/admin');
 
     // Student routes
-        Route::middleware('role:student')->group(function () {
-        // ... existing routes ...
-
+    Route::middleware('role:student')->group(function () {
         // Course list for students
         Route::get('/courses', [CourseController::class, 'index'])->name('courses.index');
-
-        
 
         // Course assignments list
         Route::get('/courses/{course}/assignments/stdview', [SubmissionTaskController::class, 'availableForStudent'])->name('courses.assignments');
@@ -86,6 +93,8 @@ Route::middleware('auth')->group(function () {
 
         // Attendance routes
         Route::get('/attendance', [AttendanceController::class, 'myAttendance'])->name('attendance.my');
+        Route::get('/attendance/records', [AttendanceController::class, 'myAttendanceRecords'])->name('attendance.records');
+        Route::get('/attendance/records/export', [AttendanceController::class, 'exportMyAttendanceRecords'])->name('attendance.records.export');
         Route::post('/attendance/start', [AttendanceController::class, 'startSession'])->name('attendance.start');
         Route::get('/attendance/session/{session}', [AttendanceController::class, 'showSession'])->name('attendance.session');
         Route::post('/attendance/session/{session}/close', [AttendanceController::class, 'closeSession'])->name('attendance.close');
@@ -94,21 +103,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/attendance/session/{session}/qr-refresh', [AttendanceController::class, 'refreshQr'])->name('attendance.qr.refresh');
         Route::get('/lecturer/attendance', [AttendanceController::class, 'lecturerSessions'])->name('attendance.lecturer');
 
-        //Groups
-
-        /*
-|--------------------------------------------------------------------------
-| Group Resource Routes (Auto-generated)
-|--------------------------------------------------------------------------
-| GET       /groups                -> groups.index
-| GET       /groups/create         -> groups.create
-| POST      /groups                -> groups.store
-| GET       /groups/{group}        -> groups.show
-| GET       /groups/{group}/edit   -> groups.edit
-| PUT/PATCH /groups/{group}        -> groups.update
-| DELETE    /groups/{group}        -> groups.destroy
-|
-*/
+        // Groups
         Route::resource('groups', GroupController::class);
 
         Route::post('groups/{group}/join', [GroupController::class, 'join'])
@@ -124,31 +119,11 @@ Route::middleware('auth')->group(function () {
            ->name('groups.transfer-leadership');
 
         // Student submission routes
-
-        // Submission dashboard
         Route::get('/submissions/dashboard', [SubmissionController::class, 'dashboard'])->name('submissions.dashboard');
-        // File actions
         Route::post('submissions/{submission}/upload', [SubmissionController::class, 'upload'])
           ->name('submissions.upload');
-           /*
-    |--------------------------------------------------------------------------
-    | Submission Resource Routes (Auto-generated)
-    |--------------------------------------------------------------------------
-    | Route::resource('submissions', SubmissionController::class) creates:
-    |
-    | GET       /submissions                -> submissions.index
-    | GET       /submissions/create         -> submissions.create
-    | POST      /submissions                -> submissions.store
-    | GET       /submissions/{submission}   -> submissions.show
-    | GET       /submissions/{submission}/edit -> submissions.edit
-    | PUT/PATCH /submissions/{submission}   -> submissions.update
-    | DELETE    /submissions/{submission}   -> submissions.destroy
-    |
-    */
-    Route::resource('submissions', SubmissionController::class);
 
-    /*
-    |--------------------------------------------------------------------------*/
+        Route::resource('submissions', SubmissionController::class)->except(['show']);
 
         Route::post('submissions/{submission}/replace-files', [SubmissionController::class, 'replaceFiles'])
           ->name('submissions.replace-files');
@@ -156,137 +131,139 @@ Route::middleware('auth')->group(function () {
         Route::get('submission-versions/{version}/download', [SubmissionController::class, 'download'])
            ->name('submission-versions.download');
 
-        // Submit / finalize
         Route::post('submissions/{submission}/submit', [SubmissionController::class, 'submit'])
         ->name('submissions.submit');
 
-        // Student view assignments details
-
-    Route::get('/courses/{course}/assignments/{task}/showForStudent', [SubmissionTaskController::class, 'showForStudent'])
-        
-        ->name('submission-tasks.student.show');
-
-
-
+        Route::get('/courses/{course}/assignments/{task}/showForStudent', [SubmissionTaskController::class, 'showForStudent'])
+            ->name('submission-tasks.student.show');
     });
 
+    // Submission show (accessible by all authenticated users with proper policy)
+    Route::get('/submissions/{submission}', [SubmissionController::class, 'show'])->name('submissions.show');
+
     // Shared Student & Lecturer routes (materials, discussions, assignments view)
-Route::middleware('role:student,lecturer')->group(function () {
+    Route::middleware('role:student,lecturer')->group(function () {
+        // Course details
+        Route::get('/courses/{course}', [CourseController::class, 'show'])->name('courses.show');
 
-    // Course details
-    Route::get('/courses/{course}', [CourseController::class, 'show'])->name('courses.show');
+        // Course Materials
+        Route::get('/courses/{course}/materials', [CourseMaterialController::class, 'index'])->name('materials.index');
+        Route::get('/materials', [CourseMaterialController::class, 'all'])->name('materials.all');
+        Route::get('/courses/{course}/materials/{material}', [CourseMaterialController::class, 'show'])->name('materials.show');
+        Route::get('/courses/{course}/materials/{material}/download', [CourseMaterialController::class, 'download'])->name('materials.download');
 
-    // Course Materials
-    Route::get('/courses/{course}/materials', [CourseMaterialController::class, 'index'])->name('materials.index');
-    Route::get('/materials', [CourseMaterialController::class, 'all'])->name('materials.all');
-    Route::get('/courses/{course}/materials/{material}', [CourseMaterialController::class, 'show'])->name('materials.show');
-    Route::get('/courses/{course}/materials/{material}/download', [CourseMaterialController::class, 'download'])->name('materials.download');
+        // Discussions
+        Route::get('/courses/{course}/discussions', [DiscussionController::class, 'index'])->name('discussions.index');
+        Route::get('/courses/{course}/discussions/create', [DiscussionController::class, 'create'])->name('discussions.create');
+        Route::post('/courses/{course}/discussions', [DiscussionController::class, 'store'])->name('discussions.store');
+        Route::get('/courses/{course}/discussions/{discussion}', [DiscussionController::class, 'show'])->name('discussions.show');
+        Route::post('/courses/{course}/discussions/{discussion}/reply', [DiscussionController::class, 'addReply'])->name('discussions.reply');
+        Route::get('/courses/{course}/discussions/{discussion}/edit', [DiscussionController::class, 'edit'])->name('discussions.edit');
+        Route::put('/courses/{course}/discussions/{discussion}', [DiscussionController::class, 'update'])->name('discussions.update');
+        Route::post('/courses/{course}/discussions/{discussion}/close', [DiscussionController::class, 'close'])->name('discussions.close');
+        Route::post('/courses/{course}/discussions/{discussion}/pin', [DiscussionController::class, 'pin'])->name('discussions.pin');
 
-    // Discussions
-    Route::get('/courses/{course}/discussions', [DiscussionController::class, 'index'])->name('discussions.index');
-    Route::get('/courses/{course}/discussions/create', [DiscussionController::class, 'create'])->name('discussions.create');
-    Route::post('/courses/{course}/discussions', [DiscussionController::class, 'store'])->name('discussions.store');
-    Route::get('/courses/{course}/discussions/{discussion}', [DiscussionController::class, 'show'])->name('discussions.show');
-    Route::post('/courses/{course}/discussions/{discussion}/reply', [DiscussionController::class, 'addReply'])->name('discussions.reply');
-    Route::get('/courses/{course}/discussions/{discussion}/edit', [DiscussionController::class, 'edit'])->name('discussions.edit');
-    Route::put('/courses/{course}/discussions/{discussion}', [DiscussionController::class, 'update'])->name('discussions.update');
-    Route::post('/courses/{course}/discussions/{discussion}/close', [DiscussionController::class, 'close'])->name('discussions.close');
-    Route::post('/courses/{course}/discussions/{discussion}/pin', [DiscussionController::class, 'pin'])->name('discussions.pin');
+        // Materials export / documents / submissions
+        Route::get('/courses/{course}/materials/export-pdf', [CourseMaterialController::class, 'exportPdf'])->name('materials.export-pdf');
+        Route::get('/my/transcript', [ExportController::class, 'transcript'])->name('export.transcript');
+        Route::get('/submissions/{submission}/grade-report', [ExportController::class, 'gradeReport'])->name('export.grade-report');
+        Route::get('/submissions/{submission}/view/{version?}', [SubmissionController::class, 'viewFile'])->name('submissions.view');
+        Route::post('/submissions/{submission}/generate-document', [SubmissionController::class, 'generateDocument'])->name('submissions.generate-document');
+        Route::get('/my/documents', [ExportController::class, 'myDocuments'])->name('documents.index');
+        Route::get('/documents/{generatedDocument}/download', [ExportController::class, 'downloadDocument'])->name('documents.download');
+        Route::get('/documents/batch-transcripts', [ExportController::class, 'batchTranscripts'])->name('documents.batch-transcripts');
+        Route::get('/documents/batch-grade-reports', [ExportController::class, 'batchGradeReports'])->name('documents.batch-grade-reports');
+        Route::get('/submissions/{submission}/defense/schedule', [SubmissionController::class, 'scheduleDefense'])->name('defenses.schedule');
+        Route::post('/submissions/{submission}/defense', [SubmissionController::class, 'storeDefense'])->name('defenses.store');
+    });
 
+    // AI Academic Assistant routes (shared student & lecturer)
+    Route::middleware('role:student,lecturer')->group(function () {
+        Route::get('/submissions/{submission}/ai-analysis', [AiController::class, 'submissionAnalysis'])
+            ->name('ai.submission.analysis');
+        Route::post('/submissions/{submission}/reanalyze', [AiController::class, 'reanalyze'])
+            ->name('ai.submission.reanalyze');
+    });
 
+    Route::post('/ai/writing', [AiController::class, 'writingAssistant'])->name('ai.writing');
+    Route::post('/ai/citation', [AiController::class, 'citationAssistant'])->name('ai.citation');
 
-    // Materials export / documents / submissions
-    Route::get('/courses/{course}/materials/export-pdf', [CourseMaterialController::class, 'exportPdf'])->name('materials.export-pdf');
-    Route::get('/my/transcript', [ExportController::class, 'transcript'])->name('export.transcript');
-    Route::get('/submissions/{submission}/grade-report', [ExportController::class, 'gradeReport'])->name('export.grade-report');
-    Route::get('/submissions/{submission}/view/{version?}', [SubmissionController::class, 'viewFile'])->name('submissions.view');
-    Route::post('/submissions/{submission}/generate-document', [SubmissionController::class, 'generateDocument'])->name('submissions.generate-document');
-    Route::get('/my/documents', [ExportController::class, 'myDocuments'])->name('documents.index');
-    Route::get('/documents/{generatedDocument}/download', [ExportController::class, 'downloadDocument'])->name('documents.download');
-    Route::get('/submissions/{submission}/defense/schedule', [SubmissionController::class, 'scheduleDefense'])->name('defenses.schedule');
-    Route::post('/submissions/{submission}/defense', [SubmissionController::class, 'storeDefense'])->name('defenses.store');
-});
+    // Admin routes (department_admin, university_admin, super_admin)
+    Route::middleware('role:department_admin,university_admin,super_admin')->group(function () {
+        Route::get('/admin/ai/settings', [AiController::class, 'settings'])->name('ai.settings');
+        Route::post('/admin/ai/settings', [AiController::class, 'updateSettings'])->name('ai.settings.update');
+        Route::get('/admin/ai/analytics', [AiController::class, 'analytics'])->name('ai.analytics');
+    });
 
-// Lecturer routes
-Route::middleware('role:lecturer')->group(function () {
+    // Lecturer routes
+    Route::middleware('role:lecturer')->group(function () {
+        Route::get('/lecturer/courses', [CourseController::class, 'myCourses'])->name('lecturer.courses');
 
-    Route::get('/lecturer/courses', [CourseController::class, 'myCourses'])->name('lecturer.courses');
+        // Course Materials Management
+        Route::get('/lecturer/courses/{course}/materials/lectview', [CourseMaterialController::class, 'index'])->name('lecturer.materials.index');
+        Route::get('/lecturer/courses/{course}/materials', [CourseMaterialController::class, 'create'])->name('lecturer.materials.create');
+        Route::post('/lecturer/courses/{course}/materials/store', [CourseMaterialController::class, 'store'])->name('lecturer.materials.store');
+        Route::get('/lecturer/courses/{course}/materials/{material}/edit', [CourseMaterialController::class, 'edit'])->name('lecturer.materials.edit');
+        Route::put('/lecturer/courses/{course}/materials/{material}', [CourseMaterialController::class, 'update'])->name('lecturer.materials.update');
+        Route::delete('/lecturer/courses/{course}/materials/{material}', [CourseMaterialController::class, 'destroy'])->name('lecturer.materials.destroy');
 
-    // Course Materials Management
-    Route::get('/lecturer/courses/{course}/materials/lectview', [CourseMaterialController::class, 'index'])->name('lecturer.materials.index');
-    Route::get('/lecturer/courses/{course}/materials', [CourseMaterialController::class, 'create'])->name('lecturer.materials.create');
-    Route::post('/lecturer/courses/{course}/materials/store', [CourseMaterialController::class, 'store'])->name('lecturer.materials.store');
-    Route::get('/lecturer/courses/{course}/materials/{material}/edit', [CourseMaterialController::class, 'edit'])->name('lecturer.materials.edit');
-    Route::put('/lecturer/courses/{course}/materials/{material}', [CourseMaterialController::class, 'update'])->name('lecturer.materials.update');
-    Route::delete('/lecturer/courses/{course}/materials/{material}', [CourseMaterialController::class, 'destroy'])->name('lecturer.materials.destroy');
+        // Assignment management
+        Route::get('/courses/{course}/assignments', [SubmissionTaskController::class, 'indexForCourse'])
+            ->name('submission-tasks.manage.index');
 
-    // Assignment management
-    Route::get('/courses/{course}/assignments', [SubmissionTaskController::class, 'indexForCourse'])
-        ->name('submission-tasks.manage.index');
+        Route::get('/courses/{course}/assignments/create', [SubmissionTaskController::class, 'create'])
+            ->name('submission-tasks.create');
 
-    Route::get('/courses/{course}/assignments/create', [SubmissionTaskController::class, 'create'])
-        ->name('submission-tasks.create');
+        Route::post('/courses/{course}/assignments/store', [SubmissionTaskController::class, 'store'])
+            ->name('submission-tasks.store');
 
-    Route::post('/courses/{course}/assignments/store', [SubmissionTaskController::class, 'store'])
-        ->name('submission-tasks.store');
+        Route::get('/lecturer/courses/{course}/assignments/{task}/showForLecturer', [SubmissionTaskController::class, 'showForLecturer'])
+            ->name('submission-tasks.lecturer.show');
 
-           // Lecturer view assignments details
+        Route::get('/courses/{course}/assignments/{task}/edit', [SubmissionTaskController::class, 'edit'])
+            ->name('submission-tasks.edit');
 
-    Route::get('/lecturer/courses/{course}/assignments/{task}/showForLecturer', [SubmissionTaskController::class, 'showForLecturer'])
-        
-        ->name('submission-tasks.lecturer.show');
+        Route::put('/courses/{course}/assignments/{task}', [SubmissionTaskController::class, 'update'])
+            ->name('submission-tasks.update');
 
+        Route::post('/courses/{course}/assignments/{task}/publish', [SubmissionTaskController::class, 'publish'])
+            ->name('submission-tasks.publish');
 
+        Route::post('/courses/{course}/assignments/{task}/close', [SubmissionTaskController::class, 'close'])
+            ->name('submission-tasks.close');
 
-    Route::get('/courses/{course}/assignments/{task}/edit', [SubmissionTaskController::class, 'edit'])
-        
-        ->name('submission-tasks.edit');
+        Route::delete('/courses/{course}/assignments/{task}', [SubmissionTaskController::class, 'destroy'])
+            ->name('submission-tasks.destroy');
 
-    Route::put('/courses/{course}/assignments/{task}', [SubmissionTaskController::class, 'update'])
-        
-        ->name('submission-tasks.update');
+        Route::post('/courses/{course}/assignments/{task}/attachments', [SubmissionTaskController::class, 'uploadAttachment'])
+            ->name('submission-tasks.attachment.upload');
 
-    Route::post('/courses/{course}/assignments/{task}/publish', [SubmissionTaskController::class, 'publish'])
-        
-        ->name('submission-tasks.publish');
+        Route::delete('/courses/{course}/assignments/{task}/attachments/{submission_task_attachment}', [SubmissionTaskController::class, 'deleteAttachment'])
+            ->name('submission-tasks.attachment.delete');
 
-    Route::post('/courses/{course}/assignments/{task}/close', [SubmissionTaskController::class, 'close'])
-        
-        ->name('submission-tasks.close');
+        Route::get('/assignments/attachments/{submission_task_attachment}/download', [SubmissionTaskController::class, 'downloadAttachment'])
+            ->name('submission-tasks.attachment.download');
 
-    Route::delete('/courses/{course}/assignments/{task}', [SubmissionTaskController::class, 'destroy'])
+        Route::post('/courses/{course}/assignments/{task}/extensions', [SubmissionTaskController::class, 'grantExtension'])
+            ->name('submission-tasks.extension.grant');
 
-        ->name('submission-tasks.destroy');
+        Route::delete('/courses/{course}/assignments/{task}/extensions/{submission_extension}', [SubmissionTaskController::class, 'revokeExtension'])
+            ->name('submission-tasks.extension.revoke');
 
-    Route::post('/courses/{course}/assignments/{task}/attachments', [SubmissionTaskController::class, 'uploadAttachment'])
-        
-        ->name('submission-tasks.attachment.upload');
+        // Lecturer submission review
+        Route::get('lecturer/submissions', [SubmissionController::class, 'lecturerIndex'])->name('submissions.lecturer-index');
+        Route::get('lecturer/submissions/{submission}/review', [SubmissionController::class, 'review'])->name('submissions.review');
+        Route::post('lecturer/submissions/{submission}/grade', [SubmissionController::class, 'grade'])->name('submissions.grade');
+        Route::post('lecturer/submissions/{submission}/comment', [SubmissionController::class, 'comment'])->name('submissions.comment');
+        Route::post('lecturer/submissions/{submission}/approve', [SubmissionController::class, 'approve'])->name('submissions.approve');
+        Route::post('lecturer/submissions/{submission}/reject', [SubmissionController::class, 'reject'])->name('submissions.reject');
+        Route::post('lecturer/submissions/{submission}/request-correction', [SubmissionController::class, 'requestCorrection'])->name('submissions.request-correction');
+        Route::get('lecturer/submissions/{submission}/compare', [SubmissionController::class, 'compare'])->name('submissions.compare');
 
-    Route::delete('/courses/{course}/assignments/{task}/attachments/{submission_task_attachment}', [SubmissionTaskController::class, 'deleteAttachment'])
-        
-        ->name('submission-tasks.attachment.delete');
-
-    Route::get('/assignments/attachments/{submission_task_attachment}/download', [SubmissionTaskController::class, 'downloadAttachment'])
-        ->name('submission-tasks.attachment.download');
-
-    Route::post('/courses/{course}/assignments/{task}/extensions', [SubmissionTaskController::class, 'grantExtension'])
-        
-        ->name('submission-tasks.extension.grant');
-
-    Route::delete('/courses/{course}/assignments/{task}/extensions/{submission_extension}', [SubmissionTaskController::class, 'revokeExtension'])
-        
-        ->name('submission-tasks.extension.revoke');
-
-    // Lecturer submission review
-    Route::get('lecturer/submissions', [SubmissionController::class, 'lecturerIndex'])->name('submissions.lecturer-index');
-    Route::get('lecturer/submissions/{submission}/review', [SubmissionController::class, 'review'])->name('submissions.review');
-    Route::post('lecturer/submissions/{submission}/grade', [SubmissionController::class, 'grade'])->name('submissions.grade');
-    Route::post('lecturer/submissions/{submission}/comment', [SubmissionController::class, 'comment'])->name('submissions.comment');
-    Route::post('lecturer/submissions/{submission}/approve', [SubmissionController::class, 'approve'])->name('submissions.approve');
-    Route::post('lecturer/submissions/{submission}/reject', [SubmissionController::class, 'reject'])->name('submissions.reject');
-    Route::post('lecturer/submissions/{submission}/request-correction', [SubmissionController::class, 'requestCorrection'])->name('submissions.request-correction');
-    Route::get('lecturer/submissions/{submission}/compare', [SubmissionController::class, 'compare'])->name('submissions.compare');
-});
+        // Lecturer AI layout preferences
+        Route::get('/lecturer/ai/layout-preferences', [AiController::class, 'lecturerLayoutPreferences'])->name('ai.lecturer.layout.preferences');
+        Route::post('/lecturer/ai/layout-preferences', [AiController::class, 'saveLecturerLayoutPreferences'])->name('ai.lecturer.layout.preferences.update');
+    });
 
     // Admin notification management (available to department_admin, university_admin, super_admin)
     Route::middleware('role:department_admin,university_admin,super_admin')->group(function () {
@@ -298,55 +275,54 @@ Route::middleware('role:lecturer')->group(function () {
         Route::get('/admin/reports', [AdminController::class, 'reports'])->name('admin.reports');
     });
 
-        // Department Admin routes
-        Route::middleware('role:department_admin')->group(function () {
-            // Department management
-            Route::get('/admin/department', [AdminController::class, 'department'])->name('admin.department');
-            Route::get('/admin/courses', [CourseController::class, 'adminIndex'])->name('admin.courses');
-            Route::post('/admin/courses', [CourseController::class, 'store'])->name('admin.courses.store');
-            Route::get('/admin/courses/{course}', [CourseController::class, 'adminShow'])->name('admin.courses.show');
-            Route::put('/admin/courses/{course}', [CourseController::class, 'update'])->name('admin.courses.update');
+    // Department Admin routes
+    Route::middleware('role:department_admin')->group(function () {
+        // Department management
+        Route::get('/admin/department', [AdminController::class, 'department'])->name('admin.department');
+        Route::get('/admin/courses', [CourseController::class, 'adminIndex'])->name('admin.courses');
+        Route::post('/admin/courses', [CourseController::class, 'store'])->name('admin.courses.store');
+        Route::get('/admin/courses/{course}', [CourseController::class, 'adminShow'])->name('admin.courses.show');
+        Route::put('/admin/courses/{course}', [CourseController::class, 'update'])->name('admin.courses.update');
 
-            // Lecturer assignment management
-            Route::post('/admin/courses/{course}/lecturers', [LecturerAssignmentController::class, 'store'])
-                ->name('admin.courses.lecturers.store');
-            Route::delete('/admin/courses/{course}/lecturers/{assignment}', [LecturerAssignmentController::class, 'destroy'])
-                ->name('admin.courses.lecturers.destroy');
-            Route::put('/admin/courses/{course}/lecturers/{assignment}/coordinator', [LecturerAssignmentController::class, 'updateCoordinator'])
-                ->name('admin.courses.lecturers.coordinator');
-        });
+        // Lecturer assignment management
+        Route::post('/admin/courses/{course}/lecturers', [LecturerAssignmentController::class, 'store'])
+            ->name('admin.courses.lecturers.store');
+        Route::delete('/admin/courses/{course}/lecturers/{assignment}', [LecturerAssignmentController::class, 'destroy'])
+            ->name('admin.courses.lecturers.destroy');
+        Route::put('/admin/courses/{course}/lecturers/{assignment}/coordinator', [LecturerAssignmentController::class, 'updateCoordinator'])
+            ->name('admin.courses.lecturers.coordinator');
+    });
 
     // University Admin routes
     Route::middleware('role:university_admin')->group(function () {
         Route::get('/admin/faculties', [AdminController::class, 'faculties'])->name('admin.faculties');
-        
-    // Institutional subscriptions
+
+        // Institutional subscriptions
         Route::get('/admin/subscriptions', [BillingController::class, 'subscriptions'])->name('admin.subscriptions');
-        
-    // Student billing
-    Route::get('/billing/invoices', [BillingController::class, 'myInvoices'])
-        ->name('billing.my');
 
-    Route::get('/billing/invoices/{invoice}', [BillingController::class, 'showInvoice'])
-        ->name('billing.show');
+        // Student billing
+        Route::get('/billing/invoices', [BillingController::class, 'myInvoices'])
+            ->name('billing.my');
 
-    Route::post('/billing/invoices/{invoice}/pay', [BillingController::class, 'pay'])
-        ->name('billing.pay');
+        Route::get('/billing/invoices/{invoice}', [BillingController::class, 'showInvoice'])
+            ->name('billing.show');
 
-    // Admin billing
-    Route::get('/admin/billing/invoices', [BillingController::class, 'adminIndex'])
-        ->name('admin.billing');
+        Route::post('/billing/invoices/{invoice}/pay', [BillingController::class, 'pay'])
+            ->name('billing.pay');
 
-    Route::post('/admin/billing/invoices/{invoice}/verify', [BillingController::class, 'verify'])
-        ->name('billing.verify');
+        // Admin billing
+        Route::get('/admin/billing/invoices', [BillingController::class, 'adminIndex'])
+            ->name('admin.billing');
 
-    Route::post('/admin/billing/invoices/{invoice}/waive', [BillingController::class, 'waive'])
-        ->name('billing.waive');
+        Route::post('/admin/billing/invoices/{invoice}/verify', [BillingController::class, 'verify'])
+            ->name('billing.verify');
 
-    // Generate invoices for a semester
-    Route::post('/admin/billing/semesters/{semester}/generate-invoices', [BillingController::class, 'generateInvoices'])
-        ->name('billing.generate-invoices');
+        Route::post('/admin/billing/invoices/{invoice}/waive', [BillingController::class, 'waive'])
+            ->name('billing.waive');
 
+        // Generate invoices for a semester
+        Route::post('/admin/billing/semesters/{semester}/generate-invoices', [BillingController::class, 'generateInvoices'])
+            ->name('billing.generate-invoices');
     });
 
     // Super Admin routes
@@ -368,31 +344,32 @@ Route::middleware('role:lecturer')->group(function () {
         Route::put('/admin/subscription-plans/{subscriptionPlan}', [SubscriptionPlanController::class, 'update'])->name('admin.subscription-plans.update');
         Route::delete('/admin/subscription-plans/{subscriptionPlan}', [SubscriptionPlanController::class, 'destroy'])->name('admin.subscription-plans.destroy');
 
-        //Payment gateway setting route
-        
+        // Student import
+        Route::get('/admin/students/import', [StudentImportController::class, 'showImportForm'])->name('admin.students.import');
+        Route::post('/admin/students/import', [StudentImportController::class, 'import'])->name('admin.students.import.post');
 
-Route::prefix('admin')->name('admin.')->group(function () {
-    Route::get('/payment-gateways', [PaymentGatewayController::class, 'index'])
-        ->name('payment-gateways.index');
+        // Payment gateway setting route
+        Route::prefix('admin')->name('admin.')->group(function () {
+            Route::get('/payment-gateways', [PaymentGatewayController::class, 'index'])
+                ->name('payment-gateways.index');
 
-    Route::get('/payment-gateways/create', [PaymentGatewayController::class, 'create'])
-        ->name('payment-gateways.create');
+            Route::get('/payment-gateways/create', [PaymentGatewayController::class, 'create'])
+                ->name('payment-gateways.create');
 
-    Route::post('/payment-gateways', [PaymentGatewayController::class, 'store'])
-        ->name('payment-gateways.store');
+            Route::post('/payment-gateways', [PaymentGatewayController::class, 'store'])
+                ->name('payment-gateways.store');
 
-    Route::get('/payment-gateways/{paymentGateway}/edit', [PaymentGatewayController::class, 'edit'])
-        ->name('payment-gateways.edit');
+            Route::get('/payment-gateways/{paymentGateway}/edit', [PaymentGatewayController::class, 'edit'])
+                ->name('payment-gateways.edit');
 
-    Route::put('/payment-gateways/{paymentGateway}', [PaymentGatewayController::class, 'update'])
-        ->name('payment-gateways.update');
+            Route::put('/payment-gateways/{paymentGateway}', [PaymentGatewayController::class, 'update'])
+                ->name('payment-gateways.update');
 
-    Route::delete('/payment-gateways/{paymentGateway}', [PaymentGatewayController::class, 'destroy'])
-        ->name('payment-gateways.destroy');
+            Route::delete('/payment-gateways/{paymentGateway}', [PaymentGatewayController::class, 'destroy'])
+                ->name('payment-gateways.destroy');
 
-    Route::post('/payment-gateways/{paymentGateway}/test-connection', [PaymentGatewayController::class, 'testConnection'])
-        ->name('payment-gateways.test-connection');
-});
-});
-   
+            Route::post('/payment-gateways/{paymentGateway}/test-connection', [PaymentGatewayController::class, 'testConnection'])
+                ->name('payment-gateways.test-connection');
+        });
+    });
 });

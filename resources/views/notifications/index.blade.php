@@ -34,7 +34,7 @@
                         <a href="{{ route('notifications.index') }}" 
                            class="flex justify-between {{ !request()->has('filter') && !request()->has('type') ? 'font-bold text-indigo-600' : 'text-gray-600' }}">
                             All
-                            <span class="text-gray-400">{{ $typeCounts->total() ?? $notifications->total() }}</span>
+                             <span class="text-gray-400">{{ $typeCounts->count() ?? $notifications->total() }}</span>
                         </a>
                     </li>
                     <li>
@@ -84,7 +84,7 @@
                                     </h4>
                                     <p class="text-gray-600 text-sm mt-1">{{ $notification->message }}</p>
                                     <div class="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                                        <span>{{ $notification->created_at->format('M d, Y H:i') }}</span>
+                                        <span>{{ $notification->created_at?->format('M d, Y H:i') ?? '-' }}</span>
                                         @if($notification->user)
                                             <span>• {{ $notification->user->full_name }}</span>
                                         @endif

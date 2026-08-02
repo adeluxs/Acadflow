@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'AcadFlow')</title>
+    <title>@yield('title', \App\Services\SettingService::get('site_name', 'UniAcademic'))</title>
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -12,9 +12,12 @@
     <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="AcadFlow">
-    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+    <meta name="apple-mobile-web-app-title" content="{{ \App\Services\SettingService::get('site_name', 'UniAcademic') }}">
+    @if(\App\Services\SettingService::get('site_favicon'))
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ \App\Services\SettingService::get('site_favicon') }}">
+    @else
+        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+    @endif
 
     {{-- Styles --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -43,7 +46,7 @@
                         A
                     </div>
                     <div>
-                        <h3 class="font-semibold text-sm">Install AcadFlow</h3>
+                        <h3 class="font-semibold text-sm">Install {{ \App\Services\SettingService::get('site_name', 'UniAcademic') }}</h3>
                         <p class="text-xs text-slate-500">Add to home screen for quick access</p>
                     </div>
                 </div>
@@ -89,7 +92,7 @@
                     <div class="h-9 w-9 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold">
                         A
                     </div>
-                    <span class="font-semibold text-lg text-slate-900">AcadFlow</span>
+                    <span class="font-semibold text-lg text-slate-900">{{ \App\Services\SettingService::get('site_name', 'UniAcademic') }}</span>
                 </a>
 
                 @auth
@@ -122,8 +125,8 @@
                             A
                         </div>
                         <div>
-                            <h1 class="text-xl font-semibold leading-tight text-slate-900">AcadFlow</h1>
-                            <p class="text-xs text-slate-500">Academic Workflow Platform</p>
+                            <h1 class="text-xl font-semibold leading-tight text-slate-900">{{ \App\Services\SettingService::get('site_name', 'UniAcademic') }}</h1>
+                            <p class="text-xs text-slate-500">{{ \App\Services\SettingService::get('site_tagline', 'Academic Management Platform') }}</p>
                         </div>
                     </a>
                 </div>
@@ -239,7 +242,6 @@
         </div>
     </div>
 
-    <script src="{{ mix('js/app.js') }}"></script>
     <script src="/js/sync-manager.js"></script>
 
     <script>

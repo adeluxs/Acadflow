@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\SubscriptionPlan;
@@ -104,7 +106,7 @@ class SubscriptionPlanController extends Controller
             'limits' => $limits,
             'max_courses' => $validated['max_courses'] ?? null,
             'max_students_per_course' => $validated['max_students_per_course'] ?? null,
-            'max_file_upload_size_mb' => $validated['max_file_upload_size_mb'] ?? 50,
+            'max_file_upload_size_mb' => $validated['max_file_upload_size_mb'] ?? (int) (\App\Services\SettingService::getMaxUploadSize() / (1024 * 1024)),
             'max_storage_gb' => $validated['max_storage_gb'] ?? null,
             'allow_group_submissions' => $validated['allow_group_submissions'] ?? true,
             'allow_rubrics' => $validated['allow_rubrics'] ?? true,
@@ -221,7 +223,7 @@ class SubscriptionPlanController extends Controller
             'limits' => $limits,
             'max_courses' => $validated['max_courses'] ?? null,
             'max_students_per_course' => $validated['max_students_per_course'] ?? null,
-            'max_file_upload_size_mb' => $validated['max_file_upload_size_mb'] ?? 50,
+            'max_file_upload_size_mb' => $validated['max_file_upload_size_mb'] ?? (int) (\App\Services\SettingService::getMaxUploadSize() / (1024 * 1024)),
             'max_storage_gb' => $validated['max_storage_gb'] ?? null,
             'allow_group_submissions' => $validated['allow_group_submissions'] ?? true,
             'allow_rubrics' => $validated['allow_rubrics'] ?? true,

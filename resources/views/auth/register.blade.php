@@ -7,7 +7,7 @@
     <div class="bg-white p-8 rounded-lg shadow">
         <h2 class="text-2xl font-bold mb-6 text-center">Create Account</h2>
 
-        <form method="POST" action="{{ route('register') }}">
+        <form method="POST" action="{{ route('store-register') }}">
             @csrf
 
             <div class="mb-4">

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Notification extends Model
 {
+    public $timestamps = false;
+
     protected $fillable = [
         'uuid',
         'user_id',
@@ -22,6 +24,7 @@ class Notification extends Model
         return [
             'data' => 'array',
             'read_at' => 'datetime',
+            'created_at' => 'datetime',
         ];
     }
 
