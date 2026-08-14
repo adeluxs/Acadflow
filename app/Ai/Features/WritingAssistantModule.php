@@ -22,14 +22,14 @@ class WritingAssistantModule
         protected TextExtractor $extractor,
     ) {}
 
-    public function isEnabled(): bool
+    public function isEnabled(?int $universityId = null): bool
     {
-        return (bool) SettingService::get('ai_feature_writing_assistant', true);
+        return (bool) SettingService::get('ai_feature_writing_assistant', true, $universityId);
     }
 
     public function analyze(string $text, ?string $type = null, ?User $user = null): AiResponse
     {
-        if (! $this->isEnabled()) {
+        if (! $this->isEnabled($user?->university_id)) {
             return new AiResponse('disabled', 'writing_assistant', false, summary: 'Writing assistant disabled.');
         }
 

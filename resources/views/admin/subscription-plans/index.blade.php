@@ -122,7 +122,7 @@
                                 Edit
                             </a>
                             @if($plan->can_upgrade || $plan->can_downgrade)
-                                <a href="#" onclick="event.preventDefault(); document.getElementById('plan-{{ $plan->id }}-form').submit();" 
+                                <button type="button" onclick="document.getElementById('plan-{{ $plan->id }}-form').submit();" 
                                    class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm" 
                                    title="{{ $plan->can_upgrade ? 'Allow upgrades' : 'Upgrades disabled' }}">
                                     @if($plan->can_upgrade)

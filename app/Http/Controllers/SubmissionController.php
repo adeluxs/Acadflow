@@ -7,12 +7,18 @@ namespace App\Http\Controllers;
 use App\Events\SubmissionConfirmation;
 use App\Events\SubmissionSubmitted;
 use App\Models\Course;
+use App\Models\Defense;
+use App\Models\DocumentTemplate;
+use App\Models\GeneratedDocument;
 use App\Models\Enrollment;
 use App\Models\Group;
 use App\Models\Semester;
 use App\Models\Submission;
 use App\Models\SubmissionTask;
 use App\Models\SubmissionVersion;
+use App\Services\AcademicContextService;
+use App\Services\Media\MediaSecurityService;
+use App\Services\Media\SafeFileDeliveryService;
 use App\Services\PdfService;
 use App\Services\SettingService;
 use App\Services\SubscriptionService;
@@ -23,11 +29,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class SubmissionController extends Controller
 {
-    public function __construct(private SubscriptionService $subscriptionService)
-    {
+    public function __construct(
+        private SubscriptionService $subscriptionService,
+        private MediaSecurityService $mediaSecurityService,
+        private AcademicContextService $academicContext,
+        private SafeFileDeliveryService $fileDelivery,
+    ) {
     }
 
     public function index()
@@ -75,9 +86,13 @@ class SubmissionController extends Controller
             abort(403);
         }
 
+        $universityId = Auth::user()->university_id;
         $enrollments = Enrollment::where('user_id', Auth::id())
             ->where('status', 'enrolled')
-            ->with('course')
+            ->whereHas('semester', fn ($query) => $query->where('is_active', true)
+                ->whereHas('academicSession', fn ($session) => $session->where('university_id', $universityId)))
+            ->whereHas('course.department.faculty', fn ($query) => $query->where('university_id', $universityId))
+            ->with(['course.department.faculty', 'semester'])
             ->get();
 
         $groups = Group::whereHas('members', function ($query) {
@@ -86,17 +101,27 @@ class SubmissionController extends Controller
             ->with('course')
             ->get();
 
-        // Load available submission tasks if task_id is provided
+        $courseIds = $enrollments->pluck('course_id')->map(fn ($id) => (int) $id)->all();
+        $semesterIds = $enrollments->pluck('semester_id')->map(fn ($id) => (int) $id)->all();
+
+        $availableTasks = SubmissionTask::query()
+            ->whereIn('course_id', $courseIds ?: [-1])
+            ->whereIn('semester_id', $semesterIds ?: [-1])
+            ->where('status', 'published')
+            ->where('is_visible_to_students', true)
+            ->with('course')
+            ->orderBy('due_date')
+            ->get();
+
+        // A task can only be opened when it belongs to one of the student's active enrollments.
         $taskId = $request->query('task_id');
-        $task = null;
-        if ($taskId) {
-            $task = SubmissionTask::where('id', $taskId)
-                ->where('status', 'published')
-                ->where('is_visible_to_students', true)
-                ->first();
+        $task = $taskId ? $availableTasks->firstWhere('id', (int) $taskId) : null;
+        if ($taskId && ! $task) {
+            return redirect()->route('submissions.create')
+                ->with('error', 'That assignment is not available for your active courses.');
         }
 
-        return view('submissions.create', compact('enrollments', 'groups', 'task'));
+        return view('submissions.create', compact('enrollments', 'groups', 'task', 'availableTasks'));
     }
 
     public function store(Request $request)
@@ -110,14 +135,33 @@ class SubmissionController extends Controller
             'group_id' => 'nullable|exists:groups,id',
         ]);
 
-        // If submission_task_id is provided, verify it belongs to the course
+        $course = Course::with('department.faculty')->findOrFail($validated['course_id']);
+        $activeSemester = $this->academicContext->activeSemesterForCourse($course);
+        $enrollment = Enrollment::query()
+            ->where('user_id', Auth::id())
+            ->where('course_id', $course->id)
+            ->where('status', 'enrolled')
+            ->when($activeSemester, fn ($query) => $query->where('semester_id', $activeSemester->id))
+            ->with('semester.academicSession')
+            ->latest('id')
+            ->first();
+
+        if (! $enrollment || ! $enrollment->semester) {
+            return back()->withInput()->with('error', 'You must be actively enrolled in this course before creating a submission.');
+        }
+
+        if ($course->department?->faculty?->university_id !== Auth::user()->university_id) {
+            abort(403, 'The selected course is outside your institution.');
+        }
+
+        // If submission_task_id is provided, verify it belongs to the course and active semester.
         if ($validated['submission_task_id']) {
             $task = SubmissionTask::findOrFail($validated['submission_task_id']);
             if ($task->course_id != $validated['course_id']) {
                 return back()->withInput()->with('error', 'Selected assignment does not belong to the chosen course.');
             }
-            if ($task->status !== 'published') {
-                return back()->withInput()->with('error', 'This assignment is not available for submissions.');
+            if ($task->status !== 'published' || ! $task->is_visible_to_students || $task->semester_id !== $enrollment->semester_id) {
+                return back()->withInput()->with('error', 'This assignment is not available in your active semester.');
             }
         }
 
@@ -157,7 +201,7 @@ class SubmissionController extends Controller
             return back()->withInput()->with('error', 'You can attach at most 10 files per submission.');
         }
 
-        $semester = Semester::where('is_active', true)->first();
+        $semester = $enrollment->semester;
 
         $submissionData = [
             'user_id' => Auth::id(),
@@ -190,28 +234,9 @@ class SubmissionController extends Controller
             // current version.
             $submission->versions()->where('is_current', true)->update(['is_current' => false]);
 
-            $studentId = Auth::user()->student_id ?? 'user'.Auth::id();
-            $nextVersion = $submission->version ?? 1; // fallback if model returns null
-
+            $nextVersion = $submission->version ?? 1;
             foreach ($files as $file) {
-                $extension = $file->getClientOriginalExtension();
-                $safeType = Str::slug($submission->type);
-                $safeDate = now()->format('YmdHis');
-                $generatedName = "{$studentId}_{$safeType}_{$safeDate}.{$extension}";
-                $path = $file->storeAs('submissions/'.$submission->uuid, $generatedName);
-
-                SubmissionVersion::create([
-                    'submission_id' => $submission->id,
-                    'version_number' => $nextVersion,
-                    'file_name' => $file->getClientOriginalName(),
-                    'file_path' => $path,
-                    'file_size' => $file->getSize(),
-                    'mime_type' => $file->getMimeType(),
-                    'uploaded_by' => Auth::id(),
-                    'is_current' => true,
-                ]);
-
-                $nextVersion++;
+                $this->createScannedVersion($submission, $file, $nextVersion++);
             }
 
             // Persist the next version counter so subsequent uploads continue
@@ -277,34 +302,14 @@ class SubmissionController extends Controller
             return back()->with('error', 'A submission can have no more than 20 versions.');
         }
 
-        $submission->versions()->where('is_current', true)->update(['is_current' => false]);
-
-        $studentId = Auth::user()->student_id ?? 'user'.Auth::id();
-        $currentVersion = $submission->version;
-
-        foreach ($files as $file) {
-            $extension = $file->getClientOriginalExtension();
-            $safeType = Str::slug($submission->type);
-            $safeDate = now()->format('YmdHis');
-            $generatedName = "{$studentId}_{$safeType}_{$safeDate}.{$extension}";
-            $path = $file->storeAs('submissions/'.$submission->uuid, $generatedName);
-
-            SubmissionVersion::create([
-                'submission_id' => $submission->id,
-                'version_number' => $currentVersion,
-                'file_name' => $file->getClientOriginalName(),
-                'file_path' => $path,
-                'file_size' => $file->getSize(),
-                'mime_type' => $file->getMimeType(),
-                'uploaded_by' => Auth::id(),
-                'is_current' => true,
-            ]);
-
-            $currentVersion++;
-        }
-
-        $submission->version = $currentVersion;
-        $submission->save();
+        DB::transaction(function () use ($submission, $files): void {
+            $submission->versions()->where('is_current', true)->update(['is_current' => false]);
+            $currentVersion = max(1, (int) $submission->version);
+            foreach ($files as $file) {
+                $this->createScannedVersion($submission, $file, $currentVersion++);
+            }
+            $submission->update(['version' => $currentVersion]);
+        });
 
         return back()->with('success', 'Files uploaded successfully.');
     }
@@ -312,6 +317,16 @@ class SubmissionController extends Controller
     public function submit(Request $request, Submission $submission)
     {
         $this->authorize('submit', $submission);
+
+        if (! $submission->versions()->exists()) {
+            return back()->with('error', 'Upload at least one file before submitting.');
+        }
+        if ($submission->versions()->whereHas('mediaAsset', fn ($query) => $query->whereNotIn('scan_status', ['clean', 'skipped']))->exists()) {
+            return back()->with('error', 'A submission file has not passed security processing.');
+        }
+        if ($submission->task && ($submission->task->status !== 'published' || ! $submission->task->is_visible_to_students)) {
+            return back()->with('error', 'This submission task is no longer accepting work.');
+        }
 
         $status = $submission->status === 'correction_requested' ? 'resubmitted' : 'submitted';
 
@@ -344,12 +359,13 @@ class SubmissionController extends Controller
             abort(403);
         }
 
-        return Storage::download($version->file_path, $version->file_name);
+        $this->assertVersionIsSafe($version);
+        return $this->fileDelivery->stream($version->disk ?: (string) config('filesystems.default', 'local'), $version->file_path, $version->file_name, $version->mime_type, 'attachment');
     }
 
     public function destroy(Submission $submission)
     {
-        $this->authorizeAction('delete', $submission);
+        $this->authorize('delete', $submission);
 
         if ($submission->status !== 'draft') {
             return back()->with('error', 'Only draft submissions can be deleted.');
@@ -365,7 +381,7 @@ class SubmissionController extends Controller
      */
     public function viewFile(Submission $submission, $versionId = null)
     {
-        $this->authorizeAction('view', $submission);
+        $this->authorize('view', $submission);
 
         if ($versionId) {
             $version = $submission->versions()->where('id', $versionId)->firstOrFail();
@@ -373,30 +389,18 @@ class SubmissionController extends Controller
             $version = $submission->versions()->where('is_current', true)->firstOrFail();
         }
 
-        if (! Storage::exists($version->file_path)) {
-            abort(404, 'File not found');
-        }
+        $this->assertVersionIsSafe($version);
+        $mime = $version->mime_type ?: 'application/octet-stream';
+        $inline = str_contains($mime, 'pdf') || str_contains($mime, 'image');
 
-        $mime = $version->mime_type;
-
-        // For PDFs, display inline
-        if (str_contains($mime, 'pdf')) {
-            return response(Storage::get($version->file_path), 200, [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="'.$version->file_name.'"',
-            ]);
-        }
-
-        // For images, display inline
-        if (str_contains($mime, 'image')) {
-            return response(Storage::get($version->file_path), 200, [
-                'Content-Type' => $mime,
-                'Content-Disposition' => 'inline; filename="'.$version->file_name.'"',
-            ]);
-        }
-
-        // For other files, force download
-        return Storage::download($version->file_path, $version->file_name);
+        return $this->fileDelivery->stream(
+            $version->disk ?: (string) config('filesystems.default', 'local'),
+            $version->file_path,
+            $version->file_name,
+            $mime,
+            $inline ? 'inline' : 'attachment',
+            $inline ? ['Content-Security-Policy' => "default-src 'none'; img-src 'self' data:; media-src 'self'"] : []
+        );
     }
 
     /**
@@ -404,7 +408,7 @@ class SubmissionController extends Controller
      */
     public function scheduleDefense(Request $request, Submission $submission)
     {
-        $this->authorizeAction('view', $submission);
+        $this->authorize('grade', $submission);
 
         // Only allow defense scheduling for approved/graded project or seminar submissions
         if (! in_array($submission->type, ['project', 'seminar'])) {
@@ -425,7 +429,7 @@ class SubmissionController extends Controller
      */
     public function storeDefense(Request $request, Submission $submission)
     {
-        $this->authorizeAction('view', $submission);
+        $this->authorize('grade', $submission);
 
         if (! in_array($submission->type, ['project', 'seminar'])) {
             return back()->with('error', 'Defense scheduling is only available for projects and seminars.');
@@ -459,7 +463,7 @@ class SubmissionController extends Controller
      */
     public function generateDocument(Request $request, Submission $submission)
     {
-        $this->authorizeAction('view', $submission);
+        $this->authorize('view', $submission);
 
         if ($submission->status !== 'approved' && $submission->status !== 'graded') {
             return back()->with('error', 'Submission must be approved or graded to generate documents.');
@@ -485,7 +489,7 @@ class SubmissionController extends Controller
             ->first();
 
         if ($existingDoc) {
-            return response()->download(storage_path('app/'.$existingDoc->file_path), $existingDoc->title.'.pdf');
+            return $this->fileDelivery->stream((string) config('filesystems.default', 'local'), $existingDoc->file_path, $existingDoc->title.'.pdf', 'application/pdf', 'attachment');
         }
 
         // Generate document
@@ -501,7 +505,8 @@ class SubmissionController extends Controller
 
         $pdf = Pdf::loadView('pdfs.'.$validated['document_type'], $data);
         $pdf->setPaper('a4', 'portrait');
-        Storage::put($filePath, $pdf->output());
+        $pdfBytes = $pdf->output();
+        Storage::put($filePath, $pdfBytes);
 
         $doc = GeneratedDocument::create([
             'user_id' => $submission->user_id,
@@ -509,11 +514,11 @@ class SubmissionController extends Controller
             'template_id' => $templateId,
             'title' => $submission->title,
             'file_path' => $filePath,
-            'file_size' => Storage::size($filePath),
-            'status' => 'completed',
+            'file_size' => strlen($pdfBytes),
+            'status' => 'ready',
         ]);
 
-        return response()->download(storage_path('app/'.$filePath), $fileName);
+        return $this->fileDelivery->stream((string) config('filesystems.default', 'local'), $filePath, $fileName, 'application/pdf', 'attachment');
     }
 
     /**
@@ -521,7 +526,7 @@ class SubmissionController extends Controller
      */
     public function replaceFiles(Request $request, Submission $submission)
     {
-        $this->authorizeAction('update', $submission);
+        $this->authorize('update', $submission);
 
         // Check if deadline allows editing
         $task = $submission->task;
@@ -539,35 +544,14 @@ class SubmissionController extends Controller
             'files.*' => 'file|mimes:'.$allowedMimes.'|max:'.$maxFileSizeKb,
         ]);
 
-        // Mark old versions as not current
-        $submission->versions()->where('is_current', true)->update(['is_current' => false]);
-
-        $studentId = Auth::user()->student_id ?? 'user'.Auth::id();
-        $currentVersion = $submission->version;
-
-        foreach ($request->file('files') as $file) {
-            $extension = $file->getClientOriginalExtension();
-            $safeType = Str::slug($submission->type);
-            $safeDate = now()->format('YmdHis');
-            $generatedName = $studentId.'_'.$safeType.'_'.$safeDate.'.'.$extension;
-            $path = $file->storeAs('submissions/'.$submission->uuid, $generatedName);
-
-            SubmissionVersion::create([
-                'submission_id' => $submission->id,
-                'version_number' => $currentVersion,
-                'file_name' => $file->getClientOriginalName(),
-                'file_path' => $path,
-                'file_size' => $file->getSize(),
-                'mime_type' => $file->getMimeType(),
-                'uploaded_by' => Auth::id(),
-                'is_current' => true,
-            ]);
-
-            $currentVersion++;
-        }
-
-        $submission->version = $currentVersion;
-        $submission->save();
+        DB::transaction(function () use ($submission, $request): void {
+            $submission->versions()->where('is_current', true)->update(['is_current' => false]);
+            $currentVersion = max(1, (int) $submission->version);
+            foreach ($request->file('files') as $file) {
+                $this->createScannedVersion($submission, $file, $currentVersion++);
+            }
+            $submission->update(['version' => $currentVersion]);
+        });
 
         return back()->with('success', 'Files updated successfully.');
     }
@@ -591,21 +575,13 @@ class SubmissionController extends Controller
 
     public function review(Submission $submission)
     {
-        $user = Auth::user();
-        if (! $user->isLecturer()) {
-            abort(403);
-        }
+        $this->authorize('grade', $submission);
 
-        if (in_array($submission->status, ['submitted', 'resubmitted'])) {
+        if (in_array($submission->status, ['submitted', 'resubmitted'], true)) {
             $submission->update(['status' => 'under_review']);
         }
 
         $submission->load(['user', 'course', 'versions', 'comments.user', 'grade']);
-
-        $canGrade = $submission->course->lecturerAssignments()->where('user_id', $user->id)->exists();
-        if (! $canGrade) {
-            abort(403);
-        }
 
         return view('submissions.review', compact('submission'));
     }
@@ -682,9 +658,9 @@ class SubmissionController extends Controller
             abort(403);
         }
 
-        $submission->update(['status' => 'rejected']);
+        $submission->update(['status' => 'correction_requested']);
 
-        return back()->with('success', 'Submission rejected.');
+        return back()->with('success', 'Major corrections requested.');
     }
 
     public function compare(Request $request, Submission $submission)
@@ -719,7 +695,7 @@ class SubmissionController extends Controller
             abort(403);
         }
 
-        $submission->update(['status' => 'correction_required']);
+        $submission->update(['status' => 'correction_requested']);
 
         return back()->with('success', 'Student notified to correct submission.');
     }
@@ -785,46 +761,43 @@ class SubmissionController extends Controller
         ]);
     }
 
-    protected function authorizeAction($action, $submission)
+    private function createScannedVersion(Submission $submission, \Illuminate\Http\UploadedFile $file, int $versionNumber): SubmissionVersion
     {
-        $user = Auth::user();
+        $asset = $this->mediaSecurityService->store(
+            $file,
+            Auth::user(),
+            $submission,
+            'private',
+            ['purpose' => 'submission_version', 'submission_uuid' => $submission->uuid]
+        );
 
-        if ($action === 'view') {
-            if ($submission->user_id === $user->id) {
-                return;
-            }
-
-            if ($submission->group_id && $submission->group && $submission->group->members()->where('user_id', $user->id)->exists()) {
-                return;
-            }
-
-            if (! $user->isLecturer()) {
-                abort(403);
-            }
-
-            return;
+        if ($asset->scan_status === 'infected') {
+            throw ValidationException::withMessages(['files' => 'An uploaded file failed malware scanning and was quarantined.']);
         }
 
-        if (in_array($action, ['update', 'submit'])) {
-            if ($submission->user_id === $user->id) {
-                if (in_array($submission->status, ['draft', 'correction_requested'])) {
-                    return;
-                }
-            }
-
-            if ($submission->group_id && $submission->group && $submission->group->members()->where('user_id', $user->id)->exists()) {
-                if (in_array($submission->status, ['draft', 'correction_requested'])) {
-                    return;
-                }
-            }
-
-            abort(403);
+        if (! in_array($asset->scan_status, ['clean', 'skipped'], true)) {
+            throw ValidationException::withMessages(['files' => 'The file could not pass the configured security scan.']);
         }
 
-        if ($action === 'delete' && $submission->user_id === $user->id && $submission->status === 'draft') {
-            return;
-        }
-
-        abort(403);
+        return $submission->versions()->create([
+            'version_number' => $versionNumber,
+            'file_name' => $asset->original_name,
+            'file_path' => $asset->path,
+            'disk' => $asset->disk,
+            'media_asset_id' => $asset->id,
+            'file_size' => $asset->size_bytes,
+            'mime_type' => $asset->mime_type,
+            'uploaded_by' => Auth::id(),
+            'is_current' => true,
+        ]);
     }
+
+    private function assertVersionIsSafe(SubmissionVersion $version): void
+    {
+        $version->loadMissing('mediaAsset');
+        if ($version->mediaAsset) {
+            abort_unless(in_array($version->mediaAsset->scan_status, ['clean', 'skipped'], true), 423, 'This file is unavailable until security checks pass.');
+        }
+    }
+
 }

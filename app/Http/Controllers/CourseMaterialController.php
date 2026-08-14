@@ -7,20 +7,62 @@ use App\Models\Course;
 use App\Models\CourseMaterial;
 use App\Models\Semester;
 use App\Models\User;
+use App\Services\AcademicContextService;
+use App\Services\Media\MediaSecurityService;
+use App\Services\Media\SafeFileDeliveryService;
 use App\Services\PdfService;
 use App\Services\SettingService;
 use App\Services\SubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class CourseMaterialController extends Controller
 {
     public function __construct(
         private SubscriptionService $subscriptionService,
-        private PdfService $pdfService
+        private PdfService $pdfService,
+        private MediaSecurityService $mediaSecurityService,
+        private AcademicContextService $academicContext,
+        private SafeFileDeliveryService $fileDelivery,
     ) {}
+
+    /**
+     * List all materials visible to the authenticated user.
+     */
+    public function all()
+    {
+        $user = Auth::user();
+        $query = CourseMaterial::query()
+            ->with(['course.department.faculty', 'uploader'])
+            ->where('is_visible', true)
+            ->latest('published_at');
+
+        if ($user->isStudent()) {
+            $courseIds = $user->enrollments()
+                ->where('status', 'enrolled')
+                ->pluck('course_id');
+
+            $query->where(function ($q) use ($courseIds) {
+                $q->where('is_public', true)
+                    ->orWhereIn('course_id', $courseIds);
+            });
+        } elseif ($user->isLecturer()) {
+            $courseIds = $user->lecturerAssignments()->pluck('course_id');
+            $query->whereIn('course_id', $courseIds);
+        } elseif ($user->isDepartmentAdmin()) {
+            $query->whereHas('course', fn ($q) => $q->where('department_id', $user->department_id));
+        } elseif ($user->isUniversityAdmin()) {
+            $query->whereHas('course.department.faculty', fn ($q) => $q->where('university_id', $user->university_id));
+        }
+
+        $materials = $query->paginate(20);
+
+        return view('materials.all', compact('materials'));
+    }
 
     /**
      * List materials for a course
@@ -28,7 +70,7 @@ class CourseMaterialController extends Controller
     public function index(Course $course)
     {
         $user = Auth::user();
-        $semester = Semester::active()->first();
+        $semester = $this->academicContext->activeSemesterForCourse($course);
 
         $query = $course->materials()
             ->where('semester_id', $semester?->id)
@@ -121,39 +163,47 @@ class CourseMaterialController extends Controller
             return back()->withErrors(['file' => $subscriptionErrors]);
         }
 
-        $semester = Semester::active()->firstOrFail();
-        $fileName = $file->getClientOriginalName();
-        $filePath = $file->storeAs(
-            'course-materials/'.$course->uuid.'/'.$semester->id,
-            Str::uuid().'_'.$fileName
-        );
+        $universityId = $course->loadMissing('department.faculty')->department?->faculty?->university_id;
+        abort_unless($universityId && $universityId === $user->university_id, 403);
+        $semester = Semester::active()
+            ->whereHas('academicSession', fn ($query) => $query->where('university_id', $universityId))
+            ->firstOrFail();
 
-        $material = CourseMaterial::create([
-            'uuid' => Str::uuid(),
-            'course_id' => $course->id,
-            'semester_id' => $semester->id,
-            'uploaded_by' => $user->id,
-            'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
-            'type' => $validated['type'],
-            'file_name' => $fileName,
-            'file_path' => $filePath,
-            'mime_type' => $file->getMimeType(),
-            'file_size' => $file->getSize(),
-            'topic' => $validated['topic'] ?? null,
-            'week_number' => $validated['week_number'] ?? null,
-            'sequence_order' => $validated['sequence_order'] ?? 0,
-            'is_public' => $validated['is_public'] ?? false,
-            'requires_enrollment' => $validated['requires_enrollment'] ?? true,
-            'is_visible' => true,
-            'published_at' => now(),
-        ]);
+        $material = DB::transaction(function () use ($file, $user, $course, $semester, $validated): CourseMaterial {
+            $asset = $this->mediaSecurityService->store($file, $user, $course, ($validated['is_public'] ?? false) ? 'public' : 'institution', [
+                'purpose' => 'course_material',
+                'course_uuid' => $course->uuid,
+                'semester_id' => $semester->id,
+            ]);
+            if (! in_array($asset->scan_status, ['clean', 'skipped'], true)) {
+                throw ValidationException::withMessages(['file' => 'The material did not pass the configured security scan.']);
+            }
 
-        // Log access
-        $material->accessLogs()->create([
-            'user_id' => $user->id,
-            'action' => 'uploaded',
-        ]);
+            $material = CourseMaterial::create([
+                'uuid' => Str::uuid(),
+                'course_id' => $course->id,
+                'semester_id' => $semester->id,
+                'uploaded_by' => $user->id,
+                'title' => $validated['title'],
+                'description' => $validated['description'] ?? null,
+                'type' => $validated['type'],
+                'file_name' => $asset->original_name,
+                'file_path' => $asset->path,
+                'disk' => $asset->disk,
+                'media_asset_id' => $asset->id,
+                'mime_type' => $asset->mime_type,
+                'file_size' => $asset->size_bytes,
+                'topic' => $validated['topic'] ?? null,
+                'week_number' => $validated['week_number'] ?? null,
+                'sequence_order' => $validated['sequence_order'] ?? 0,
+                'is_public' => $validated['is_public'] ?? false,
+                'requires_enrollment' => $validated['requires_enrollment'] ?? true,
+                'is_visible' => true,
+                'published_at' => now(),
+            ]);
+            $asset->update(['attachable_type' => $material->getMorphClass(), 'attachable_id' => $material->id]);
+            return $material;
+        });
 
         // Fire event to notify enrolled students
         $enrolledStudents = User::whereHas('enrollments', function ($q) use ($course, $semester) {
@@ -223,14 +273,16 @@ class CourseMaterialController extends Controller
             'action' => 'downloaded',
         ]);
 
-        if (! Storage::exists($material->file_path)) {
-            abort(404, 'File not found');
+        $material->loadMissing('mediaAsset');
+        if ($material->mediaAsset) {
+            abort_unless(in_array($material->mediaAsset->scan_status, ['clean', 'skipped'], true), 423, 'This file is unavailable until security checks pass.');
         }
-
-        return Storage::download(
+        return $this->fileDelivery->stream(
+            $material->disk ?: (string) config('filesystems.default', 'local'),
             $material->file_path,
             $material->file_name,
-            ['Content-Type' => $material->mime_type]
+            $material->mime_type,
+            'attachment'
         );
     }
 
@@ -317,11 +369,11 @@ class CourseMaterialController extends Controller
 
         $this->authorize('delete', $material);
 
-        // Delete file from storage
-        if (Storage::exists($material->file_path)) {
-            Storage::delete($material->file_path);
+        $storage = Storage::disk($material->disk ?: config('filesystems.default', 'local'));
+        if ($storage->exists($material->file_path)) {
+            $storage->delete($material->file_path);
         }
-
+        $material->mediaAsset?->delete();
         $material->delete();
 
         return redirect()->route('courses.show', $course)

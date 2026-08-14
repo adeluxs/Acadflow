@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Session Expired - {{ \App\Services\SettingService::get('site_name', 'UniAcademic') }}</title>
+    <title>Session Expired - {{ \App\Services\SettingService::get('site_name', 'AcadFlow') }}</title>
     <style>
         * {
             margin: 0;

@@ -34,10 +34,31 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'phone' => fake()->phoneNumber(),
             'avatar' => null,
+            'account_type' => 'student',
             'role' => 'student',
             'is_active' => true,
+            'onboarding_completed_at' => now(),
+            'onboarding_version' => 1,
             'remember_token' => Str::random(10),
         ];
+    }
+
+
+    public function withoutOnboarding(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'onboarding_completed_at' => null,
+        ]);
+    }
+
+    public function member(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'member',
+            'account_type' => 'independent_professional',
+            'university_id' => null,
+            'department_id' => null,
+        ]);
     }
 
     /**

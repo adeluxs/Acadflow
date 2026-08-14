@@ -14,6 +14,8 @@ class SubmissionVersion extends Model
         'version_number',
         'file_name',
         'file_path',
+        'disk',
+        'media_asset_id',
         'file_size',
         'mime_type',
         'uploaded_by',
@@ -34,6 +36,8 @@ class SubmissionVersion extends Model
     {
         return $this->belongsTo(Submission::class);
     }
+
+    public function mediaAsset(): BelongsTo { return $this->belongsTo(MediaAsset::class); }
 
     public function uploader(): BelongsTo
     {

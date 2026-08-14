@@ -27,16 +27,13 @@ class UserPolicy
 
     public function create(User $user): bool
     {
-        if (! $user->hasPermission(Permission::CREATE_USERS)) {
-            return false;
-        }
-
-        return true;
+        return $user->hasPermission(Permission::CREATE_USERS)
+            || $user->isDepartmentAdmin();
     }
 
     public function canInviteRole(User $user, string $role): bool
     {
-        if (! $user->hasPermission(Permission::CREATE_USERS)) {
+        if (! $user->hasPermission(Permission::CREATE_USERS) && ! $user->isDepartmentAdmin()) {
             return false;
         }
 

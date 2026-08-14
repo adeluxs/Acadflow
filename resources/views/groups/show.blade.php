@@ -1,161 +1,35 @@
 @extends('layouts.app')
-
-@section('title', $group->name)
-
+@section('title',$group->name)
 @section('content')
-<div class="container mx-auto px-4 py-8">
-    <div class="max-w-4xl mx-auto">
-        <!-- Group Header -->
-        <div class="bg-white rounded-lg shadow p-6 mb-6">
-            <div class="flex justify-between items-start mb-4">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900">{{ $group->name }}</h1>
-                    <p class="text-gray-600 mt-1">{{ $group->course->code }} - {{ $group->course->name }}</p>
-                </div>
-                <div class="text-right">
-                    <span class="px-3 py-1 rounded-full text-sm font-semibold 
-                        @if($group->status === 'complete') bg-green-100 text-green-800
-                        @elseif($group->status === 'forming') bg-yellow-100 text-yellow-800
-                        @else bg-gray-100 text-gray-800 @endif">
-                        {{ ucfirst($group->status) }}
-                    </span>
-                    @if($group->leader_id === auth()->id())
-                        <div class="mt-2">
-                            <a href="{{ route('groups.edit', $group) }}" class="text-blue-600 hover:underline text-sm">
-                                Edit Group
-                            </a>
-                        </div>
-                    @endif
-                </div>
-            </div>
+<div class="mx-auto max-w-7xl space-y-6 px-4 py-8">
+@if($group->coverMedia)<img src="{{ route('media.preview',$group->coverMedia) }}" alt="{{ $group->name }} cover" class="h-64 w-full rounded-3xl object-cover">@endif
+<header class="rounded-3xl bg-slate-900 p-7 text-white"><div class="flex flex-col gap-5 md:flex-row md:items-end md:justify-between"><div><p class="text-sm font-semibold text-blue-300">{{ str($group->group_type)->headline() }} group · {{ ucfirst($group->visibility) }}</p><h1 class="mt-2 text-3xl font-bold">{{ $group->name }}</h1><p class="mt-3 max-w-3xl text-slate-300">{{ $group->description }}</p></div><div class="flex flex-wrap gap-2">@can('update',$group)<a href="{{ route('groups.edit',$group) }}" class="rounded-xl bg-white px-4 py-2 font-semibold text-slate-900">Manage</a>@endcan
+@if(!$group->members->contains('user_id',auth()->id()))<form method="POST" action="{{ route('groups.join',$group) }}">@csrf<button class="rounded-xl bg-blue-500 px-4 py-2 font-semibold">{{ $group->membership_mode==='open'?'Join group':'Request to join' }}</button></form>@elseif($group->leader_id!==auth()->id())<form method="POST" action="{{ route('groups.leave',$group) }}">@csrf @method('DELETE')<button class="rounded-xl border border-slate-500 px-4 py-2">Leave</button></form>@endif</div></div></header>
+<div class="grid gap-6 xl:grid-cols-[2fr_1fr]">
+<main class="space-y-6">
+<section class="rounded-2xl border bg-white p-6"><h2 class="text-xl font-bold">Discussion</h2>@php($activeMember=$group->members->contains(fn($membership)=>$membership->user_id===auth()->id()&&$membership->status==='active')) @if($activeMember || auth()->user()?->isAdmin())<form method="POST" action="{{ route('groups.comments.store',$group) }}" class="mt-4">@csrf<textarea name="body" required rows="3" placeholder="Share an update, question, or decision…" class="w-full rounded-xl border-slate-300"></textarea><button class="mt-2 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white">Post</button></form>@else<div class="mt-4 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">Join the group to participate in its working discussion.</div>@endif<div class="mt-6 space-y-4">@forelse($comments as $comment)<article class="rounded-xl bg-slate-50 p-4"><div class="text-sm font-semibold">{{ $comment->user->full_name }} <span class="font-normal text-slate-500">· {{ $comment->created_at->diffForHumans() }}</span></div><p class="mt-2 whitespace-pre-line text-slate-700">{{ $comment->body }}</p></article>@empty<p class="text-sm text-slate-500">No discussion yet. Start the working conversation.</p>@endforelse</div>{{ $comments->links() }}</section>
+<section class="rounded-2xl border bg-white p-6"><div class="flex items-center justify-between"><h2 class="text-xl font-bold">Tasks</h2><span class="text-sm text-slate-500">{{ $group->tasks->count() }} total</span></div>@can('update',$group)<form method="POST" action="{{ route('groups.tasks.store',$group) }}" class="mt-4 grid gap-3 md:grid-cols-4">@csrf<input name="title" required placeholder="Task title" class="rounded-xl border-slate-300 md:col-span-2"><select name="assignee_id" class="rounded-xl border-slate-300"><option value="">Unassigned</option>@foreach($group->members as $member)<option value="{{ $member->user_id }}">{{ $member->user->full_name }}</option>@endforeach</select><input type="hidden" name="priority" value="normal"><button class="rounded-xl bg-slate-900 px-4 py-2 text-white">Add task</button></form>@endcan<div class="mt-4 space-y-3">@forelse($group->tasks as $task)<div class="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-semibold">{{ $task->title }}</p><p class="text-sm text-slate-500">{{ $task->assignee?->full_name ?? 'Unassigned' }}{{ $task->due_at ? ' · due '.$task->due_at->format('M j') : '' }}</p></div><form method="POST" action="{{ route('groups.tasks.update',$task) }}">@csrf @method('PATCH')<select name="status" onchange="this.form.submit()" class="rounded-lg border-slate-300 text-sm">@foreach(['open','in_progress','blocked','completed','cancelled'] as $status)<option value="{{ $status }}" @selected($task->status===$status)>{{ str($status)->headline() }}</option>@endforeach</select></form></div>@empty<p class="text-sm text-slate-500">No tasks have been created.</p>@endforelse</div></section>
+<section class="rounded-2xl border bg-white p-6"><h2 class="text-xl font-bold">Resources</h2><form method="POST" enctype="multipart/form-data" action="{{ route('groups.resources.store',$group) }}" class="mt-4 grid gap-3 md:grid-cols-4">@csrf<input name="title" required placeholder="Resource title" class="rounded-xl border-slate-300"><input type="file" name="file" class="rounded-xl border border-slate-300 p-2"><input type="url" name="external_url" placeholder="Optional external URL" class="rounded-xl border-slate-300"><select name="visibility" class="rounded-xl border-slate-300"><option value="members">Members only</option>@if($group->visibility==='public')<option value="public">Public</option>@endif</select><textarea name="description" rows="2" placeholder="Optional description" class="rounded-xl border-slate-300 md:col-span-3"></textarea><button class="rounded-xl bg-slate-900 px-4 py-2 text-white">Share resource</button></form><div class="mt-4 grid gap-3 sm:grid-cols-2">@forelse($group->resources as $resource)<article class="rounded-xl border p-4"><p class="font-semibold">{{ $resource->title }}</p><p class="mt-1 text-sm text-slate-500">Shared by {{ $resource->uploader->full_name }} · {{ ucfirst($resource->visibility) }}</p>@if($resource->description)<p class="mt-2 text-sm text-slate-600">{{ $resource->description }}</p>@endif<div class="mt-3 flex flex-wrap gap-2">@if($resource->external_url)<a href="{{ $resource->external_url }}" target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm">Open link</a>@endif
+@if($resource->media)<a href="{{ route('media.preview',$resource->media) }}" class="rounded-lg border px-3 py-1.5 text-sm">Preview</a><form method="POST" action="{{ route('media.token',$resource->media) }}">@csrf<button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white">Download</button></form>@endif</div></article>@empty<p class="text-sm text-slate-500">No shared resources yet.</p>@endforelse</div></section>
+</main>
+<aside class="space-y-6"><section class="rounded-2xl border bg-white p-5"><h2 class="font-bold">Members ({{ $group->members->count() }}/{{ $group->max_members }})</h2><div class="mt-4 space-y-3">@foreach($group->members as $member)<div class="flex items-center justify-between"><div><p class="font-medium">{{ $member->user->full_name }}</p><p class="text-xs text-slate-500">{{ ucfirst($member->role) }}</p></div>@can('manageMembers',$group)
+@if($member->user_id!==$group->leader_id)<form method="POST" action="{{ route('groups.members.destroy',[$group,$member->user]) }}">@csrf @method('DELETE')<button class="text-xs text-red-600">Remove</button></form>@endif
+@endcan</div>@endforeach</div></section>
+@can('manageMembers',$group)<section class="rounded-2xl border bg-white p-5"><h2 class="font-bold">Invite a user</h2><form method="POST" action="{{ route('groups.invitations.store',$group) }}" class="mt-3 space-y-3">@csrf<input type="number" name="user_id" required placeholder="User ID" class="w-full rounded-xl border-slate-300"><input type="hidden" name="role" value="member"><button class="w-full rounded-xl bg-blue-600 px-4 py-2 text-white">Send invitation</button></form>@if($group->joinRequests->isNotEmpty())<h3 class="mt-5 font-semibold">Pending requests</h3>@foreach($group->joinRequests as $joinRequest)<div class="mt-3 rounded-xl bg-slate-50 p-3"><p class="text-sm font-medium">{{ $joinRequest->user->full_name }}</p><form method="POST" action="{{ route('groups.join-requests.review',$joinRequest) }}" class="mt-2 flex gap-2">@csrf<button name="decision" value="approve" class="text-sm text-green-700">Approve</button><button name="decision" value="reject" class="text-sm text-red-700">Reject</button></form></div>@endforeach
+@endif</section>@endcan
+<section class="rounded-2xl border bg-white p-5"><h2 class="font-bold">Connected work</h2><dl class="mt-3 space-y-2 text-sm"><div><dt class="text-slate-500">Course</dt><dd>{{ $group->course?->name ?? 'Not linked' }}</dd></div><div><dt class="text-slate-500">Community</dt><dd>{{ $group->community?->name ?? 'Not linked' }}</dd></div><div><dt class="text-slate-500">Research</dt><dd>{{ $group->researchProject?->title ?? 'Not linked' }}</dd></div><div><dt class="text-slate-500">Events / challenges</dt><dd>{{ $group->events->count() }} / {{ $group->challenges->count() }}</dd></div></dl></section></aside>
+</div></div>
 
-            <p class="text-gray-700 mb-4">{{ $group->description }}</p>
+@auth
+<section class="rounded-2xl border bg-white p-5">
+    <h2 class="font-bold">Report group</h2>
+    <form method="POST" action="{{ route('groups.report', $group) }}" class="mt-3 space-y-3">
+        @csrf
+        <select name="reason" required class="w-full rounded-xl border-slate-300"><option value="spam">Spam</option><option value="harassment">Harassment</option><option value="misinformation">Misinformation</option><option value="privacy">Privacy concern</option><option value="policy">Policy violation</option><option value="other">Other</option></select>
+        <textarea name="details" rows="3" class="w-full rounded-xl border-slate-300" placeholder="Optional details"></textarea>
+        <button class="w-full rounded-xl border px-4 py-2 text-sm font-semibold">Submit report</button>
+    </form>
+</section>
+@endauth
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                    <p class="text-gray-600">Leader</p>
-                    <p class="font-medium">{{ $group->leader->first_name }} {{ $group->leader->last_name }}</p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Members</p>
-                    <p class="font-medium">{{ $group->members->count() }} / {{ $group->max_members }}</p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Created</p>
-                    <p class="font-medium">{{ $group->formed_at->format('M d, Y') }}</p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Submissions</p>
-                    <p class="font-medium">{{ $group->submissions->count() }}</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Members Section -->
-        <div class="bg-white rounded-lg shadow p-6 mb-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold">Group Members</h2>
-                @if($group->status === 'forming' && $group->members->count() < $group->max_members && !$group->members->contains('user_id', auth()->id()))
-                    <form method="POST" action="{{ route('groups.join', $group) }}">
-                        @csrf
-                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                            Join Group
-                        </button>
-                    </form>
-                @endif
-            </div>
-
-            <div class="space-y-3">
-                @foreach($group->members as $member)
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-                        <div class="flex items-center">
-                            <div>
-                                <p class="font-medium">{{ $member->user->first_name }} {{ $member->user->last_name }}</p>
-                                <p class="text-sm text-gray-600">{{ ucfirst($member->role) }}</p>
-                            </div>
-                        </div>
-                        @if($group->leader_id === auth()->id() && $member->user_id !== auth()->id())
-                            <form method="POST" action="{{ route('groups.remove-member', $group) }}" 
-                                  onsubmit="return confirm('Are you sure you want to remove this member?')">
-                                @csrf
-                                @method('DELETE')
-                                <input type="hidden" name="user_id" value="{{ $member->user_id }}">
-                                <button type="submit" class="text-red-600 hover:text-red-800 text-sm">
-                                    Remove
-                                </button>
-                            </form>
-                        @elseif($member->user_id === auth()->id() && $member->role !== 'leader')
-                            <form method="POST" action="{{ route('groups.leave', $group) }}" 
-                                  onsubmit="return confirm('Are you sure you want to leave this group?')">
-                                @csrf
-                                <button type="submit" class="text-red-600 hover:text-red-800 text-sm">
-                                    Leave Group
-                                </button>
-                            </form>
-                        @endif
-                    </div>
-                @endforeach
-            </div>
-
-            @if($group->leader_id === auth()->id() && $group->members->count() > 1)
-                <div class="mt-6 pt-4 border-t">
-                    <h3 class="text-lg font-medium mb-3">Transfer Leadership</h3>
-                    <form method="POST" action="{{ route('groups.transfer-leadership', $group) }}">
-                        @csrf
-                        <div class="flex gap-3">
-                            <select name="new_leader_id" required class="flex-1 px-3 py-2 border border-gray-300 rounded-md">
-                                <option value="">Select new leader</option>
-                                @foreach($group->members->where('user_id', '!=', auth()->id()) as $member)
-                                    <option value="{{ $member->user_id }}">{{ $member->user->first_name }} {{ $member->user->last_name }}</option>
-                                @endforeach
-                            </select>
-                            <button type="submit" class="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700">
-                                Transfer
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            @endif
-        </div>
-
-        <!-- Submissions Section -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold mb-4">Group Submissions</h2>
-
-            @if($group->submissions->isEmpty())
-                <p class="text-gray-600">No submissions yet.</p>
-            @else
-                <div class="space-y-3">
-                    @foreach($group->submissions as $submission)
-                        <div class="p-4 border rounded">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <h3 class="font-medium">{{ $submission->title }}</h3>
-                                    <p class="text-sm text-gray-600">{{ $submission->type }} • {{ $submission->status }}</p>
-                                </div>
-                                <a href="{{ route('submissions.show', $submission) }}" class="text-blue-600 hover:underline">
-                                    View
-                                </a>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            @endif
-        </div>
-
-        <!-- Actions -->
-        @if($group->leader_id === auth()->id())
-            <div class="mt-6 flex gap-3">
-                <form method="POST" action="{{ route('groups.destroy', $group) }}" 
-                      onsubmit="return confirm('Are you sure you want to delete this group? This action cannot be undone.')">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-                        Delete Group
-                    </button>
-                </form>
-            </div>
-        @endif
-    </div>
-</div>
 @endsection

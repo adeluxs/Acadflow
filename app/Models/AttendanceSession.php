@@ -69,6 +69,11 @@ class AttendanceSession extends Model
         return $this->hasMany(AttendanceRecord::class);
     }
 
+    public function hasGeofence(): bool
+    {
+        return $this->geofence_lat !== null && $this->geofence_lng !== null && $this->geofence_radius > 0;
+    }
+
     public function getRouteKeyName(): string
     {
         return 'uuid';

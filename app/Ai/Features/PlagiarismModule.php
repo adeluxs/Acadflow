@@ -24,14 +24,14 @@ class PlagiarismModule
 {
     public function __construct(protected AiManager $manager) {}
 
-    public function isEnabled(): bool
+    public function isEnabled(?int $universityId = null): bool
     {
-        return (bool) SettingService::get('ai_feature_plagiarism', true);
+        return (bool) SettingService::get('ai_feature_plagiarism', true, $universityId);
     }
 
-    public function threshold(): int
+    public function threshold(?int $universityId = null): int
     {
-        return (int) SettingService::get('ai_similarity_threshold', config('ai.similarity_threshold', 20));
+        return (int) SettingService::get('ai_similarity_threshold', config('ai.similarity_threshold', 20), $universityId);
     }
 
     /**
@@ -39,23 +39,23 @@ class PlagiarismModule
      */
     public function analyze(Submission $submission, ?User $user = null): AiResponse
     {
-        if (! $this->isEnabled()) {
+        if (! $this->isEnabled($user?->university_id ?? $submission->user?->university_id)) {
             return new AiResponse('disabled', 'plagiarism', false, summary: 'Plagiarism check disabled.');
         }
 
-        $context = $this->buildContext($submission);
+        $context = $this->buildContext($submission, $user?->university_id ?? $submission->user?->university_id);
 
         return $this->manager->analyze('plagiarism', $context, $user, $submission->uuid);
     }
 
-    protected function buildContext(Submission $submission): array
+    protected function buildContext(Submission $submission, ?int $universityId = null): array
     {
         $text = '';
         $version = $submission->versions()->where('is_current', true)->first()
             ?? $submission->versions()->latest()->first();
 
         if ($version && class_exists(TextExtractor::class)) {
-            $text = app(TextExtractor::class)->fromPath($version->file_path);
+            $text = app(TextExtractor::class)->fromVersion($version);
         }
 
         // Build local corpus fingerprints from prior submissions:
@@ -81,7 +81,7 @@ class PlagiarismModule
                 $corpus[] = [
                     'submission_uuid' => $other->uuid,
                     'title' => $other->title,
-                    'shingles' => $this->shingles(app(TextExtractor::class)->fromPath($ov->file_path)),
+                    'shingles' => $this->shingles(app(TextExtractor::class)->fromVersion($ov)),
                 ];
             }
         }
@@ -91,7 +91,7 @@ class PlagiarismModule
             'type' => $submission->type,
             'text' => $text,
             'local_corpus' => $corpus,
-            'threshold' => $this->threshold(),
+            'threshold' => $this->threshold($universityId),
         ];
     }
 

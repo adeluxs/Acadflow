@@ -45,7 +45,7 @@ class DeadlineApproaching
             'due_date' => $this->submissionTask->due_date?->format('M d, Y H:i'),
             'type' => 'deadline_approaching',
             'message' => "Deadline approaching: {$this->submissionTask->title}",
-            'url' => route('submission-tasks.show', [$this->submissionTask->course, $this->submissionTask]),
+            'url' => route('submission-tasks.student.show', [$this->submissionTask->course, $this->submissionTask]),
         ];
     }
 }

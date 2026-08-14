@@ -11,6 +11,7 @@ enum UserRole: string
     case DEPARTMENT_ADMIN = 'department_admin';
     case LECTURER = 'lecturer';
     case STUDENT = 'student';
+    case MEMBER = 'member';
 
     public function label(): string
     {
@@ -20,6 +21,7 @@ enum UserRole: string
             self::DEPARTMENT_ADMIN => 'Department Admin',
             self::LECTURER => 'Lecturer',
             self::STUDENT => 'Student',
+            self::MEMBER => 'Platform Member',
         };
     }
 }

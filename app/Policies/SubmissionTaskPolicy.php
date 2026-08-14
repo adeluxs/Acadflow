@@ -43,7 +43,11 @@ class SubmissionTaskPolicy
 
         // Students can view published, visible tasks for their enrolled courses
         if ($user->isStudent() && $task->is_visible_to_students && $task->status === 'published') {
-            return $user->enrollments()->where('course_id', $task->course_id)->exists();
+            return $user->enrollments()
+                ->where('course_id', $task->course_id)
+                ->where('semester_id', $task->semester_id)
+                ->where('status', 'enrolled')
+                ->exists();
         }
 
         return false;
@@ -68,8 +72,8 @@ class SubmissionTaskPolicy
             return false;
         }
 
-        // Creator can edit their own tasks
-        if ($task->created_by === $user->id) {
+        // Creator can edit only while they still have legitimate course access.
+        if ($task->created_by === $user->id && $user->canAccessCourse($task->course)) {
             return true;
         }
 
@@ -78,8 +82,12 @@ class SubmissionTaskPolicy
             return true;
         }
 
-        // University admin and super admin can edit any
-        return $user->isUniversityAdmin() || $user->isSuperAdmin();
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return $user->isUniversityAdmin()
+            && $user->university_id === $task->course->department->faculty->university_id;
     }
 
     /**
@@ -126,8 +134,8 @@ class SubmissionTaskPolicy
      */
     public function grantExtension(User $user, SubmissionTask $task): bool
     {
-        // Creator of task can grant extensions
-        if ($task->created_by === $user->id) {
+        // Creator can grant extensions only while still authorized for the course.
+        if ($task->created_by === $user->id && $user->canAccessCourse($task->course)) {
             return true;
         }
 
@@ -136,7 +144,12 @@ class SubmissionTaskPolicy
             return true;
         }
 
-        return $user->isUniversityAdmin() || $user->isSuperAdmin();
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return $user->isUniversityAdmin()
+            && $user->university_id === $task->course->department->faculty->university_id;
     }
 
     /**

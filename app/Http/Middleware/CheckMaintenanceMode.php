@@ -17,7 +17,7 @@ class CheckMaintenanceMode
     {
         // Allow super admins to bypass maintenance mode
         if (SettingService::isMaintenanceMode() && ! ($request->user() && $request->user()->isSuperAdmin())) {
-            $bypassRoutes = SettingService::get('maintenance_mode_bypass_routes', 'login,logout,api/*');
+            $bypassRoutes = SettingService::getGlobal('maintenance_mode_bypass_routes', 'login,logout,api/*');
             $bypassRoutes = array_map('trim', explode(',', $bypassRoutes));
             
             $isBypassed = false;

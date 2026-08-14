@@ -16,7 +16,10 @@ use App\Models\UserSubscription;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class AdminController extends Controller
 {
@@ -80,14 +83,69 @@ class AdminController extends Controller
         if ($user->isDepartmentAdmin()) {
             $departments = Department::where('id', $user->department_id)->where('is_active', true)->get();
         } elseif ($user->isUniversityAdmin()) {
-            $departments = Department::whereIn('id',
-                Faculty::where('university_id', $user->university_id)->pluck('id')
-            )->where('is_active', true)->get();
+            $departments = Department::whereHas('faculty', fn ($faculty) => $faculty
+                ->where('university_id', $user->university_id))
+                ->where('is_active', true)
+                ->get();
         } else {
             $departments = Department::where('is_active', true)->get();
         }
 
         return view('admin.users', compact('users', 'departments'));
+    }
+
+    public function editUser(Request $request, User $user)
+    {
+        $this->authorize('update', $user);
+        $departments = $this->departmentsForAdmin($request->user());
+
+        return view('admin.users-edit', compact('user', 'departments'));
+    }
+
+    public function updateUser(Request $request, User $user)
+    {
+        $this->authorize('update', $user);
+        $actor = $request->user();
+
+        abort_if($user->isSuperAdmin() && ! $actor->isSuperAdmin(), 403);
+        abort_if($actor->id === $user->id && ! $request->boolean('is_active'), 422, 'You cannot deactivate your own account.');
+
+        $data = $request->validate([
+            'first_name' => ['required', 'string', 'max:100'],
+            'last_name' => ['required', 'string', 'max:100'],
+            'role' => ['required', Rule::in(['member', 'student', 'lecturer', 'department_admin', 'university_admin'])],
+            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        if ($data['role'] !== $user->role && ! Gate::allows('canInviteRole', [User::class, $data['role']])) {
+            abort(403, 'You cannot assign this role.');
+        }
+
+        if (in_array($data['role'], ['student', 'lecturer', 'department_admin'], true) && empty($data['department_id'])) {
+            throw ValidationException::withMessages(['department_id' => ['An institutional department is required for this role.']]);
+        }
+
+        $department = empty($data['department_id']) ? null : Department::with('faculty')->findOrFail($data['department_id']);
+        if ($department) {
+            $departmentUniversityId = $department->faculty?->university_id;
+            if ($actor->isDepartmentAdmin() && $department->id !== $actor->department_id) abort(403);
+            if ($actor->isUniversityAdmin() && $departmentUniversityId !== $actor->university_id) abort(403);
+        }
+
+        if ($data['role'] === 'university_admin' && ! $actor->isSuperAdmin()) abort(403);
+
+        $user->update([
+            'first_name' => $data['first_name'],
+            'last_name' => $data['last_name'],
+            'role' => $data['role'],
+            'department_id' => $department?->id,
+            'faculty_id' => $department?->faculty_id,
+            'university_id' => $data['role'] === 'member' ? null : ($department?->faculty?->university_id ?? $user->university_id),
+            'is_active' => (bool) $data['is_active'],
+        ]);
+
+        return redirect()->route('admin.users')->with('success', 'User account updated.');
     }
 
     // Admin: Invite user
@@ -96,107 +154,70 @@ class AdminController extends Controller
         $this->authorize('create', User::class);
 
         $validated = $request->validate([
-            'email' => 'required|email|unique:users',
-            'role' => 'required|in:lecturer,student,department_admin',
-            'department_id' => 'required_if:role,lecturer,department_admin',
+            'email' => ['required', 'email', 'unique:users,email'],
+            'role' => ['required', 'in:lecturer,student,department_admin'],
+            'department_id' => ['required', 'integer', 'exists:departments,id'],
         ]);
 
         if (! Gate::allows('canInviteRole', [User::class, $validated['role']])) {
             abort(403, 'You cannot invite users with this role.');
         }
 
-        // Check max_administrators limit for admin roles
-        if (in_array($validated['role'], ['department_admin', 'university_admin'])) {
-            $user = Auth::user();
-            $subscription = null;
+        $inviter = $request->user();
+        $department = Department::with('faculty')->findOrFail($validated['department_id']);
+        $departmentUniversityId = $department->faculty?->university_id;
 
-            if ($validated['role'] === 'university_admin') {
-                $subscription = UserSubscription::where('university_id', $user->university_id)
-                    ->where('status', 'active')
-                    ->whereHas('plan', fn ($q) => $q->where('plan_type', '!=', 'b2c'))
-                    ->first();
-            } elseif ($validated['role'] === 'department_admin') {
-                $subscription = UserSubscription::where('department_id', $validated['department_id'])
-                    ->where('status', 'active')
-                    ->whereHas('plan', fn ($q) => $q->where('plan_type', '!=', 'b2c'))
-                    ->first();
-            }
+        if ($inviter->isDepartmentAdmin() && $department->id !== $inviter->department_id) {
+            abort(403, 'You can only invite users to your department.');
+        }
 
-            if ($subscription && $subscription->plan) {
-                $maxAdmins = $subscription->plan->max_administrators;
-                if ($maxAdmins !== null) {
-                    $query = User::where('role', $validated['role']);
-                    if ($validated['role'] === 'university_admin') {
-                        $query->where('university_id', $user->university_id);
-                    } else {
-                        $query->where('department_id', $validated['department_id']);
-                    }
-                    $currentCount = $query->count();
+        if ($inviter->isUniversityAdmin() && $departmentUniversityId !== $inviter->university_id) {
+            abort(403, 'You can only invite users to departments in your university.');
+        }
 
-                    if ($currentCount >= $maxAdmins) {
-                        return back()->withErrors(['role' => 'Maximum number of administrators ('.$maxAdmins.') reached for your subscription plan.']);
-                    }
+        if ($validated['role'] === 'department_admin') {
+            $subscription = UserSubscription::query()
+                ->where('department_id', $department->id)
+                ->where('status', 'active')
+                ->whereHas('plan', fn ($plan) => $plan->where('plan_type', '!=', 'b2c'))
+                ->first();
+
+            $maxAdmins = $subscription?->plan?->max_administrators;
+            if ($maxAdmins !== null) {
+                $currentCount = User::query()
+                    ->where('role', 'department_admin')
+                    ->where('department_id', $department->id)
+                    ->count();
+
+                if ($currentCount >= $maxAdmins) {
+                    return back()->withErrors([
+                        'role' => 'Maximum number of administrators ('.$maxAdmins.') reached for this subscription plan.',
+                    ]);
                 }
             }
         }
 
-        $password = Str::random(8);
-        $studentId = $request->role === 'student' ? Str::upper(Str::random(8)) : null;
-
-        $user = User::create([
-            'uuid' => Str::uuid(),
+        $invitedUser = User::create([
+            'uuid' => (string) Str::uuid(),
+            'university_id' => $departmentUniversityId,
+            'department_id' => $department->id,
             'email' => $validated['email'],
-            'password' => $password,
+            'password' => Str::random(40),
             'role' => $validated['role'],
-            'department_id' => $validated['department_id'] ?? null,
-            'student_id' => $studentId,
+            'student_id' => $validated['role'] === 'student' ? Str::upper(Str::random(8)) : null,
             'first_name' => 'Pending',
             'last_name' => 'Setup',
-            'email_verified_at' => now(), // Auto-verify for invited users
+            'email_verified_at' => now(),
+            'is_active' => true,
         ]);
 
-        // Send invitation email with credentials
-        try {
-            $this->sendInvitationEmail($user, $password);
-        } catch (\Exception $e) {
-            // Log error but don't fail the request
-            \Illuminate\Support\Facades\Log::error('Failed to send invitation email: '.$e->getMessage());
+        $status = Password::sendResetLink(['email' => $invitedUser->email]);
+
+        if ($status !== Password::RESET_LINK_SENT) {
+            return back()->with('error', 'The account was created, but the secure setup email could not be sent. Use the password-reset page to resend it.');
         }
 
-        return back()->with('success', 'User invited. Password: '.$password);
-    }
-
-    /**
-     * Send invitation email to newly invited user
-     */
-    protected function sendInvitationEmail(User $user, string $password): void
-    {
-        $roleName = ucfirst(str_replace('_', ' ', $user->role));
-        $loginUrl = route('login');
-        $siteName = \App\Services\SettingService::get('site_name', 'UniAcademic');
-        
-        $subject = 'Invitation to '.$siteName.' - '.$roleName.' Account';
-        $body = "
-            Hello,
-            
-            You have been invited to join {$siteName} as a {$roleName}.
-            
-            Your login credentials are:
-            Email: {$user->email}
-            Password: {$password}
-            
-            Please login at: {$loginUrl}
-            
-            After logging in, please update your profile and change your password.
-            
-            Thanks,
-            {$siteName} Team
-        ";
-
-        \Illuminate\Support\Facades\Mail::raw($body, function ($message) use ($user, $subject) {
-            $message->to($user->email)
-                    ->subject($subject);
-        });
+        return back()->with('success', 'User invited. A secure account-setup link was emailed to them.');
     }
 
     // Admin: Reports
@@ -242,11 +263,11 @@ class AdminController extends Controller
     }
 
     // Admin: Export reports
-    public function exportReports(string $type)
+    public function exportReports(Request $request, string $type): \Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $user = Auth::user();
+        abort_unless(in_array($type, ['submissions', 'attendance', 'billing'], true), 404);
 
-        // Build scope query based on role
+        $user = $request->user();
         $userScope = fn ($query) => $query;
         $courseScope = fn ($query) => $query;
 
@@ -255,27 +276,84 @@ class AdminController extends Controller
             $courseScope = fn ($query) => $query->where('department_id', $user->department_id);
         } elseif ($user->isUniversityAdmin()) {
             $userScope = fn ($query) => $query->where('university_id', $user->university_id);
-            $departmentIds = Department::whereHas('faculty', fn ($q) => $q->where('university_id', $user->university_id))->pluck('id');
+            $departmentIds = Department::whereHas('faculty', fn ($faculty) => $faculty
+                ->where('university_id', $user->university_id))
+                ->pluck('id');
             $courseScope = fn ($query) => $query->whereIn('department_id', $departmentIds);
         }
 
-        $data = match ($type) {
-            'submissions' => Submission::whereHas('course', $courseScope)
-                ->with('user', 'course', 'grade')
-                ->get()
-                ->toArray(),
-            'attendance' => AttendanceRecord::whereHas('session', fn ($q) => $q->whereHas('course', $courseScope))
-                ->with('user', 'session.course')
-                ->get()
-                ->toArray(),
-            'billing' => Invoice::whereHas('user', $userScope)
-                ->with('user', 'payments')
-                ->get()
-                ->toArray(),
-            default => [],
+        [$headers, $rows] = match ($type) {
+            'submissions' => [
+                ['Submission ID', 'Student', 'Email', 'Course', 'Title', 'Status', 'Submitted At', 'Score'],
+                Submission::query()
+                    ->whereHas('course', $courseScope)
+                    ->with(['user', 'course', 'grade'])
+                    ->latest('id')
+                    ->get()
+                    ->map(fn (Submission $submission) => [
+                        $submission->uuid,
+                        $submission->user?->full_name,
+                        $submission->user?->email,
+                        $submission->course?->code,
+                        $submission->title,
+                        $submission->status,
+                        $submission->submitted_at?->toDateTimeString(),
+                        $submission->grade?->score,
+                    ]),
+            ],
+            'attendance' => [
+                ['Session ID', 'Course', 'Student', 'Email', 'Status', 'Check-in At', 'Verified', 'Notes'],
+                AttendanceRecord::query()
+                    ->whereHas('session', function ($session) use ($courseScope, $request): void {
+                        $session->whereHas('course', $courseScope);
+                        if ($request->filled('session_id')) {
+                            $session->whereKey($request->integer('session_id'));
+                        }
+                    })
+                    ->with(['user', 'session.course'])
+                    ->latest('id')
+                    ->get()
+                    ->map(fn (AttendanceRecord $record) => [
+                        $record->session?->uuid,
+                        $record->session?->course?->code,
+                        $record->user?->full_name,
+                        $record->user?->email,
+                        $record->status,
+                        $record->check_in_at?->toDateTimeString(),
+                        $record->is_verified ? 'Yes' : 'No',
+                        $record->verification_notes,
+                    ]),
+            ],
+            'billing' => [
+                ['Invoice ID', 'Student', 'Email', 'Amount', 'Status', 'Due Date', 'Paid At', 'Transaction Reference'],
+                Invoice::query()
+                    ->whereHas('user', $userScope)
+                    ->with('user')
+                    ->latest('id')
+                    ->get()
+                    ->map(fn (Invoice $invoice) => [
+                        $invoice->uuid,
+                        $invoice->user?->full_name,
+                        $invoice->user?->email,
+                        $invoice->amount,
+                        $invoice->status,
+                        $invoice->due_date?->toDateString(),
+                        $invoice->paid_at?->toDateTimeString(),
+                        $invoice->transaction_ref,
+                    ]),
+            ],
         };
 
-        return response()->json($data);
+        $filename = sprintf('acadflow-%s-%s.csv', $type, now()->format('Ymd-His'));
+
+        return response()->streamDownload(function () use ($headers, $rows): void {
+            $stream = fopen('php://output', 'wb');
+            fputcsv($stream, $headers);
+            foreach ($rows as $row) {
+                fputcsv($stream, $row);
+            }
+            fclose($stream);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     private function calculateAttendanceRate($courseScope)
@@ -294,19 +372,106 @@ class AdminController extends Controller
     // University Admin: Manage faculties
     public function faculties()
     {
-        $faculties = Faculty::where('university_id', Auth::user()->university_id)
-            ->with('departments')
+        $actor = Auth::user();
+        $faculties = Faculty::query()
+            ->with(['departments', 'university', 'dean'])
+            ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('university_id', $actor->university_id))
+            ->orderBy('name')
+            ->get();
+        $universities = $actor->isSuperAdmin() ? University::query()->where('is_active', true)->orderBy('name')->get() : collect([$actor->university]);
+        $deans = User::query()
+            ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('university_id', $actor->university_id))
+            ->whereIn('role', ['lecturer', 'university_admin'])
+            ->where('is_active', true)
+            ->orderBy('first_name')
             ->get();
 
-        return view('admin.faculties', compact('faculties'));
+        return view('admin.faculties', compact('faculties', 'universities', 'deans'));
+    }
+
+    public function createFaculty(Request $request)
+    {
+        $this->authorize('create', Faculty::class);
+        $actor = $request->user();
+        $data = $request->validate([
+            'university_id' => ['nullable', 'integer', 'exists:universities,id'],
+            'name' => ['required', 'string', 'max:255'],
+            'short_name' => ['required', 'string', 'max:80'],
+            'code' => ['required', 'string', 'max:30'],
+            'dean_id' => ['nullable', 'integer', 'exists:users,id'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+        $universityId = $actor->isSuperAdmin() ? ($data['university_id'] ?? null) : $actor->university_id;
+        throw_if(! $universityId, ValidationException::withMessages(['university_id' => ['Select a university.']]));
+        $request->validate(['code' => [Rule::unique('faculties', 'code')->where('university_id', $universityId)]]);
+        if (! empty($data['dean_id'])) abort_unless(User::whereKey($data['dean_id'])->where('university_id', $universityId)->exists(), 422, 'Dean must belong to the university.');
+        Faculty::create([
+            'university_id' => $universityId, 'name' => $data['name'], 'short_name' => $data['short_name'],
+            'code' => $data['code'], 'dean_id' => $data['dean_id'] ?? null, 'is_active' => (bool) ($data['is_active'] ?? true),
+        ]);
+        return back()->with('success', 'Faculty created.');
+    }
+
+    public function editFaculty(Request $request, Faculty $faculty)
+    {
+        $this->authorize('update', $faculty);
+        $deans = User::query()->where('university_id', $faculty->university_id)->whereIn('role', ['lecturer', 'university_admin'])->orderBy('first_name')->get();
+        return view('admin.faculties-edit', compact('faculty', 'deans'));
+    }
+
+    public function updateFaculty(Request $request, Faculty $faculty)
+    {
+        $this->authorize('update', $faculty);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'short_name' => ['required', 'string', 'max:80'],
+            'code' => ['required', 'string', 'max:30', Rule::unique('faculties', 'code')->where('university_id', $faculty->university_id)->ignore($faculty->id)],
+            'dean_id' => ['nullable', 'integer', 'exists:users,id'],
+            'is_active' => ['required', 'boolean'],
+        ]);
+        if (! empty($data['dean_id'])) abort_unless(User::whereKey($data['dean_id'])->where('university_id', $faculty->university_id)->exists(), 422, 'Dean must belong to the university.');
+        $faculty->update($data);
+        return redirect()->route('admin.faculties')->with('success', 'Faculty updated.');
     }
 
     // Super Admin: Manage universities
     public function universities()
     {
-        $universities = University::with('faculties')->paginate(10);
+        $universities = University::query()
+            ->withCount(['faculties', 'users'])
+            ->orderBy('institution_type')
+            ->orderBy('name')
+            ->paginate(20);
 
         return view('admin.universities', compact('universities'));
+    }
+
+    public function editUniversity(University $university)
+    {
+        $this->authorize('update', $university);
+        return view('admin.universities-edit', compact('university'));
+    }
+
+    public function updateUniversity(Request $request, University $university)
+    {
+        $this->authorize('update', $university);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'short_name' => ['required', 'string', 'max:80'],
+            'code' => ['required', 'string', 'max:10', Rule::unique('universities', 'code')->ignore($university->id)],
+            'institution_type' => ['required', Rule::in(['university', 'polytechnic'])],
+            'ownership' => ['nullable', Rule::in(['Federal', 'State', 'Private'])],
+            'state' => ['nullable', 'string', 'max:80'],
+            'regulator' => ['nullable', 'string', 'max:30'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'website' => ['nullable', 'url', 'max:500'],
+            'address' => ['nullable', 'string', 'max:2000'],
+            'timezone' => ['required', 'timezone'],
+            'is_active' => ['required', 'boolean'],
+        ]);
+        $university->update($data);
+        return redirect()->route('admin.universities')->with('success', 'Institution updated.');
     }
 
     public function createUniversity(Request $request)
@@ -315,15 +480,33 @@ class AdminController extends Controller
             'name' => 'required|string',
             'short_name' => 'required|string|max:50',
             'code' => 'required|string|max:10|unique:universities',
+            'institution_type' => ['required', Rule::in(['university', 'polytechnic'])],
+            'ownership' => ['nullable', Rule::in(['Federal', 'State', 'Private'])],
+            'state' => ['nullable', 'string', 'max:80'],
+            'regulator' => ['nullable', 'string', 'max:30'],
+            'website' => ['nullable', 'url', 'max:500'],
             'email' => 'nullable|email',
             'phone' => 'nullable|string',
             'address' => 'nullable|string',
-            'timezone' => 'string',
+            'timezone' => ['nullable', 'timezone'],
         ]);
 
+        $validated['timezone'] = $validated['timezone'] ?? 'Africa/Lagos';
+        $validated['is_active'] = true;
         University::create($validated);
 
-        return back()->with('success', 'University created.');
+        return back()->with('success', 'Institution created.');
+    }
+
+    private function departmentsForAdmin(User $actor)
+    {
+        return Department::query()
+            ->with('faculty')
+            ->when($actor->isDepartmentAdmin(), fn ($query) => $query->whereKey($actor->department_id))
+            ->when($actor->isUniversityAdmin(), fn ($query) => $query->whereHas('faculty', fn ($faculty) => $faculty->where('university_id', $actor->university_id)))
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
     }
 
     // Settings - redirect to SettingsController

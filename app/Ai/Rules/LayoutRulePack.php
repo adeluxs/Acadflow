@@ -40,8 +40,8 @@ class LayoutRulePack extends BaseRulePack
         $pdfPaths = [];
         foreach ($submission->versions ?? [] as $version) {
             $path = $version->file_path ?? null;
-            if ($path && str_ends_with(strtolower($path), '.pdf') && Storage::exists($path)) {
-                $pdfPaths[] = $path;
+            if ($path && str_ends_with(strtolower($path), '.pdf') && Storage::disk($version->disk ?: config('filesystems.default', 'local'))->exists($path)) {
+                $pdfPaths[] = ['path' => $path, 'disk' => $version->disk];
             }
         }
 
@@ -52,8 +52,8 @@ class LayoutRulePack extends BaseRulePack
         $analyzer = new PdfDocumentAnalyzer;
         $allFindings = [];
 
-        foreach ($pdfPaths as $pdfPath) {
-            $finding = $analyzer->analyzeFromPath($pdfPath);
+        foreach ($pdfPaths as $pdfFile) {
+            $finding = $analyzer->analyzeFromPath($pdfFile['path'], $pdfFile['disk']);
             if ($finding) {
                 $allFindings[] = $finding;
             }

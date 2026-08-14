@@ -39,7 +39,7 @@ class SubmissionValidator
         // Check max attempts per assignment
         $maxAttempts = \App\Services\SettingService::get('max_attempts_per_assignment', 3);
         $existingSubmissions = Submission::where('user_id', $student->id)
-            ->where('assignment_id', $task->id)
+            ->where('submission_task_id', $task->id)
             ->count();
         if ($existingSubmissions >= $maxAttempts) {
             $errors[] = "You have reached the maximum number of submission attempts ({$maxAttempts}).";
@@ -196,7 +196,7 @@ class SubmissionValidator
         // Check if paid
         $paid = Invoice::where('user_id', $user->id)
             ->where('semester_id', $semester->id)
-            ->where('status', 'verified')
+            ->whereIn('status', ['paid', 'waived'])
             ->exists();
 
         if ($paid) {
@@ -208,9 +208,6 @@ class SubmissionValidator
         if (now()->lessThanOrEqualTo($graceEnd)) {
             return true;
         }
-
-        // Check if waived/exempted (would need a separate table or field)
-        // This is a placeholder for future implementation
 
         return false;
     }
@@ -277,14 +274,14 @@ class SubmissionValidator
 
         $extensions = [];
         foreach ($mimeTypes as $mime) {
+            $mime = strtolower(trim((string) $mime));
             if (isset($mimeToExt[$mime])) {
                 $extensions[] = $mimeToExt[$mime];
-            } elseif (str_contains($mime, '/')) {
-                // Extract extension from mime type like 'image/png' => 'png'
-                $extensions[] = strtolower(explode('/', $mime)[1]);
+            } elseif ($mime !== '' && ! str_contains($mime, '/')) {
+                $extensions[] = ltrim($mime, '.');
             }
         }
 
-        return array_unique($extensions) ?: ['pdf', 'doc', 'docx'];
+        return array_values(array_unique($extensions)) ?: ['pdf', 'doc', 'docx'];
     }
 }

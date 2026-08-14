@@ -18,19 +18,19 @@ class CitationAssistantModule
 {
     public function __construct(protected AiManager $manager) {}
 
-    public function isEnabled(): bool
+    public function isEnabled(?int $universityId = null): bool
     {
-        return (bool) SettingService::get('ai_feature_citation_assistant', true);
+        return (bool) SettingService::get('ai_feature_citation_assistant', true, $universityId);
     }
 
     public function supportedStyles(): array
     {
-        return config('ai.citation_styles', ['apa', 'mla', 'chicago', 'harvard', 'ieee']);
+        return config('ai.citation_styles', ['apa', 'mla', 'chicago', 'harvard', 'ieee', 'vancouver']);
     }
 
     public function analyze(string $text, string $style = 'apa', ?User $user = null): AiResponse
     {
-        if (! $this->isEnabled()) {
+        if (! $this->isEnabled($user?->university_id)) {
             return new AiResponse('disabled', 'citation_assistant', false, summary: 'Citation assistant disabled.');
         }
 

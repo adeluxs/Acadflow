@@ -22,6 +22,10 @@ class RuleEngine
             new AcademicRulePack,
             new AssignmentRulePack,
             new ProjectRulePack,
+            new ResearchRulePack,
+            new KnowledgePublicationRulePack,
+            new StudyRulePack,
+            new LecturerRulePack,
             new SiwesRulePack,
             new CitationRulePack,
             new FormattingRulePack,
@@ -43,7 +47,7 @@ class RuleEngine
         $type = $context['type'] ?? null;
 
         return array_values(array_filter($all, function (RulePackInterface $pack) use ($feature) {
-            if (! $pack->enabled()) {
+            if (! (bool) \App\Services\SettingService::get('ai_rulepack_'.$pack->key(), true, (int) ($context['_tenant_university_id'] ?? 0) ?: null)) {
                 return false;
             }
 
@@ -54,7 +58,11 @@ class RuleEngine
                 'citation_assistant' => $pack->key() === 'citation',
                 'writing_assistant' => in_array($pack->key(), ['academic', 'formatting'], true),
                 'siwes_assistant' => $pack->key() === 'siwes',
-                'project_assistant' => in_array($pack->key(), ['project', 'academic', 'citation'], true),
+                'project_assistant' => in_array($pack->key(), ['project', 'research', 'academic', 'citation'], true),
+                'research_assistant', 'research_validator' => in_array($pack->key(), ['research', 'academic', 'citation', 'formatting', 'template', 'institution'], true),
+                'knowledge_publication_validator', 'knowledge_moderation' => in_array($pack->key(), ['knowledge_publication', 'academic', 'citation', 'discussion'], true),
+                'knowledge_companion', 'study_assistant', 'material_assistant' => in_array($pack->key(), ['study', 'academic'], true),
+                'lecturer_assistant', 'supervisor_assistant' => $pack->key() === 'lecturer',
                 'discussion_assistant' => $pack->key() === 'discussion',
                 'plagiarism' => $pack->key() === 'plagiarism',
                 default => true,

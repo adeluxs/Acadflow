@@ -21,7 +21,7 @@
                     <p class="text-gray-700 mb-2"><strong>Uploaded:</strong> {{ $version->created_at?->format('M d, Y H:i') ?? '-' }}</p>
                     <p class="text-gray-700 mb-2"><strong>Size:</strong> {{ number_format($version->file_size / 1024, 2) }} KB</p>
                     <p class="text-gray-700 mb-4"><strong>Uploaded by:</strong> {{ $version->uploader?->first_name ?? 'Unknown' }} {{ $version->uploader?->last_name ?? '' }}</p>
-                    <a href="{{ route('submissions.download', ['submission' => $submission, 'version' => $version->id]) }}" class="inline-block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                    <a href="{{ route('submission-versions.download', $version) }}" class="inline-block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
                         Download Version
                     </a>
                 </div>

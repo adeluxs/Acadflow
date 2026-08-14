@@ -3,42 +3,85 @@
 @section('title', 'Invoice Details')
 
 @section('content')
-<div class="container mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold mb-6">Invoice #{{ $invoice->uuid }}</h1>
-
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="grid grid-cols-2 gap-6 mb-6">
-            <div>
-                <div class="text-gray-500 text-sm">Amount</div>
-                <div class="text-2xl font-bold">${{ number_format($invoice->amount, 2) }}</div>
-            </div>
-            <div>
-                <div class="text-gray-500 text-sm">Status</div>
-                <span class="px-2 inline-flex text-sm font-semibold rounded-full 
-                    {{ $invoice->status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">
-                    {{ ucfirst($invoice->status) }}
-                </span>
-            </div>
-            <div>
-                <div class="text-gray-500 text-sm">Due Date</div>
-                <div>{{ $invoice->due_date->format('Y-m-d') }}</div>
-            </div>
-            <div>
-                <div class="text-gray-500 text-sm">Paid At</div>
-                <div>{{ $invoice->paid_at?->format('Y-m-d H:i') ?? '-' }}</div>
-            </div>
+<div class="container mx-auto max-w-4xl px-4 py-8">
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Invoice {{ $invoice->uuid }}</h1>
+            <p class="mt-1 text-sm text-gray-600">Institutional billing record for {{ $invoice->semester?->name ?? 'the selected semester' }}.</p>
         </div>
+        <a href="{{ route('billing.my') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-800">Back to invoices</a>
+    </div>
 
-        @if($invoice->status !== 'paid')
-            <form method="POST" action="{{ route('billing.pay', $invoice) }}">
-                @csrf
-                <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
-                    Pay Now
-                </button>
-            </form>
+    @if($errors->any())
+        <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <ul class="list-disc space-y-1 pl-5">
+                @foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach
+            </ul>
+        </div>
+    @endif
+
+    <div class="rounded-lg bg-white p-6 shadow">
+        <dl class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+                <dt class="text-sm text-gray-500">Amount</dt>
+                <dd class="mt-1 text-2xl font-bold text-gray-900">{{ number_format((float) $invoice->amount, 2) }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">Status</dt>
+                <dd class="mt-1 font-semibold text-gray-900">{{ ucfirst($invoice->status) }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">Due date</dt>
+                <dd class="mt-1 text-gray-900">{{ $invoice->due_date?->format('Y-m-d') ?? '—' }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-gray-500">Paid at</dt>
+                <dd class="mt-1 text-gray-900">{{ $invoice->paid_at?->format('Y-m-d H:i') ?? '—' }}</dd>
+            </div>
+        </dl>
+
+        @if($invoice->status === 'pending')
+            <div class="mt-8 border-t pt-6">
+                <h2 class="text-lg font-bold text-gray-900">Submit bank-transfer reference</h2>
+                <p class="mt-1 text-sm text-gray-600">This records proof for administrator verification; it does not simulate a card or wallet payment.</p>
+
+                <form method="POST" action="{{ route('billing.pay', $invoice) }}" class="mt-5 space-y-4">
+                    @csrf
+                    <input type="hidden" name="payment_method" value="bank_transfer">
+                    <input type="hidden" name="amount" value="{{ $invoice->amount }}">
+                    <div>
+                        <label for="transaction_ref" class="block text-sm font-medium text-gray-700">Bank transaction reference</label>
+                        <input id="transaction_ref" name="transaction_ref" value="{{ old('transaction_ref') }}" maxlength="100" required
+                               class="mt-1 w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                               placeholder="Enter the reference supplied by your bank">
+                    </div>
+                    <button type="submit" class="rounded-lg bg-green-600 px-5 py-2.5 font-semibold text-white hover:bg-green-700">
+                        Submit for verification
+                    </button>
+                </form>
+            </div>
+        @elseif($invoice->status === 'paid')
+            <div class="mt-8 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">This invoice has been verified as paid.</div>
+        @elseif($invoice->status === 'waived')
+            <div class="mt-8 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">This invoice was waived by an authorized administrator.</div>
         @endif
 
-        <a href="{{ route('billing.my') }}" class="ml-4 text-gray-600 hover:text-gray-900">Back</a>
+        @if($invoice->payments->isNotEmpty())
+            <div class="mt-8 border-t pt-6">
+                <h2 class="text-lg font-bold text-gray-900">Payment submissions</h2>
+                <div class="mt-3 space-y-3">
+                    @foreach($invoice->payments->sortByDesc('created_at') as $payment)
+                        <div class="rounded-lg border p-4 text-sm">
+                            <div class="flex flex-wrap justify-between gap-2">
+                                <span class="font-medium text-gray-900">{{ $payment->transaction_ref }}</span>
+                                <span class="font-semibold text-gray-700">{{ ucfirst($payment->status) }}</span>
+                            </div>
+                            <p class="mt-1 text-gray-500">Submitted {{ $payment->created_at?->format('Y-m-d H:i') }}</p>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 </div>
 @endsection

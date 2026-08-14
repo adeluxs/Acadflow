@@ -36,8 +36,9 @@ class CoursePolicy
             return true;
         }
 
-        // University admins and super admins can always create
-        return $user->isUniversityAdmin() || $user->isSuperAdmin();
+        if ($user->isSuperAdmin()) return true;
+        return $user->isUniversityAdmin()
+            && $user->university_id === $course->department->faculty->university_id;
     }
 
     public function update(User $user, Course $course): bool
@@ -73,7 +74,11 @@ class CoursePolicy
             return true;
         }
 
-        if ($user->isUniversityAdmin() || $user->isDepartmentAdmin()) {
+        if ($user->isUniversityAdmin()) {
+            return $user->university_id === $course->department->faculty->university_id;
+        }
+
+        if ($user->isDepartmentAdmin()) {
             return $user->department_id === $course->department_id;
         }
 
@@ -82,8 +87,13 @@ class CoursePolicy
 
     public function assignLecturer(User $user, Course $course): bool
     {
-        return $user->hasPermission(Permission::ASSIGN_LECTURER)
-            && $user->department_id === $course->department_id;
+        if (! $user->hasPermission(Permission::ASSIGN_LECTURER)) {
+            return false;
+        }
+
+        return $user->isSuperAdmin()
+            || ($user->isUniversityAdmin() && $user->university_id === $course->department->faculty->university_id)
+            || ($user->isDepartmentAdmin() && $user->department_id === $course->department_id);
     }
 
     public function enroll(User $user, Course $course): bool
@@ -94,9 +104,9 @@ class CoursePolicy
 
     public function addMaterial(User $user, Course $course): bool
     {
-        // Super admins and university admins can add materials to any course
-        if ($user->isSuperAdmin() || $user->isUniversityAdmin()) {
-            return true;
+        if ($user->isSuperAdmin()) return true;
+        if ($user->isUniversityAdmin()) {
+            return $user->university_id === $course->department->faculty->university_id;
         }
 
         // Department admins can add for courses in their department

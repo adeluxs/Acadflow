@@ -26,9 +26,9 @@ class SubmissionValidatorModule
         protected TextExtractor $extractor,
     ) {}
 
-    public function isEnabled(): bool
+    public function isEnabled(?int $universityId = null): bool
     {
-        return (bool) SettingService::get('ai_feature_submission_validator', true);
+        return (bool) SettingService::get('ai_feature_submission_validator', true, $universityId);
     }
 
     /**
@@ -36,7 +36,7 @@ class SubmissionValidatorModule
      */
     public function validate(Submission $submission, ?User $user = null): AiResponse
     {
-        if (! $this->isEnabled()) {
+        if (! $this->isEnabled($user?->university_id ?? $submission->user?->university_id)) {
             return new AiResponse('disabled', 'submission_validator', false, summary: 'Submission validator disabled.');
         }
 
@@ -66,6 +66,6 @@ class SubmissionValidatorModule
             return $submission->description ?? '';
         }
 
-        return $this->extractor->fromPath($version->file_path);
+        return $this->extractor->fromVersion($version);
     }
 }

@@ -27,6 +27,8 @@ class Course extends Model
         'submission_types',
         'pass_mark',
         'is_active',
+        'catalog_source',
+        'is_catalog_template',
     ];
 
     protected static function booted(): void
@@ -46,6 +48,7 @@ class Course extends Model
             'credit_hours' => 'integer',
             'max_capacity' => 'integer',
             'is_active' => 'boolean',
+            'is_catalog_template' => 'boolean',
         ];
     }
 

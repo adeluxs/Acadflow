@@ -35,26 +35,36 @@
             <span class="text-xs text-slate-500">Admin tools</span>
         </div>
 
+        @php
+            $adminActions = [
+                ['Manage Users', 'Students, lecturers, admins', 'admin.users'],
+                ['Manage Courses', 'Create and organize courses', 'admin.courses'],
+                ['View Reports', 'Analytics and usage data', 'admin.reports'],
+                ['Billing & Plans', 'Subscriptions and access tiers', 'admin.subscriptions'],
+            ];
+        @endphp
         <div class="grid sm:grid-cols-2 gap-3">
-            <a href="" class="rounded-2xl border border-slate-200 p-4 hover:bg-slate-50 transition">
-                <p class="font-medium text-slate-900">Manage Users</p>
-                <p class="text-sm text-slate-500 mt-1">Students, lecturers, admins</p>
-            </a>
-
-            <a href="{{ route('admin.courses') }}" class="rounded-2xl border border-slate-200 p-4 hover:bg-slate-50 transition">
-                <p class="font-medium text-slate-900">Manage Courses</p>
-                <p class="text-sm text-slate-500 mt-1">Create and organize courses</p>
-            </a>
-
-            <a href="{{ route('admin.reports') }}" class="rounded-2xl border border-slate-200 p-4 hover:bg-slate-50 transition">
-                <p class="font-medium text-slate-900">View Reports</p>
-                <p class="text-sm text-slate-500 mt-1">Analytics and usage data</p>
-            </a>
-
-            <a href="{{ route('admin.subscriptions') }}" class="rounded-2xl border border-slate-200 p-4 hover:bg-slate-50 transition">
-                <p class="font-medium text-slate-900">Billing & Plans</p>
-                <p class="text-sm text-slate-500 mt-1">Subscriptions and access tiers</p>
-            </a>
+            @foreach($adminActions as [$label, $description, $routeName])
+                @if(Route::has($routeName))
+                    @php
+                        $featureKey = \App\Services\FeatureAccessService::featureForRoute($routeName);
+                        $featureStatus = $featureKey
+                            ? \App\Services\FeatureAccessService::effectiveStatus($featureKey, auth()->user()?->university_id)
+                            : null;
+                    @endphp
+                    <a href="{{ route($routeName) }}" class="rounded-2xl border border-slate-200 p-4 hover:bg-slate-50 transition">
+                        <div class="flex items-start justify-between gap-2">
+                            <p class="font-medium text-slate-900">{{ $label }}</p>
+                            @if($featureStatus === \App\Services\FeatureAccessService::STATUS_MAINTENANCE)
+                                <span class="rounded-full bg-amber-100 px-2 py-1 text-[9px] font-bold uppercase text-amber-700">Maintenance</span>
+                            @elseif($featureStatus === \App\Services\FeatureAccessService::STATUS_DISABLED)
+                                <span class="rounded-full bg-slate-200 px-2 py-1 text-[9px] font-bold uppercase text-slate-600">Disabled</span>
+                            @endif
+                        </div>
+                        <p class="text-sm text-slate-500 mt-1">{{ $description }}</p>
+                    </a>
+                @endif
+            @endforeach
         </div>
     </div>
 

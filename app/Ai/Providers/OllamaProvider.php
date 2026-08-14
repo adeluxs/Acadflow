@@ -35,6 +35,20 @@ class OllamaProvider extends ExternalProvider
         return json_encode(['feature' => $feature, 'context' => $payload]);
     }
 
+    protected function body(string $feature, array $payload): array
+    {
+        return [
+            'model' => $this->config['model'] ?? 'llama3',
+            'stream' => false,
+            'format' => 'json',
+            'messages' => [
+                ['role' => 'system', 'content' => $this->systemPrompt($payload)],
+                ['role' => 'user', 'content' => $this->userPrompt($feature, $payload)],
+            ],
+            'options' => ['temperature' => (float) ($this->config['temperature'] ?? 0.2)],
+        ];
+    }
+
     protected function parseResponse(string $feature, array $raw, float $time, float $cost): AiResponse
     {
         $content = $raw['message']['content'] ?? '';

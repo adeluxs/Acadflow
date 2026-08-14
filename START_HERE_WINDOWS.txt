@@ -1,0 +1,16 @@
+ACADFLOW WINDOWS SETUP
+======================
+
+For the Composer error:
+  vendor/composer/tmp-....zip: Failed to open stream: Permission denied
+
+Double-click:
+  FIX_COMPOSER_WINDOWS.bat
+
+The installer will move the project out of Downloads when necessary, repair
+write permissions, remove the incomplete vendor directory, clear Composer's
+cache, install dependencies, create .env, generate APP_KEY, and clear Laravel
+caches.
+
+Detailed instructions:
+  docs/WINDOWS_COMPOSER_INSTALL.md

@@ -14,7 +14,8 @@ return new class extends Migration
                 $table->id();
                 $table->uuid('uuid')->unique()->index();
                 $table->foreignId('university_id')->constrained('universities')->cascadeOnDelete();
-                $table->string('name', 20)->unique();
+                $table->string('name', 20);
+                $table->unique(['university_id', 'name']);
                 $table->date('start_date');
                 $table->date('end_date');
                 $table->boolean('is_current')->default(false);

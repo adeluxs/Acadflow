@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\Course;
 use App\Models\Submission;
-use App\Models\Assignment;
 use App\Models\SubmissionTask;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -37,7 +36,7 @@ class AuthenticationTest extends TestCase
         $response = $this->get('/login');
 
         $response->assertStatus(200);
-        $response->assertSee('Login');
+        $response->assertSee('Welcome back');
     }
 
     public function test_user_can_login_with_valid_credentials(): void

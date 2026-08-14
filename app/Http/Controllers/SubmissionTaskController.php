@@ -12,13 +12,21 @@ use App\Models\SubmissionExtension;
 use App\Models\SubmissionTask;
 use App\Models\SubmissionTaskAttachment;
 use App\Models\User;
+use App\Services\AcademicContextService;
+use App\Services\Media\MediaSecurityService;
+use App\Services\Media\SafeFileDeliveryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class SubmissionTaskController extends Controller
 {
+    public function __construct(private AcademicContextService $academicContext)
+    {
+    }
+
     /**
      * Show all submission tasks for a course (lecturer view)
      */
@@ -63,7 +71,8 @@ class SubmissionTaskController extends Controller
     {
         $this->authorize('createForCourse', $course);
 
-        $semesters = Semester::active()->get();
+        $activeSemester = $this->academicContext->activeSemesterForCourse($course);
+        $semesters = $activeSemester ? collect([$activeSemester]) : collect();
         $rubrics = $course->submissionRubrics()->where('is_active', true)->get();
 
         return view('submission-tasks.create', compact('course', 'semesters', 'rubrics'));
@@ -112,8 +121,19 @@ class SubmissionTaskController extends Controller
             'is_visible_to_students' => 'boolean',
         ]);
 
-        // Apply global academic settings as defaults
-        $validated['allow_late_submissions'] = $validated['allow_late_submissions'] ?? \App\Services\SettingService::get('allow_late_submissions', true);
+        // The browser only receives the current course semester/rubrics, but never
+        // trust IDs posted by a client. Keep every assignment inside the same
+        // institution/course context.
+        $activeSemester = $this->academicContext->requireActiveSemesterForCourse($course);
+        if ((int) $validated['semester_id'] !== (int) $activeSemester->id) {
+            throw ValidationException::withMessages(['semester_id' => 'Assignments can only be created for the active semester of this course.']);
+        }
+        if (! empty($validated['rubric_id']) && ! $course->submissionRubrics()->whereKey($validated['rubric_id'])->exists()) {
+            throw ValidationException::withMessages(['rubric_id' => 'The selected rubric does not belong to this course.']);
+        }
+
+        // Apply centralized institution-aware academic settings as defaults.
+        $validated['allow_late_submissions'] = $validated['allow_late_submissions'] ?? \App\Services\SettingService::get('allow_late_submissions', true, $user->university_id);
 
         Log::info('Validation passed', ['validated_keys' => array_keys($validated)]);
 
@@ -210,6 +230,7 @@ public function showForStudent(Course $course, SubmissionTask $task)
 
     $studentSubmissions = $task->submissions()
         ->where('user_id', Auth::id())
+        ->with(['versions', 'comments.user', 'grade'])
         ->latest()
         ->get();
 
@@ -268,7 +289,8 @@ public function showForLecturer(Course $course, SubmissionTask $task)
         }
 
         $this->authorize('update', $task);
-        $semesters = Semester::active()->get();
+        $activeSemester = $this->academicContext->activeSemesterForCourse($course);
+        $semesters = $activeSemester ? collect([$activeSemester]) : collect();
         $rubrics = $course->submissionRubrics()->where('is_active', true)->get();
 
         return view('submission-tasks.edit', compact('course', 'task', 'semesters', 'rubrics'));
@@ -308,6 +330,10 @@ public function showForLecturer(Course $course, SubmissionTask $task)
             'late_submission_penalty_percent' => 'nullable|numeric|min:0|max:100',
             'submission_format' => 'required|in:file,text,both',
         ]);
+
+        if (! empty($validated['rubric_id']) && ! $course->submissionRubrics()->whereKey($validated['rubric_id'])->exists()) {
+            throw ValidationException::withMessages(['rubric_id' => 'The selected rubric does not belong to this course.']);
+        }
 
         $task->update($validated);
 
@@ -378,7 +404,7 @@ public function showForLecturer(Course $course, SubmissionTask $task)
     /**
      * Upload attachment/template for a task
      */
-    public function uploadAttachment(Request $request, Course $course, SubmissionTask $task)
+    public function uploadAttachment(Request $request, Course $course, SubmissionTask $task, MediaSecurityService $media)
     {
         if ($task->course_id !== $course->id) {
             abort(404);
@@ -394,21 +420,24 @@ public function showForLecturer(Course $course, SubmissionTask $task)
         ]);
 
         $file = $request->file('file');
-        $path = $file->storeAs(
-            'assignment-attachments/'.$task->uuid,
-            $file->getClientOriginalName()
-        );
+        $asset = $media->store($file, $request->user(), $task, 'institution', ['purpose' => 'submission_task_attachment', 'task_uuid' => $task->uuid]);
+        if (! in_array($asset->scan_status, ['clean', 'skipped'], true)) {
+            throw ValidationException::withMessages(['file' => 'The attachment did not pass the configured security scan.']);
+        }
 
-        SubmissionTaskAttachment::create([
+        $attachment = SubmissionTaskAttachment::create([
             'submission_task_id' => $task->id,
-            'file_name' => $file->getClientOriginalName(),
-            'file_path' => $path,
-            'mime_type' => $file->getMimeType(),
-            'file_size' => $file->getSize(),
-            'description' => $validated['description'],
+            'file_name' => $asset->original_name,
+            'file_path' => $asset->path,
+            'disk' => $asset->disk,
+            'media_asset_id' => $asset->id,
+            'mime_type' => $asset->mime_type,
+            'file_size' => $asset->size_bytes,
+            'description' => $validated['description'] ?? null,
             'type' => $validated['type'],
             'is_required' => $validated['is_required'] ?? false,
         ]);
+        $asset->update(['attachable_type' => $attachment->getMorphClass(), 'attachable_id' => $attachment->id]);
 
         return back()->with('success', 'Attachment uploaded successfully.');
     }
@@ -416,11 +445,21 @@ public function showForLecturer(Course $course, SubmissionTask $task)
     /**
      * Download attachment
      */
-    public function downloadAttachment(SubmissionTaskAttachment $attachment)
+    public function downloadAttachment(SubmissionTaskAttachment $attachment, SafeFileDeliveryService $files)
     {
         $this->authorize('view', $attachment->task);
 
-        return Storage::download($attachment->file_path, $attachment->file_name);
+        $attachment->loadMissing('mediaAsset');
+        if ($attachment->mediaAsset) {
+            abort_unless(in_array($attachment->mediaAsset->scan_status, ['clean', 'skipped'], true), 423, 'This file is unavailable until security checks pass.');
+        }
+        return $files->stream(
+            $attachment->disk ?: (string) config('filesystems.default', 'local'),
+            $attachment->file_path,
+            $attachment->file_name,
+            $attachment->mime_type,
+            'attachment'
+        );
     }
 
     /**
@@ -434,10 +473,35 @@ public function showForLecturer(Course $course, SubmissionTask $task)
 
         $this->authorize('update', $task);
 
-        Storage::delete($attachment->file_path);
+        $storage = Storage::disk($attachment->disk ?: config('filesystems.default', 'local'));
+        if ($storage->exists($attachment->file_path)) {
+            $storage->delete($attachment->file_path);
+        }
+        $attachment->mediaAsset?->delete();
         $attachment->delete();
 
         return back()->with('success', 'Attachment deleted.');
+    }
+
+    /**
+     * Show enrolled students and their assignment-specific deadline extensions.
+     */
+    public function extensions(Course $course, SubmissionTask $task)
+    {
+        $this->ensureTaskBelongsToCourse($course, $task);
+        $this->authorize('grantExtension', $task);
+
+        $enrollments = Enrollment::query()
+            ->with('user')
+            ->where('course_id', $course->id)
+            ->where('semester_id', $task->semester_id)
+            ->where('status', 'enrolled')
+            ->orderBy('user_id')
+            ->get();
+
+        $extensions = $task->extensions()->get()->keyBy('student_id');
+
+        return view('submission-tasks.extensions', compact('course', 'task', 'enrollments', 'extensions'));
     }
 
     /**

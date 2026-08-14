@@ -7,228 +7,208 @@ use App\Models\Course;
 use App\Models\Department;
 use App\Models\Enrollment;
 use App\Models\Faculty;
+use App\Models\LecturerCourseAssignment;
 use App\Models\Semester;
 use App\Models\University;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class UniversitySeeder extends Seeder
 {
     public function run(): void
     {
-        $uuid1 = Str::uuid()->toString();
-        $uuid2 = Str::uuid()->toString();
-        $uuid3 = Str::uuid()->toString();
+        // Production deployments should never receive predictable demo accounts by accident.
+        // Opt in explicitly with ACADEMIC_SEED_DEMO=true when a production-like demo is intended.
+        if (app()->environment('production') && ! filter_var(env('ACADEMIC_SEED_DEMO', false), FILTER_VALIDATE_BOOLEAN)) {
+            $this->command?->warn('Skipping demo university/users in production. Set ACADEMIC_SEED_DEMO=true to opt in.');
+            return;
+        }
 
-        // Super Admin
+        $password = Hash::make((string) env('ACADEMIC_DEMO_PASSWORD', 'password123'));
+
         User::updateOrCreate(
             ['email' => 'admin@uniacademic.com'],
             [
-                'uuid' => $uuid1,
                 'first_name' => 'System',
                 'last_name' => 'Administrator',
-                'password' => Hash::make('password123'),
+                'password' => $password,
                 'role' => 'super_admin',
-                'is_active' => 1,
+                'is_active' => true,
             ]
         );
-        $this->command->info('Super Admin: admin@uniacademic.com / password123');
 
-        // University
+        // Keep one deterministic demo tenant for local development. The national
+        // catalogue seeder later merges this exact institution with the NUC row.
         $university = University::updateOrCreate(
-            ['code' => 'FUT001'],
+            ['code' => 'FUTO'],
             [
-                'uuid' => $uuid2,
-                'name' => 'Federal University of Technology',
-                'short_name' => 'FUT',
-                'code' => 'FUT001',
-                'email' => 'info@fut.edu.ng',
+                'name' => 'Federal University of Technology, Owerri',
+                'short_name' => 'FUTO',
+                'institution_type' => 'university',
+                'ownership' => 'Federal',
+                'state' => 'Imo',
+                'regulator' => 'NUC',
+                'email' => 'info@futo.edu.ng',
                 'phone' => '+2348000000000',
                 'address' => 'Owerri, Imo State, Nigeria',
-                'website' => 'https://fut.edu.ng',
+                'website' => 'https://futo.edu.ng',
                 'timezone' => 'Africa/Lagos',
-                'is_active' => 1,
+                'is_active' => true,
             ]
         );
 
-        // Faculty
         $faculty = Faculty::updateOrCreate(
-            ['code' => 'ENG'],
+            ['university_id' => $university->id, 'code' => 'SCI'],
             [
-                'uuid' => Str::uuid()->toString(),
-                'university_id' => $university->id,
-                'name' => 'Faculty of Engineering',
-                'short_name' => 'ENG',
-                'code' => 'ENG',
-                'is_active' => 1,
+                'name' => 'Faculty of Science',
+                'short_name' => 'Science',
+                'is_active' => true,
+                'catalog_source' => 'demo_verified',
+                'is_catalog_template' => false,
             ]
         );
 
-        // Department
         $department = Department::updateOrCreate(
-            ['code' => 'CS'],
+            ['faculty_id' => $faculty->id, 'code' => 'CSC'],
             [
-                'uuid' => Str::uuid()->toString(),
-                'faculty_id' => $faculty->id,
-                'name' => 'Department of Computer Science',
-                'short_name' => 'CS',
-                'code' => 'CS',
-                'is_active' => 1,
+                'name' => 'Computer Science',
+                'short_name' => 'CSC',
+                'is_active' => true,
+                'catalog_source' => 'demo_verified',
+                'is_catalog_template' => false,
             ]
         );
-        $this->command->info("Created: $university->name, $faculty->name, $department->name");
 
-        // Session & Semester
         $session = AcademicSession::updateOrCreate(
             ['university_id' => $university->id, 'name' => '2025/2026'],
             [
-                'uuid' => Str::uuid()->toString(),
-                'university_id' => $university->id,
-                'name' => '2025/2026',
-                'start_date' => '2025-01-15',
-                'end_date' => '2025-12-31',
-                'is_current' => 1,
-                'is_active' => 1,
+                'start_date' => '2025-09-01',
+                'end_date' => '2026-08-31',
+                'is_current' => true,
+                'is_active' => true,
             ]
         );
 
         $semester = Semester::updateOrCreate(
             ['academic_session_id' => $session->id, 'number' => 1],
             [
-                'uuid' => Str::uuid()->toString(),
-                'academic_session_id' => $session->id,
                 'name' => 'First Semester',
-                'number' => 1,
-                'start_date' => '2025-01-15',
-                'end_date' => '2025-06-30',
-                'is_active' => 1,
+                'start_date' => '2025-09-01',
+                'end_date' => '2026-02-28',
+                'is_active' => true,
             ]
         );
-        $this->command->info("Created session: $session->name");
 
-        // Courses
-        $courses = [
-            ['code' => 'CS101', 'name' => 'Introduction to Computer Science', 'level' => '100'],
-            ['code' => 'CS102', 'name' => 'Computer Programming I', 'level' => '100'],
-            ['code' => 'CS201', 'name' => 'Data Structures', 'level' => '200'],
-            ['code' => 'CS202', 'name' => 'Database Management', 'level' => '200'],
-            ['code' => 'CS301', 'name' => 'Software Engineering', 'level' => '300'],
-            ['code' => 'CS401', 'name' => 'Final Year Project I', 'level' => '400'],
+        $courseRows = [
+            ['code' => 'CSC101', 'name' => 'Introduction to Computer Science', 'level' => '100'],
+            ['code' => 'CSC102', 'name' => 'Computer Programming I', 'level' => '100'],
+            ['code' => 'CSC201', 'name' => 'Data Structures and Algorithms', 'level' => '200'],
+            ['code' => 'CSC202', 'name' => 'Database Systems', 'level' => '200'],
+            ['code' => 'CSC301', 'name' => 'Software Engineering', 'level' => '300'],
+            ['code' => 'CSC401', 'name' => 'Final Year Project I', 'level' => '400'],
         ];
 
-        $password = Hash::make('password123');
-
-        foreach ($courses as $courseData) {
-            Course::updateOrCreate(
-                ['code' => $courseData['code']],
+        $courses = collect($courseRows)->map(function (array $row) use ($department) {
+            return Course::updateOrCreate(
+                ['department_id' => $department->id, 'code' => $row['code']],
                 [
-                    'uuid' => Str::uuid()->toString(),
-                    'department_id' => $department->id,
-                    'code' => $courseData['code'],
-                    'name' => $courseData['name'],
-                    'level' => $courseData['level'],
+                    'name' => $row['name'],
+                    'level' => $row['level'],
                     'semester' => '1st',
                     'type' => 'compulsory',
                     'credit_hours' => 3,
                     'pass_mark' => 40,
-                    'is_active' => 1,
+                    'is_active' => true,
+                    'catalog_source' => 'demo_verified',
+                    'is_catalog_template' => false,
                 ]
             );
-        }
-        $this->command->info('Created '.count($courses).' courses');
+        });
 
-        // University Admin
         User::updateOrCreate(
-            ['email' => 'universityadmin@fut.edu.ng'],
+            ['email' => 'universityadmin@futo.edu.ng'],
             [
-                'uuid' => Str::uuid()->toString(),
                 'university_id' => $university->id,
                 'first_name' => 'University',
                 'last_name' => 'Admin',
                 'password' => $password,
                 'role' => 'university_admin',
-                'is_active' => 1,
+                'is_active' => true,
             ]
         );
 
-        // Department Admin
         User::updateOrCreate(
-            ['email' => 'deptadmin@fut.edu.ng'],
+            ['email' => 'deptadmin@futo.edu.ng'],
             [
-                'uuid' => Str::uuid()->toString(),
                 'university_id' => $university->id,
                 'department_id' => $department->id,
                 'first_name' => 'Department',
                 'last_name' => 'Admin',
                 'password' => $password,
                 'role' => 'department_admin',
-                'is_active' => 1,
+                'is_active' => true,
             ]
         );
-        $this->command->info('Admins created');
 
-        // Lecturers
-        $lecturers = [
-            'dr.adeyemi@fut.edu.ng' => ['Dr', 'Adeyemi'],
-            'prof.ibrahim@fut.edu.ng' => ['Prof', 'Ibrahim'],
-        ];
-        foreach ($lecturers as $email => $name) {
-            User::updateOrCreate(
+        $lecturers = collect([
+            'dr.ibrahim@futo.edu.ng' => ['Dr.', 'Ibrahim'],
+            'prof.adeyemi@futo.edu.ng' => ['Prof.', 'Adeyemi'],
+        ])->map(function (array $name, string $email) use ($university, $department, $password) {
+            return User::updateOrCreate(
                 ['email' => $email],
                 [
-                    'uuid' => Str::uuid()->toString(),
                     'university_id' => $university->id,
                     'department_id' => $department->id,
                     'first_name' => $name[0],
                     'last_name' => $name[1],
                     'password' => $password,
                     'role' => 'lecturer',
-                    'is_active' => 1,
+                    'is_active' => true,
                 ]
             );
+        });
+
+        // The lecturer collection is keyed by email because it is mapped from an
+        // associative array. Reindex both collections before using numeric offsets
+        // so PHP never attempts arithmetic on an email string and the first course
+        // in each lecturer's slice is correctly marked as coordinator.
+        foreach ($lecturers->values() as $lecturerIndex => $lecturer) {
+            foreach ($courses->slice($lecturerIndex * 2, 3)->values() as $courseIndex => $course) {
+                LecturerCourseAssignment::firstOrCreate(
+                    ['course_id' => $course->id, 'user_id' => $lecturer->id, 'semester_id' => $semester->id],
+                    ['is_coordinator' => $courseIndex === 0]
+                );
+            }
         }
-        $this->command->info('Created '.count($lecturers).' Lecturers');
 
-        // Students
-        $students = [
-            'student001@student.fut.edu.ng' => ['John', 'Doe'],
-            'student002@student.fut.edu.ng' => ['Jane', 'Smith'],
-            'student003@student.fut.edu.ng' => ['Michael', 'Brown'],
-        ];
-
-        $courses = Course::where('department_id', $department->id)->get();
-
-        foreach ($students as $email => $name) {
+        foreach ([
+            'student001@student.futo.edu.ng' => ['Daniel', 'Adekunle', 'FUTO/CSC/001'],
+            'student002@student.futo.edu.ng' => ['Amina', 'Yusuf', 'FUTO/CSC/002'],
+            'student003@student.futo.edu.ng' => ['Chinedu', 'Okafor', 'FUTO/CSC/003'],
+        ] as $email => $name) {
             $student = User::updateOrCreate(
                 ['email' => $email],
                 [
-                    'uuid' => Str::uuid()->toString(),
                     'university_id' => $university->id,
                     'department_id' => $department->id,
+                    'student_id' => $name[2],
                     'first_name' => $name[0],
                     'last_name' => $name[1],
                     'password' => $password,
                     'role' => 'student',
-                    'is_active' => 1,
+                    'is_active' => true,
                 ]
             );
 
-            if ($semester && $courses->isNotEmpty()) {
-                foreach ($courses->take(3) as $course) {
-                    Enrollment::firstOrCreate(
-                        ['user_id' => $student->id, 'course_id' => $course->id],
-                        [
-                            'semester_id' => $semester->id,
-                            'status' => 'enrolled',
-                            'enrolled_at' => now(),
-                        ]
-                    );
-                }
+            foreach ($courses->take(4) as $course) {
+                Enrollment::firstOrCreate(
+                    ['user_id' => $student->id, 'course_id' => $course->id, 'semester_id' => $semester->id],
+                    ['status' => 'enrolled', 'enrolled_at' => now()]
+                );
             }
         }
-        $this->command->info('Created '.count($students).' Students with enrollments');
-        $this->command->info('=== SEEDING COMPLETE ===');
+
+        $this->command?->info('AcadFlow demo tenant and role accounts seeded.');
     }
 }

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Course;
 use App\Models\LecturerCourseAssignment;
-use App\Models\Semester;
+use App\Services\AcademicContextService;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,7 +14,7 @@ class LecturerAssignmentController extends Controller
     /**
      * Store a newly created lecturer assignment.
      */
-    public function store(Request $request, Course $course)
+    public function store(Request $request, Course $course, AcademicContextService $academicContext)
     {
         $this->authorize('update', $course);
 
@@ -25,12 +25,15 @@ class LecturerAssignmentController extends Controller
 
         // Check if user is actually a lecturer
         $user = User::findOrFail($validated['user_id']);
-        if (! $user->isLecturer()) {
-            return back()->with('error', 'Selected user is not a lecturer.');
+        $course->loadMissing('department.faculty');
+        if (! $user->isLecturer()
+            || $user->university_id !== $course->department?->faculty?->university_id
+            || $user->department_id !== $course->department_id) {
+            return back()->with('error', 'Select a lecturer from this course institution and department.');
         }
 
         // Check for existing assignment in current/active semester
-        $activeSemester = Semester::where('is_active', true)->first();
+        $activeSemester = $academicContext->requireActiveSemesterForCourse($course);
         $existing = LecturerCourseAssignment::where('course_id', $course->id)
             ->where('user_id', $user->id)
             ->when($activeSemester, function ($query) use ($activeSemester) {
@@ -45,7 +48,7 @@ class LecturerAssignmentController extends Controller
         LecturerCourseAssignment::create([
             'course_id' => $course->id,
             'user_id' => $user->id,
-            'semester_id' => $activeSemester?->id,
+            'semester_id' => $activeSemester->id,
             'is_coordinator' => $validated['is_coordinator'] ?? false,
         ]);
 

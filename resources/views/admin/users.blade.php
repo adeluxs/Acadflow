@@ -67,7 +67,7 @@
                             </span>
                         </td>
                         <td class="px-6 py-4">
-                            <a href="#" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                            <a href="{{ route('admin.users.edit', $user) }}" class="text-indigo-600 hover:text-indigo-900">Edit</a>
                         </td>
                     </tr>
                 @empty

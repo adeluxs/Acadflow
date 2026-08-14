@@ -9,6 +9,8 @@ use App\Enums\AiMode;
 use App\Models\AiUsageLog;
 use App\Models\User;
 use App\Services\SettingService;
+use App\Services\Ai\AiPromptService;
+use App\Services\Ai\AiResponseSchemaValidator;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -33,6 +35,8 @@ class AiManager
         protected RuleEngine $engine,
         protected AiCache $cache,
         protected AiAnalytics $analytics,
+        protected AiPromptService $prompts,
+        protected AiResponseSchemaValidator $responseValidator,
     ) {}
 
     /**
@@ -45,7 +49,13 @@ class AiManager
      */
     public function analyze(string $feature, array $payload, ?User $user = null, ?string $scope = null): AiResponse
     {
-        $mode = $this->router->mode();
+        $universityId = $user?->university_id;
+        if (! (bool) SettingService::get('ai_feature_'.$feature, true, $universityId)) {
+            return new AiResponse(source: 'disabled', feature: $feature, success: false, summary: 'This AI feature is disabled for the current institution.');
+        }
+        $payload['_tenant_university_id'] = $universityId;
+        $payload = $this->prompts->enrich($feature, $payload, $user);
+        $mode = $this->router->mode($universityId);
 
         if ($mode === AiMode::DISABLED) {
             return new AiResponse(
@@ -57,7 +67,7 @@ class AiManager
         }
 
         // Honor globally-disabled external AI: force rule-based behaviour.
-        if (! (bool) SettingService::get('ai_enable_external_ai', config('ai.enable_external_ai', false))) {
+        if (! (bool) SettingService::get('ai_enable_external_ai', config('ai.enable_external_ai', false), $universityId)) {
             $mode = AiMode::RULE_BASED;
         }
 
@@ -70,11 +80,11 @@ class AiManager
         // LayoutRulePack can check against explicit institutional or
         // per-lecturer requirements rather than generic heuristics.
         if ($feature === 'submission_validator') {
-            $payload['layout_requirements'] = $this->resolveLayoutRequirements($user);
+            $payload['layout_requirements'] = $this->resolveLayoutRequirements($user, $universityId);
         }
 
         // 1. Cache check
-        if ($cached = $this->cache->get($feature, $payload, $scope)) {
+        if ($cached = $this->cache->get($feature, $payload, $scope, $universityId)) {
             $cached->cached = true;
             $this->analytics->record($this->analyticsContext($feature, $mode, $cached, $user, true));
 
@@ -85,7 +95,7 @@ class AiManager
         $ruleResponse = $this->engine->run($feature, $payload);
 
         $useProvider = $mode === AiMode::PROVIDER
-            || ($mode === AiMode::HYBRID && ! $this->ruleEngineSufficient($ruleResponse));
+            || ($mode === AiMode::HYBRID && ! $this->ruleEngineSufficient($ruleResponse, $universityId));
 
         $response = $ruleResponse;
 
@@ -94,7 +104,7 @@ class AiManager
         }
 
         $response->cached = false;
-        $this->cache->put($feature, $payload, $response, $scope);
+        $this->cache->put($feature, $payload, $response, $scope, $universityId);
 
         // Account one request against the usage counters (audit B3/B4). Cost is
         // the realized cost from the provider, or ~0 for the rule engine.
@@ -123,6 +133,12 @@ class AiManager
         $this->cache->forgetFeature($feature);
     }
 
+    /** Invalidate all AI results after provider, rule-pack or global policy changes. */
+    public function invalidateAll(): void
+    {
+        $this->cache->forgetAll();
+    }
+
     /**
      * Whether the rule engine produced an acceptable answer (hybrid gate).
      *
@@ -132,7 +148,7 @@ class AiManager
      * external provider for richer generative analysis. The rule engine is
      * always treated as a successful answer, so the user never sees an error.
      */
-    protected function ruleEngineSufficient(AiResponse $response): bool
+    protected function ruleEngineSufficient(AiResponse $response, ?int $universityId = null): bool
     {
         // If the rule engine raised actionable issues, its result is sufficient.
         if (! empty($response->issues)) {
@@ -140,7 +156,7 @@ class AiManager
         }
 
         // A clean rule result stays sufficient unless escalation is enabled.
-        return ! (bool) SettingService::get('ai_hybrid_escalate_when_clean', false);
+        return ! (bool) SettingService::get('ai_hybrid_escalate_when_clean', false, $universityId);
     }
 
     /**
@@ -149,7 +165,7 @@ class AiManager
      */
     protected function callProvider(string $feature, array $payload, AiResponse $ruleResponse): AiResponse
     {
-        $names = $this->providerChain();
+        $names = $this->providerChain((int) ($payload['_tenant_university_id'] ?? 0) ?: null);
 
         foreach ($names as $name) {
             $provider = $this->router->provider($name);
@@ -162,11 +178,20 @@ class AiManager
                 $providerResponse = $provider->handle($feature, $payload);
 
                 if ($providerResponse->success) {
+                    $schema = (array) data_get($payload, '_prompt.response_schema', []);
+                    $schemaErrors = $this->responseValidator->errors($providerResponse, $schema);
+                    if ($schemaErrors !== []) {
+                        report(new \RuntimeException('AI provider response schema validation failed: '.implode(' ', $schemaErrors)));
+                        continue;
+                    }
                     // Stamp the real provider source so analytics correctly
                     // attribute cost/failure rate (audit B11).
-                    $this->accountProviderCost($providerResponse->cost);
 
-                    return $providerResponse;
+                    return $providerResponse->withData([
+                        'prompt_version_id' => data_get($payload, '_prompt.version_id'),
+                        'prompt_version' => data_get($payload, '_prompt.version'),
+                        'schema_validated' => $schema !== [],
+                    ]);
                 }
             } catch (\Throwable $e) {
                 report($e);
@@ -185,10 +210,12 @@ class AiManager
     /**
      * Build the ordered provider chain from provider_priority + fallback_provider.
      */
-    protected function providerChain(): array
+    protected function providerChain(?int $universityId = null): array
     {
-        $priority = config('ai.provider_priority', []);
-        $fallback = $this->router->fallbackProviderName();
+        $priority = SettingService::get('ai_provider_priority', config('ai.provider_priority', []), $universityId);
+        if (is_string($priority)) $priority = json_decode($priority, true) ?: array_filter(array_map('trim', explode(',', $priority)));
+        $priority = is_array($priority) ? $priority : config('ai.provider_priority', []);
+        $fallback = $this->router->fallbackProviderName($universityId);
 
         $chain = array_values(array_unique(array_merge($priority, [$fallback])));
 
@@ -204,9 +231,9 @@ class AiManager
      */
     protected function limitsExceeded(?User $user): bool
     {
-        $daily = (int) SettingService::get('ai_daily_request_limit', config('ai.daily_request_limit', 1000));
-        $monthly = (int) SettingService::get('ai_monthly_request_limit', config('ai.monthly_request_limit', 30000));
-        $maxCost = (float) SettingService::get('ai_max_cost', config('ai.max_cost', 100));
+        $daily = (int) SettingService::get('ai_daily_request_limit', config('ai.daily_request_limit', 1000), $user?->university_id);
+        $monthly = (int) SettingService::get('ai_monthly_request_limit', config('ai.monthly_request_limit', 30000), $user?->university_id);
+        $maxCost = (float) SettingService::get('ai_max_cost', config('ai.max_cost', 100), $user?->university_id);
 
         if ($daily <= 0 && $monthly <= 0 && $maxCost <= 0) {
             return false;
@@ -245,7 +272,8 @@ class AiManager
 
         Cache::increment("{$scope}:day:{$today}");
         Cache::increment("{$scope}:month:{$month}");
-        Cache::increment("{$scope}:cost:{$month}", $cost);
+        $costKey = "{$scope}:cost:{$month}";
+        Cache::put($costKey, round((float) Cache::get($costKey, 0.0) + max(0.0, $cost), 8), now()->addMonths(2));
     }
 
     /**
@@ -257,19 +285,6 @@ class AiManager
     }
 
     /**
-     * Add a provider's realized cost to the monthly ceiling tracker (audit B3).
-     */
-    protected function accountProviderCost(?float $cost): void
-    {
-        if (! ($cost > 0)) {
-            return;
-        }
-
-        $month = now()->format('Y-m');
-        Cache::increment("ai:limits:global:cost:{$month}", (float) $cost);
-    }
-
-    /**
      * Resolve the effective layout requirements for a submission analysis.
      *
      * Precedence:
@@ -278,19 +293,19 @@ class AiManager
      *  2. Institution-level defaults from SettingService / config
      *  3. Hardcoded empty array (no requirements enforced)
      */
-    protected function resolveLayoutRequirements(?User $user): array
+    protected function resolveLayoutRequirements(?User $user, ?int $universityId = null): array
     {
         $defaults = config('ai.layout_requirements', []);
 
         // Institution-level overrides from tools_settings
         $institution = [
-            'required_fonts' => SettingService::get('ai_layout_required_fonts', $defaults['required_fonts'] ?? null),
-            'page_size' => SettingService::get('ai_layout_page_size', $defaults['page_size'] ?? null),
-            'min_margin_inches' => SettingService::get('ai_layout_min_margin_inches', $defaults['min_margin_inches'] ?? null),
-            'line_spacing' => SettingService::get('ai_layout_line_spacing', $defaults['line_spacing'] ?? null),
-            'min_font_size_pt' => SettingService::get('ai_layout_min_font_size', $defaults['min_font_size_pt'] ?? null),
-            'require_page_numbering' => SettingService::get('ai_layout_require_page_numbering', $defaults['require_page_numbering'] ?? false),
-            'require_institution_branding' => SettingService::get('ai_layout_require_branding', $defaults['require_institution_branding'] ?? false),
+            'required_fonts' => SettingService::get('ai_layout_required_fonts', $defaults['required_fonts'] ?? null, $universityId),
+            'page_size' => SettingService::get('ai_layout_page_size', $defaults['page_size'] ?? null, $universityId),
+            'min_margin_inches' => SettingService::get('ai_layout_min_margin_inches', $defaults['min_margin_inches'] ?? null, $universityId),
+            'line_spacing' => SettingService::get('ai_layout_line_spacing', $defaults['line_spacing'] ?? null, $universityId),
+            'min_font_size_pt' => SettingService::get('ai_layout_min_font_size', $defaults['min_font_size_pt'] ?? null, $universityId),
+            'require_page_numbering' => SettingService::get('ai_layout_require_page_numbering', $defaults['require_page_numbering'] ?? false, $universityId),
+            'require_institution_branding' => SettingService::get('ai_layout_require_branding', $defaults['require_institution_branding'] ?? false, $universityId),
         ];
 
         // Normalize JSON-encoded arrays from SettingService

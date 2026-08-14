@@ -12,7 +12,7 @@
             <div class="grid grid-cols-2 gap-6 mb-6">
                 <div>
                     <div class="text-gray-500 text-sm">Credits</div>
-                    <div>{{ $course->credits }}</div>
+                    <div>{{ $course->credit_hours }}</div>
                 </div>
                 <div>
                     <div class="text-gray-500 text-sm">Status</div>
@@ -29,10 +29,10 @@
                         <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                    <span class="text-indigo-600 font-semibold">{{ substr($assignment->user->name, 0, 1) }}</span>
+                                    <span class="text-indigo-600 font-semibold">{{ substr($assignment->user->full_name, 0, 1) }}</span>
                                 </div>
                                 <div>
-                                    <p class="font-medium text-gray-900">{{ $assignment->user->name }}</p>
+                                    <p class="font-medium text-gray-900">{{ $assignment->user->full_name }}</p>
                                     <p class="text-sm text-gray-500">{{ $assignment->user->email }}</p>
                                 </div>
                             </div>
@@ -62,7 +62,7 @@
                         <option value="">Select a lecturer...</option>
                         @foreach($lecturers as $lecturer)
                             @if(! $course->lecturerAssignments->contains('user_id', $lecturer->id))
-                                <option value="{{ $lecturer->id }}">{{ $lecturer->name }} ({{ $lecturer->email }})</option>
+                                <option value="{{ $lecturer->id }}">{{ $lecturer->full_name }} ({{ $lecturer->email }})</option>
                             @endif
                         @endforeach
                     </select>

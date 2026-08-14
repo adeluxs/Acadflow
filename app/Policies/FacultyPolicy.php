@@ -29,8 +29,10 @@ class FacultyPolicy
 
     public function update(User $user, Faculty $faculty): bool
     {
-        return $user->hasPermission(Permission::EDIT_FACULTY)
-            && $user->university_id === $faculty->university_id;
+        return $user->isSuperAdmin()
+            || ($user->hasPermission(Permission::EDIT_FACULTY)
+                && $user->university_id !== null
+                && $user->university_id === $faculty->university_id);
     }
 
     public function delete(User $user, Faculty $faculty): bool

@@ -1,15 +1,21 @@
 @extends('layouts.app')
 
-@section('title', 'System Settings')
+@section('title', auth()->user()->isSuperAdmin() ? 'System Settings' : 'Institution Settings')
 
 @section('content')
 <div class="container mx-auto px-4 py-8">
     <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold">System Settings</h1>
-        <div class="text-sm text-gray-600">
-            <a href="{{ route('admin.settings.permissions') }}" class="text-blue-600 hover:underline mr-4">Permission Management</a>
-            <a href="{{ route('admin.settings.audit-logs') }}" class="text-blue-600 hover:underline">Audit Logs</a>
+        <div>
+            <h1 class="text-2xl font-bold">{{ auth()->user()->isSuperAdmin() ? 'System Settings' : 'Institution Settings' }}</h1>
+            <p class="text-sm text-gray-500 mt-1">{{ auth()->user()->isSuperAdmin() ? 'Manage platform-wide defaults and infrastructure controls.' : 'Manage settings for your institution. Platform-only controls remain protected.' }}</p>
         </div>
+        @if(auth()->user()->isSuperAdmin())
+            <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+                <a href="{{ route('admin.settings.features') }}" class="acad-primary-button inline-flex items-center rounded-lg px-3 py-2 text-xs font-semibold">Feature & Module Management</a>
+                <a href="{{ route('admin.settings.permissions') }}" class="acad-link">Permission Management</a>
+                <a href="{{ route('admin.settings.audit-logs') }}" class="acad-link">Audit Logs</a>
+            </div>
+        @endif
     </div>
 
     @if(session('success'))
@@ -34,7 +40,8 @@
             @foreach($settingGroups as $groupKey => $groupInfo)
                 <a href="#{{ $groupKey }}" 
                    class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                          {{ $loop->first ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' }}">
+                          {{ $loop->first ? 'text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}"
+                   @if($loop->first) style="background-color: var(--acad-primary)" @endif">
                     {{ $groupInfo['name'] }}
                 </a>
             @endforeach
@@ -220,39 +227,21 @@
         @endif
 
         <div class="flex justify-end">
-            <button type="submit" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">
+            <button type="submit" class="acad-primary-button px-6 py-3 rounded-lg font-medium">
                 Save All Settings
             </button>
         </div>
     </form>
 
-    <!-- Feature Flags -->
-    <div class="bg-white rounded-lg shadow mb-6">
-        <div class="px-6 py-4 border-b">
-            <h2 class="text-lg font-bold">Feature Flags</h2>
-            <p class="text-sm text-gray-600">Enable/disable specific platform features</p>
-        </div>
-        <div class="p-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                @foreach($featureFlags as $flag)
-                    <div class="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
-                        <div>
-                            <p class="font-medium text-sm">{{ \Str::title(str_replace('_', ' ', $flag->name)) }}</p>
-                            @if($flag->description)
-                                <p class="text-xs text-gray-500">{{ $flag->description }}</p>
-                            @endif
-                        </div>
-                        <form method="POST" action="{{ route('admin.settings.toggle-flag', $flag) }}">
-                            @csrf
-                            <button type="submit" 
-                                    class="px-3 py-1 rounded text-xs font-medium transition-colors
-                                           {{ $flag->is_enabled ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-700 hover:bg-gray-400' }}">
-                                {{ $flag->is_enabled ? 'On' : 'Off' }}
-                            </button>
-                        </form>
-                    </div>
-                @endforeach
+    @if(auth()->user()->isSuperAdmin())
+    <div class="mb-6 overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-violet-50 shadow-sm">
+        <div class="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">Release control</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-950">Feature & Module Management</h2>
+                <p class="mt-1 max-w-3xl text-sm text-slate-600">Runtime availability is controlled from one centralized page. Configuration such as AI provider keys or notification channel preferences remains in its specialist settings area.</p>
             </div>
+            <a href="{{ route('admin.settings.features') }}" class="acad-primary-button inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold">Manage feature states →</a>
         </div>
     </div>
 
@@ -264,7 +253,7 @@
                 <p class="text-sm text-gray-600">Configure payment providers for subscription billing</p>
             </div>
             <a href="{{ route('admin.payment-gateways.create') }}" 
-               class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">
+               class="acad-primary-button px-4 py-2 rounded text-sm">
                + Add Gateway
             </a>
         </div>
@@ -336,7 +325,7 @@
                 <p class="text-sm text-gray-600">Manage subscription tiers and pricing</p>
             </div>
             <a href="{{ route('admin.subscription-plans.create') }}" 
-               class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">
+               class="acad-primary-button px-4 py-2 rounded text-sm">
                + Add Plan
             </a>
         </div>
@@ -376,7 +365,7 @@
                                 </span>
                             </td>
                             <td class="px-4 py-3">
-                                <a href="{{ route('admin.subscription-plans.edit', $plan) }}" class="text-blue-600 hover:underline text-sm">Edit</a>
+                                <a href="{{ route('admin.subscription-plans.edit', $plan) }}" class="acad-link text-sm">Edit</a>
                             </td>
                         </tr>
                     @endforeach
@@ -384,6 +373,7 @@
             </table>
         </div>
     </div>
+    @endif
 </div>
 
 @endsection

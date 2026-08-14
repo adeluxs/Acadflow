@@ -22,6 +22,8 @@ class CourseMaterial extends Model
         'type',
         'file_name',
         'file_path',
+        'disk',
+        'media_asset_id',
         'mime_type',
         'file_size',
         'topic',
@@ -64,6 +66,11 @@ class CourseMaterial extends Model
     public function semester(): BelongsTo
     {
         return $this->belongsTo(Semester::class);
+    }
+
+    public function mediaAsset(): BelongsTo
+    {
+        return $this->belongsTo(MediaAsset::class);
     }
 
     public function uploader(): BelongsTo

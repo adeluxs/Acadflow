@@ -144,7 +144,8 @@ class SubmissionTask extends Model
         }
 
         if ($this->close_at && $now->isAfter($this->close_at)) {
-            return ! $this->allow_late_submissions;
+            return $this->allow_late_submissions
+                && (! $this->late_deadline || $now->isBefore($this->late_deadline));
         }
 
         return true;
@@ -198,7 +199,7 @@ class SubmissionTask extends Model
                 ->latest()
                 ->first();
 
-            if ($extension && $extension->extended_deadline > $deadline) {
+            if ($extension && (! $deadline || $extension->extended_deadline->isAfter($deadline))) {
                 return $extension->extended_deadline;
             }
         }

@@ -8,27 +8,29 @@ use App\Events\NewDiscussionPosted;
 use App\Models\Course;
 use App\Models\CourseMaterial;
 use App\Models\Discussion;
-use App\Models\DiscussionReply;
+use App\Models\EngagementComment;
 use App\Models\DiscussionTag;
-use App\Models\Semester;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use App\Services\AcademicContextService;
+use App\Services\EngagementService;
 
 class DiscussionController extends Controller
 {
     /**
      * List discussions for a course
      */
-    public function index(Course $course)
+    public function index(Course $course, AcademicContextService $academicContext)
     {
+        $this->authorize('view', $course);
         $user = Auth::user();
-        $semester = Semester::where('is_active', true)->first();
+        $semester = $academicContext->activeSemesterForCourse($course);
 
         $query = Discussion::where('course_id', $course->id)
             ->where('semester_id', $semester?->id)
-            ->with(['user', 'material', 'replies', 'tags'])
+            ->with(['user', 'material', 'tags', 'engagementThread' => fn ($thread) => $thread->withCount('comments')])
             ->orderBy('is_pinned', 'desc')
             ->orderBy('created_at', 'desc');
 
@@ -63,22 +65,13 @@ class DiscussionController extends Controller
     /**
      * Show specific discussion
      */
-    public function show(Course $course, Discussion $discussion)
+    public function show(Course $course, Discussion $discussion, EngagementService $engagement)
     {
-        if ($discussion->course_id !== $course->id) {
-            abort(404);
-        }
-
-        $discussion->load([
-            'user',
-            'material',
-            'resolver',
-            'replies.user',
-            'replies.parent',
-            'tags',
-        ]);
-
-        return view('discussions.show', compact('course', 'discussion'));
+        if ($discussion->course_id !== $course->id) abort(404);
+        $this->authorize('view', $discussion);
+        $discussion->load(['user', 'material', 'resolver', 'tags', 'engagementThread']);
+        $replies = $engagement->commentsFor($discussion, 100);
+        return view('discussions.show', compact('course', 'discussion', 'replies'));
     }
 
     /**
@@ -86,7 +79,8 @@ class DiscussionController extends Controller
      */
     public function create(Request $request, Course $course)
     {
-        
+        $this->authorize('addDiscussion', $course);
+
         $materialId = $request->query('material_id');
         $material = null;
 
@@ -104,7 +98,7 @@ class DiscussionController extends Controller
     /**
  * Store new discussion
  */
-public function store(Request $request, Course $course)
+public function store(Request $request, Course $course, EngagementService $engagement, AcademicContextService $academicContext)
 {
     $user = Auth::user();
 
@@ -130,12 +124,13 @@ public function store(Request $request, Course $course)
         }
     }
 
-    $semester = Semester::where('is_active', true)->first();
+    $semester = $academicContext->activeSemesterForCourse($course);
+    abort_unless($semester, 422, 'No active semester is configured. Please contact an administrator.');
 
     $discussion = Discussion::create([
         'uuid' => Str::uuid(),
         'course_id' => $course->id,
-        'semester_id' => $semester?->id,
+        'semester_id' => $semester->id,
         'user_id' => $user->id,
         'material_id' => $materialId,
         'title' => $validated['title'],
@@ -150,19 +145,21 @@ public function store(Request $request, Course $course)
         $discussion->tags()->attach($validated['tag_ids']);
     }
 
+    $engagement->threadFor($discussion, $course->department?->faculty?->university_id ?? $user->university_id, 'institution', $discussion->title);
+    $engagement->ensureSubscribed($discussion, $user);
+
     // Notify lecturers and enrolled students (excluding creator)
-    $recipients = User::where(function ($q) use ($course) {
-        // Lecturers of the course
-        $q->whereHas('lecturerAssignments', fn ($sub) => $sub->where('course_id', $course->id));
-    })
-        ->orWhere(function ($q) use ($course, $semester) {
-            $q->whereHas('enrollments', function ($sub) use ($course, $semester) {
-                $sub->where('course_id', $course->id)
-                    ->where('semester_id', $semester?->id)
-                    ->where('status', 'enrolled');
-            });
-        })
+    $recipients = User::query()
+        ->where('university_id', $user->university_id)
         ->where('id', '!=', $user->id)
+        ->where(function ($query) use ($course, $semester) {
+            $query->whereHas('lecturerAssignments', fn ($sub) => $sub->where('course_id', $course->id))
+                ->orWhereHas('enrollments', function ($sub) use ($course, $semester) {
+                    $sub->where('course_id', $course->id)
+                        ->where('semester_id', $semester->id)
+                        ->where('status', 'enrolled');
+                });
+        })
         ->get();
 
     if ($recipients->count() > 0) {
@@ -176,53 +173,62 @@ public function store(Request $request, Course $course)
     /**
      * Add reply to discussion
      */
-    public function addReply(Request $request, Course $course, Discussion $discussion)
+    public function addReply(Request $request, Course $course, Discussion $discussion, EngagementService $engagement)
     {
-        if ($discussion->course_id !== $course->id) {
-            abort(404);
-        }
-
+        if ($discussion->course_id !== $course->id) abort(404);
         $this->authorize('view', $discussion);
-
         $validated = $request->validate([
-            'content' => 'required|string',
-            'parent_reply_id' => 'nullable|exists:discussion_replies,id',
-            'type' => 'in:answer,comment,clarification',
+            'content' => ['required', 'string', 'max:20000'],
+            'parent_reply_id' => ['nullable', 'integer', 'exists:engagement_comments,id'],
+            'type' => ['nullable', 'in:answer,comment,clarification'],
         ]);
-
-        $reply = DiscussionReply::create([
-            'uuid' => Str::uuid(),
-            'discussion_id' => $discussion->id,
-            'user_id' => Auth::id(),
-            'parent_reply_id' => $validated['parent_reply_id'] ?? null,
-            'content' => $validated['content'],
-            'type' => $validated['type'] ?? 'answer',
+        $thread = $engagement->threadFor($discussion, $course->department?->faculty?->university_id ?? $request->user()->university_id, 'institution', $discussion->title);
+        if ($validated['parent_reply_id'] ?? null) abort_unless($thread->comments()->whereKey($validated['parent_reply_id'])->exists(), 422, 'Parent reply does not belong to this discussion.');
+        $engagement->ensureSubscribed($discussion, $request->user());
+        $engagement->comment($discussion, $request->user(), $validated['content'], [
+            'university_id' => $thread->university_id, 'visibility' => 'institution',
+            'parent_id' => $validated['parent_reply_id'] ?? null, 'comment_type' => $validated['type'] ?? 'answer',
         ]);
-
-        // If this is an accepted answer, update discussion
-        if ($request->has('accept') && $request->accept) {
-            $discussion->update([
-                'status' => 'resolved',
-                'resolved_at' => now(),
-                'resolved_by' => Auth::id(),
-            ]);
-
-            // Mark this reply as accepted
-            $reply->update(['is_accepted' => true, 'accepted_at' => now()]);
-        }
-
-        // Notify discussion author and previous repliers (excluding current replier)
-        $recipients = collect([$discussion->user])
-            ->merge($discussion->replies()->with('user')->get()->pluck('user'))
-            ->unique('id')
-            ->filter(fn ($u) => $u && $u->id !== Auth::id())
-            ->values();
-
-        if ($recipients->count() > 0) {
-            event(new NewDiscussionPosted($discussion, $course, $recipients, true));
-        }
-
         return back()->with('success', 'Reply added successfully.');
+    }
+
+    public function acceptReply(Request $request, Course $course, Discussion $discussion, EngagementComment $comment): mixed
+    {
+        if ($discussion->course_id !== $course->id) abort(404);
+        $this->authorize('pin', $discussion);
+        $thread = $discussion->engagementThread;
+        abort_unless($thread && $comment->engagement_thread_id === $thread->id, 404);
+        $thread->comments()->update(['is_verified_response' => false]);
+        $comment->update(['is_verified_response' => true, 'resolved_by' => $request->user()->id, 'resolved_at' => now()]);
+        $discussion->update(['status' => 'resolved', 'resolved_at' => now(), 'resolved_by' => $request->user()->id]);
+        return back()->with('success', 'Accepted answer recorded through the shared engagement service.');
+    }
+
+    public function reactReply(Request $request, Course $course, Discussion $discussion, EngagementComment $comment, EngagementService $engagement): mixed
+    {
+        if ($discussion->course_id !== $course->id) abort(404);
+        $this->authorize('view', $discussion);
+        abort_unless($discussion->engagementThread?->id === $comment->engagement_thread_id, 404);
+        $data = $request->validate(['reaction' => ['required', 'in:like,helpful,insightful,agree']]);
+        $engagement->react($comment, $request->user(), $data['reaction']);
+        return back()->with('success', 'Reaction updated.');
+    }
+
+    public function report(Request $request, Course $course, Discussion $discussion, EngagementService $engagement): mixed
+    {
+        if ($discussion->course_id !== $course->id) abort(404);
+        $this->authorize('view', $discussion);
+        $data = $request->validate(['reason' => ['required', 'in:spam,harassment,unsafe,academic_integrity,misinformation,other'], 'details' => ['nullable', 'string', 'max:5000']]);
+        $engagement->report($discussion, $request->user(), $data['reason'], $data['details'] ?? null);
+        return back()->with('success', 'Report submitted for human moderation.');
+    }
+
+    public function subscribe(Request $request, Course $course, Discussion $discussion, EngagementService $engagement): mixed
+    {
+        if ($discussion->course_id !== $course->id) abort(404);
+        $this->authorize('view', $discussion);
+        $active = $engagement->subscribe($discussion, $request->user());
+        return back()->with('success', $active ? 'Discussion notifications enabled.' : 'Discussion notifications disabled.');
     }
 
     /**
@@ -265,6 +271,7 @@ public function store(Request $request, Course $course)
             'content' => $validated['content'],
             'priority' => $validated['priority'],
         ]);
+        $discussion->engagementThread?->update(['title' => $validated['title']]);
 
         // Update tags
         if (isset($validated['tag_ids'])) {
@@ -290,6 +297,7 @@ public function store(Request $request, Course $course)
         }
 
         $discussion->update(['status' => 'closed']);
+        $discussion->engagementThread?->update(['status' => 'closed', 'is_locked' => true]);
 
         return back()->with('success', 'Discussion closed.');
     }

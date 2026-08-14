@@ -80,20 +80,21 @@ class PdfDocumentAnalyzer
      *
      * @return array<string, mixed>|null
      */
-    public function analyzeFromPath(string $path): ?array
+    public function analyzeFromPath(string $path, ?string $disk = null): ?array
     {
-        if (! Storage::exists($path)) {
+        $storage = Storage::disk($disk ?: config('filesystems.default', 'local'));
+        if (! $storage->exists($path)) {
             return null;
         }
 
         $lower = strtolower($path);
-        $mime = Storage::mimeType($path) ?? '';
+        $mime = $storage->mimeType($path) ?? '';
 
         if (! str_ends_with($lower, '.pdf') && ! str_contains($mime, 'pdf')) {
             return null;
         }
 
-        return $this->analyzeContent((string) Storage::get($path));
+        return $this->analyzeContent((string) $storage->get($path));
     }
 
     /**

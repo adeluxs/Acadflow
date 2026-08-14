@@ -70,7 +70,7 @@
                             <p class="text-gray-600 text-sm mt-1">
                                 by {{ $discussion->user->full_name }} • 
                                 {{ $discussion->created_at->format('M d, Y H:i') }} •
-                                {{ $discussion->replies()->count() }} replies
+                                {{ $discussion->engagementThread?->comments_count ?? 0 }} replies
                             </p>
                             @if($discussion->material)
                                 <p class="text-sm text-gray-500 mt-1">

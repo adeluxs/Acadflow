@@ -111,6 +111,7 @@ enum Permission: string
             'department_admin' => self::departmentAdminPermissions(),
             'lecturer' => self::lecturerPermissions(),
             'student' => self::studentPermissions(),
+            'member' => self::memberPermissions(),
             default => [],
         };
     }
@@ -296,6 +297,23 @@ enum Permission: string
             self::MANAGE_SUBMISSION_TASK,
             self::VIEW_SUBMISSION_TASKS,
             self::GRANT_SUBMISSION_EXTENSION,
+        ];
+    }
+
+    public static function memberPermissions(): array
+    {
+        return [
+            self::VIEW_OWN_PROFILE,
+            self::EDIT_OWN_PROFILE,
+            self::CREATE_GROUP,
+            self::JOIN_GROUP,
+            self::LEAVE_GROUP,
+            self::VIEW_GROUP_MEMBERS,
+            self::MANAGE_GROUP,
+            self::VIEW_OWN_DOCUMENTS,
+            self::DOWNLOAD_DOCUMENT,
+            self::VIEW_OWN_ANALYTICS,
+            self::RECEIVE_NOTIFICATIONS,
         ];
     }
 

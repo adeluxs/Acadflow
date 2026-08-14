@@ -31,33 +31,33 @@ class AiRouter
      *
      * Returns the provider or null when AI is disabled.
      */
-    public function resolve(string $feature): ?AiProviderInterface
+    public function resolve(string $feature, ?int $universityId = null): ?AiProviderInterface
     {
-        $mode = $this->mode();
+        $mode = $this->mode($universityId);
 
         return match ($mode) {
             AiMode::DISABLED => null,
             AiMode::RULE_BASED => new RuleBasedProvider($this->engine),
-            AiMode::PROVIDER => $this->provider($this->defaultProviderName()),
+            AiMode::PROVIDER => $this->provider($this->defaultProviderName($universityId)),
             AiMode::HYBRID => new RuleBasedProvider($this->engine), // manager runs hybrid flow
         };
     }
 
-    public function mode(): AiMode
+    public function mode(?int $universityId = null): AiMode
     {
-        $value = SettingService::get('ai_mode', config('ai.default_mode', 'rule_based'));
+        $value = SettingService::get('ai_mode', config('ai.default_mode', 'rule_based'), $universityId);
 
         return AiMode::tryFrom($value) ?? AiMode::RULE_BASED;
     }
 
-    public function defaultProviderName(): string
+    public function defaultProviderName(?int $universityId = null): string
     {
-        return (string) SettingService::get('ai_default_provider', config('ai.default_provider', 'rule_based'));
+        return (string) SettingService::get('ai_default_provider', config('ai.default_provider', 'rule_based'), $universityId);
     }
 
-    public function fallbackProviderName(): string
+    public function fallbackProviderName(?int $universityId = null): string
     {
-        return (string) SettingService::get('ai_fallback_provider', config('ai.fallback_provider', 'rule_based'));
+        return (string) SettingService::get('ai_fallback_provider', config('ai.fallback_provider', 'rule_based'), $universityId);
     }
 
     /**

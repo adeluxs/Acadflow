@@ -1,152 +1,31 @@
 @extends('layouts.app')
-
 @section('title', 'Discussion: ' . $discussion->title)
-
 @section('content')
 <div class="container mx-auto px-4 py-8">
-    <div class="mb-4">
-        <a href="{{ route('discussions.index', $course) }}" class="text-indigo-600 hover:underline">
-            ← Back to Discussions
-        </a>
-    </div>
-
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex justify-between items-start mb-4">
-            <div>
-                <div class="flex items-center gap-2 mb-2">
-                    @if($discussion->is_pinned)
-                        <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded">Pinned</span>
-                    @endif
-                    @if($discussion->status === 'resolved')
-                        <span class="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded">Resolved</span>
-                    @endif
-                    @if($discussion->priority === 'high')
-                        <span class="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded">High Priority</span>
-                    @endif
-                </div>
-                <h1 class="text-2xl font-bold">{{ $discussion->title }}</h1>
-                <p class="text-gray-600 text-sm mt-1">
-                    Asked by {{ $discussion->user->full_name }} on {{ $discussion->created_at->format('M d, Y H:i') }}
-                    @if($discussion->resolved_at)
-                        • Resolved by {{ $discussion->resolver->full_name }} on {{ $discussion->resolved_at->format('M d, Y') }}
-                    @endif
-                </p>
-            </div>
-            <div class="flex gap-2">
-                @if(auth()->id() === $discussion->user_id && $discussion->status === 'open')
-                    <a href="{{ route('discussions.edit', [$course, $discussion]) }}" 
-                       class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-                       Edit
-                    </a>
-                @endif
-                @if(auth()->user()->isLecturer() || auth()->user()->isAdmin())
-                    <form method="POST" action="{{ route('discussions.pin', [$course, $discussion]) }}" class="inline">
-                        @csrf
-                        <button type="submit" class="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700">
-                            {{ $discussion->is_pinned ? 'Unpin' : 'Pin' }}
-                        </button>
-                    </form>
-                @endif
-            </div>
-        </div>
-
-        <div class="prose max-w-none mb-8">
-            {!! nl2br(e($discussion->content)) !!}
-        </div>
-
-        @if($discussion->tags->count() > 0)
-            <div class="flex gap-2 mb-6">
-                @foreach($discussion->tags as $tag)
-                    <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm">
-                        {{ $tag->name }}
-                    </span>
-                @endforeach
-            </div>
-        @endif
-
-        @if($discussion->material)
-            <div class="bg-gray-50 p-4 rounded mb-6">
-                <p class="text-sm text-gray-600">
-                    Related to: 
-                    <a href="{{ route('materials.show', [$course, $discussion->material]) }}" 
-                       class="text-indigo-600 hover:underline">
-                       {{ $discussion->material->title }}
-                    </a>
-                </p>
-            </div>
-        @endif
-
-        <hr class="my-6">
-
-        <!-- Replies -->
-        <h2 class="text-xl font-bold mb-4">Replies ({{ $discussion->replies->count() }})</h2>
-
-        <div class="space-y-4">
-            @forelse($discussion->replies as $reply)
-                <div class="border rounded-lg p-4 {{ $reply->is_accepted ? 'bg-green-50 border-green-200' : '' }}">
-                    <div class="flex items-start gap-3">
-                            <div class="flex-shrink-0">
-                                <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-                                    {{ \Str::upper(substr($reply->user->first_name, 0, 1)) }}
-                                </div>
-                            </div>
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <p class="font-semibold">{{ $reply->user->full_name }}</p>
-                                <div class="flex items-center gap-2">
-                                    @if($reply->is_accepted)
-                                        <span class="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded">Accepted Answer</span>
-                                    @endif
-                                    <span class="text-sm text-gray-500">{{ $reply->created_at->format('M d, Y H:i') }}</span>
-                                </div>
-                            </div>
-                            <div class="prose max-w-none mt-2">
-                                {!! nl2br(e($reply->content)) !!}
-                            </div>
-                            @if($reply->type === 'answer' && !$discussion->resolved_at && auth()->user()->isLecturer())
-                                <form method="POST" action="{{ route('discussions.reply', [$course, $discussion]) }}" class="mt-3">
-                                    @csrf
-                                    <input type="hidden" name="parent_reply_id" value="{{ $reply->id }}">
-                                    <input type="hidden" name="accept" value="1">
-                                    <button type="submit" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">
-                                        Mark as Accepted
-                                    </button>
-                                </form>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-            @empty
-                <p class="text-gray-500">No replies yet.</p>
-            @endforelse
-        </div>
-
-        <!-- Add Reply Form -->
-        @if($discussion->status === 'open' || auth()->user()->isAdmin())
-            <div class="mt-6 bg-white rounded-lg shadow p-6">
-                <h3 class="font-bold mb-4">Add Reply</h3>
-                <form method="POST" action="{{ route('discussions.reply', [$course, $discussion]) }}"
-                      data-offline="true" data-action-type="reply_create">
-                    @csrf
-                    <div class="mb-4">
-                        <textarea name="content" rows="4" class="w-full px-3 py-2 border rounded" 
-                                  placeholder="Write your reply..." required></textarea>
-                    </div>
-                    <div class="flex gap-2">
-                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
-                            Post Reply
-                        </button>
-                        @if(auth()->user()->isLecturer())
-                            <select name="type" class="px-3 py-2 border rounded">
-                                <option value="answer">Answer</option>
-                                <option value="comment">Comment</option>
-                                <option value="clarification">Clarification</option>
-                            </select>
-                        @endif
-                    </div>
-                </form>
-            </div>
-        @endif
-    </div>
+<a href="{{ route('discussions.index',$course) }}" class="text-indigo-600 hover:underline">← Back to Discussions</a>
+<section class="mt-4 rounded-lg bg-white p-6 shadow">
+<div class="flex flex-wrap items-start justify-between gap-4"><div><div class="mb-2 flex gap-2">@if($discussion->is_pinned)<span class="rounded bg-yellow-100 px-2 py-0.5 text-xs text-yellow-800">Pinned</span>@endif @if($discussion->status==='resolved')<span class="rounded bg-green-100 px-2 py-0.5 text-xs text-green-800">Resolved</span>@endif @if($discussion->priority==='high')<span class="rounded bg-red-100 px-2 py-0.5 text-xs text-red-800">High priority</span>@endif</div><h1 class="text-2xl font-bold">{{ $discussion->title }}</h1><p class="mt-1 text-sm text-gray-600">Asked by {{ $discussion->user->full_name }} on {{ $discussion->created_at->format('M d, Y H:i') }} @if($discussion->resolved_at) · Resolved by {{ $discussion->resolver?->full_name }}@endif</p></div>
+<div class="flex flex-wrap gap-2">@can('update',$discussion)<a href="{{ route('discussions.edit',[$course,$discussion]) }}" class="rounded bg-blue-600 px-3 py-1 text-sm text-white">Edit</a>@endcan
+<form method="POST" action="{{ route('discussions.subscribe',[$course,$discussion]) }}">@csrf<button class="rounded border px-3 py-1 text-sm">Toggle notifications</button></form>
+@if(auth()->user()->isLecturer()||auth()->user()->isAdmin())<form method="POST" action="{{ route('discussions.pin',[$course,$discussion]) }}">@csrf<button class="rounded bg-yellow-600 px-3 py-1 text-sm text-white">{{ $discussion->is_pinned?'Unpin':'Pin' }}</button></form>@endif</div></div>
+<div class="prose mt-6 max-w-none">{!! nl2br(e($discussion->content)) !!}</div>
+@if($discussion->tags->isNotEmpty())<div class="mt-5 flex flex-wrap gap-2">@foreach($discussion->tags as $tag)<span class="rounded bg-gray-100 px-2 py-1 text-sm">{{ $tag->name }}</span>@endforeach</div>@endif
+@if($discussion->material)<div class="mt-5 rounded bg-gray-50 p-4 text-sm">Related material: <a class="text-indigo-600" href="{{ route('materials.show',[$course,$discussion->material]) }}">{{ $discussion->material->title }}</a></div>@endif
+<div class="mt-5 flex justify-end"><details class="text-sm"><summary class="cursor-pointer text-red-700">Report discussion</summary><form method="POST" action="{{ route('discussions.report',[$course,$discussion]) }}" class="mt-2 flex flex-wrap gap-2">@csrf<select name="reason" class="rounded border"><option value="spam">Spam</option><option value="harassment">Harassment</option><option value="academic_integrity">Academic integrity</option><option value="misinformation">Misinformation</option><option value="other">Other</option></select><input name="details" class="rounded border" placeholder="Optional details"><button class="rounded border border-red-600 px-3">Submit</button></form></details></div>
+<hr class="my-6">
+<h2 class="text-xl font-bold">Replies ({{ $replies->total() }})</h2>
+<div class="mt-4 space-y-4">
+@forelse($replies as $reply)
+<article class="rounded-lg border p-4 {{ $reply->is_verified_response?'border-green-200 bg-green-50':'' }}">
+<div class="flex items-start gap-3"><div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200">{{ strtoupper(substr($reply->user?->first_name ?? '?',0,1)) }}</div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center justify-between gap-2"><p class="font-semibold">{{ $reply->user?->full_name }}</p><div class="flex items-center gap-2">@if($reply->is_verified_response)<span class="rounded bg-green-100 px-2 py-0.5 text-xs text-green-800">Accepted answer</span>@endif<span class="text-xs text-gray-500">{{ $reply->created_at->format('M d, Y H:i') }}</span></div></div><div class="prose mt-2 max-w-none">{!! nl2br(e($reply->body)) !!}</div>
+<div class="mt-3 flex flex-wrap gap-2">@foreach(['helpful','insightful','agree'] as $reaction)<form method="POST" action="{{ route('discussions.replies.react',[$course,$discussion,$reply]) }}">@csrf<input type="hidden" name="reaction" value="{{ $reaction }}"><button class="rounded border px-2 py-1 text-xs">{{ ucfirst($reaction) }}</button></form>@endforeach<span class="px-2 py-1 text-xs text-gray-500">{{ $reply->reactions_count }} reaction(s)</span>
+@if($reply->comment_type==='answer'&&!$discussion->resolved_at&&(auth()->user()->isLecturer()||auth()->user()->isAdmin()))<form method="POST" action="{{ route('discussions.replies.accept',[$course,$discussion,$reply]) }}">@csrf<button class="rounded bg-green-600 px-3 py-1 text-xs text-white">Accept answer</button></form>@endif</div>
+@if($reply->replies->isNotEmpty())<div class="mt-4 space-y-3 border-l-2 pl-4">@foreach($reply->replies as $child)<div><p class="text-sm font-semibold">{{ $child->user?->full_name }} <span class="font-normal text-gray-500">· {{ $child->created_at->diffForHumans() }}</span></p><p class="mt-1 text-sm">{{ $child->body }}</p></div>@endforeach</div>@endif
+@if($discussion->status==='open')<details class="mt-3 text-sm"><summary class="cursor-pointer text-indigo-700">Reply to this answer</summary><form method="POST" action="{{ route('discussions.reply',[$course,$discussion]) }}" class="mt-2">@csrf<input type="hidden" name="parent_reply_id" value="{{ $reply->id }}"><input type="hidden" name="type" value="comment"><textarea required name="content" rows="2" class="w-full rounded border" placeholder="Write a nested reply"></textarea><button class="mt-2 rounded bg-indigo-600 px-3 py-1 text-white">Post</button></form></details>@endif
+</div></div></article>
+@empty<p class="text-gray-500">No replies yet.</p>@endforelse
 </div>
+<div class="mt-4">{{ $replies->links() }}</div>
+@if($discussion->status==='open'||auth()->user()->isAdmin())<section class="mt-6 rounded-lg border bg-gray-50 p-5"><h3 class="font-bold">Add reply</h3><form method="POST" action="{{ route('discussions.reply',[$course,$discussion]) }}" class="mt-3">@csrf<textarea name="content" rows="4" required class="w-full rounded border" placeholder="Write your reply. Mention a user with @[user:ID] or their email."></textarea><div class="mt-3 flex gap-2"><select name="type" class="rounded border"><option value="answer">Answer</option><option value="comment">Comment</option><option value="clarification">Clarification</option></select><button class="rounded bg-indigo-600 px-4 py-2 text-white">Post reply</button></div></form></section>@endif
+</section></div>
 @endsection

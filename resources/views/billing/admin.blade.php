@@ -32,11 +32,11 @@
                         </td>
                         <td class="px-6 py-4">
                             @if($invoice->status === 'pending')
-                                <form method="POST" action="{{ route('admin.billing.verify', $invoice) }}" class="inline">
+                                <form method="POST" action="{{ route('billing.verify', $invoice) }}" class="inline">
                                     @csrf
                                     <button type="submit" class="text-green-600 hover:text-green-900">Verify</button>
                                 </form>
-                                <form method="POST" action="{{ route('admin.billing.waive', $invoice) }}" class="inline ml-2">
+                                <form method="POST" action="{{ route('billing.waive', $invoice) }}" class="inline ml-2">
                                     @csrf
                                     <button type="submit" class="text-red-600 hover:text-red-900">Waive</button>
                                 </form>

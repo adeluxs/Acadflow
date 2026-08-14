@@ -1,0 +1,9 @@
+@extends('layouts.app')
+@section('title','Learning Paths')
+@section('page-title','Learning Paths')
+@section('page-subtitle','Ordered academic journeys with progress and optional certificates')
+@section('content')
+@include('knowledge._nav')
+@auth<form method="POST" action="{{ route('knowledge.learning.store') }}" class="mb-6 grid gap-3 rounded-2xl border bg-white p-5 md:grid-cols-2">@csrf<input required name="title" class="rounded-xl border-slate-300" placeholder="Path title"><input name="outcomes" class="rounded-xl border-slate-300" placeholder="Learning outcomes, comma separated"><textarea name="description" class="rounded-xl border-slate-300 md:col-span-2" placeholder="Description"></textarea><select name="visibility" class="rounded-xl border-slate-300"><option>public</option><option>institution</option><option>private</option></select><select name="access_type" class="rounded-xl border-slate-300"><option>free</option><option>institution</option><option>premium</option></select><input name="price" type="number" step="0.01" class="rounded-xl border-slate-300" placeholder="Premium price"><select name="status" class="rounded-xl border-slate-300"><option>draft</option><option>published</option></select><label class="text-sm"><input type="checkbox" name="certificate_enabled" value="1"> Certificate on completion</label><button class="rounded-xl bg-blue-600 px-4 py-2 text-white">Create path</button></form>@endauth
+<div class="grid gap-4 md:grid-cols-3">@foreach($paths as $path)<a class="rounded-2xl border bg-white p-5" href="{{ route('knowledge.learning.show',$path) }}"><span class="text-xs text-blue-700">{{ $path->access_type }} · {{ $path->items_count }} items</span><h2 class="mt-2 font-semibold">{{ $path->title }}</h2><p class="mt-2 text-sm text-slate-500">{{ Illuminate\Support\Str::limit($path->description,120) }}</p></a>@endforeach</div><div class="mt-4">{{ $paths->links() }}</div>
+@endsection

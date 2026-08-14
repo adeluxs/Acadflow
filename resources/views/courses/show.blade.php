@@ -99,7 +99,7 @@
                 </div>
                 @if($course->submissionTasks()->where('status', 'published')->count() > 3)
                 <div class="text-center pt-4 border-t border-gray-100">
-                    <a href="#" class="text-blue-600 hover:underline font-medium">View all assignments</a>
+                    <a href="{{ route('courses.assignments', $course) }}" class="text-blue-600 hover:underline font-medium">View all assignments</a>
                 </div>
                 @endif
             </div>

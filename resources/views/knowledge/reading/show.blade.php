@@ -1,0 +1,12 @@
+@extends('layouts.app')
+@section('title',$list->title)
+@section('page-title',$list->title)
+@section('page-subtitle',$list->list_type.' reading list')
+@section('content')
+@include('knowledge._nav')
+<div class="rounded-2xl border bg-white p-6"><p>{{ $list->description }}</p><p class="mt-2 text-xs text-slate-500">Owner: {{ $list->owner?->full_name }} @if($list->researchProject) · Linked to {{ $list->researchProject->title }}@endif</p><div class="mt-4 flex gap-2"><a class="rounded-xl border px-3 py-2 text-sm" href="{{ route('knowledge.reading.export',['list'=>$list,'format'=>'csv']) }}">Export CSV</a><a class="rounded-xl border px-3 py-2 text-sm" href="{{ route('knowledge.reading.export',['list'=>$list,'format'=>'json']) }}">Export JSON</a></div></div>
+@if(auth()->id()===$list->owner_id || auth()->user()?->isAdmin())<form method="POST" action="{{ route('knowledge.reading.members.store',$list) }}" class="mt-5 flex gap-2 rounded-2xl border bg-white p-4">@csrf<input required type="number" name="user_id" class="rounded-xl border-slate-300" placeholder="User ID"><select name="role" class="rounded-xl border-slate-300"><option>viewer</option><option>editor</option></select><button class="rounded-xl border px-4">Add collaborator</button></form>@endif
+@auth<form method="POST" action="{{ route('knowledge.reading.items.store',$list) }}" class="mt-5 flex gap-2 rounded-2xl border bg-white p-4">@csrf<input name="publication_id" required type="number" class="rounded-xl border-slate-300" placeholder="Publication ID"><input name="note" class="flex-1 rounded-xl border-slate-300" placeholder="Note"><button class="rounded-xl border px-4">Add</button></form>@endauth
+<div class="mt-5 space-y-3">@foreach($list->items as $item)<div class="rounded-2xl border bg-white p-4"><strong>{{ $item->item?->title ?? class_basename($item->item_type) }}</strong><p class="text-sm text-slate-500">{{ $item->note }}</p>@auth<form method="POST" action="{{ route('knowledge.reading.items.update',[$list,$item]) }}" class="mt-2 flex gap-2">@csrf @method('PATCH')<select name="status" class="rounded-xl border-slate-300"><option @selected($item->status==='unread')>unread</option><option @selected($item->status==='reading')>reading</option><option @selected($item->status==='completed')>completed</option></select><button class="rounded-xl border px-3">Update</button></form>@endauth</div>@endforeach</div>
+@endsection
+

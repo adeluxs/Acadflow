@@ -146,8 +146,8 @@
                         <p class="text-sm text-gray-600">Expires</p>
                         <p class="font-medium text-yellow-800">{{ $sub->ends_at->format('M d, Y') }}</p>
                     </div>
-                    <a href="{{ route('admin.subscriptions.edit', $sub) }}" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-                        Renew
+                    <a href="{{ route('admin.subscriptions') }}" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                        Review
                     </a>
                 </div>
             @endforeach

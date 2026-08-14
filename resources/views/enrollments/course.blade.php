@@ -10,7 +10,7 @@
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <div class="text-gray-500 text-sm">Credits</div>
-                <div>{{ $course->credits }}</div>
+                <div>{{ $course->credit_hours }}</div>
             </div>
             <div>
                 <div class="text-gray-500 text-sm">Department</div>
@@ -34,7 +34,7 @@
                         <td class="px-6 py-4">{{ $enrollment->user->email }}</td>
                         <td class="px-6 py-4">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {{ $enrollment->status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ $enrollment->status === 'enrolled' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
                                 {{ ucfirst($enrollment->status) }}
                             </span>
                         </td>

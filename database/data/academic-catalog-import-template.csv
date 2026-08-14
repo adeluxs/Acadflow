@@ -1,0 +1,2 @@
+institution_name,institution_short_name,institution_code,institution_type,ownership,state,regulator,website,faculty_name,faculty_code,faculty_short_name,department_name,department_code,department_short_name,course_code,course_name,course_description,credit_hours,level,semester,type,pass_mark
+Federal University of Technology Owerri,FUTO,FUTO,university,Federal,Imo,NUC,https://futo.edu.ng,Faculty of Science,SCI,Science,Computer Science,CSC,CSC,CSC101,Introduction to Computer Science,Replace this example row with the institution's verified curriculum,3,100,1st,compulsory,40

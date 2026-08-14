@@ -5,276 +5,190 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Course;
-use App\Models\Enrollment;
+use App\Models\EngagementComment;
 use App\Models\Group;
-use App\Models\GroupMember;
-use App\Models\Semester;
+use App\Models\GroupInvitation;
+use App\Models\GroupJoinRequest;
+use App\Models\GroupResource;
+use App\Models\GroupTask;
+use App\Models\KnowledgeCommunity;
+use App\Models\ResearchProject;
+use App\Models\User;
+use App\Services\AcademicContextService;
+use App\Services\CollaborationGroupService;
+use App\Services\EngagementService;
+use App\Services\Media\MediaSecurityService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+use Illuminate\View\View;
 
 class GroupController extends Controller
 {
-    public function index()
+    public function index(Request $request): View
     {
-        $user = Auth::user();
-
-        // Get groups where user is a member or leader
-        $groups = Group::where(function ($query) use ($user) {
-            $query->where('leader_id', $user->id)
-                  ->orWhereHas('members', function ($q) use ($user) {
-                      $q->where('user_id', $user->id);
-                  });
-        })
-        ->with(['course', 'leader', 'members'])
-        ->latest()
-        ->paginate(12);
-
-        return view('groups.index', compact('groups'));
+        $user=$request->user();
+        $filters=$request->validate(['q'=>['nullable','string','max:255'],'type'=>['nullable','string','max:40'],'visibility'=>['nullable','in:public,institution,private']]);
+        $groups=Group::query()->with(['leader','course','community'])->withCount(['members as active_members_count'=>fn($q)=>$q->where('status','active')])
+            ->where('status','!=','archived')
+            ->where(function($q)use($user){$q->where('leader_id',$user->id)->orWhereHas('members',fn($m)=>$m->where('user_id',$user->id)->where('status','active'))->orWhere('visibility','public');if($user->university_id)$q->orWhere(fn($i)=>$i->where('visibility','institution')->where('university_id',$user->university_id));})
+            ->when($filters['q']??null,fn($q,$term)=>$q->where(fn($s)=>$s->where('name','like','%'.$term.'%')->orWhere('description','like','%'.$term.'%')))
+            ->when($filters['type']??null,fn($q,$type)=>$q->where('group_type',$type))
+            ->when($filters['visibility']??null,fn($q,$visibility)=>$q->where('visibility',$visibility))
+            ->latest()->paginate(18)->withQueryString();
+        return view('groups.index',compact('groups','filters'));
     }
 
-    public function create()
+    public function create(Request $request, AcademicContextService $academicContext): View
     {
-        $user = Auth::user();
-
-        // Get courses where user is enrolled as student
-        $enrollments = Enrollment::where('user_id', $user->id)
-            ->where('status', 'enrolled')
-            ->with('course')
-            ->get();
-
-        return view('groups.create', compact('enrollments'));
+        $this->authorize('create',Group::class);
+        $user=$request->user();
+        $courses=Course::query()->with('department.faculty')->whereHas('department.faculty',fn($q)=>$user->university_id?$q->where('university_id',$user->university_id):$q->whereRaw('1=0'))->orderBy('code')->get();
+        $communities=KnowledgeCommunity::query()->whereHas('members',fn($q)=>$q->where('user_id',$user->id)->where('status','active'))->orderBy('name')->get();
+        $projects=ResearchProject::query()->where(fn($q)=>$q->where('owner_id',$user->id)->orWhereHas('members',fn($m)=>$m->where('user_id',$user->id)))->orderBy('title')->get();
+        $semester=$academicContext->activeSemesterForUser($user);
+        return view('groups.create',compact('courses','communities','projects','semester'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, CollaborationGroupService $service, AcademicContextService $academicContext, MediaSecurityService $media): RedirectResponse
     {
-        $validated = $request->validate([
-            'course_id' => 'required|exists:courses,id',
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'max_members' => 'required|integer|min:2|max:10',
+        $this->authorize('create',Group::class);
+        $data=$request->validate([
+            'name'=>['required','string','max:255'],'description'=>['nullable','string','max:5000'],'group_type'=>['required','in:study,research,project,departmental,professional,course,siwes,seminar'],
+            'visibility'=>['required','in:public,institution,private'],'membership_mode'=>['required','in:open,approval,invitation'],'max_members'=>['required','integer','min:2','max:250'],
+            'course_id'=>['nullable','integer','exists:courses,id'],'knowledge_community_id'=>['nullable','integer','exists:knowledge_communities,id'],'research_project_id'=>['nullable','integer','exists:research_projects,id'],
+            'cover_media_id'=>['nullable','integer','exists:media_assets,id'],'cover_image'=>['nullable','image','mimes:jpg,jpeg,png,webp','max:8192'],
         ]);
+        $data['semester_id']=! empty($data['course_id'] ?? null) ? $academicContext->activeSemesterForUser($request->user())?->id : null;
+        unset($data['cover_image']);
+        $group=$service->create($request->user(),$data);
+        if($request->hasFile('cover_image')){$asset=$media->store($request->file('cover_image'),$request->user(),$group,$group->visibility==='public'?'public':($group->visibility==='institution'?'institution':'private'),['purpose'=>'group_cover']);$group->update(['cover_media_id'=>$asset->id]);}
+        return redirect()->route('groups.show',$group)->with('success','Collaboration group created.');
+    }
 
-        $user = Auth::user();
+    public function show(Request $request, Group $group, EngagementService $engagement): View
+    {
+        $this->authorize('view',$group);
+        $group->load(['leader','coverMedia','course','semester','community','researchProject','members'=>fn($q)=>$q->with('user')->where('status','active'),'joinRequests'=>fn($q)=>$q->with('user')->where('status','pending'),'invitations.invitee','tasks.assignee','resources.uploader','resources.media','events','challenges']);
+        $comments=$engagement->commentsFor($group,20);
+        return view('groups.show',compact('group','comments'));
+    }
 
-        // Check if user is enrolled in the course
-        $enrollment = Enrollment::where('user_id', $user->id)
-            ->where('course_id', $validated['course_id'])
-            ->where('status', 'enrolled')
-            ->first();
+    public function edit(Group $group): View
+    {
+        $this->authorize('update',$group);
+        return view('groups.edit',compact('group'));
+    }
 
-        if (!$enrollment) {
-            return back()->with('error', 'You are not enrolled in this course.');
-        }
+    public function update(Request $request, Group $group, CollaborationGroupService $service, MediaSecurityService $media): RedirectResponse
+    {
+        $data=$request->validate(['name'=>['required','string','max:255'],'description'=>['nullable','string','max:5000'],'group_type'=>['required','in:study,research,project,departmental,professional,course,siwes,seminar'],'visibility'=>['required','in:public,institution,private'],'membership_mode'=>['required','in:open,approval,invitation'],'max_members'=>['required','integer','min:2','max:250'],'status'=>['required','in:forming,complete,archived'],'is_locked'=>['nullable','boolean'],'cover_image'=>['nullable','image','mimes:jpg,jpeg,png,webp','max:8192']]);
+        unset($data['cover_image']);
+        if($request->hasFile('cover_image')){$visibility=$data['visibility']??$group->visibility;$asset=$media->store($request->file('cover_image'),$request->user(),$group,$visibility==='public'?'public':($visibility==='institution'?'institution':'private'),['purpose'=>'group_cover']);$data['cover_media_id']=$asset->id;}
+        $service->update($group,$request->user(),$data);
+        return redirect()->route('groups.show',$group)->with('success','Group settings updated.');
+    }
 
-        // Check if user is already in a group for this course
-        $existingGroup = Group::where('course_id', $validated['course_id'])
-            ->where(function ($query) use ($user) {
-                $query->where('leader_id', $user->id)
-                      ->orWhereHas('members', function ($q) use ($user) {
-                          $q->where('user_id', $user->id);
-                      });
-            })
-            ->first();
+    public function join(Request $request, Group $group, CollaborationGroupService $service): RedirectResponse
+    {
+        $data=$request->validate(['message'=>['nullable','string','max:1000']]);
+        $status=$service->join($group,$request->user(),$data['message']??null);
+        return back()->with('success',$status==='active'?'You joined the group.':'Your join request was submitted.');
+    }
 
-        if ($existingGroup) {
-            return back()->with('error', 'You are already in a group for this course.');
-        }
+    public function reviewJoinRequest(Request $request, GroupJoinRequest $joinRequest, CollaborationGroupService $service): RedirectResponse
+    {
+        $data=$request->validate(['decision'=>['required','in:approve,reject']]);
+        $service->reviewJoinRequest($joinRequest,$request->user(),$data['decision']==='approve');
+        return back()->with('success','Join request reviewed.');
+    }
 
-        $semester = Semester::where('is_active', true)->first();
+    public function invite(Request $request, Group $group, CollaborationGroupService $service): RedirectResponse
+    {
+        $data=$request->validate(['user_id'=>['required','integer','exists:users,id'],'role'=>['required','in:member,administrator']]);
+        $service->invite($group,$request->user(),User::findOrFail($data['user_id']),$data['role']);
+        return back()->with('success','Group invitation sent.');
+    }
 
-        $group = Group::create([
-            'uuid' => Str::uuid(),
-            'course_id' => $validated['course_id'],
-            'semester_id' => $semester?->id,
-            'name' => $validated['name'],
-            'description' => $validated['description'],
-            'leader_id' => $user->id,
-            'status' => 'forming',
-            'max_members' => $validated['max_members'],
-            'formed_at' => now(),
+    public function respondInvitation(Request $request, GroupInvitation $invitation, CollaborationGroupService $service): RedirectResponse
+    {
+        $data=$request->validate(['decision'=>['required','in:accept,decline']]);
+        $service->respondInvitation($invitation,$request->user(),$data['decision']==='accept');
+        return redirect()->route('groups.show',$invitation->group)->with('success','Invitation response recorded.');
+    }
+
+    public function leave(Request $request, Group $group, CollaborationGroupService $service): RedirectResponse
+    {
+        $service->leave($group,$request->user());
+        return redirect()->route('groups.index')->with('success','You left the group.');
+    }
+
+    public function removeMember(Request $request, Group $group, User $member, CollaborationGroupService $service): RedirectResponse
+    {
+        $service->removeMember($group,$request->user(),$member);
+        return back()->with('success','Member removed.');
+    }
+
+    public function transferLeadership(Request $request, Group $group, CollaborationGroupService $service): RedirectResponse
+    {
+        $data=$request->validate(['new_leader_id'=>['required','integer','exists:users,id']]);
+        $service->transferLeadership($group,$request->user(),User::findOrFail($data['new_leader_id']));
+        return back()->with('success','Leadership transferred.');
+    }
+
+    public function storeTask(Request $request, Group $group, CollaborationGroupService $service): RedirectResponse
+    {
+        $data=$request->validate(['title'=>['required','string','max:255'],'description'=>['nullable','string','max:3000'],'assignee_id'=>['nullable','integer','exists:users,id'],'priority'=>['required','in:low,normal,high,urgent'],'due_at'=>['nullable','date']]);
+        $service->createTask($group,$request->user(),$data);
+        return back()->with('success','Group task created.');
+    }
+
+    public function updateTask(Request $request, GroupTask $task, CollaborationGroupService $service): RedirectResponse
+    {
+        $data=$request->validate(['status'=>['required','in:open,in_progress,blocked,completed,cancelled'],'assignee_id'=>['nullable','integer','exists:users,id'],'priority'=>['nullable','in:low,normal,high,urgent'],'due_at'=>['nullable','date']]);
+        $service->updateTask($task,$request->user(),$data);
+        return back()->with('success','Task updated.');
+    }
+
+    public function storeResource(Request $request, Group $group, CollaborationGroupService $service, MediaSecurityService $media): RedirectResponse
+    {
+        $data=$request->validate([
+            'title'=>['required','string','max:255'],
+            'description'=>['nullable','string','max:2000'],
+            'media_asset_id'=>['nullable','integer','exists:media_assets,id','required_without_all:file,external_url'],
+            'file'=>['nullable','file','max:51200','mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,txt,csv,jpg,jpeg,png,webp,zip','required_without_all:media_asset_id,external_url'],
+            'external_url'=>['nullable','url','max:2000','required_without_all:media_asset_id,file'],
+            'visibility'=>['required','in:members,public'],
         ]);
+        if($request->hasFile('file')){$asset=$media->store($request->file('file'),$request->user(),$group,$data['visibility']==='public'&&$group->visibility==='public'?'public':($group->university_id?'institution':'private'),['purpose'=>'group_resource']);$data['media_asset_id']=$asset->id;}
+        unset($data['file']);
+        $service->addResource($group,$request->user(),$data);
+        return back()->with('success','Resource shared.');
+    }
 
-        // Add leader as first member
-        GroupMember::create([
-            'group_id' => $group->id,
-            'user_id' => $user->id,
-            'role' => 'leader',
+    public function comment(Request $request, Group $group, EngagementService $engagement): RedirectResponse
+    {
+        $this->authorize('view',$group);
+        abort_unless($group->members()->where('user_id',$request->user()->id)->where('status','active')->exists()||$request->user()->isAdmin(),403);
+        $data=$request->validate(['body'=>['required','string','max:10000'],'parent_id'=>['nullable','integer','exists:engagement_comments,id']]);
+        $engagement->comment($group,$request->user(),$data['body'],['parent_id'=>$data['parent_id']??null,'university_id'=>$group->university_id,'visibility'=>$group->visibility,'thread_title'=>$group->name]);
+        return back()->with('success','Discussion message posted.');
+    }
+
+    public function report(Request $request, Group $group, EngagementService $engagement): RedirectResponse
+    {
+        $this->authorize('view', $group);
+        $data = $request->validate([
+            'reason' => ['required', 'in:spam,harassment,misinformation,privacy,policy,other'],
+            'details' => ['nullable', 'string', 'max:5000'],
         ]);
+        $engagement->report($group, $request->user(), $data['reason'], $data['details'] ?? null);
 
-        return redirect()->route('groups.show', $group)->with('success', 'Group created successfully!');
+        return back()->with('success', 'Group report submitted for human moderation.');
     }
 
-    public function show(Group $group)
+    public function destroy(Request $request, Group $group, CollaborationGroupService $service): RedirectResponse
     {
-        $group->load(['course', 'leader', 'members.user', 'submissions']);
-
-        return view('groups.show', compact('group'));
-    }
-
-    public function edit(Group $group)
-    {
-        // Check if user is the leader
-        if ($group->leader_id !== Auth::id()) {
-            abort(403);
-        }
-
-        $group->load(['course', 'members.user']);
-
-        return view('groups.edit', compact('group'));
-    }
-
-    public function update(Request $request, Group $group)
-    {
-        // Check if user is the leader
-        if ($group->leader_id !== Auth::id()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'max_members' => 'required|integer|min:2|max:10',
-            'status' => 'required|in:forming,complete,archived',
-        ]);
-
-        $group->update($validated);
-
-        return redirect()->route('groups.show', $group)->with('success', 'Group updated successfully!');
-    }
-
-    public function join(Request $request, Group $group)
-    {
-        $user = Auth::user();
-
-        // Check if group is still accepting members
-        if ($group->status === 'archived' || $group->members->count() >= $group->max_members) {
-            return back()->with('error', 'This group is full or archived.');
-        }
-
-        // Check if user is enrolled in the course
-        $enrollment = Enrollment::where('user_id', $user->id)
-            ->where('course_id', $group->course_id)
-            ->where('status', 'enrolled')
-            ->first();
-
-        if (!$enrollment) {
-            return back()->with('error', 'You are not enrolled in this course.');
-        }
-
-        // Check if user is already in a group for this course
-        $existingGroup = Group::where('course_id', $group->course_id)
-            ->where(function ($query) use ($user) {
-                $query->where('leader_id', $user->id)
-                      ->orWhereHas('members', function ($q) use ($user) {
-                          $q->where('user_id', $user->id);
-                      });
-            })
-            ->first();
-
-        if ($existingGroup) {
-            return back()->with('error', 'You are already in a group for this course.');
-        }
-
-        // Add user to group
-        GroupMember::create([
-            'group_id' => $group->id,
-            'user_id' => $user->id,
-            'role' => 'member',
-        ]);
-
-        return back()->with('success', 'Successfully joined the group!');
-    }
-
-    public function leave(Group $group)
-    {
-        $user = Auth::user();
-
-        // Cannot leave if you're the leader
-        if ($group->leader_id === $user->id) {
-            return back()->with('error', 'Group leaders cannot leave their groups. Transfer leadership first.');
-        }
-
-        // Remove user from group
-        GroupMember::where('group_id', $group->id)
-            ->where('user_id', $user->id)
-            ->delete();
-
-        return redirect()->route('groups.index')->with('success', 'Successfully left the group.');
-    }
-
-    public function removeMember(Request $request, Group $group)
-    {
-        // Check if user is the leader
-        if ($group->leader_id !== Auth::id()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-        ]);
-
-        // Cannot remove yourself
-        if ($validated['user_id'] == Auth::id()) {
-            return back()->with('error', 'You cannot remove yourself from the group.');
-        }
-
-        GroupMember::where('group_id', $group->id)
-            ->where('user_id', $validated['user_id'])
-            ->delete();
-
-        return back()->with('success', 'Member removed from group.');
-    }
-
-    public function transferLeadership(Request $request, Group $group)
-    {
-        // Check if user is the current leader
-        if ($group->leader_id !== Auth::id()) {
-            abort(403);
-        }
-
-        $validated = $request->validate([
-            'new_leader_id' => 'required|exists:users,id',
-        ]);
-
-        // Check if new leader is a member of the group
-        $isMember = GroupMember::where('group_id', $group->id)
-            ->where('user_id', $validated['new_leader_id'])
-            ->exists();
-
-        if (!$isMember) {
-            return back()->with('error', 'Selected user is not a member of this group.');
-        }
-
-        // Update group leadership
-        $group->update(['leader_id' => $validated['new_leader_id']]);
-
-        // Update member roles
-        GroupMember::where('group_id', $group->id)
-            ->where('user_id', Auth::id())
-            ->update(['role' => 'member']);
-
-        GroupMember::where('group_id', $group->id)
-            ->where('user_id', $validated['new_leader_id'])
-            ->update(['role' => 'leader']);
-
-        return back()->with('success', 'Leadership transferred successfully.');
-    }
-
-    public function destroy(Group $group)
-    {
-        // Check if user is the leader
-        if ($group->leader_id !== Auth::id()) {
-            abort(403);
-        }
-
-        // Check if group has submissions
-        if ($group->submissions->isNotEmpty()) {
-            return back()->with('error', 'Cannot delete group with existing submissions.');
-        }
-
-        $group->delete();
-
-        return redirect()->route('groups.index')->with('success', 'Group deleted successfully.');
+        $service->delete($group,$request->user());
+        return redirect()->route('groups.index')->with('success','Group archived or deleted safely.');
     }
 }

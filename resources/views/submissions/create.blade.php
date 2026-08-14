@@ -20,8 +20,33 @@
     <!-- Header -->
     <div class="mb-8">
         <h1 class="text-3xl font-bold text-gray-900">Submit Assignment</h1>
-        <p class="text-gray-600 mt-2">{{ $task->title }}</p>
+        <p class="text-gray-600 mt-2">{{ $task?->title ?? 'Choose an available assignment to continue.' }}</p>
     </div>
+
+    @if(!$task)
+        <div class="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="text-lg font-bold text-slate-900">Available assignments</h2>
+            <p class="mt-1 text-sm text-slate-500">Only published assignments from courses you are actively enrolled in are shown.</p>
+            <div class="mt-5 space-y-3">
+                @forelse($availableTasks as $availableTask)
+                    <a href="{{ route('submissions.create', ['task_id' => $availableTask->id]) }}" class="flex items-center justify-between rounded-xl border border-slate-200 p-4 transition hover:border-indigo-400 hover:bg-indigo-50/40">
+                        <div>
+                            <div class="font-semibold text-slate-900">{{ $availableTask->title }}</div>
+                            <div class="mt-1 text-xs text-slate-500">{{ $availableTask->course?->code }} · {{ $availableTask->course?->name }}</div>
+                        </div>
+                        <div class="text-right text-xs text-slate-500">
+                            <div>{{ $availableTask->due_date?->format('M d, Y') ?? 'No due date' }}</div>
+                            <span class="font-semibold text-indigo-600">Open →</span>
+                        </div>
+                    </a>
+                @empty
+                    <div class="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                        No published assignments are available for your active courses yet.
+                    </div>
+                @endforelse
+            </div>
+        </div>
+    @else
 
     @if($errors->any())
         <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -150,10 +175,11 @@
             <!-- Deadline -->
             <div class="bg-white rounded-lg shadow p-6 mb-6">
                 <h3 class="font-bold text-gray-900 mb-4">📅 Deadline</h3>
-                <p class="text-lg font-bold text-gray-900">{{ $task->due_date->format('M d, Y') }}</p>
-                <p class="text-sm text-gray-600">{{ $task->due_date->format('H:i') }}</p>
+                @php($displayDeadline = $task->due_date ?? $task->close_at ?? $task->late_deadline)
+                <p class="text-lg font-bold text-gray-900">{{ $displayDeadline?->format('M d, Y') ?? 'No deadline set' }}</p>
+                <p class="text-sm text-gray-600">{{ $displayDeadline?->format('H:i') ?? '—' }}</p>
                 
-                @if(now() > $task->due_date && now() < $task->late_deadline)
+                @if($task->due_date && now()->isAfter($task->due_date) && (! $task->late_deadline || now()->isBefore($task->late_deadline)))
                     <div class="mt-4 p-3 bg-orange-50 border border-orange-200 rounded">
                         <p class="text-orange-700 font-semibold text-sm">⚠ This is a late submission</p>
                         <p class="text-orange-600 text-xs mt-1">
@@ -162,7 +188,7 @@
                     </div>
                 @endif
 
-                @if(now() >= $task->late_deadline)
+                @if($task->late_deadline && now()->isAfter($task->late_deadline))
                     <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded">
                         <p class="text-red-700 font-semibold text-sm">❌ Hard deadline passed</p>
                         <p class="text-red-600 text-xs mt-1">
@@ -436,4 +462,5 @@ function unhighlight(e) {
             handleFileSelect({ target: { files } });
         }
     </script>
+    @endif
 @endsection

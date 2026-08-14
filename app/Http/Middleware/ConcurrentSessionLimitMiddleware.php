@@ -16,14 +16,18 @@ class ConcurrentSessionLimitMiddleware
     {
         $user = Auth::user();
 
-        if ($user) {
-            $maxSessions = (int) SettingService::get('max_concurrent_sessions', 3);
-            $activeSessions = \DB::table('sessions')
+        if ($user && config('session.driver') === 'database') {
+            $maxSessions = max(1, (int) SettingService::get('max_concurrent_sessions', 3, $user->university_id));
+            $timeoutMinutes = max(1, (int) SettingService::get('session_timeout_minutes', (int) config('session.lifetime', 120), $user->university_id));
+
+            $activeSessions = \DB::table((string) config('session.table', 'sessions'))
                 ->where('user_id', $user->id)
-                ->where('last_activity', '>=', now()->subMinutes(30)->timestamp)
+                ->where('last_activity', '>=', now()->subMinutes($timeoutMinutes)->timestamp)
                 ->count();
 
-            if ($activeSessions >= $maxSessions) {
+            // The current session is included in the count; only block when the
+            // configured maximum has actually been exceeded.
+            if ($activeSessions > $maxSessions) {
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();

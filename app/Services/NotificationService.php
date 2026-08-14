@@ -9,7 +9,6 @@ use App\Models\Enrollment;
 use App\Models\Notification;
 use App\Models\NotificationLog;
 use App\Models\NotificationSetting;
-use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -26,10 +25,16 @@ class NotificationService
      */
     public function send(User $user, NotificationType $type, string $title, string $message, array $data = []): void
     {
+        // Runtime release control is authoritative. Channel settings below only
+        // configure how Notifications behaves when the module itself is enabled.
+        if (FeatureAccessService::effectiveStatus('notifications', $user->university_id) !== FeatureAccessService::STATUS_ENABLED) {
+            return;
+        }
+
         // Check global channel toggles
-        $globalInAppEnabled = $this->isGlobalChannelEnabled('in_app');
-        $globalPushEnabled = $this->isGlobalChannelEnabled('push');
-        $globalEmailEnabled = $this->isGlobalChannelEnabled('email');
+        $globalInAppEnabled = $this->isGlobalChannelEnabled('in_app', $user->university_id);
+        $globalPushEnabled = $this->isGlobalChannelEnabled('push', $user->university_id);
+        $globalEmailEnabled = $this->isGlobalChannelEnabled('email', $user->university_id);
 
         $notification = null;
 
@@ -111,16 +116,20 @@ class NotificationService
     /**
      * Check if a channel is globally enabled (admin-controlled)
      */
-    protected function isGlobalChannelEnabled(string $channel): bool
+    protected function isGlobalChannelEnabled(string $channel, ?int $universityId): bool
     {
-        $key = "notifications_{$channel}_enabled";
-        try {
-            $setting = Setting::where('key', $key)->first();
+        $key = match ($channel) {
+            'in_app' => 'in_app_notifications_enabled',
+            'push' => 'push_notifications_enabled',
+            'email' => 'email_notifications_enabled',
+            default => null,
+        };
 
-            return $setting ? (string) $setting->value === '1' : true;
-        } catch (\Exception $e) {
-            return true;
+        if ($channel === 'push' && FeatureAccessService::effectiveStatus('push_notifications', $universityId) !== FeatureAccessService::STATUS_ENABLED) {
+            return false;
         }
+
+        return $key ? (bool) SettingService::get($key, true, $universityId) : true;
     }
 
     /**

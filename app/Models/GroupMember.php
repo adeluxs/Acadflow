@@ -13,7 +13,13 @@ class GroupMember extends Model
         'group_id',
         'user_id',
         'role',
+        'status',
+        'invited_by',
+        'joined_at',
+        'left_at',
     ];
+
+    protected function casts(): array { return ['joined_at'=>'datetime','left_at'=>'datetime']; }
 
     public function group(): BelongsTo
     {

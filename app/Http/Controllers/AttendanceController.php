@@ -8,240 +8,276 @@ use App\Events\QrRefreshed;
 use App\Models\AttendanceRecord;
 use App\Models\AttendanceSession;
 use App\Models\Course;
-use App\Models\Enrollment;
-use App\Models\Semester;
+use App\Services\AcademicContextService;
+use App\Services\AttendanceService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+use Illuminate\View\View;
+use InvalidArgumentException;
 
 class AttendanceController extends Controller
 {
-    // Lecturer: Start session
-    public function startSession(Request $request)
+    public function __construct(
+        private readonly AttendanceService $attendanceService,
+        private readonly AcademicContextService $academicContext,
+    ) {
+    }
+
+    public function startSession(Request $request): RedirectResponse
     {
+        $this->authorize('start', AttendanceSession::class);
+
         $validated = $request->validate([
-            'course_id' => 'required|exists:courses,id',
+            'course_id' => ['required', 'integer', 'exists:courses,id'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
+            'geofence_radius' => ['nullable', 'integer', 'between:20,5000'],
+            'check_in_window' => ['nullable', 'integer', 'between:1,180'],
+            'late_threshold' => ['nullable', 'integer', 'between:0,180'],
         ]);
 
-        // Check if subscription allows attendance tracking
-        $user = Auth::user();
+        $user = $request->user();
         $subscription = $user->activeSubscription()->first();
-        if ($subscription && $subscription->plan && ! $subscription->plan->allow_attendance_tracking) {
+
+        if ($subscription?->plan && ! $subscription->plan->allow_attendance_tracking) {
             return back()->with('error', 'Your subscription plan does not allow attendance tracking. Please upgrade your plan.');
         }
 
-        $course = Course::findOrFail($validated['course_id']);
-        $semester = Semester::where('is_active', true)->first();
+        $course = Course::with('department.faculty')->findOrFail($validated['course_id']);
+        $semester = $this->academicContext->activeSemesterForCourse($course);
 
-        $session = AttendanceSession::create([
-            'uuid' => Str::uuid(),
-            'course_id' => $validated['course_id'],
-            'semester_id' => $semester?->id,
-            'lecturer_id' => Auth::id(),
-            'qr_code' => Str::random(32),
-            'qr_expires_at' => now()->addMinutes(1),
-            'started_at' => now(),
-            'status' => 'active',
-        ]);
-
-        // Create pending records for all enrolled students
-        $enrollments = Enrollment::where('course_id', $course->id)
-            ->where('status', 'enrolled')
-            ->get();
-
-        foreach ($enrollments as $enrollment) {
-            AttendanceRecord::create([
-                'session_id' => $session->id,
-                'user_id' => $enrollment->user_id,
-                'status' => 'pending',
-            ]);
+        if (! $semester) {
+            return back()->with('error', 'No active semester is configured. Ask an administrator to activate a semester.');
         }
 
-        return redirect()->route('attendance.session', $session->uuid)
+        try {
+            $session = $this->attendanceService->startSession(
+                $user,
+                $course,
+                $semester,
+                isset($validated['latitude']) ? (float) $validated['latitude'] : null,
+                isset($validated['longitude']) ? (float) $validated['longitude'] : null,
+                $validated['geofence_radius'] ?? null,
+                $validated['check_in_window'] ?? null,
+                $validated['late_threshold'] ?? null,
+            );
+        } catch (InvalidArgumentException $exception) {
+            return back()->withInput()->with('error', $exception->getMessage());
+        }
+
+        return redirect()->route('attendance.session', $session)
             ->with('success', 'Attendance session started.');
     }
 
-    // Get active session for QR code (Student)
-    public function activeSession()
+    public function activeSession(Request $request): JsonResponse
     {
-        $session = AttendanceSession::where('status', 'active')
-            ->where('started_at', '>', now()->subMinutes(30))
+        $user = $request->user();
+
+        $session = AttendanceSession::query()
+            ->where('status', 'active')
+            ->whereNull('ended_at')
+            ->where('started_at', '>', now()->subHours(3))
+            ->whereHas('course.enrollments', fn ($query) => $query
+                ->where('user_id', $user->id)
+                ->where('status', 'enrolled'))
             ->with('course')
+            ->latest('started_at')
             ->first();
 
         if (! $session) {
-            return response()->json(['message' => 'No active session'], 404);
+            return response()->json(['message' => 'No active session is available for your enrolled courses.'], 404);
         }
+
+        $this->authorize('checkIn', $session);
 
         return response()->json([
             'uuid' => $session->uuid,
-            'qr_code' => $session->qr_code,
             'qr_expires_at' => $session->qr_expires_at,
             'course' => $session->course->name,
+            'check_in_url' => $this->checkInUrl($session),
         ]);
     }
 
-    // Student: Check in
-    public function checkIn(Request $request)
+    public function checkIn(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'session_uuid' => 'required|exists:attendance_sessions,uuid',
-            'latitude' => 'nullable',
-            'longitude' => 'nullable',
+            'session_uuid' => ['required', 'uuid', 'exists:attendance_sessions,uuid'],
+            'qr_code' => ['required', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
+            'device_fingerprint' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $session = AttendanceSession::where('uuid', $validated['session_uuid'])
-            ->where('status', 'active')
+        $session = AttendanceSession::query()
+            ->where('uuid', $validated['session_uuid'])
+            ->with('course')
             ->firstOrFail();
 
-        if ($session->ended_at) {
-            return back()->with('error', 'Session has ended.');
+        $this->authorize('checkIn', $session);
+
+        try {
+            $record = $this->attendanceService->checkIn(
+                $session,
+                $request->user(),
+                $validated['qr_code'],
+                isset($validated['latitude']) ? (float) $validated['latitude'] : null,
+                isset($validated['longitude']) ? (float) $validated['longitude'] : null,
+                $validated['device_fingerprint'] ?? $request->userAgent(),
+                $request->ip(),
+            );
+        } catch (InvalidArgumentException $exception) {
+            return back()->with('error', $exception->getMessage());
         }
 
-        $record = AttendanceRecord::where('session_id', $session->id)
-            ->where('user_id', Auth::id())
-            ->firstOrFail();
-
-        if ($record->status !== 'pending') {
-            return back()->with('error', 'You have already checked in.');
-        }
-
-        $lateThreshold = $session->started_at->addMinutes($session->late_threshold);
-
-        $status = now()->lessThanOrEqualTo($lateThreshold) ? 'present' : 'late';
-
-        $record->update([
-            'status' => $status,
-            'check_in_at' => now(),
-            'latitude' => $validated['latitude'] ?? null,
-            'longitude' => $validated['longitude'] ?? null,
-            'ip_address' => $request->ip(),
-        ]);
-
-        return back()->with('success', 'Check-in successful. Status: '.$status);
+        return redirect()->route('attendance.my')
+            ->with('success', 'Check-in successful. Status: '.ucfirst($record->status).'.');
     }
 
-    // View session details
-    public function showSession(AttendanceSession $session)
+    public function showSession(AttendanceSession $session): View
     {
-        $session->load(['records.user', 'course']);
+        $this->authorize('view', $session);
 
-        return view('attendance.session', compact('session'));
+        $session->load(['records.user', 'course', 'lecturer']);
+        $summary = $this->attendanceService->getAttendanceSummary($session);
+        $qrPayload = $this->checkInUrl($session);
+
+        return view('attendance.session', compact('session', 'summary', 'qrPayload'));
     }
 
-    // Close session (Lecturer)
-    public function closeSession(AttendanceSession $session)
+    public function closeSession(AttendanceSession $session): RedirectResponse
     {
-        if ($session->lecturer_id !== Auth::id()) {
-            abort(403);
+        $this->authorize('stop', $session);
+
+        try {
+            $this->attendanceService->closeSession($session);
+        } catch (InvalidArgumentException $exception) {
+            return back()->with('error', $exception->getMessage());
         }
 
-        $session->update([
-            'status' => 'closed',
-            'ended_at' => now(),
-        ]);
-
-        // Mark all pending as absent
-        AttendanceRecord::where('session_id', $session->id)
-            ->where('status', 'pending')
-            ->update(['status' => 'absent']);
-
-        return redirect()->route('dashboard')->with('success', 'Session closed.');
+        return redirect()->route('attendance.lecturer')->with('success', 'Attendance session closed.');
     }
 
-    // Refresh QR code
-    public function refreshQr(AttendanceSession $session)
+    public function refreshQr(AttendanceSession $session): JsonResponse
     {
-        if ($session->lecturer_id !== Auth::id()) {
-            abort(403);
+        $this->authorize('edit', $session);
+
+        try {
+            $session = $this->attendanceService->refreshQr($session);
+        } catch (InvalidArgumentException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        $session->update([
-            'qr_code' => Str::random(32),
-            'qr_expires_at' => now()->addMinutes(1),
-        ]);
+        $qrPayload = $this->checkInUrl($session);
 
-        event(new QrRefreshed($session, route('attendance.qr', $session), $session->qr_expires_at->toDateTimeString()));
+        event(new QrRefreshed(
+            $session,
+            $qrPayload,
+            $session->qr_expires_at->toDateTimeString(),
+        ));
 
         return response()->json([
-            'qr_code' => $session->qr_code,
+            'qr_payload' => $qrPayload,
             'qr_expires_at' => $session->qr_expires_at,
         ]);
     }
 
-    // Student: View my attendance
-    public function myAttendance()
+    public function myAttendance(Request $request): View
     {
-        $records = AttendanceRecord::where('user_id', Auth::id())
+        $records = AttendanceRecord::query()
+            ->where('user_id', $request->user()->id)
             ->with(['session.course'])
-            ->latest()
+            ->latest('id')
             ->paginate(10);
 
-        return view('attendance.my', compact('records'));
+        $checkInSession = null;
+        $checkInQrCode = null;
+
+        if ($request->filled(['session_uuid', 'qr_code'])) {
+            $checkInSession = AttendanceSession::query()
+                ->where('uuid', $request->string('session_uuid'))
+                ->where('status', 'active')
+                ->with('course')
+                ->first();
+            $checkInQrCode = $request->string('qr_code')->toString();
+
+            if ($checkInSession) {
+                $this->authorize('checkIn', $checkInSession);
+            }
+        }
+
+        return view('attendance.my', compact('records', 'checkInSession', 'checkInQrCode'));
     }
 
-    // Student: View my attendance records (detailed)
-    public function myAttendanceRecords(Request $request)
+    public function myAttendanceRecords(Request $request): View
     {
-        $query = AttendanceRecord::where('user_id', Auth::id())
+        $query = AttendanceRecord::query()
+            ->where('user_id', $request->user()->id)
             ->with(['session.course']);
 
         if ($request->filled('session_id')) {
-            $query->where('session_id', $request->session_id);
+            $query->where('session_id', $request->integer('session_id'));
         }
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $query->where('status', $request->string('status'));
         }
 
-        $records = $query->latest()->paginate(20);
+        $records = $query->latest('id')->paginate(20)->withQueryString();
 
         return view('attendance.records', compact('records'));
     }
 
-    // Student: Export my attendance records
-    public function exportMyAttendanceRecords(Request $request)
+    public function exportMyAttendanceRecords(Request $request): JsonResponse
     {
-        $query = AttendanceRecord::where('user_id', Auth::id())
+        $query = AttendanceRecord::query()
+            ->where('user_id', $request->user()->id)
             ->with(['session.course']);
 
         if ($request->filled('session_id')) {
-            $query->where('session_id', $request->session_id);
+            $query->where('session_id', $request->integer('session_id'));
         }
 
-        $records = $query->get();
-
-        return response()->json($records);
+        return response()->json($query->get());
     }
 
-    // Lecturer: View all sessions
-    public function lecturerSessions()
+    public function lecturerSessions(Request $request): View
     {
-        $user = Auth::user();
-        $query = AttendanceSession::with(['course', 'records.user']);
+        $this->authorize('viewAny', AttendanceSession::class);
 
-        // Filter by scope based on role
-        if ($user->isDepartmentAdmin()) {
-            $query->whereHas('course', fn ($q) => $q->where('department_id', $user->department_id));
-        } elseif ($user->isUniversityAdmin()) {
-            $query->whereHas('course.department.faculty', fn ($q) => $q->where('university_id', $user->university_id));
-        } elseif ($user->isLecturer()) {
+        $user = $request->user();
+        $query = AttendanceSession::query()->with(['course', 'records.user']);
+
+        if ($user->isLecturer()) {
             $query->where('lecturer_id', $user->id);
+        } elseif ($user->isDepartmentAdmin()) {
+            $query->whereHas('course', fn ($course) => $course->where('department_id', $user->department_id));
+        } elseif ($user->isUniversityAdmin()) {
+            $query->whereHas('course.department.faculty', fn ($faculty) => $faculty->where('university_id', $user->university_id));
         }
 
-        $sessions = $query->latest()->paginate(10);
+        $sessions = $query->latest('started_at')->paginate(10);
 
-        // Get courses for session creation
-        $coursesQuery = Course::with('department');
+        $coursesQuery = Course::query()->with('department');
         if ($user->isLecturer()) {
-            $coursesQuery->where('lecturer_id', $user->id);
+            $coursesQuery->whereHas('lecturerAssignments', fn ($assignment) => $assignment->where('user_id', $user->id));
         } elseif ($user->isDepartmentAdmin()) {
             $coursesQuery->where('department_id', $user->department_id);
         } elseif ($user->isUniversityAdmin()) {
-            $coursesQuery->whereHas('department.faculty', fn ($q) => $q->where('university_id', $user->university_id));
+            $coursesQuery->whereHas('department.faculty', fn ($faculty) => $faculty->where('university_id', $user->university_id));
         }
-        $courses = $coursesQuery->get();
+
+        $courses = $coursesQuery->orderBy('code')->get();
 
         return view('attendance.lecturer-index', compact('sessions', 'courses'));
+    }
+
+    private function checkInUrl(AttendanceSession $session): string
+    {
+        return route('attendance.my', [
+            'session_uuid' => $session->uuid,
+            'qr_code' => $session->qr_code,
+        ]);
     }
 }

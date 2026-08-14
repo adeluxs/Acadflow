@@ -7,7 +7,7 @@
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">Attendance</h1>
         @role('lecturer')
-            <a href="{{ route('attendance.start') }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            <a href="{{ route('attendance.lecturer') }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
                 Start Session
             </a>
         @endrole
@@ -54,8 +54,8 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm">{{ $session->created_at->format('M d, Y') }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 py-1 text-xs rounded-full 
-                                    {{ $session->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                    {{ $session->is_active ? 'Active' : 'Closed' }}
+                                    {{ $session->status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                    {{ $session->status === 'active' ? 'Active' : 'Closed' }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">

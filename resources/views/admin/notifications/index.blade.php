@@ -47,7 +47,14 @@
     <!-- Channel Settings -->
     <div class="bg-white rounded-lg shadow p-8 mb-8">
         <h2 class="text-xl font-bold text-gray-900 mb-4">Global Channel Settings</h2>
-        <p class="text-sm text-gray-600 mb-6">Enable or disable notification channels system-wide. Individual users can still adjust their own preferences.</p>
+        <div class="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+            <p class="font-semibold">Availability and delivery configuration are separate.</p>
+            <p class="mt-1 text-blue-800">These switches configure notification delivery channels after the feature is available. The platform-wide release state for Notifications and Push Notifications is controlled centrally by the Super Admin in Feature &amp; Module Management.</p>
+            @if(auth()->user()?->role === 'super_admin' && Route::has('admin.settings.features'))
+                <a href="{{ route('admin.settings.features') }}" class="mt-2 inline-flex font-semibold text-blue-700 hover:text-blue-900 hover:underline">Open Feature &amp; Module Management →</a>
+            @endif
+        </div>
+        <p class="text-sm text-gray-600 mb-6">Enable or disable notification delivery channels system-wide. Individual users can still adjust their own preferences.</p>
 
         <form action="{{ route('admin.notifications.update-channels') }}" method="POST">
             @csrf
@@ -58,8 +65,9 @@
                         <span class="font-medium text-gray-900">In-App Notifications</span>
                         <p class="text-sm text-gray-600">Database/website notifications</p>
                     </div>
-                    <input type="checkbox" name="notifications_in_app_enabled" value="1"
-                           {{ $channels['notifications_in_app_enabled'] == '1' ? 'checked' : '' }}
+                    <input type="hidden" name="in_app_notifications_enabled" value="0">
+                    <input type="checkbox" name="in_app_notifications_enabled" value="1"
+                           {{ $channels['in_app_notifications_enabled'] == '1' ? 'checked' : '' }}
                            class="h-5 w-5 text-blue-600 rounded">
                 </label>
                 <label class="flex items-center justify-between">
@@ -67,8 +75,9 @@
                         <span class="font-medium text-gray-900">Email Notifications</span>
                         <p class="text-sm text-gray-600">Email delivery for alerts</p>
                     </div>
-                    <input type="checkbox" name="notifications_email_enabled" value="1"
-                           {{ $channels['notifications_email_enabled'] == '1' ? 'checked' : '' }}
+                    <input type="hidden" name="email_notifications_enabled" value="0">
+                    <input type="checkbox" name="email_notifications_enabled" value="1"
+                           {{ $channels['email_notifications_enabled'] == '1' ? 'checked' : '' }}
                            class="h-5 w-5 text-blue-600 rounded">
                 </label>
                 <label class="flex items-center justify-between">
@@ -76,8 +85,9 @@
                         <span class="font-medium text-gray-900">Push Notifications</span>
                         <p class="text-sm text-gray-600">Browser push notifications</p>
                     </div>
-                    <input type="checkbox" name="notifications_push_enabled" value="1"
-                           {{ $channels['notifications_push_enabled'] == '1' ? 'checked' : '' }}
+                    <input type="hidden" name="push_notifications_enabled" value="0">
+                    <input type="checkbox" name="push_notifications_enabled" value="1"
+                           {{ $channels['push_notifications_enabled'] == '1' ? 'checked' : '' }}
                            class="h-5 w-5 text-blue-600 rounded">
                 </label>
             </div>

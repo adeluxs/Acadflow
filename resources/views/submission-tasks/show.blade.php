@@ -21,7 +21,11 @@
             </div>
         </div>
         
-        <div class="text-right">
+        <div class="text-right space-y-2">
+            <a href="{{ route('submission-tasks.extensions', [$course, $task]) }}"
+               class="block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                Manage Extensions
+            </a>
             @if($task->status === 'draft')
                 <a href="{{ route('submission-tasks.edit', [$course, $task]) }}" 
                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm mb-2 block">
@@ -177,11 +181,11 @@
             <!-- Submission Stats -->
             <div class="bg-green-50 rounded-lg p-6 mb-6">
                 <h3 class="font-bold text-gray-900 mb-4">Submissions</h3>
-                <div class="text-3xl font-bold text-green-600">{{ $submissions_count ?? 0 }}</div>
-                <p class="text-sm text-gray-600 mt-1">of {{ $enrolled_count ?? 0 }} enrolled students</p>
+                <div class="text-3xl font-bold text-green-600">{{ $stats['total_submissions'] ?? 0 }}</div>
+                <p class="text-sm text-gray-600 mt-1">of {{ ($stats['total_submissions'] ?? 0) + ($nonSubmitters->count() ?? 0) }} enrolled students</p>
                 <div class="mt-4 w-full bg-gray-200 rounded-full h-2">
                     <div class="bg-green-600 h-2 rounded-full" 
-                         style="width: {{ ($enrolled_count ?? 0) > 0 ? (($submissions_count ?? 0) / ($enrolled_count ?? 1) * 100) : 0 }}%">
+                         style="width: {{ (($stats['total_submissions'] ?? 0) + ($nonSubmitters->count() ?? 0)) > 0 ? (($stats['total_submissions'] ?? 0) / (($stats['total_submissions'] ?? 0) + ($nonSubmitters->count() ?? 0)) * 100) : 0 }}%">
                     </div>
                 </div>
             </div>

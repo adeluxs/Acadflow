@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class Payment extends Model
 {
@@ -20,6 +23,28 @@ class Payment extends Model
         'verified_by',
         'notes',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'amount' => 'decimal:2',
+            'verified_at' => 'datetime',
+        ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $payment): void {
+            if (empty($payment->uuid)) {
+                $payment->uuid = (string) Str::uuid();
+            }
+        });
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
 
     public function invoice(): BelongsTo
     {

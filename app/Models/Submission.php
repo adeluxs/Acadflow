@@ -98,6 +98,10 @@ class Submission extends Model
         return $this->hasMany(SubmissionComment::class);
     }
 
+    public function siwesPlacement(): HasOne { return $this->hasOne(SiwesPlacement::class); }
+
+    public function seminarSession(): HasOne { return $this->hasOne(SeminarSession::class); }
+
     public function grade(): HasOne
     {
         return $this->hasOne(SubmissionGrade::class);

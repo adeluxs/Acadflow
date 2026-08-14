@@ -69,3 +69,8 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
  master
+
+## Windows Composer permission repair
+
+When Composer reports `vendor/composer/tmp-*.zip: Permission denied`, run `FIX_COMPOSER_WINDOWS.bat`. It relocates projects extracted under Downloads to a user-owned project directory, repairs write permissions, removes partial dependencies, clears Composer's cache, and retries installation safely. Full instructions are in `docs/WINDOWS_COMPOSER_INSTALL.md`.
+

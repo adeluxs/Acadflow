@@ -45,9 +45,9 @@ class ClaudeProvider extends ExternalProvider
             'model' => $this->config['model'] ?? 'claude-3-5-sonnet-latest',
             'max_tokens' => (int) config('ai.max_tokens', 2048),
             'temperature' => (float) ($this->config['temperature'] ?? 0.2),
-            'system' => 'You are AcadFlow AI Academic Assistant. Respond only with JSON.',
+            'system' => $this->systemPrompt($payload),
             'messages' => [
-                ['role' => 'user', 'content' => $this->buildPrompt($feature, $payload)],
+                ['role' => 'user', 'content' => $this->userPrompt($feature, $payload)],
             ],
         ];
     }

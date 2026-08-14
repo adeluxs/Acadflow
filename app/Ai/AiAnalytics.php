@@ -16,7 +16,7 @@ class AiAnalytics
 {
     public function record(array $data): void
     {
-        if (! $this->loggingEnabled()) {
+        if (! $this->loggingEnabled(isset($data['university_id']) ? (int) $data['university_id'] : null)) {
             return;
         }
 
@@ -89,8 +89,8 @@ class AiAnalytics
         ];
     }
 
-    protected function loggingEnabled(): bool
+    protected function loggingEnabled(?int $universityId = null): bool
     {
-        return (bool) SettingService::get('ai_enable_logging', config('ai.enable_logging', true));
+        return (bool) SettingService::get('ai_enable_logging', config('ai.enable_logging', true), $universityId);
     }
 }

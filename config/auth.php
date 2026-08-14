@@ -112,4 +112,6 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    'two_factor_session_hours' => env('AUTH_TWO_FACTOR_SESSION_HOURS', 12),
+
 ];

@@ -1,3 +1,174 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    :root {
+        --acad-primary: #4f46e5;
+        --acad-primary-rgb: 79 70 229;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        min-width: 320px;
+    }
+
+    /*
+     * Form controls previously only declared a border colour in many Blade
+     * files (e.g. border-slate-300) but never declared border width. Keep the
+     * existing markup and repair it centrally so every form is visible before
+     * hover/focus. Checkbox/radio controls retain their native dimensions.
+     */
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+    select,
+    textarea {
+        border-width: 1px;
+        border-style: solid;
+        border-color: rgb(203 213 225);
+        background-color: rgb(255 255 255);
+        transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+    }
+
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):hover,
+    select:hover,
+    textarea:hover {
+        border-color: var(--acad-primary);
+    }
+
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):focus,
+    select:focus,
+    textarea:focus {
+        outline: none;
+        border-color: var(--acad-primary);
+        box-shadow: 0 0 0 3px rgb(var(--acad-primary-rgb) / 0.14);
+    }
+
+    input[type='checkbox'],
+    input[type='radio'] {
+        border: 1px solid rgb(148 163 184);
+    }
+
+    input[type='checkbox']:focus,
+    input[type='radio']:focus {
+        outline: 2px solid transparent;
+        outline-offset: 2px;
+        box-shadow: 0 0 0 3px rgb(var(--acad-primary-rgb) / 0.14);
+    }
+}
+
+@layer components {
+    .acad-card {
+        @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+    }
+
+    .acad-card-hover {
+        @apply transition duration-150 hover:-translate-y-0.5 hover:shadow-md;
+    }
+
+    .acad-link {
+        color: var(--acad-primary);
+    }
+
+    .acad-primary-button {
+        @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-offset-2;
+        background: var(--acad-primary);
+    }
+
+    .acad-progress-ring {
+        --progress: 0deg;
+        --ring-color: var(--acad-primary);
+        background: conic-gradient(var(--ring-color) var(--progress), rgb(238 242 255) 0);
+    }
+
+    .rich-editor-shell {
+        @apply overflow-hidden rounded-xl border border-slate-300 bg-white transition;
+    }
+
+    .rich-editor-shell:hover,
+    .rich-editor-shell:focus-within {
+        border-color: var(--acad-primary);
+        box-shadow: 0 0 0 3px rgb(var(--acad-primary-rgb) / 0.10);
+    }
+
+    .rich-editor-toolbar {
+        @apply flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50 p-2;
+    }
+
+    .rich-editor-toolbar button,
+    .rich-editor-toolbar select {
+        @apply min-h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 hover:bg-slate-100;
+    }
+
+    .rich-editor-surface {
+        @apply min-h-72 px-4 py-4 text-[15px] leading-7 text-slate-800 outline-none;
+    }
+
+    .rich-editor-surface:empty::before {
+        content: attr(data-placeholder);
+        @apply pointer-events-none text-slate-400;
+    }
+
+    .rich-editor-status {
+        @apply flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/70 px-3 py-2 text-xs text-slate-500;
+    }
+
+    .ai-writing-suggestion {
+        @apply mt-3 hidden rounded-xl border p-3 text-sm text-slate-700;
+        border-color: rgb(var(--acad-primary-rgb) / 0.18);
+        background: rgb(var(--acad-primary-rgb) / 0.055);
+    }
+
+    .rich-editor-shell .ql-toolbar.ql-snow {
+        border: 0 !important;
+        border-bottom: 1px solid rgb(226 232 240) !important;
+        background: rgb(248 250 252);
+    }
+
+    .rich-editor-shell .ql-container.ql-snow {
+        border: 0 !important;
+        font-family: inherit;
+        font-size: 15px;
+    }
+
+    .rich-editor-shell .ql-toolbar button:hover .ql-stroke,
+    .rich-editor-shell .ql-toolbar button.ql-active .ql-stroke,
+    .rich-editor-shell .ql-toolbar .ql-picker-label:hover .ql-stroke,
+    .rich-editor-shell .ql-toolbar .ql-picker-label.ql-active .ql-stroke {
+        stroke: var(--acad-primary) !important;
+    }
+
+    .rich-editor-shell .ql-toolbar button:hover .ql-fill,
+    .rich-editor-shell .ql-toolbar button.ql-active .ql-fill {
+        fill: var(--acad-primary) !important;
+    }
+
+    .rich-editor-shell .ql-toolbar button:hover,
+    .rich-editor-shell .ql-toolbar button.ql-active,
+    .rich-editor-shell .ql-toolbar .ql-picker-label:hover,
+    .rich-editor-shell .ql-toolbar .ql-picker-label.ql-active {
+        color: var(--acad-primary) !important;
+    }
+
+    .ai-writing-suggestion[data-visible='true'] {
+        @apply block;
+    }
+}
+
+@layer components {
+    .sidebar-link {
+        @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950;
+    }
+
+    .sidebar-link-active {
+        color: var(--acad-primary);
+        background: rgb(var(--acad-primary-rgb) / 0.09);
+    }
+
+    .sidebar-link-active:hover {
+        color: var(--acad-primary);
+        background: rgb(var(--acad-primary-rgb) / 0.12);
+    }
+}

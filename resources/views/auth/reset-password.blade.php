@@ -1,35 +1,25 @@
-<x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('Reset your password below.') }}
-    </div>
-
-    <form method="POST" action="{{ route('password.store') }}">
+@extends('layouts.auth')
+@section('title', 'Choose new password')
+@section('content')
+<div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-9">
+    <p class="text-sm font-semibold text-blue-700">Secure your account</p>
+    <h2 class="mt-2 text-3xl font-black text-slate-950">Choose a new password</h2>
+    <form method="POST" action="{{ route('password.store') }}" class="mt-7 space-y-5" data-loading-form>
         @csrf
-
-        <input type="hidden" name="token" value="{{ $request->token }}">
-
+        <input type="hidden" name="token" value="{{ $request->route('token') }}">
         <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email', $request->email)" required autofocus />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <label for="email" class="mb-2 block text-sm font-semibold text-slate-800">Email address</label>
+            <input id="email" name="email" type="email" value="{{ old('email', $request->email) }}" required autocomplete="email" class="w-full rounded-2xl border-slate-300 px-4 py-3">
         </div>
-
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-            <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+        <div>
+            <label for="password" class="mb-2 block text-sm font-semibold text-slate-800">New password</label>
+            <div class="relative"><input id="password" name="password" type="password" required autocomplete="new-password" class="w-full rounded-2xl border-slate-300 px-4 py-3 pr-16"><button type="button" data-password-toggle="password" class="absolute inset-y-0 right-3 text-sm font-semibold text-slate-500">Show</button></div>
         </div>
-
-        <div class="mt-4">
-            <x-input-label for="password_confirmation" :value="__('Confirm Password')" />
-            <x-text-input id="password_confirmation" class="block mt-1 w-full" type="password" name="password_confirmation" required />
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
+        <div>
+            <label for="password_confirmation" class="mb-2 block text-sm font-semibold text-slate-800">Confirm password</label>
+            <div class="relative"><input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password" class="w-full rounded-2xl border-slate-300 px-4 py-3 pr-16"><button type="button" data-password-toggle="password_confirmation" class="absolute inset-y-0 right-3 text-sm font-semibold text-slate-500">Show</button></div>
         </div>
-
-        <div class="flex items-center justify-end mt-4">
-            <x-primary-button>
-                {{ __('Reset Password') }}
-            </x-primary-button>
-        </div>
+        <button class="w-full rounded-2xl bg-blue-700 px-5 py-3.5 font-bold text-white hover:bg-blue-800">Update password</button>
     </form>
-</x-guest-layout>
+</div>
+@endsection

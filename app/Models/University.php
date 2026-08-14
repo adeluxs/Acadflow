@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class University extends Model
 {
@@ -15,6 +16,12 @@ class University extends Model
         'name',
         'short_name',
         'code',
+        'institution_type',
+        'ownership',
+        'state',
+        'regulator',
+        'catalog_source',
+        'catalog_verified_at',
         'email',
         'phone',
         'address',
@@ -25,11 +32,19 @@ class University extends Model
         'settings',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (self $university): void {
+            if (empty($university->uuid)) $university->uuid = (string) Str::uuid();
+        });
+    }
+
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
             'settings' => 'array',
+            'catalog_verified_at' => 'datetime',
         ];
     }
 

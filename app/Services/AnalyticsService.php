@@ -15,176 +15,160 @@ class AnalyticsService
 {
     public function getSubmissionStats($startDate = null, $endDate = null): array
     {
-        $query = Submission::query();
-
+        $base = Submission::query();
         if ($startDate) {
-            $query->where('created_at', '>=', $startDate);
+            $base->where('created_at', '>=', $startDate);
         }
         if ($endDate) {
-            $query->where('created_at', '<=', $endDate);
+            $base->where('created_at', '<=', $endDate);
         }
 
         return [
-            'total' => $query->count(),
-            'draft' => $query->where('status', 'draft')->count(),
-            'submitted' => $query->where('status', 'submitted')->count(),
-            'under_review' => $query->where('status', 'under_review')->count(),
-            'correction_requested' => $query->where('status', 'correction_requested')->count(),
-            'approved' => $query->where('status', 'approved')->count(),
-            'graded' => $query->where('status', 'graded')->count(),
-            'rejected' => $query->where('status', 'rejected')->count(),
+            'total' => (clone $base)->count(),
+            'draft' => (clone $base)->where('status', 'draft')->count(),
+            'submitted' => (clone $base)->where('status', 'submitted')->count(),
+            'under_review' => (clone $base)->where('status', 'under_review')->count(),
+            'correction_requested' => (clone $base)->where('status', 'correction_requested')->count(),
+            'approved' => (clone $base)->where('status', 'approved')->count(),
+            'graded' => (clone $base)->where('status', 'graded')->count(),
         ];
     }
 
     public function getAttendanceStats($courseId = null, $startDate = null, $endDate = null): array
     {
-        $query = AttendanceRecord::query();
-
+        $base = AttendanceRecord::query();
         if ($courseId) {
-            $query->whereHas('session', function ($q) use ($courseId) {
-                $q->where('course_id', $courseId);
-            });
+            $base->whereHas('session', fn ($q) => $q->where('course_id', $courseId));
         }
-
         if ($startDate) {
-            $query->where('created_at', '>=', $startDate);
+            $base->where('created_at', '>=', $startDate);
         }
         if ($endDate) {
-            $query->where('created_at', '<=', $endDate);
+            $base->where('created_at', '<=', $endDate);
         }
 
-        $total = $query->count() ?: 1;
+        $total = (clone $base)->count();
+        $presentOrLate = (clone $base)->whereIn('status', ['present', 'late'])->count();
 
         return [
             'total' => $total,
-            'present' => $query->where('status', 'present')->count(),
-            'late' => $query->where('status', 'late')->count(),
-            'absent' => $query->where('status', 'absent')->count(),
-            'invalid' => $query->where('status', 'invalid')->count(),
-            'attendance_rate' => round((($query->whereIn('status', ['present', 'late'])->count()) / $total) * 100, 2),
+            'present' => (clone $base)->where('status', 'present')->count(),
+            'late' => (clone $base)->where('status', 'late')->count(),
+            'absent' => (clone $base)->where('status', 'absent')->count(),
+            'invalid' => (clone $base)->where('status', 'invalid')->count(),
+            'attendance_rate' => $total > 0 ? round(($presentOrLate / $total) * 100, 2) : 0.0,
         ];
     }
 
     public function getBillingStats($universityId = null, $semesterId = null): array
     {
-        $query = Invoice::query();
-
+        $base = Invoice::query();
         if ($universityId) {
-            $query->whereHas('user', function ($q) use ($universityId) {
-                $q->where('university_id', $universityId);
-            });
+            $base->whereHas('user', fn ($q) => $q->where('university_id', $universityId));
         }
-
         if ($semesterId) {
-            $query->where('semester_id', $semesterId);
+            $base->where('semester_id', $semesterId);
         }
 
-        $total = $query->count() ?: 1;
-        $paid = $query->where('status', 'paid')->count();
+        $total = (clone $base)->count();
+        $paid = (clone $base)->where('status', 'paid')->count();
 
         return [
-            'total_invoices' => $query->count(),
-            'total_amount' => $query->sum('amount'),
+            'total_invoices' => $total,
+            'total_amount' => (clone $base)->sum('amount'),
             'paid' => $paid,
-            'pending' => $query->where('status', 'pending')->count(),
-            'overdue' => $query->where('status', 'overdue')->count(),
-            'waived' => $query->where('status', 'waived')->count(),
-            'collection_rate' => round(($paid / $total) * 100, 2),
+            'pending' => (clone $base)->where('status', 'pending')->count(),
+            'overdue' => (clone $base)->where('status', 'overdue')->count(),
+            'waived' => (clone $base)->where('status', 'waived')->count(),
+            'collection_rate' => $total > 0 ? round(($paid / $total) * 100, 2) : 0.0,
         ];
     }
 
     public function getCoursePerformance($departmentId = null): array
     {
-        $query = Course::with(['enrollments', 'submissions']);
-
+        $query = Course::query()->withCount(['enrollments', 'submissions']);
         if ($departmentId) {
             $query->where('department_id', $departmentId);
         }
 
-        $courses = $query->get();
+        return $query->get()->map(function (Course $course) {
+            $average = $course->submissions()
+                ->whereHas('grade')
+                ->with('grade:id,submission_id,score')
+                ->get()
+                ->pluck('grade.score')
+                ->filter(fn ($score) => $score !== null)
+                ->avg();
 
-        return $courses->map(function ($course) {
             return [
                 'id' => $course->id,
                 'code' => $course->code,
                 'name' => $course->name,
-                'enrolled' => $course->enrollments->count(),
-                'submissions' => $course->submissions->count(),
-                'graded' => $course->submissions->where('status', 'graded')->count(),
-                'average_score' => $course->submissions->grades->avg('score') ?? 0,
+                'enrolled' => $course->enrollments_count,
+                'submissions' => $course->submissions_count,
+                'graded' => $course->submissions()->whereIn('status', ['graded', 'approved'])->count(),
+                'average_score' => round((float) ($average ?? 0), 2),
             ];
-        })->toArray();
+        })->all();
     }
 
     public function getDepartmentSummary($universityId = null): array
     {
-        $query = Department::query();
-
+        $query = Department::query()->withCount(['courses', 'users']);
         if ($universityId) {
-            $query->where('university_id', $universityId);
+            $query->whereHas('faculty', fn ($q) => $q->where('university_id', $universityId));
         }
 
-        return $query->withCount('courses', 'enrollments', 'users')->get()->toArray();
+        return $query->get()->map(fn (Department $department) => [
+            'id' => $department->id,
+            'name' => $department->name,
+            'courses_count' => $department->courses_count,
+            'users_count' => $department->users_count,
+        ])->all();
     }
 
     public function getUserActivity($userId, $days = 30): array
     {
         $startDate = now()->subDays($days);
 
-        $submissions = Submission::where('user_id', $userId)
-            ->where('created_at', '>=', $startDate)
-            ->count();
-
-        $attendance = AttendanceRecord::where('user_id', $userId)
-            ->where('created_at', '>=', $startDate)
-            ->count();
-
         return [
-            'submissions' => $submissions,
-            'attendance' => $attendance,
+            'submissions' => Submission::where('user_id', $userId)->where('created_at', '>=', $startDate)->count(),
+            'attendance' => AttendanceRecord::where('user_id', $userId)->where('created_at', '>=', $startDate)->count(),
             'last_active' => User::find($userId)?->last_login_at,
         ];
     }
 
     public function getLateSubmissionRate($startDate = null, $endDate = null): float
     {
-        $query = Submission::whereNotNull('due_date');
-
+        $base = Submission::query()->whereNotNull('due_date');
         if ($startDate) {
-            $query->where('created_at', '>=', $startDate);
+            $base->where('created_at', '>=', $startDate);
         }
         if ($endDate) {
-            $query->where('created_at', '<=', $endDate);
+            $base->where('created_at', '<=', $endDate);
         }
 
-        $total = $query->count();
-
+        $total = (clone $base)->count();
         if ($total === 0) {
-            return 0;
+            return 0.0;
         }
 
-        $late = $query->where(function ($q) {
-            $q->whereColumn('submitted_at', '>', 'due_date')
-                ->orWhereNull('submitted_at');
-        })->count();
+        $late = (clone $base)->whereNotNull('submitted_at')->whereColumn('submitted_at', '>', 'due_date')->count();
 
         return round(($late / $total) * 100, 2);
     }
 
     public function exportToCsv($data, $filename): string
     {
-        $handle = fopen('php://temp', 'w');
-
+        $handle = fopen('php://temp', 'w+');
         if (! empty($data)) {
             fputcsv($handle, array_keys($data[0]));
-
             foreach ($data as $row) {
                 fputcsv($handle, $row);
             }
         }
-
         rewind($handle);
-        $csv = stream_get_contents($handle);
+        $csv = stream_get_contents($handle) ?: '';
         fclose($handle);
 
         return $csv;

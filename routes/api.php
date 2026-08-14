@@ -5,6 +5,9 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\CourseController;
 use App\Http\Controllers\Api\DocumentController;
+use App\Http\Controllers\Api\KnowledgeController;
+use App\Http\Controllers\Api\OnboardingController;
+use App\Http\Controllers\Api\ResearchController;
 use App\Http\Controllers\Api\PushNotificationController;
 use App\Http\Controllers\Api\SubmissionController;
 use Illuminate\Support\Facades\Route;
@@ -14,7 +17,7 @@ use Illuminate\Support\Facades\Route;
 | API Routes
 |--------------------------------------------------------------------------
 |
-| All API routes for the UniAcademic platform
+| All API routes for the AcadFlow platform
 | Version: v1
 |
 */
@@ -22,14 +25,24 @@ use Illuminate\Support\Facades\Route;
 // Public API Routes
 Route::prefix('v1')->group(function () {
     // Auth
-    Route::post('/auth/login', [AuthController::class, 'login']);
-    Route::post('/auth/register', [AuthController::class, 'register']);
-    Route::post('/auth/password/reset', [AuthController::class, 'resetPassword']);
+    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:register');
+    Route::post('/auth/password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
     Route::get('/settings/public', [\App\Http\Controllers\SettingsController::class, 'publicSettings'])->name('api.settings.public');
 });
 
+// Account bootstrap routes are available to limited onboarding tokens.
+Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
+    Route::get('/auth/account-status', [AuthController::class, 'accountStatus'])->middleware('throttle:api');
+    Route::post('/auth/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:verification');
+    Route::get('/onboarding', [OnboardingController::class, 'show'])->middleware('throttle:api');
+    Route::put('/onboarding/{step}', [OnboardingController::class, 'save'])->middleware('throttle:api');
+    Route::post('/onboarding/{step}/skip', [OnboardingController::class, 'skip'])->middleware('throttle:api');
+    Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->middleware('throttle:api');
+});
+
 // Protected API Routes
-Route::prefix('v1')->middleware(['auth:sanctum', 'subscription.feature:allow_api_access'])->group(function () {
+Route::prefix('v1')->middleware(['auth:sanctum', 'feature.access', 'api.account.ready', 'subscription.feature:allow_api_access'])->group(function () {
     // User
     Route::get('/user', [AuthController::class, 'me']);
     Route::put('/user', [AuthController::class, 'updateProfile']);
@@ -61,6 +74,28 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'subscription.feature:allow_api
     Route::post('/submissions/{submission}/approve', [SubmissionController::class, 'approve']);
     Route::post('/submissions/{submission}/reject', [SubmissionController::class, 'reject']);
     Route::post('/submissions/{submission}/request-correction', [SubmissionController::class, 'requestCorrection']);
+
+    // Research Studio (same services and policies as the web workspace)
+    Route::get('/research-projects', [ResearchController::class, 'index']);
+    Route::post('/research-projects', [ResearchController::class, 'store']);
+    Route::get('/research-projects/{research}', [ResearchController::class, 'show']);
+    Route::put('/research-projects/{research}', [ResearchController::class, 'update']);
+    Route::put('/research-projects/{research}/sections/{section}', [ResearchController::class, 'updateSection']);
+    Route::post('/research-projects/{research}/transition', [ResearchController::class, 'transition']);
+    Route::post('/research-projects/{research}/validate', [ResearchController::class, 'validateProject']);
+    Route::post('/research-projects/{research}/publish', [ResearchController::class, 'publish']);
+
+    // Knowledge Hub
+    Route::get('/knowledge', [KnowledgeController::class, 'index']);
+    Route::post('/knowledge', [KnowledgeController::class, 'store']);
+    Route::get('/knowledge/{publication}', [KnowledgeController::class, 'show']);
+    Route::put('/knowledge/{publication}', [KnowledgeController::class, 'update']);
+    Route::post('/knowledge/{publication}/submit', [KnowledgeController::class, 'submit']);
+    Route::get('/knowledge/{publication}/comments', [KnowledgeController::class, 'comments']);
+    Route::post('/knowledge/{publication}/comments', [KnowledgeController::class, 'comment']);
+    Route::post('/knowledge/{publication}/reactions', [KnowledgeController::class, 'react']);
+    Route::post('/knowledge/{publication}/follow', [KnowledgeController::class, 'follow']);
+    Route::post('/knowledge/{publication}/companion', [KnowledgeController::class, 'companion']);
 
     // Attendance
     Route::get('/attendance/sessions', [AttendanceController::class, 'index']);

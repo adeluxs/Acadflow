@@ -47,6 +47,13 @@ return [
         'discussion_assistant',
         'ai_search',
         'ai_analytics',
+        'research_validator',
+        'research_assistant',
+        'literature_review',
+        'knowledge_companion',
+        'moderation_assistant',
+        'recommendation_assistant',
+        'semantic_discovery',
     ],
 
     // Default thresholds / limits
@@ -60,13 +67,14 @@ return [
     'similarity_threshold' => env('AI_SIMILARITY_THRESHOLD', 20),
 
     // Supported citation styles
-    'citation_styles' => ['apa', 'mla', 'chicago', 'harvard', 'ieee'],
+    'citation_styles' => ['apa', 'mla', 'chicago', 'harvard', 'ieee', 'vancouver'],
 
     // Supported document formats
     'document_formats' => ['pdf', 'doc', 'docx', 'txt'],
 
     // Maximum document size in MB for AI analysis
     'max_document_size_mb' => env('AI_MAX_DOCUMENT_SIZE_MB', 20),
+    'cache_ttl' => env('AI_CACHE_TTL', 86400),
 
     // Toggle individual provider features
     'enable_rule_engine' => env('AI_ENABLE_RULE_ENGINE', true),
@@ -98,32 +106,44 @@ return [
             'api_key' => env('OPENAI_API_KEY'),
             'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
             'temperature' => env('OPENAI_TEMPERATURE', 0.2),
+            'input_cost_per_million' => env('OPENAI_INPUT_COST_PER_MILLION', 0.15),
+            'output_cost_per_million' => env('OPENAI_OUTPUT_COST_PER_MILLION', 0.60),
         ],
         'claude' => [
             'api_key' => env('ANTHROPIC_API_KEY'),
             'model' => env('CLAUDE_MODEL', 'claude-3-5-sonnet-latest'),
             'temperature' => env('CLAUDE_TEMPERATURE', 0.2),
+            'input_cost_per_million' => env('CLAUDE_INPUT_COST_PER_MILLION', 3.00),
+            'output_cost_per_million' => env('CLAUDE_OUTPUT_COST_PER_MILLION', 15.00),
         ],
         'gemini' => [
             'api_key' => env('GEMINI_API_KEY'),
             'model' => env('GEMINI_MODEL', 'gemini-1.5-flash'),
             'temperature' => env('GEMINI_TEMPERATURE', 0.2),
+            'input_cost_per_million' => env('GEMINI_INPUT_COST_PER_MILLION', 0.10),
+            'output_cost_per_million' => env('GEMINI_OUTPUT_COST_PER_MILLION', 0.40),
         ],
         'deepseek' => [
             'api_key' => env('DEEPSEEK_API_KEY'),
             'model' => env('DEEPSEEK_MODEL', 'deepseek-chat'),
             'temperature' => env('DEEPSEEK_TEMPERATURE', 0.2),
+            'input_cost_per_million' => env('DEEPSEEK_INPUT_COST_PER_MILLION', 0.27),
+            'output_cost_per_million' => env('DEEPSEEK_OUTPUT_COST_PER_MILLION', 1.10),
         ],
         'azure_openai' => [
             'api_key' => env('AZURE_OPENAI_API_KEY'),
             'endpoint' => env('AZURE_OPENAI_ENDPOINT'),
             'model' => env('AZURE_OPENAI_MODEL', 'gpt-4o-mini'),
             'temperature' => env('AZURE_OPENAI_TEMPERATURE', 0.2),
+            'input_cost_per_million' => env('AZURE_OPENAI_INPUT_COST_PER_MILLION', 0.15),
+            'output_cost_per_million' => env('AZURE_OPENAI_OUTPUT_COST_PER_MILLION', 0.60),
         ],
         'ollama' => [
             'endpoint' => env('OLLAMA_ENDPOINT', 'http://localhost:11434'),
             'model' => env('OLLAMA_MODEL', 'llama3'),
             'temperature' => env('OLLAMA_TEMPERATURE', 0.2),
+            'input_cost_per_million' => env('OLLAMA_INPUT_COST_PER_MILLION', 0),
+            'output_cost_per_million' => env('OLLAMA_OUTPUT_COST_PER_MILLION', 0),
         ],
     ],
 

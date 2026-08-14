@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\FeatureAccessService;
+
 use App\Enums\NotificationType;
 use App\Services\NotificationService;
 use App\Services\PdfService;
@@ -48,7 +50,7 @@ class TestController extends Controller
             $user,
             NotificationType::SUBMISSION_RECEIVED,
             'Test Notification',
-            'This is a test notification from UniFlow.',
+            'This is a test notification from AcadFlow.',
             ['test' => true]
         );
 
@@ -79,11 +81,11 @@ class TestController extends Controller
         $user = Auth::user();
 
         $flags = [
-            'pwa_enabled' => $user->hasFeature('pwa_enabled'),
-            'push_notifications' => $user->hasFeature('push_notifications'),
-            'advanced_analytics' => $user->hasFeature('advanced_analytics'),
-            'document_generation' => $user->hasFeature('document_generation'),
-            'course_certificates' => $user->hasFeature('course_certificates'),
+            'pwa_enabled' => FeatureAccessService::canAccessFeature('pwa_enabled', $user),
+            'push_notifications' => FeatureAccessService::canAccessFeature('push_notifications', $user),
+            'advanced_analytics' => FeatureAccessService::canAccessFeature('advanced_analytics', $user),
+            'documents_exports' => FeatureAccessService::canAccessFeature('documents_exports', $user),
+            'course_certificates' => FeatureAccessService::canAccessFeature('course_certificates', $user),
         ];
 
         return response()->json([

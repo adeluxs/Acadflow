@@ -11,6 +11,8 @@ class SubmissionTaskAttachment extends Model
         'submission_task_id',
         'file_name',
         'file_path',
+        'disk',
+        'media_asset_id',
         'mime_type',
         'file_size',
         'description',
@@ -24,6 +26,11 @@ class SubmissionTaskAttachment extends Model
             'file_size' => 'integer',
             'is_required' => 'boolean',
         ];
+    }
+
+    public function mediaAsset(): BelongsTo
+    {
+        return $this->belongsTo(MediaAsset::class);
     }
 
     public function task(): BelongsTo

@@ -5,7 +5,18 @@
 @section('content')
 <div class="max-w-4xl mx-auto">
     <h2 class="text-2xl font-bold mb-2">AI Academic Assistant Settings</h2>
-    <p class="text-gray-500 mb-6">Centralized configuration for the AI layer. Changes apply across the platform.</p>
+    <p class="text-gray-500 mb-4">Configuration for how the AI layer behaves. Changes apply across the platform.</p>
+
+    <div class="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+        <strong>Runtime availability is separate from AI configuration.</strong>
+        The AI Assistant's Enabled / Maintenance / Disabled state is controlled only in
+        @if(auth()->user()?->isSuperAdmin() && Route::has('admin.settings.features'))
+            <a href="{{ route('admin.settings.features') }}" class="font-bold underline">Feature & Module Management</a>.
+        @else
+            platform Feature & Module Management.
+        @endif
+        The controls below configure providers and individual AI capabilities only; they do not release the AI Assistant to users.
+    </div>
 
     <form method="POST" action="{{ route('ai.settings.update') }}">
         @csrf
@@ -52,6 +63,14 @@
                     <input type="number" name="ai_monthly_request_limit" value="{{ $settings['ai_monthly_request_limit'] }}" class="w-full border rounded px-3 py-2"></div>
                 <div><label class="block text-sm font-medium mb-1">Max Cost ($)</label>
                     <input type="number" step="0.01" name="ai_max_cost" value="{{ $settings['ai_max_cost'] }}" class="w-full border rounded px-3 py-2"></div>
+                <div><label class="block text-sm font-medium mb-1">Cache TTL (seconds)</label>
+                    <input type="number" name="ai_cache_ttl" value="{{ $settings['ai_cache_ttl'] }}" class="w-full border rounded px-3 py-2"></div>
+                <div><label class="block text-sm font-medium mb-1">Max document size (MB)</label>
+                    <input type="number" name="ai_max_document_size_mb" value="{{ $settings['ai_max_document_size_mb'] }}" class="w-full border rounded px-3 py-2"></div>
+                <div><label class="block text-sm font-medium mb-1">Document formats</label>
+                    <input type="text" name="ai_document_formats" value="{{ implode(', ', $settings['ai_document_formats'] ?? []) }}" class="w-full border rounded px-3 py-2"></div>
+                <div class="md:col-span-3"><label class="block text-sm font-medium mb-1">Provider priority (comma separated)</label>
+                    <input type="text" name="ai_provider_priority" value="{{ implode(', ', $settings['ai_provider_priority'] ?? []) }}" class="w-full border rounded px-3 py-2"></div>
             </div>
         </div>
 
@@ -67,7 +86,8 @@
         </div>
 
         <div class="bg-white p-6 rounded-lg shadow mb-6">
-            <h3 class="font-semibold mb-4">Feature Permissions</h3>
+            <h3 class="font-semibold mb-1">AI Capability Configuration</h3>
+            <p class="mb-4 text-xs text-gray-500">These switches control individual AI tools after the AI Assistant module is available; they are not duplicate release switches.</p>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
                 @foreach($features as $feature)
                     <label class="flex items-center gap-2 text-sm">
@@ -136,4 +156,35 @@
         </button>
     </form>
 </div>
+
+    <div class="mt-10 grid gap-6 lg:grid-cols-2">
+        <section class="rounded-2xl border bg-white p-6 shadow-sm">
+            <h3 class="text-lg font-semibold">Create prompt version</h3>
+            <p class="mt-1 text-sm text-gray-500">Prompt versions are immutable. Activate a version only after its JSON response schema is ready.</p>
+            <form method="POST" action="{{ route('ai.prompts.store') }}" class="mt-4 space-y-3">@csrf
+                <label class="block text-sm font-medium">Feature<input name="feature" required placeholder="knowledge_companion" class="mt-1 w-full rounded border px-3 py-2"></label>
+                <label class="block text-sm font-medium">System prompt<textarea name="system_prompt" rows="6" required class="mt-1 w-full rounded border px-3 py-2">You are AcadFlow AI Academic Assistant. Use only authorized academic context, disclose uncertainty, and respond with valid JSON.</textarea></label>
+                <label class="block text-sm font-medium">User template<textarea name="user_template" rows="6" required class="mt-1 w-full rounded border px-3 py-2 font-mono text-xs">Feature: @{{feature}}
+Authorized context:
+@{{context_json}}</textarea></label>
+                <label class="block text-sm font-medium">Response schema JSON<textarea name="response_schema" rows="6" class="mt-1 w-full rounded border px-3 py-2 font-mono text-xs">{"type":"object","required":["summary"],"properties":{"summary":{"type":"string"},"findings":{"type":"array"}}}</textarea></label>
+                <label class="block text-sm font-medium">Settings JSON<textarea name="settings" rows="3" class="mt-1 w-full rounded border px-3 py-2 font-mono text-xs">{}</textarea></label>
+                @if(auth()->user()->isSuperAdmin())<label class="block text-sm"><input type="checkbox" name="global_scope" value="1"> Global fallback prompt</label>@endif
+                <label class="block text-sm"><input type="checkbox" name="activate" value="1"> Activate immediately</label>
+                <button class="rounded bg-indigo-600 px-5 py-2 text-white">Create immutable version</button>
+            </form>
+        </section>
+        <section class="rounded-2xl border bg-white p-6 shadow-sm">
+            <h3 class="text-lg font-semibold">Prompt registry</h3>
+            <div class="mt-4 max-h-[760px] space-y-3 overflow-auto">
+            @forelse($promptVersions as $prompt)
+                <article class="rounded-xl border p-4"><div class="flex items-start justify-between gap-3"><div><p class="font-semibold">{{ $prompt->feature }} v{{ $prompt->version }}</p><p class="text-xs text-gray-500">{{ $prompt->university_id ? 'Institution override' : 'Global fallback' }}</p></div><span class="rounded-full px-2 py-1 text-xs {{ $prompt->is_active?'bg-green-100 text-green-700':'bg-gray-100' }}">{{ $prompt->is_active?'Active':'Inactive' }}</span></div>
+                <p class="mt-2 line-clamp-3 text-xs text-gray-600">{{ $prompt->system_prompt }}</p>
+                @unless($prompt->is_active)<form method="POST" action="{{ route('ai.prompts.activate',$prompt) }}" class="mt-3">@csrf<button class="rounded border border-indigo-600 px-3 py-1.5 text-xs font-semibold text-indigo-700">Activate and invalidate cache</button></form>@endunless
+                </article>
+            @empty<p class="text-sm text-gray-500">No versioned prompts yet. Default provider contracts remain active.</p>@endforelse
+            </div>
+        </section>
+    </div>
+
 @endsection

@@ -11,8 +11,8 @@ class SettingsSeeder extends Seeder
     {
         $settings = [
             // General Settings
-            'site_name' => ['value' => 'UniFlow', 'type' => 'string', 'group' => 'general', 'description' => 'Platform display name'],
-            'site_tagline' => ['value' => 'University Academic Workflow Platform', 'type' => 'string', 'group' => 'general', 'description' => 'Tagline or slogan'],
+            'site_name' => ['value' => 'AcadFlow', 'type' => 'string', 'group' => 'general', 'description' => 'Platform display name'],
+            'site_tagline' => ['value' => 'Academic research, publishing and collaboration platform', 'type' => 'string', 'group' => 'general', 'description' => 'Tagline or slogan'],
             'support_email' => ['value' => 'support@uniflow.edu', 'type' => 'string', 'group' => 'general', 'description' => 'Support contact email'],
             'timezone' => ['value' => 'UTC', 'type' => 'string', 'group' => 'general', 'description' => 'Default timezone'],
             'maintenance_mode' => ['value' => false, 'type' => 'boolean', 'group' => 'general', 'description' => 'Enable maintenance mode'],
@@ -20,26 +20,29 @@ class SettingsSeeder extends Seeder
             'site_logo' => ['value' => '', 'type' => 'string', 'group' => 'general', 'description' => 'Site logo URL or path'],
             'site_favicon' => ['value' => '', 'type' => 'string', 'group' => 'general', 'description' => 'Favicon URL or path'],
             'default_language' => ['value' => 'en', 'type' => 'string', 'group' => 'general', 'description' => 'Default language code'],
+            'primary_color' => ['value' => '#4f46e5', 'type' => 'string', 'group' => 'general', 'description' => 'Primary interface color used for focus, active navigation, buttons, and accents'],
 
             // Academic Settings
             'default_submission_late_penalty' => ['value' => 10, 'type' => 'integer', 'group' => 'academic', 'description' => 'Late submission penalty percentage per day'],
             'allow_late_submissions' => ['value' => true, 'type' => 'boolean', 'group' => 'academic', 'description' => 'Allow students to submit after deadline'],
             'max_attempts_per_assignment' => ['value' => 3, 'type' => 'integer', 'group' => 'academic', 'description' => 'Maximum submission attempts'],
             'auto_grade_assignments' => ['value' => false, 'type' => 'boolean', 'group' => 'academic', 'description' => 'Automatically grade objective assignments'],
-            'default_academic_year' => ['value' => '2025/2026', 'type' => 'string', 'group' => 'academic', 'description' => 'Default academic year format: YYYY/YYYY'],
-            'current_semester' => ['value' => 'first', 'type' => 'string', 'group' => 'academic', 'description' => 'Current semester: first, second, or summer'],
-            'semester_start_date' => ['value' => '2025-09-01', 'type' => 'string', 'group' => 'academic', 'description' => 'Current semester start date'],
-            'semester_end_date' => ['value' => '2026-01-31', 'type' => 'string', 'group' => 'academic', 'description' => 'Current semester end date'],
             'allow_resubmission' => ['value' => true, 'type' => 'boolean', 'group' => 'academic', 'description' => 'Allow students to resubmit after grading'],
             'max_resubmission_attempts' => ['value' => 2, 'type' => 'integer', 'group' => 'academic', 'description' => 'Maximum resubmission attempts'],
             'require_correction_workflow' => ['value' => true, 'type' => 'boolean', 'group' => 'academic', 'description' => 'Enable correction request workflow'],
             'enable_group_submissions' => ['value' => true, 'type' => 'boolean', 'group' => 'academic', 'description' => 'Allow group submissions'],
             'default_grading_scale' => ['value' => '100', 'type' => 'string', 'group' => 'academic', 'description' => 'Default grading scale (100, 4.0, etc.)'],
+            'gpa_scale' => ['value' => 5, 'type' => 'integer', 'group' => 'academic', 'description' => 'Maximum GPA/CGPA scale'],
+            'gpa_grade_bands' => ['value' => json_encode([['min'=>70,'point'=>5],['min'=>60,'point'=>4],['min'=>50,'point'=>3],['min'=>45,'point'=>2],['min'=>40,'point'=>1],['min'=>0,'point'=>0]]), 'type' => 'json', 'group' => 'academic', 'description' => 'Institution GPA conversion bands from percentage to grade point'],
             'show_grades_immediately' => ['value' => false, 'type' => 'boolean', 'group' => 'academic', 'description' => 'Show grades to students immediately after grading'],
+            'lecturer_self_assignment_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'academic', 'description' => 'Allow lecturers to add themselves to courses in their own institution and department'],
+            'restrict_course_membership_to_department' => ['value' => true, 'type' => 'boolean', 'group' => 'academic', 'description' => 'Restrict lecturer and student course membership to their assigned department'],
+            'course_invitation_expiry_days' => ['value' => 7, 'type' => 'integer', 'group' => 'academic', 'description' => 'Number of days before lecturer course invitations expire'],
 
             // Notification Settings
             'email_notifications_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'notification', 'description' => 'Send email notifications'],
             'push_notifications_enabled' => ['value' => false, 'type' => 'boolean', 'group' => 'notification', 'description' => 'Send push notifications'],
+            'in_app_notifications_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'notification', 'description' => 'Show in-app notifications'],
             'digest_frequency' => ['value' => 'daily', 'type' => 'string', 'group' => 'notification', 'description' => 'Notification digest frequency (daily, weekly)'],
             'reminder_before_deadline_hours' => ['value' => 24, 'type' => 'integer', 'group' => 'notification', 'description' => 'Send deadline reminder hours before'],
             'notify_on_submission' => ['value' => true, 'type' => 'boolean', 'group' => 'notification', 'description' => 'Notify lecturer on new submission'],
@@ -70,7 +73,6 @@ class SettingsSeeder extends Seeder
             'max_concurrent_sessions' => ['value' => 3, 'type' => 'integer', 'group' => 'security', 'description' => 'Maximum concurrent sessions per user'],
 
             // PWA Settings
-            'pwa_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'pwa', 'description' => 'Enable PWA installation'],
             'pwa_cache_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'pwa', 'description' => 'Enable service worker caching'],
             'pwa_cache_duration_hours' => ['value' => 24, 'type' => 'integer', 'group' => 'pwa', 'description' => 'Cache duration in hours'],
             'pwa_offline_sync' => ['value' => true, 'type' => 'boolean', 'group' => 'pwa', 'description' => 'Enable offline sync'],
@@ -112,6 +114,9 @@ class SettingsSeeder extends Seeder
             'ai_feature_submission_validator' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable submission validator'],
             'ai_feature_plagiarism' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable plagiarism detection'],
             'ai_feature_writing_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable writing assistant'],
+            'ai_editor_suggestions_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Show reviewable AI writing suggestions while using rich-text editors'],
+            'ai_editor_suggestion_min_chars' => ['value' => 60, 'type' => 'integer', 'group' => 'ai', 'description' => 'Minimum editor characters before AI suggestions are requested'],
+            'ai_editor_suggestion_delay_ms' => ['value' => 1600, 'type' => 'integer', 'group' => 'ai', 'description' => 'Debounce delay for AI editor suggestions in milliseconds'],
             'ai_feature_citation_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable citation assistant'],
             'ai_feature_project_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable project assistant'],
             'ai_feature_siwes_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable SIWES assistant'],

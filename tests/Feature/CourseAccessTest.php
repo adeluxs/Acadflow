@@ -48,7 +48,7 @@ class CourseAccessTest extends TestCase
 
     public function test_lecturer_can_view_own_course(): void
     {
-        $lecturer = User::factory()->create();
+        $lecturer = User::factory()->create(['role' => 'lecturer']);
         $department = Department::factory()->create();
         $course = Course::factory()->create(['department_id' => $department->id]);
         $semester = Semester::factory()->create();
@@ -66,8 +66,8 @@ class CourseAccessTest extends TestCase
 
     public function test_lecturer_cannot_view_other_lecturer_course(): void
     {
-        $lecturer = User::factory()->create();
-        $otherLecturer = User::factory()->create();
+        $lecturer = User::factory()->create(['role' => 'lecturer']);
+        $otherLecturer = User::factory()->create(['role' => 'lecturer']);
         $department = Department::factory()->create();
         $course = Course::factory()->create(['department_id' => $department->id]);
         $semester = Semester::factory()->create();

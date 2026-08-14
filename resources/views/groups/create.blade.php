@@ -1,73 +1,16 @@
 @extends('layouts.app')
-
-@section('title', 'Create Group')
-
+@section('title','Create Collaboration Group')
 @section('content')
-<div class="container mx-auto px-4 py-8">
-    <div class="max-w-2xl mx-auto">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h1 class="text-2xl font-bold mb-6">Create New Group</h1>
-
-            <form method="POST" action="{{ route('groups.store') }}">
-                @csrf
-
-                <div class="mb-4">
-                    <label for="course_id" class="block text-sm font-medium text-gray-700 mb-2">Course</label>
-                    <select name="course_id" id="course_id" required
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Select a course</option>
-                        @foreach($enrollments as $enrollment)
-                            <option value="{{ $enrollment->course_id }}">{{ $enrollment->course->code }} - {{ $enrollment->course->name }}</option>
-                        @endforeach
-                    </select>
-                    @error('course_id')
-                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="mb-4">
-                    <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Group Name</label>
-                    <input type="text" name="name" id="name" required
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                           placeholder="Enter group name">
-                    @error('name')
-                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="mb-4">
-                    <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <textarea name="description" id="description" rows="4"
-                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Describe your group's goals and objectives"></textarea>
-                    @error('description')
-                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="mb-6">
-                    <label for="max_members" class="block text-sm font-medium text-gray-700 mb-2">Maximum Members</label>
-                    <select name="max_members" id="max_members" required
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        @for($i = 2; $i <= 10; $i++)
-                            <option value="{{ $i }}" {{ $i == 5 ? 'selected' : '' }}>{{ $i }} members</option>
-                        @endfor
-                    </select>
-                    @error('max_members')
-                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="flex gap-4">
-                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
-                        Create Group
-                    </button>
-                    <a href="{{ route('groups.index') }}" class="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700">
-                        Cancel
-                    </a>
-                </div>
-            </form>
-        </div>
-    </div>
+<div class="mx-auto max-w-3xl px-4 py-8">
+    <div class="mb-6"><a href="{{ route('groups.index') }}" class="text-sm text-blue-700">← Back to groups</a><h1 class="mt-2 text-3xl font-bold">Create a collaboration group</h1><p class="mt-2 text-slate-600">Institutional links are optional, so independent users can create professional or research groups.</p></div>
+    <form method="POST" enctype="multipart/form-data" action="{{ route('groups.store') }}" class="space-y-6 rounded-2xl border bg-white p-6 shadow-sm">@csrf
+        <div><label class="font-medium">Group name</label><input name="name" value="{{ old('name') }}" required maxlength="255" class="mt-1 w-full rounded-xl border-slate-300">@error('name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror</div>
+        <div><label class="font-medium">Cover image</label><input type="file" name="cover_image" accept="image/jpeg,image/png,image/webp" class="mt-1 w-full rounded-xl border border-slate-300 p-2"></div>
+        <div><label class="font-medium">Purpose and description</label><textarea name="description" rows="5" class="mt-1 w-full rounded-xl border-slate-300">{{ old('description') }}</textarea></div>
+        <div class="grid gap-4 md:grid-cols-3"><div><label class="font-medium">Group type</label><select name="group_type" required class="mt-1 w-full rounded-xl border-slate-300">@foreach(['study','research','project','departmental','professional','course','siwes','seminar'] as $type)<option value="{{ $type }}" @selected(old('group_type')===$type)>{{ str($type)->headline() }}</option>@endforeach</select></div><div><label class="font-medium">Visibility</label><select name="visibility" class="mt-1 w-full rounded-xl border-slate-300">@foreach(['private','institution','public'] as $value)<option value="{{ $value }}">{{ ucfirst($value) }}</option>@endforeach</select></div><div><label class="font-medium">Joining</label><select name="membership_mode" class="mt-1 w-full rounded-xl border-slate-300">@foreach(['approval','open','invitation'] as $value)<option value="{{ $value }}">{{ ucfirst($value) }}</option>@endforeach</select></div></div>
+        <div><label class="font-medium">Maximum members</label><input type="number" name="max_members" value="{{ old('max_members',10) }}" min="2" max="250" class="mt-1 w-full rounded-xl border-slate-300"></div>
+        <div class="grid gap-4 md:grid-cols-3"><div><label class="font-medium">Course (optional)</label><select name="course_id" class="mt-1 w-full rounded-xl border-slate-300"><option value="">No course</option>@foreach($courses as $course)<option value="{{ $course->id }}">{{ $course->code }} — {{ $course->name }}</option>@endforeach</select></div><div><label class="font-medium">Community (optional)</label><select name="knowledge_community_id" class="mt-1 w-full rounded-xl border-slate-300"><option value="">No community</option>@foreach($communities as $community)<option value="{{ $community->id }}">{{ $community->name }}</option>@endforeach</select></div><div><label class="font-medium">Research project (optional)</label><select name="research_project_id" class="mt-1 w-full rounded-xl border-slate-300"><option value="">No project</option>@foreach($projects as $project)<option value="{{ $project->id }}">{{ $project->title }}</option>@endforeach</select></div></div>
+        <div class="flex justify-end gap-3"><a href="{{ route('groups.index') }}" class="rounded-xl border px-5 py-3">Cancel</a><button class="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white">Create group</button></div>
+    </form>
 </div>
 @endsection

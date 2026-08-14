@@ -1,59 +1,43 @@
-@extends('layouts.app')
-
-@section('title', 'Login')
-
+@extends('layouts.auth')
+@section('title', 'Sign in')
 @section('content')
-<div class="max-w-md mx-auto mt-8">
-    <div class="bg-white p-8 rounded-lg shadow">
-        <h2 class="text-2xl font-bold mb-6 text-center">Login to {{ \App\Services\SettingService::get('site_name', 'UniAcademic') }}</h2>
-
-        @if(session('error'))
-            <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-                {{ session('error') }}
-            </div>
-        @endif
-
-        <form method="POST" action="{{ route('login') }}">
-            @csrf
-
-            <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="email">
-                    Email Address
-                </label>
-                <input class="w-full px-3 py-2 border rounded @error('email') border-red-500 @enderror"
-                    id="email" name="email" type="email" value="{{ old('email') }}" required>
-                @error('email')
-                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
-                    Password
-                </label>
-                <input class="w-full px-3 py-2 border rounded @error('password') border-red-500 @enderror"
-                    id="password" name="password" type="password" required>
-                @error('password')
-                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div class="mb-6">
-                <label class="flex items-center">
-                    <input type="checkbox" name="remember" class="mr-2">
-                    <span class="text-sm">Remember me</span>
-                </label>
-            </div>
-
-            <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700">
-                Login
-            </button>
-        </form>
-
-        <p class="mt-4 text-center text-sm">
-            Don't have an account? 
-            <a href="{{ route('register') }}" class="text-indigo-600 hover:underline">Register here</a>
-        </p>
+<div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-9">
+    <div class="mb-8">
+        <p class="text-sm font-semibold text-blue-700">Welcome back</p>
+        <h2 class="mt-2 text-3xl font-black text-slate-950">Continue your academic work</h2>
+        <p class="mt-2 text-slate-600">Access your research, publications, communities, groups, events and learning activity.</p>
     </div>
+
+    <form method="POST" action="{{ route('login.store') }}" class="space-y-5" data-loading-form>
+        @csrf
+        <div>
+            <label for="email" class="mb-2 block text-sm font-semibold text-slate-800">Email address</label>
+            <input id="email" name="email" type="email" autocomplete="email" value="{{ old('email') }}" required autofocus
+                   class="w-full rounded-2xl border-slate-300 px-4 py-3 focus:border-blue-600 focus:ring-blue-600 @error('email') border-rose-400 @enderror">
+            @error('email')<p class="mt-2 text-sm text-rose-700">{{ $message }}</p>@enderror
+        </div>
+
+        <div>
+            <div class="mb-2 flex items-center justify-between">
+                <label for="password" class="text-sm font-semibold text-slate-800">Password</label>
+                <a href="{{ route('password.request') }}" class="text-sm font-semibold text-blue-700 hover:text-blue-900">Forgot password?</a>
+            </div>
+            <div class="relative">
+                <input id="password" name="password" type="password" autocomplete="current-password" required
+                       class="w-full rounded-2xl border-slate-300 px-4 py-3 pr-16 focus:border-blue-600 focus:ring-blue-600 @error('password') border-rose-400 @enderror">
+                <button type="button" data-password-toggle="password" aria-pressed="false" class="absolute inset-y-0 right-3 text-sm font-semibold text-slate-500">Show</button>
+            </div>
+            @error('password')<p class="mt-2 text-sm text-rose-700">{{ $message }}</p>@enderror
+        </div>
+
+        <label class="flex items-center gap-3 text-sm text-slate-600">
+            <input type="checkbox" name="remember" value="1" @checked(old('remember')) class="rounded border-slate-300 text-blue-700 focus:ring-blue-600">
+            Keep me signed in on this device
+        </label>
+
+        <button type="submit" class="w-full rounded-2xl bg-blue-700 px-5 py-3.5 font-bold text-white shadow-lg shadow-blue-700/20 transition hover:bg-blue-800 disabled:cursor-wait disabled:opacity-70">Sign in to AcadFlow</button>
+    </form>
+
+    <p class="mt-7 text-center text-sm text-slate-600">New to AcadFlow? <a href="{{ route('register') }}" class="font-bold text-blue-700 hover:text-blue-900">Create your account</a></p>
 </div>
 @endsection

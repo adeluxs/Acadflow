@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -72,6 +73,12 @@ class Discussion extends Model
     public function replies(): HasMany
     {
         return $this->hasMany(DiscussionReply::class);
+    }
+
+    /** Legacy replies are read-only after the shared-engagement migration. */
+    public function engagementThread(): HasOne
+    {
+        return $this->hasOne(EngagementThread::class, 'target_id')->where('target_type', $this->getMorphClass());
     }
 
     public function tags()

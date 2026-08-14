@@ -9,200 +9,259 @@ use App\Models\Department;
 use App\Models\Enrollment;
 use App\Models\Semester;
 use App\Models\User;
+use App\Services\AcademicContextService;
+use App\Services\SettingService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
+use Illuminate\Validation\Rule;
 
 class CourseController extends Controller
 {
-    // Student: View available courses
-    public function index()
+    public function index(): View
     {
         $user = Auth::user();
-        
-        $currentSemester = \App\Services\SettingService::getCurrentSemester();
-        $semesterName = $currentSemester; // 'first', 'second', or 'summer'
-        
-        $enrollments = Enrollment::where('user_id', $user->id)
+
+        $enrollments = Enrollment::query()
+            ->where('user_id', $user->id)
             ->where('status', 'enrolled')
-            ->with(['course.department', 'semester' => function ($query) use ($semesterName) {
-                $query->where('name', 'like', '%' . $semesterName . '%');
-            }])
+            ->whereHas('course.department.faculty', fn ($query) => $query->where('university_id', $user->university_id))
+            ->with(['course.department.faculty', 'semester'])
+            ->latest('enrolled_at')
             ->get();
 
         return view('courses.index', compact('enrollments'));
     }
 
-    // Student/Lecturer: View course details
-    public function show(Course $course)
+    public function show(Course $course): View
     {
+        $this->authorize('view', $course);
+
         $user = Auth::user();
-        
-        // Check if user is enrolled in the course (for students)
-        $isEnrolled = Enrollment::where('user_id', $user->id)
+        $isEnrolled = $user->enrollments()
             ->where('course_id', $course->id)
             ->where('status', 'enrolled')
             ->exists();
+        $isLecturer = $course->lecturerAssignments()->where('user_id', $user->id)->exists();
 
-        // Check if user is assigned as lecturer
-        $isLecturer = $course->lecturerAssignments()
-            ->where('user_id', $user->id)
-            ->exists();
-
-        // Allow access if: enrolled student, assigned lecturer, or admin/role that manages courses
-        if (! $isEnrolled && ! $isLecturer && ! ($user->isDepartmentAdmin() || $user->isUniversityAdmin() || $user->isSuperAdmin())) {
-            abort(403, 'Access denied. You must be enrolled in this course or assigned as a lecturer.');
-        }
-
-        $course->load('department', 'lecturerAssignments.user', 'enrollments.user');
+        $course->load('department.faculty', 'lecturerAssignments.user', 'enrollments.user');
 
         return view('courses.show', compact('course', 'isEnrolled', 'isLecturer'));
     }
 
-    // Student: Enroll in a course
-    public function enroll(Request $request, Course $course)
+    public function enroll(Request $request, Course $course): RedirectResponse
     {
-        $semester = Semester::where('is_active', true)->firstOrFail();
+        $this->authorize('view', $course);
 
-        $existing = Enrollment::where('user_id', Auth::id())
+        return $this->enrollStudent($course, $request->user());
+    }
+
+    public function joinViaLink(string $uuid): View|RedirectResponse
+    {
+        $course = Course::query()->where('uuid', $uuid)->where('is_active', true)->firstOrFail();
+        $user = Auth::user();
+
+        if (! $user->isStudent()) {
+            return redirect()->route('courses.show', $course)
+                ->with('error', 'Only student accounts can join a course.');
+        }
+
+        $this->assertStudentCourseScope($course, $user);
+
+        $alreadyEnrolled = $user->enrollments()
             ->where('course_id', $course->id)
-            ->where('semester_id', $semester->id)
-            ->first();
+            ->where('status', 'enrolled')
+            ->exists();
 
-        if ($existing) {
-            return back()->with('error', 'Already enrolled in this course.');
-        }
+        $course->load('department.faculty');
 
-        // Check capacity
-        if ($course->max_capacity) {
-            $enrolled = Enrollment::where('course_id', $course->id)->count();
-            if ($enrolled >= $course->max_capacity) {
-                return back()->with('error', 'Course is at maximum capacity.');
-            }
-        }
-
-        Enrollment::create([
-            'user_id' => Auth::id(),
-            'course_id' => $course->id,
-            'semester_id' => $semester->id,
-            'status' => 'enrolled',
-            'enrolled_at' => now(),
-        ]);
-
-        return redirect()->route('courses.index')->with('success', 'Successfully enrolled.');
+        return view('courses.join', compact('course', 'alreadyEnrolled'));
     }
 
-    // Lecturer: My assigned courses
-    public function myCourses()
+    public function processJoinLink(Request $request, string $uuid): RedirectResponse
     {
-        $user = Auth::user();
-        
-        $courses = Course::whereHas('lecturerAssignments', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
-        })->with('department', 'lecturerAssignments.user')->get();
+        $course = Course::query()->where('uuid', $uuid)->where('is_active', true)->firstOrFail();
 
-        return view('courses.lecturer', compact('courses'));
+        if (! $request->user()->isStudent()) {
+            abort(403, 'Only student accounts can join a course.');
+        }
+
+        return $this->enrollStudent($course, $request->user());
     }
 
-    // Admin: List courses (department scoped)
-    public function adminIndex()
+    public function myCourses(): View
     {
         $user = Auth::user();
-        
-        $query = Course::with('department', 'lecturerAssignments.user');
-        
+
+        $courses = Course::query()
+            ->whereHas('lecturerAssignments', fn ($query) => $query->where('user_id', $user->id))
+            ->whereHas('department.faculty', fn ($query) => $query->where('university_id', $user->university_id))
+            ->with(['department.faculty', 'lecturerAssignments.user'])
+            ->withCount([
+                'enrollments as enrolled_students_count' => fn ($query) => $query->where('status', 'enrolled'),
+                'submissionTasks as assignments_count',
+            ])
+            ->orderBy('code')
+            ->get();
+
+        $availableCourses = collect();
+        if ((bool) SettingService::get('lecturer_self_assignment_enabled', true, $user->university_id) && $user->department_id) {
+            $availableCourses = Course::query()
+                ->where('department_id', $user->department_id)
+                ->where('is_active', true)
+                ->whereDoesntHave('lecturerAssignments', fn ($query) => $query->where('user_id', $user->id))
+                ->with('department.faculty')
+                ->orderBy('code')
+                ->get();
+        }
+
+        return view('courses.lecturer', compact('courses', 'availableCourses'));
+    }
+
+    public function adminIndex(): View
+    {
+        $user = Auth::user();
+        $query = Course::query()->with('department.faculty', 'lecturerAssignments.user');
+
         if ($user->isDepartmentAdmin()) {
             $query->where('department_id', $user->department_id);
+        } elseif ($user->isUniversityAdmin()) {
+            $query->whereHas('department.faculty', fn ($q) => $q->where('university_id', $user->university_id));
         }
-        if ($user->isUniversityAdmin()) {
-            $query->whereHas('department', function ($q) use ($user) {
-                $q->where('university_id', $user->university_id);
-            });
-        }
-        
-        $courses = $query->get();
+
+        $courses = $query->orderBy('code')->get();
 
         return view('courses.admin', compact('courses'));
     }
 
-    // Admin: Store new course
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $user = Auth::user();
-        
-        $department = Department::where('id', $request->department_id);  
-        if ($user->isDepartmentAdmin() && $department->value('id') !== $user->department_id) {
-            abort(403);
-        }
+        $data = $this->validatedCourseData($request);
+        $department = Department::query()->with('faculty')->findOrFail($data['department_id']);
 
-        $course = Course::create($request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50|unique:courses',
-            'department_id' => 'required|exists:departments,id',
-            'description' => 'nullable|string',
-            'credits' => 'required|integer|min:1',
-            'level' => 'required|in:undergraduate,graduate,doctoral',
-            'type' => 'required|in:core,elective',
-            'semester' => 'required|in:fall,spring,summer',
-            'max_capacity' => 'nullable|integer|min:1',
-            'max_students' => 'nullable|integer|min:1',
-            'pass_mark' => 'nullable|integer|min:0|max:100',
-            'is_active' => 'boolean',
-        ]));
+        $this->assertDepartmentScope($user, $department);
+        Course::create($data);
 
         return redirect()->route('admin.courses')->with('success', 'Course created successfully.');
     }
 
-    // Admin: Show course details
-    public function adminShow(Course $course)
+    public function adminShow(Course $course): View
     {
-        $user = Auth::user();
+        $this->assertDepartmentScope(Auth::user(), $course->department()->with('faculty')->firstOrFail());
 
-        // Check scope
-        if ($user->isDepartmentAdmin() && $course->department_id !== $user->department_id) {
-            abort(403, 'Access denied.');
-        }
-        if ($user->isUniversityAdmin() && $course->department->faculty->university_id !== $user->university_id) {
-            abort(403, 'Access denied.');
-        }
-
-        $course->load('department', 'enrollments.user', 'lecturerAssignments.user');
-
-        // Get available lecturers in the same department
-        $lecturers = User::where('role', 'lecturer')
+        $course->load('department.faculty', 'enrollments.user', 'lecturerAssignments.user');
+        $lecturers = User::query()
+            ->where('role', 'lecturer')
             ->where('department_id', $course->department_id)
+            ->orderBy('first_name')
             ->get();
 
         return view('courses.admin-show', compact('course', 'lecturers'));
     }
 
-    // Admin: Update course
-    public function update(Request $request, Course $course)
+    public function update(Request $request, Course $course): RedirectResponse
     {
-        $user = Auth::user();
-
-        // Check scope
-        if ($user->isDepartmentAdmin() && $course->department_id !== $user->department_id) {
-            abort(403, 'Access denied.');
-        }
-        if ($user->isUniversityAdmin() && $course->department->faculty->university_id !== $user->university_id) {
-            abort(403, 'Access denied.');
-        }
-
-        $course->update($request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50|unique:courses,code,' . $course->id,
-            'department_id' => 'required|exists:departments,id',
-            'description' => 'nullable|string',
-            'credits' => 'required|integer|min:1',
-            'level' => 'required|in:undergraduate,graduate,doctoral',
-            'type' => 'required|in:core,elective',
-            'semester' => 'required|in:fall,spring,summer',
-            'max_capacity' => 'nullable|integer|min:1',
-            'max_students' => 'nullable|integer|min:1',
-            'pass_mark' => 'nullable|integer|min:0|max:100',
-            'is_active' => 'boolean',
-        ]));
+        $this->assertDepartmentScope(Auth::user(), $course->department()->with('faculty')->firstOrFail());
+        $course->update($this->validatedCourseData($request, $course));
 
         return redirect()->route('admin.courses')->with('success', 'Course updated successfully.');
     }
+
+    protected function validatedCourseData(Request $request, ?Course $course = null): array
+    {
+        $request->merge([
+            'credit_hours' => $request->input('credit_hours', $request->input('credits')),
+        ]);
+
+        return $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'code' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('courses', 'code')
+                    ->where(fn ($query) => $query->where('department_id', $request->input('department_id')))
+                    ->ignore($course?->id),
+            ],
+            'department_id' => ['required', 'exists:departments,id'],
+            'description' => ['nullable', 'string'],
+            'credit_hours' => ['required', 'integer', 'min:1', 'max:30'],
+            'level' => ['required', 'string', 'max:10'],
+            'type' => ['required', 'in:compulsory,elective'],
+            'semester' => ['required', 'string', 'max:10'],
+            'max_capacity' => ['nullable', 'integer', 'min:1'],
+            'pass_mark' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'is_active' => ['sometimes', 'boolean'],
+        ]);
+    }
+
+    protected function assertDepartmentScope(User $user, Department $department): void
+    {
+        if ($user->isDepartmentAdmin() && $department->id !== $user->department_id) {
+            abort(403, 'Access denied.');
+        }
+
+        if ($user->isUniversityAdmin() && $department->faculty->university_id !== $user->university_id) {
+            abort(403, 'Access denied.');
+        }
+    }
+
+    protected function enrollStudent(Course $course, User $user): RedirectResponse
+    {
+        if (! $user->isStudent()) {
+            abort(403, 'Only students can enroll in courses.');
+        }
+
+        $this->assertStudentCourseScope($course, $user);
+
+        $semester = app(AcademicContextService::class)->requireActiveSemesterForCourse($course);
+        $existing = Enrollment::query()
+            ->where('user_id', $user->id)
+            ->where('course_id', $course->id)
+            ->where('semester_id', $semester->id)
+            ->first();
+
+        if ($existing?->status === 'enrolled') {
+            return redirect()->route('courses.show', $course)->with('info', 'You are already enrolled in this course.');
+        }
+
+        if ($course->max_capacity) {
+            $enrolled = Enrollment::query()
+                ->where('course_id', $course->id)
+                ->where('semester_id', $semester->id)
+                ->where('status', 'enrolled')
+                ->count();
+
+            if ($enrolled >= $course->max_capacity) {
+                return back()->with('error', 'Course is at maximum capacity.');
+            }
+        }
+
+        Enrollment::updateOrCreate(
+            ['user_id' => $user->id, 'course_id' => $course->id, 'semester_id' => $semester->id],
+            ['status' => 'enrolled', 'enrolled_at' => now()]
+        );
+
+        return redirect()->route('courses.show', $course)->with('success', 'Successfully enrolled.');
+    }
+    protected function assertStudentCourseScope(Course $course, User $user): void
+    {
+        $course->loadMissing('department.faculty');
+        abort_unless(
+            $course->department?->faculty?->university_id === $user->university_id,
+            403,
+            'You can only join courses from your institution.'
+        );
+
+        if ((bool) SettingService::get('restrict_course_membership_to_department', true, $user->university_id)) {
+            abort_unless(
+                $user->department_id && $user->department_id === $course->department_id,
+                403,
+                'You can only join courses in your department.'
+            );
+        }
+    }
+
 }

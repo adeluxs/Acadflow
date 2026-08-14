@@ -27,8 +27,7 @@ class SubmissionPolicy
             return true;
         }
 
-        return $user->hasPermission(Permission::VIEW_COURSE_SUBMISSIONS);
-            
+        return $user->canViewCourseSubmissions($submission->course);
     }
 
     public function create(User $user): bool

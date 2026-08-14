@@ -10,41 +10,62 @@ use App\Models\FeatureFlag;
 use App\Models\Setting;
 use App\Models\SubscriptionPlan;
 use App\Services\SettingService;
+use App\Services\FeatureAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Str;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
 {
+    /** Platform-only settings cannot be overridden by institution admins. */
+    private const GLOBAL_ONLY_GROUPS = ['subscription', 'pwa'];
+    private const GLOBAL_ONLY_KEYS = ['maintenance_mode', 'maintenance_mode_bypass_routes'];
+    private const RUNTIME_AVAILABILITY_SETTING_KEYS = ['pwa_enabled', 'knowledge_hub_premium_enabled'];
+
     /**
      * Display system settings (admin only)
      */
     public function index()
     {
         $user = Auth::user();
-        if (! $user->isSuperAdmin()) {
+        if (! ($user->isSuperAdmin() || $user->isUniversityAdmin())) {
             abort(403);
         }
 
-        $settings = Setting::all()->groupBy('group');
-        $featureFlags = FeatureFlag::orderBy('name')->get();
-        $subscriptionPlans = SubscriptionPlan::orderBy('sort_order')->get();
-        $paymentGateways = \App\Models\PaymentGateway::withCount('transactions')->get();
+        $scopeUniversityId = $user->isSuperAdmin() ? null : $user->university_id;
+        $settings = Setting::query()->orderBy('group')->orderBy('key')->get()
+            ->reject(fn (Setting $setting) => SettingService::canonicalKey($setting->key) !== $setting->key)
+            ->reject(fn (Setting $setting) => in_array($setting->key, self::RUNTIME_AVAILABILITY_SETTING_KEYS, true))
+            ->reject(fn (Setting $setting) => ! $user->isSuperAdmin() && $this->isGlobalOnlySetting($setting))
+            ->each(function (Setting $setting) use ($scopeUniversityId, $user): void {
+                $setting->value = $user->isSuperAdmin()
+                    ? SettingService::getGlobal($setting->key, $setting->value)
+                    : SettingService::get($setting->key, $setting->value, $scopeUniversityId);
+            })
+            ->groupBy('group');
+        // Global commercial controls are only relevant to the platform owner.
+        // Runtime feature availability is managed on the dedicated child page
+        // under Settings so there is only one switch per feature.
+        $subscriptionPlans = $user->isSuperAdmin() ? SubscriptionPlan::orderBy('sort_order')->get() : collect();
+        $paymentGateways = $user->isSuperAdmin()
+            ? \App\Models\PaymentGateway::withCount('transactions')->get()
+            : collect();
 
         // Define setting groups with their display names and icons
         $settingGroups = [
             'general' => ['name' => 'General Settings', 'icon' => 'cog', 'description' => 'Platform name, branding, timezone'],
-            'academic' => ['name' => 'Academic Settings', 'icon' => 'academic-cap', 'description' => 'Semesters, submissions, grading rules'],
+            'academic' => ['name' => 'Academic Settings', 'icon' => 'academic-cap', 'description' => 'Submissions, grading, and course membership rules'],
             'notification' => ['name' => 'Notification Settings', 'icon' => 'bell', 'description' => 'Channels, templates, reminders'],
             'subscription' => ['name' => 'Subscription Settings', 'icon' => 'credit-card', 'description' => 'Billing, trials, plan rules'],
             'security' => ['name' => 'Security Settings', 'icon' => 'shield-check', 'description' => 'Passwords, sessions, 2FA, audit logs'],
             'pwa' => ['name' => 'PWA Settings', 'icon' => 'device-mobile', 'description' => 'Offline mode, caching, sync'],
             'storage' => ['name' => 'Storage Settings', 'icon' => 'database', 'description' => 'File uploads, retention, archives'],
         ];
+        $settingGroups = array_intersect_key($settingGroups, array_fill_keys($settings->keys()->all(), true));
 
-        return view('settings.index', compact('settings', 'featureFlags', 'subscriptionPlans', 'paymentGateways', 'settingGroups'));
+        return view('settings.index', compact('settings', 'subscriptionPlans', 'paymentGateways', 'settingGroups'));
     }
 
     /**
@@ -53,36 +74,30 @@ class SettingsController extends Controller
     public function update(Request $request, string $key)
     {
         $user = Auth::user();
-        if (! $user->isAdmin()) {
+        if (! ($user->isSuperAdmin() || $user->isUniversityAdmin())) {
             abort(403);
         }
 
+        $key = SettingService::canonicalKey($key);
         $setting = Setting::where('key', $key)->firstOrFail();
+        abort_if(! $user->isSuperAdmin() && $this->isGlobalOnlySetting($setting), 403, 'This is a platform-only setting.');
 
-        // Validate based on type
         $rules = ['value' => 'required'];
-        switch ($setting->type) {
-            case 'integer':
-                $rules['value'] = 'required|integer';
-                break;
-            case 'boolean':
-                $rules['value'] = 'required|boolean';
-                break;
-            case 'json':
-                $rules['value'] = 'required|json';
-                break;
-            default:
-                $rules['value'] = 'required|string';
-        }
+        $rules['value'] = match ($setting->type) {
+            'integer' => 'required|integer',
+            'boolean' => 'required|boolean',
+            'json' => 'required|json',
+            default => 'required|string',
+        };
+        $validated = Validator::make($request->all(), $rules)->validate();
 
-        $validator = Validator::make($request->all(), $rules);
-        $validator->validate();
+        $scope = $user->isSuperAdmin() ? null : $user->university_id;
+        $oldValue = $user->isSuperAdmin()
+            ? SettingService::getGlobal($key, $setting->value)
+            : SettingService::get($key, $setting->value, $scope);
 
-        $setting->update(['value' => $request->input('value')]);
-
-        // Clear cache
-        Cache::forget('settings.all');
-        Cache::forget('setting.' . $key);
+        SettingService::set($key, $validated['value'], $setting->type ?: 'string', $scope, $user->id);
+        $this->auditSettingChange($request, $setting, $oldValue, $validated['value']);
 
         return back()->with('success', "Setting '{$setting->key}' updated successfully.");
     }
@@ -93,59 +108,123 @@ class SettingsController extends Controller
     public function updateMultiple(Request $request)
     {
         $user = Auth::user();
-        if (! $user->isAdmin()) {
+        if (! ($user->isSuperAdmin() || $user->isUniversityAdmin())) {
             abort(403);
         }
 
-        $settings = $request->input('settings', []);
+        $incoming = $request->input('settings', []);
+        abort_unless(is_array($incoming), 422, 'Invalid settings payload.');
+        $scope = $user->isSuperAdmin() ? null : $user->university_id;
 
-        foreach ($settings as $key => $value) {
+        foreach ($incoming as $rawKey => $value) {
+            $key = SettingService::canonicalKey((string) $rawKey);
             $setting = Setting::where('key', $key)->first();
-            if ($setting) {
-                $oldValue = $setting->value;
-                $setting->update(['value' => $value]);
-                
-                // Log the change if audit logging is enabled
-                if (\App\Services\SettingService::get('enable_audit_logs', true)) {
-                    AuditLog::log(
-                        'setting_updated',
-                        $user->id,
-                        Setting::class,
-                        $setting->id,
-                        $oldValue,
-                        $value,
-                        $request->ip(),
-                        $request->userAgent()
-                    );
-                }
-                
-                // Clear individual cache
-                Cache::forget('settings.' . $key);
-                Cache::forget('setting.' . $key);
-            }
+            if (! $setting) continue;
+            abort_if(! $user->isSuperAdmin() && $this->isGlobalOnlySetting($setting), 403, 'A platform-only setting was included in the request.');
+
+            $validator = Validator::make(['value' => $value], [
+                'value' => match ($setting->type) {
+                    'integer' => ['required', 'integer'],
+                    'boolean' => ['required', 'boolean'],
+                    'json' => ['required', 'json'],
+                    default => ['nullable', 'string'],
+                },
+            ]);
+            $validated = $validator->validate();
+            $newValue = $validated['value'] ?? '';
+            $oldValue = $user->isSuperAdmin()
+                ? SettingService::getGlobal($key, $setting->value)
+                : SettingService::get($key, $setting->value, $scope);
+
+            SettingService::set($key, $newValue, $setting->type ?: 'string', $scope, $user->id);
+            $this->auditSettingChange($request, $setting, $oldValue, $newValue);
         }
-        Cache::forget('settings.all');
 
         return back()->with('success', 'Settings updated successfully.');
     }
 
     /**
-     * Toggle feature flag
+     * Backwards-compatible legacy toggle route. The old button has been removed;
+     * this action now writes through the centralized FeatureAccessService.
      */
     public function toggleFeatureFlag(Request $request, FeatureFlag $featureFlag)
     {
         $user = Auth::user();
-        if (! $user->isAdmin()) {
-            abort(403);
-        }
+        abort_unless($user?->isSuperAdmin(), 403);
 
-        $featureFlag->update([
-            'is_enabled' => ! $featureFlag->is_enabled,
-            'enabled_at' => ! $featureFlag->is_enabled ? now() : null,
-            'enabled_by' => ! $featureFlag->is_enabled ? $user->id : null,
+        $previousStatus = FeatureAccessService::status($featureFlag->name);
+        $nextStatus = $previousStatus === FeatureAccessService::STATUS_ENABLED
+            ? FeatureAccessService::STATUS_DISABLED
+            : FeatureAccessService::STATUS_ENABLED;
+
+        FeatureAccessService::setStatus($featureFlag->name, $nextStatus, $user->id);
+        $this->auditFeatureChange($request, $featureFlag, $previousStatus, $nextStatus, null);
+
+        return redirect()->route('admin.settings.features')
+            ->with('success', "Feature '{$featureFlag->name}' updated through centralized Feature & Module Management.");
+    }
+
+    /**
+     * Centralized feature/module availability management (platform owner only).
+     */
+    public function features()
+    {
+        $user = Auth::user();
+        abort_unless($user?->isSuperAdmin(), 403);
+
+        $features = FeatureAccessService::managementRows();
+        $categories = collect($features)->pluck('category')->filter()->unique()->sort()->values()->all();
+        $statuses = FeatureAccessService::statuses();
+
+        return view('settings.features', compact('features', 'categories', 'statuses'));
+    }
+
+    /**
+     * Update one authoritative runtime availability state.
+     */
+    public function updateFeature(Request $request, string $feature)
+    {
+        $user = Auth::user();
+        abort_unless($user?->isSuperAdmin(), 403);
+        abort_unless(isset(FeatureAccessService::definitions()[$feature]), 404, 'Unknown feature identifier.');
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(FeatureAccessService::statuses())],
+            'maintenance_message' => ['nullable', 'string', 'max:1000'],
+            'admin_note' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        return back()->with('success', "Feature flag '{$featureFlag->name}' updated.");
+        $previousStatus = FeatureAccessService::status($feature);
+        $previousSettings = FeatureAccessService::settings($feature);
+        $flag = FeatureAccessService::setStatus(
+            $feature,
+            $validated['status'],
+            $user->id,
+            null,
+            $validated['maintenance_message'] ?? '',
+            $validated['admin_note'] ?? '',
+        );
+
+        $this->auditFeatureChange(
+            $request,
+            $flag,
+            $previousStatus,
+            $validated['status'],
+            [
+                'previous_message' => $previousSettings['maintenance_message'] ?? null,
+                'new_message' => $validated['maintenance_message'] ?? null,
+                'admin_note' => $validated['admin_note'] ?? null,
+            ],
+        );
+
+        $effectiveStatus = FeatureAccessService::effectiveStatus($feature);
+        $message = "{$feature} is now {$validated['status']}.";
+        if ($validated['status'] === FeatureAccessService::STATUS_ENABLED
+            && $effectiveStatus !== FeatureAccessService::STATUS_ENABLED) {
+            $message .= " Its effective status is {$effectiveStatus} because a required parent feature is unavailable.";
+        }
+
+        return back()->with('success', $message);
     }
 
     /**
@@ -154,8 +233,8 @@ class SettingsController extends Controller
     public function publicSettings()
     {
         $settings = [
-            'site_name' => SettingService::get('site_name', 'UniAcademic'),
-            'site_tagline' => SettingService::get('site_tagline', 'University Academic Management Platform'),
+            'site_name' => SettingService::get('site_name', 'AcadFlow'),
+            'site_tagline' => SettingService::get('site_tagline', 'Academic research, publishing and collaboration platform'),
             'support_email' => SettingService::get('support_email', 'support@example.com'),
             'timezone' => SettingService::get('timezone', 'UTC'),
             'site_logo' => SettingService::get('site_logo'),
@@ -163,6 +242,7 @@ class SettingsController extends Controller
             'default_language' => SettingService::get('default_language', 'en'),
             'pwa_enabled' => SettingService::isPwaEnabled(),
             'maintenance_mode' => SettingService::isMaintenanceMode(),
+            'features' => FeatureAccessService::clientSnapshot(),
         ];
 
         return response()->json($settings);
@@ -178,9 +258,12 @@ class SettingsController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $settings = Setting::all()->groupBy('group');
+        $scope = $user->isSuperAdmin() ? null : $user->university_id;
 
-        return response()->json($settings);
+        return response()->json([
+            'settings' => SettingService::allGrouped($scope),
+            'features' => FeatureAccessService::clientSnapshot($user),
+        ]);
     }
 
     /**
@@ -188,7 +271,7 @@ class SettingsController extends Controller
      */
     public function pwaManifest()
     {
-        $siteName = SettingService::get('site_name', 'UniFlow');
+        $siteName = SettingService::get('site_name', 'AcadFlow');
         $shortName = Str::limit($siteName, 12, '');
         $themeColor = SettingService::get('pwa_theme_color', '#4f46e5');
         $backgroundColor = SettingService::get('pwa_background_color', '#ffffff');
@@ -196,7 +279,7 @@ class SettingsController extends Controller
         $manifest = [
             'name' => $siteName,
             'short_name' => $shortName,
-            'description' => SettingService::get('site_tagline', 'University Academic Workflow Platform'),
+            'description' => SettingService::get('site_tagline', 'Academic research, publishing and collaboration platform'),
             'start_url' => '/dashboard',
             'display' => SettingService::get('pwa_display', 'standalone'),
             'background_color' => $backgroundColor,
@@ -254,6 +337,10 @@ class SettingsController extends Controller
                 'groups' => $this->groupPermissions(Permission::studentPermissions()),
                 'assigned' => Permission::studentPermissions(),
             ],
+            'member' => [
+                'groups' => $this->groupPermissions(Permission::memberPermissions()),
+                'assigned' => Permission::memberPermissions(),
+            ],
         ];
 
         $allPermissions = Permission::cases();
@@ -302,6 +389,49 @@ class SettingsController extends Controller
         $users = \App\Models\User::whereIn('id', AuditLog::distinct()->pluck('user_id')->filter())->get();
 
         return view('settings.audit-logs', compact('logs', 'actions', 'users'));
+    }
+
+    private function auditSettingChange(Request $request, Setting $setting, mixed $oldValue, mixed $newValue): void
+    {
+        if (! SettingService::get('enable_audit_logs', true, $request->user()?->university_id)) {
+            return;
+        }
+
+        AuditLog::log(
+            'setting_updated',
+            $request->user()?->id,
+            Setting::class,
+            $setting->id,
+            is_scalar($oldValue) || $oldValue === null ? $oldValue : json_encode($oldValue),
+            is_scalar($newValue) || $newValue === null ? $newValue : json_encode($newValue),
+            $request->ip(),
+            $request->userAgent()
+        );
+    }
+
+    private function auditFeatureChange(Request $request, FeatureFlag $featureFlag, string $oldStatus, string $newStatus, ?array $details): void
+    {
+        if (! SettingService::get('enable_audit_logs', true, $request->user()?->university_id)) {
+            return;
+        }
+
+        AuditLog::log(
+            'feature_status_changed',
+            $request->user()?->id,
+            FeatureFlag::class,
+            $featureFlag->id,
+            ['status' => $oldStatus],
+            ['status' => $newStatus, 'details' => $details],
+            $request->ip(),
+            $request->userAgent(),
+            'access_status',
+        );
+    }
+
+    private function isGlobalOnlySetting(Setting $setting): bool
+    {
+        return in_array($setting->group, self::GLOBAL_ONLY_GROUPS, true)
+            || in_array($setting->key, self::GLOBAL_ONLY_KEYS, true);
     }
 
     /**

@@ -10,6 +10,7 @@
             @if($unreadCount > 0)
                 <form method="POST" action="{{ route('notifications.read-all') }}">
                     @csrf
+                    @method('PUT')
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
                         Mark All Read
                     </button>
@@ -17,6 +18,7 @@
             @endif
             <form method="POST" action="{{ route('notifications.clear') }}" onsubmit="return confirm('Clear all notifications?')">
                 @csrf
+                @method('DELETE')
                 <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
                     Clear All
                 </button>
@@ -94,6 +96,7 @@
                                     @if(is_null($notification->read_at))
                                         <form method="POST" action="{{ route('notifications.read', $notification) }}">
                                             @csrf
+                                            @method('PUT')
                                             <button type="submit" class="text-xs text-blue-600 hover:underline">Mark Read</button>
                                         </form>
                                     @endif

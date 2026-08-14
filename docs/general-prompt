@@ -1,0 +1,3176 @@
+Absolutely. Since this is a **major module** that will become one of AcadFlow's flagship features, I've rewritten it as a **professional Software Requirements Specification (SRS)** that your AI agent can execute phase by phase. It is structured like a real engineering specification rather than just a prompt.
+
+---
+
+# AcadFlow Research Studio
+
+## Software Requirements Specification (SRS)
+
+**Version:** 1.0
+
+**Module Name:** AcadFlow Research Studio
+
+**Platform:** AcadFlow
+
+**Status:** Planning & Implementation
+
+---
+
+# 1. Executive Summary
+
+## Vision
+
+Develop **AcadFlow Research Studio**, a complete academic research and writing environment that enables students, lecturers, supervisors, departments, and universities to manage the **entire research lifecycle** inside AcadFlow.
+
+Unlike traditional university systems that only allow document uploads, Research Studio should become a collaborative workspace where students research, write, receive AI assistance, collaborate with supervisors, manage references, track revisions, and publish approved work—all without leaving the platform.
+
+The goal is to transform AcadFlow into a complete **Academic Operating System**.
+
+---
+
+# 2. Core Objectives
+
+The Research Studio must allow users to:
+
+* Create research projects
+* Write academic documents online
+* Collaborate with supervisors
+* Receive AI-assisted writing support
+* Search academic journals
+* Manage citations
+* Track research progress
+* Receive structured feedback
+* Submit for approval
+* Publish approved research to the Knowledge Hub
+
+---
+
+# 3. Design Principles
+
+The implementation must follow these principles.
+
+## 3.1 No Duplicate Code
+
+Before implementing any feature:
+
+Audit the current codebase.
+
+Reuse existing:
+
+* Authentication
+* Users
+* Departments
+* Courses
+* Roles
+* Permissions
+* Notifications
+* Wallet
+* Subscription System
+* AI Assistant
+* Rule Engine
+* External AI Providers
+* Activity Logs
+* Discussions
+* Comments
+* Settings
+* Policies
+* Middleware
+* Queue System
+
+Never duplicate models or services.
+
+---
+
+## 3.2 Maintain Existing Architecture
+
+Continue using:
+
+* Laravel 11
+* Existing Service Layer
+* Existing Repository Pattern (if available)
+* Existing AI Manager
+* Existing Rule Engine
+* Existing SettingsService
+* Existing Feature Flags
+* Existing Notification System
+* Existing Policies
+
+---
+
+# 4. Supported Research Types
+
+The system must support multiple research workflows.
+
+Examples include:
+
+* Final Year Project
+* SIWES Report
+* Seminar Paper
+* Undergraduate Research
+* Postgraduate Thesis
+* Dissertation
+* Journal Article
+* Research Paper
+* Case Study
+* Technical Report
+
+Administrators must be able to add additional research types without modifying application code.
+
+---
+
+# 5. Research Lifecycle
+
+The workflow should be configurable by administrators.
+
+```
+Research Creation
+        ↓
+Topic Proposal
+        ↓
+Supervisor Assignment
+        ↓
+Topic Approval
+        ↓
+Proposal Writing
+        ↓
+Research Writing
+        ↓
+AI Validation
+        ↓
+Supervisor Review
+        ↓
+Corrections
+        ↓
+Final Approval
+        ↓
+Department Approval
+        ↓
+Archive
+        ↓
+Optional Publication to Knowledge Hub
+```
+
+Each stage should support configurable permissions, notifications, deadlines, and approval requirements.
+
+---
+
+# 6. Student Research Dashboard
+
+Provide a dedicated dashboard showing:
+
+* Active research projects
+* Current workflow stage
+* Completion percentage
+* Supervisor feedback
+* AI validation score
+* Similarity score
+* Pending corrections
+* Upcoming deadlines
+* Meeting schedule
+* Writing statistics
+* Saved references
+* Recent activity
+* Notifications
+
+---
+
+# 7. Research Creation
+
+Students should be able to create a research project by providing:
+
+* Research title
+* Research type
+* Department
+* Faculty
+* Academic session
+* Semester
+* Keywords
+* Abstract
+* Research area
+* Supervisor
+* Co-supervisor
+* Expected completion date
+
+---
+
+# 8. Academic Writing Workspace
+
+Instead of uploading Microsoft Word documents, students should write directly inside AcadFlow.
+
+The editor should provide a modern experience similar to Google Docs, Notion, and Microsoft Word.
+
+Supported features include:
+
+* Rich text formatting
+* Tables
+* Images
+* Mathematical equations
+* Code blocks
+* Hyperlinks
+* Footnotes
+* Citations
+* Lists
+* Comments
+* Headings
+* Page breaks
+* Bookmarks
+* Auto-save
+* Offline recovery
+* Dark mode
+* Keyboard shortcuts
+
+---
+
+# 9. Academic Templates
+
+Automatically generate document structures based on institution requirements.
+
+Default sections should include:
+
+* Title Page
+* Certification
+* Approval Page
+* Dedication
+* Acknowledgement
+* Abstract
+* Table of Contents
+* List of Tables
+* List of Figures
+* Chapter One
+* Chapter Two
+* Chapter Three
+* Chapter Four
+* Chapter Five
+* References
+* Appendices
+
+Institutions and lecturers should be able to customize templates.
+
+---
+
+# 10. Chapter Management
+
+Students should be able to:
+
+* Create chapters
+* Rename chapters
+* Reorder chapters
+* Lock approved chapters
+* View chapter completion
+* Track chapter history
+
+---
+
+# 11. Auto Save & Version History
+
+Every few seconds:
+
+* Automatically save progress
+* Create document snapshots
+* Display save status
+* Recover unsaved changes
+
+Version History should support:
+
+* Restore previous versions
+* Compare versions
+* Timeline view
+* Highlight changes
+* Author tracking
+
+---
+
+# 12. Supervisor Workspace
+
+Supervisors should have a dedicated dashboard displaying:
+
+* Assigned students
+* Research progress
+* Pending reviews
+* New submissions
+* AI validation reports
+* Similarity reports
+* Upcoming meetings
+* Delayed students
+* Notifications
+
+Opening a project should display:
+
+* Entire document
+* Progress timeline
+* AI reports
+* Version history
+* Supervisor comments
+* Approval actions
+
+---
+
+# 13. Inline Collaboration
+
+Provide collaborative commenting similar to Google Docs.
+
+Support:
+
+* Highlight text
+* Add comments
+* Reply
+* Mention users
+* Resolve discussions
+* Comment history
+
+---
+
+# 14. Supervisor Change Requests
+
+Supervisors should be able to request:
+
+* Rewrite section
+* Improve methodology
+* Add references
+* Expand discussion
+* Fix formatting
+* Improve academic language
+
+Students should receive notifications immediately.
+
+---
+
+# 15. AI Academic Assistant Integration
+
+Reuse the existing AI architecture.
+
+Support:
+
+* Rule Engine
+* External AI Providers
+* Hybrid Mode
+
+AI capabilities include:
+
+* Grammar correction
+* Academic tone improvement
+* Paraphrasing
+* Summarization
+* Rewriting
+* Expansion
+* Simplification
+* Objective generation
+* Hypothesis generation
+* Research question generation
+* Abstract improvement
+* Conclusion enhancement
+* Recommendation generation
+* Keyword suggestions
+
+---
+
+# 16. AI Validation
+
+Before supervisor review, automatically validate:
+
+* Grammar
+* Formatting
+* Institution template
+* Margins
+* Fonts
+* Line spacing
+* Page numbering
+* Missing chapters
+* Missing references
+* Citation consistency
+* Word count
+* Headings
+* Tables
+* Figures
+* Appendices
+
+Generate a detailed validation report.
+
+---
+
+# 17. AI Research Assistant
+
+Allow students to search scholarly literature directly from the workspace.
+
+Integrate with:
+
+* OpenAlex
+* Crossref
+* Semantic Scholar
+* CORE
+* DOAJ
+* PubMed
+* arXiv
+
+Display:
+
+* Title
+* Authors
+* Year
+* DOI
+* Abstract
+* Journal
+* Citation count
+* PDF availability
+* Source link
+
+Students can:
+
+* Bookmark papers
+* Save to library
+* Insert citations
+* Add to bibliography
+
+---
+
+# 18. Reference Manager
+
+Build an internal academic reference manager.
+
+Support:
+
+* APA 6
+* APA 7
+* MLA
+* Chicago
+* Harvard
+* IEEE
+* Vancouver
+
+Capabilities:
+
+* Organize references
+* Search
+* Folders
+* Duplicate detection
+* Bibliography generation
+* Citation insertion
+
+---
+
+# 19. Literature Review Builder
+
+Students can select saved papers.
+
+AI should:
+
+* Summarize findings
+* Compare methodologies
+* Identify limitations
+* Highlight research gaps
+* Suggest future work
+
+Assist students in drafting literature reviews while maintaining proper citations.
+
+---
+
+# 20. Research Gap Detection
+
+The AI should identify:
+
+* Under-researched topics
+* Frequently studied areas
+* Emerging trends
+* Contradictory findings
+* Potential research opportunities
+
+---
+
+# 21. Plagiarism Detection
+
+Integrate with:
+
+* Existing Rule Engine
+* Future external plagiarism providers
+
+Provide:
+
+* Similarity percentage
+* Matched sources
+* Highlighted sections
+* Improvement suggestions
+
+---
+
+# 22. SIWES Workspace
+
+Include:
+
+* Daily logbook
+* Weekly reports
+* Monthly reports
+* Industry supervisor
+* Employer comments
+* Photos
+* Attachments
+* Attendance
+* Hours worked
+* Lecturer evaluation
+* Employer evaluation
+* Final approval
+
+---
+
+# 23. Seminar Workspace
+
+Support:
+
+* Presentation schedule
+* Slide uploads
+* Panel comments
+* Questions
+* Marks
+* Corrections
+* Final approval
+
+---
+
+# 24. Group Research
+
+Support collaborative research.
+
+Features:
+
+* Multiple authors
+* Role assignment
+* Contribution tracking
+* Editing history
+* Task assignment
+* Activity logs
+
+---
+
+# 25. Progress Tracking
+
+Provide visual progress indicators.
+
+Track:
+
+* Topic approval
+* Proposal
+* Literature Review
+* Methodology
+* Results
+* Discussion
+* Conclusion
+* Corrections
+* Final approval
+
+---
+
+# 26. Meeting Management
+
+Allow supervisors to:
+
+* Schedule meetings
+* Record meeting notes
+* Assign action items
+* Upload documents
+* Track attendance
+
+Students receive reminders.
+
+---
+
+# 27. Notifications
+
+Notify users about:
+
+* New comments
+* Supervisor feedback
+* Deadlines
+* AI completion
+* Meeting invitations
+* Approval decisions
+* Corrections required
+
+---
+
+# 28. Analytics
+
+Students:
+
+* Writing progress
+* Word count
+* Chapter completion
+* Timeline
+
+Supervisors:
+
+* Review statistics
+* Student performance
+* Completion rates
+
+Departments:
+
+* Research completion
+* Approval rates
+* Supervisor workload
+* Research output
+
+---
+
+# 29. Knowledge Hub Integration
+
+After approval, allow publishing to the **AcadFlow Knowledge Hub**.
+
+Supported content:
+
+* Project summaries
+* Research papers
+* Case studies
+* Seminar papers
+* Journal articles
+
+Maintain links between the original research project and the published content.
+
+---
+
+# 30. Role-Based Permissions
+
+Integrate with the existing RBAC system.
+
+Supported roles:
+
+* Super Admin
+* University Admin
+* Department Admin
+* Lecturer
+* Supervisor
+* Co-supervisor
+* Student
+* External Examiner (future)
+
+Permissions must be configurable.
+
+---
+
+# 31. Feature Flags
+
+Administrators should be able to enable or disable:
+
+* Research Studio
+* AI Assistant
+* AI Validation
+* Journal Search
+* Reference Manager
+* Plagiarism
+* Knowledge Hub Publishing
+* Meetings
+* Version History
+* SIWES
+* Seminar
+* Group Research
+
+---
+
+# 32. Subscription Integration
+
+Reuse the existing subscription system.
+
+Support plan-based access for:
+
+* Research Studio
+* AI capabilities
+* Journal search
+* Plagiarism services
+* Advanced analytics
+* Knowledge Hub publishing
+
+---
+
+# 33. Performance & Scalability
+
+The module must support:
+
+* Queue jobs
+* Auto-save
+* Lazy loading
+* Large academic documents
+* Thousands of concurrent users
+* Multi-university deployments
+* Horizontal scalability
+* Optimized database indexing
+
+---
+
+# 34. Testing Requirements
+
+Implement:
+
+* Feature tests
+* Unit tests
+* Policy tests
+* Workflow tests
+* AI integration tests
+* Notification tests
+* Version history tests
+* Permission tests
+* Performance tests
+
+---
+
+# 35. Future Roadmap
+
+Future enhancements may include:
+
+* AI Research Companion powered by an AcadFlow-specific AI model
+* Voice-to-text academic writing
+* Collaborative real-time editing
+* External journal submission
+* DOI generation
+* ORCID integration
+* Institutional repositories
+* Research grants management
+* Ethics approval workflows
+* External examiner portal
+* Mobile research workspace
+
+---
+
+# 36. Acceptance Criteria
+
+The implementation will be considered complete when a student can:
+
+1. Create a research project.
+2. Write every chapter within AcadFlow.
+3. Receive AI writing and validation assistance.
+4. Search and manage scholarly references.
+5. Collaborate with supervisors through inline comments.
+6. Track revisions with version history.
+7. Manage SIWES or seminar workflows where applicable.
+8. Complete supervisor reviews and corrections.
+9. Submit for departmental approval.
+10. Publish approved work to the AcadFlow Knowledge Hub.
+
+The solution must integrate seamlessly with the existing AcadFlow architecture, reuse current services and components wherever possible, avoid code duplication, remain modular and scalable, and provide a modern user experience comparable to leading collaborative writing and research platforms.
+
+
+You are a senior Laravel architect, EdTech product designer, software architect, AI systems engineer, knowledge management expert, and UI/UX engineer.
+
+Your task is to design and implement a production-ready **AcadFlow Knowledge Hub**.
+
+IMPORTANT
+
+Before writing any code:
+
+- Thoroughly inspect the existing AcadFlow codebase.
+- Identify features that already exist.
+- Reuse existing models, controllers, services, repositories, policies, jobs, notifications, media library, AI services, payment services, subscriptions, wallets, discussions, comments, user profiles, permissions, search, categories, tags, and analytics.
+- Do NOT duplicate functionality.
+- Do NOT create duplicate routes, controllers, models, migrations, settings, APIs, or services.
+- Extend the current architecture wherever possible.
+- Ensure every feature integrates seamlessly with the existing AcadFlow ecosystem.
+
+=========================================================
+PROJECT VISION
+=========================================================
+
+AcadFlow Knowledge Hub is NOT a blog.
+
+It is a professional academic publishing and knowledge-sharing platform where:
+
+- Students share knowledge
+- Lecturers publish expertise
+- Researchers publish insights
+- Departments publish updates
+- Universities showcase research
+- Educational resources become discoverable
+- Creators build academic reputation
+- Users can monetize quality educational content
+
+The vision is:
+
+"Learn. Share. Build Reputation. Earn."
+
+=========================================================
+PHASE 1 — SYSTEM AUDIT
+=========================================================
+
+Before implementation:
+
+Inspect whether the following already exist:
+
+- Comments
+- Discussions
+- Categories
+- Tags
+- Search
+- AI services
+- Rich text editor
+- Media uploads
+- PDF storage
+- File management
+- User profiles
+- Wallet
+- Payments
+- Subscription system
+- Notifications
+- Followers
+- Likes
+- Analytics
+- Reports
+- Moderation tools
+- Roles & permissions
+
+Reuse every existing component possible.
+
+=========================================================
+PHASE 2 — KNOWLEDGE HUB CORE
+=========================================================
+
+Create a centralized Knowledge Hub.
+
+Supported content:
+
+Academic Articles
+
+Research Insights
+
+Study Guides
+
+Tutorials
+
+Programming Tutorials
+
+Healthcare Articles
+
+Engineering Articles
+
+Agriculture
+
+Business
+
+Law
+
+Medicine
+
+Nutrition
+
+Campus Guides
+
+Career Advice
+
+Academic Tips
+
+Exam Preparation
+
+SIWES Experiences
+
+Internship Experiences
+
+Project Experiences
+
+Research Summaries
+
+Technology
+
+Artificial Intelligence
+
+Educational Videos
+
+Presentations
+
+Reference Materials
+
+Future expandable content types.
+
+=========================================================
+PHASE 3 — ARTICLE MANAGEMENT
+=========================================================
+
+Creators should be able to:
+
+Create article
+
+Save draft
+
+Auto-save
+
+Preview
+
+Publish
+
+Schedule publication
+
+Archive
+
+Unpublish
+
+Duplicate article
+
+Version history
+
+Restore previous versions
+
+Pin articles
+
+Feature articles
+
+Delete
+
+Soft delete
+
+Permanent delete (authorized users only)
+
+=========================================================
+PHASE 4 — RICH CONTENT EDITOR
+=========================================================
+
+Support:
+
+Rich text
+
+Markdown
+
+Code blocks
+
+Mathematical equations
+
+Tables
+
+Images
+
+Videos
+
+Audio
+
+PDF embedding
+
+Word document embedding
+
+PowerPoint previews
+
+References
+
+Footnotes
+
+Callouts
+
+Academic citations
+
+Syntax highlighting
+
+Drag & drop uploads
+
+Auto-save
+
+=========================================================
+PHASE 5 — KNOWLEDGE CATEGORIES
+=========================================================
+
+Support unlimited categories.
+
+Examples:
+
+Technology
+
+Programming
+
+Medicine
+
+Nutrition
+
+Engineering
+
+Business
+
+Law
+
+Agriculture
+
+Education
+
+Research
+
+Academic Writing
+
+Career
+
+Scholarships
+
+Campus Life
+
+Projects
+
+SIWES
+
+Artificial Intelligence
+
+Cybersecurity
+
+Data Science
+
+Machine Learning
+
+Software Engineering
+
+Departments should also be able to create institution-specific categories.
+
+=========================================================
+PHASE 6 — TAGGING SYSTEM
+=========================================================
+
+Support unlimited tags.
+
+Examples:
+
+Laravel
+
+React
+
+Nutrition
+
+Clinical
+
+Food Science
+
+Project
+
+Machine Learning
+
+PHP
+
+Research
+
+Academic Writing
+
+Exam Tips
+
+SIWES
+
+Tags should power intelligent recommendations.
+
+=========================================================
+PHASE 7 — CREATOR PROFILES
+=========================================================
+
+Every creator should have a public profile showing:
+
+Biography
+
+Institution
+
+Department
+
+Faculty
+
+Position
+
+Areas of expertise
+
+Published content
+
+Followers
+
+Knowledge Score
+
+Academic Reputation
+
+Total Reads
+
+Downloads
+
+Shares
+
+Bookmarks
+
+Comments
+
+Revenue
+
+Badges
+
+Achievements
+
+=========================================================
+PHASE 8 — AI WRITING ASSISTANT
+=========================================================
+
+Integrate with the existing AI Academic Assistant.
+
+Provide:
+
+Grammar improvements
+
+Academic tone
+
+Sentence clarity
+
+Readability
+
+Structure suggestions
+
+Headline suggestions
+
+Summary generation
+
+Keywords
+
+SEO suggestions
+
+Citation validation
+
+Reference validation
+
+Fact-check reminders
+
+Writing quality score
+
+The AI should suggest improvements, not silently rewrite content.
+
+=========================================================
+PHASE 9 — PLAGIARISM CHECK
+=========================================================
+
+Before publishing:
+
+Automatically check:
+
+Internet
+
+Internal repository
+
+Existing articles
+
+Research papers
+
+Assignments
+
+Projects
+
+SIWES reports
+
+Display:
+
+Similarity score
+
+Matched sources
+
+Highlighted sections
+
+Citation issues
+
+Duplicate content warnings
+
+=========================================================
+PHASE 10 — DISCUSSIONS & ENGAGEMENT
+=========================================================
+
+Every publication should support:
+
+Comments
+
+Replies
+
+Nested discussions
+
+Likes
+
+Reactions
+
+Bookmarks
+
+Sharing
+
+Reporting inappropriate content
+
+Mention users
+
+Follow discussions
+
+Pin lecturer responses
+
+Mark answers as verified
+
+Enable AI-generated summaries of long discussions.
+
+=========================================================
+PHASE 11 — FOLLOW SYSTEM
+=========================================================
+
+Users should follow:
+
+Students
+
+Lecturers
+
+Researchers
+
+Departments
+
+Universities
+
+Topics
+
+Categories
+
+Tags
+
+Receive notifications when new content is published.
+
+=========================================================
+PHASE 12 — KNOWLEDGE REPUTATION
+=========================================================
+
+Instead of social media popularity, build an academic reputation system.
+
+Metrics include:
+
+Knowledge Score
+
+Contribution Score
+
+Research Impact
+
+Educational Impact
+
+Reader Satisfaction
+
+Consistency
+
+Publication Quality
+
+Community Engagement
+
+Verified Expertise
+
+Top Author Rankings
+
+Department Rankings
+
+Faculty Rankings
+
+University Rankings
+
+Award badges for milestones and expertise.
+
+=========================================================
+PHASE 13 — MONETIZATION
+=========================================================
+
+Enable creators to earn through multiple channels.
+
+Supported monetization:
+
+Premium articles
+
+Premium study guides
+
+Premium notes
+
+Question banks
+
+Mock exams
+
+Templates
+
+E-books
+
+Video courses
+
+Digital downloads
+
+Institution-sponsored content
+
+Featured content
+
+Revenue sharing
+
+Creator subscriptions (optional)
+
+Platform commission should be configurable via system settings.
+
+Integrate with:
+
+Wallet
+
+Payment gateways
+
+Revenue reports
+
+Withdrawals
+
+Transactions
+
+Subscription system
+
+=========================================================
+PHASE 14 — DIGITAL RESOURCE MARKETPLACE
+=========================================================
+
+Allow creators to sell:
+
+Lecture notes
+
+Slides
+
+Practice questions
+
+Assignments (where institution policy permits)
+
+Research templates
+
+Proposal templates
+
+Lab manuals
+
+Flashcards
+
+Revision materials
+
+E-books
+
+Course packs
+
+Educational assets
+
+Support secure file delivery after purchase.
+
+=========================================================
+PHASE 15 — RECOMMENDATION ENGINE
+=========================================================
+
+Recommend content using:
+
+AI
+
+Course enrollment
+
+Department
+
+Faculty
+
+Institution
+
+Level
+
+Reading history
+
+Bookmarks
+
+Search history
+
+Current assignments
+
+Current projects
+
+Current SIWES reports
+
+Current discussions
+
+Personalized feeds should improve over time.
+
+=========================================================
+PHASE 16 — SEARCH
+=========================================================
+
+Implement intelligent search.
+
+Support searching by:
+
+Title
+
+Author
+
+Topic
+
+Category
+
+Tag
+
+Institution
+
+Department
+
+Course
+
+Content
+
+Keywords
+
+Semantic meaning
+
+AI-powered search suggestions
+
+Filters should include:
+
+Date
+
+Popularity
+
+Reading time
+
+Premium/Free
+
+Department
+
+Faculty
+
+University
+
+=========================================================
+PHASE 17 — ANALYTICS
+=========================================================
+
+Creators should have dashboards showing:
+
+Views
+
+Unique readers
+
+Reading time
+
+Completion rate
+
+Shares
+
+Bookmarks
+
+Comments
+
+Downloads
+
+Revenue
+
+Followers
+
+Popular content
+
+Traffic sources
+
+Institution breakdown
+
+Department breakdown
+
+Country analytics
+
+Monthly growth
+
+=========================================================
+PHASE 18 — MODERATION
+=========================================================
+
+Provide moderation tools for administrators.
+
+Support:
+
+Approve publications
+
+Reject
+
+Request edits
+
+Hide
+
+Feature
+
+Suspend creators
+
+Content reports
+
+Spam detection
+
+AI-assisted moderation
+
+Audit logs
+
+=========================================================
+PHASE 19 — NOTIFICATIONS
+=========================================================
+
+Integrate with the notification system.
+
+Notify users for:
+
+New followers
+
+New comments
+
+Replies
+
+Mentions
+
+Likes
+
+Bookmarks
+
+Publication approvals
+
+Revenue received
+
+Sales
+
+Milestones
+
+Trending articles
+
+All notifications should use Laravel queues for asynchronous processing.
+
+=========================================================
+PHASE 20 — SETTINGS
+=========================================================
+
+Integrate fully with the centralized system settings.
+
+Administrators should configure:
+
+Enable Knowledge Hub
+
+Enable monetization
+
+Revenue sharing percentages
+
+Platform commission
+
+Supported file types
+
+Maximum upload size
+
+AI features
+
+Plagiarism threshold
+
+Comment permissions
+
+Moderation workflow
+
+Premium content
+
+Creator verification
+
+Badges
+
+Ranking rules
+
+Never duplicate settings already present in the system.
+
+=========================================================
+PHASE 21 — SECURITY
+=========================================================
+
+Respect all existing roles and permissions.
+
+Students
+
+Lecturers
+
+Researchers
+
+Department Admins
+
+University Admins
+
+Super Admins
+
+Only authorized users should perform privileged actions.
+
+=========================================================
+PHASE 22 — PERFORMANCE & SCALABILITY
+=========================================================
+
+Design for large-scale deployments.
+
+Use:
+
+Laravel Queues
+
+Events
+
+Listeners
+
+Caching
+
+Lazy loading
+
+Eager loading where appropriate
+
+Pagination
+
+Infinite scrolling
+
+Search indexing
+
+Background processing
+
+Optimize database queries to support millions of articles and users.
+
+
+PHASE 23 — VERIFIED ACADEMIC IDENTITIES
+
+Implement a comprehensive verification system to establish trust and credibility across the Knowledge Hub.
+
+Supported verification types:
+
+Verified Lecturer
+Verified Professor
+Verified Researcher
+Verified Student Ambassador
+Verified Department
+Verified Faculty
+Verified University
+Verified Organization
+Verified Institution Partner
+
+Verification should include:
+
+Verification badges
+Institution validation
+Academic qualification verification (where applicable)
+Employment verification
+Department affiliation
+Profile verification status
+Public trust indicators
+
+Administrators should be able to:
+
+Approve
+Reject
+Suspend
+Revoke
+Review verification requests
+
+Verified profiles should receive increased visibility throughout the platform.
+
+
+PHASE 24 — RESEARCH COLLABORATION
+
+Allow researchers and students to collaborate academically.
+
+Features include:
+
+Create Research Groups
+
+Join Research Groups
+
+Invite Collaborators
+
+Request Collaboration
+
+Find Co-authors
+
+Find Supervisors
+
+Find Mentors
+
+Find Research Assistants
+
+Dataset Sharing
+
+Reference Sharing
+
+Version Control
+
+Collaborative Writing
+
+Research Milestones
+
+Task Assignment
+
+Progress Tracking
+
+Research Discussions
+
+Private Collaboration Spaces
+
+Permission Management
+
+Notification Integration
+
+
+
+PHASE 25 — ACADEMIC COMMUNITIES
+
+Allow users to build communities around academic interests.
+
+Communities can be created for:
+
+Departments
+
+Faculties
+
+Courses
+
+Programming Languages
+
+Research Areas
+
+Professional Disciplines
+
+Healthcare
+
+Nutrition
+
+Engineering
+
+Medicine
+
+Agriculture
+
+Artificial Intelligence
+
+Cybersecurity
+
+Machine Learning
+
+Law
+
+Business
+
+Education
+
+Communities should support:
+
+Posts
+
+Discussions
+
+Events
+
+Announcements
+
+Polls
+
+Resource Sharing
+
+Pinned Resources
+
+Moderation
+
+Roles
+
+Membership Approval
+
+Private Communities
+
+Public Communities
+
+Community Analytics
+
+
+PHASE 26 — LEARNING PATHS
+
+Allow creators to build structured learning journeys.
+
+A Learning Path should include:
+
+Articles
+
+Videos
+
+Assignments
+
+Quizzes
+
+Slides
+
+PDFs
+
+External References
+
+Practice Tasks
+
+Projects
+
+Assessments
+
+Completion Tracking
+
+Progress Analytics
+
+Certificates (optional)
+
+Bookmarks
+
+AI Recommendations
+
+Students should be able to:
+
+Enroll
+
+Resume
+
+Track Progress
+
+Complete Modules
+
+Receive Recommendations
+
+
+
+PHASE 27 — READING LISTS
+
+Allow users to organize educational resources.
+
+Support:
+
+Private Reading Lists
+
+Public Reading Lists
+
+Course Reading Lists
+
+Research Reading Lists
+
+Department Reading Lists
+
+Bookmarks
+
+Collections
+
+Favorites
+
+Reading Progress
+
+Share Lists
+
+Collaborative Lists
+
+Export Lists
+
+Import References
+
+
+
+PHASE 28 — ACADEMIC CITATION NETWORK
+
+Build relationships between academic publications.
+
+When one publication references another:
+
+Automatically create citation relationships.
+
+Support:
+
+Citation Graphs
+
+Most Cited Publications
+
+Most Influential Authors
+
+Citation Timeline
+
+Related Research
+
+Reference Recommendations
+
+Cross References
+
+Citation Analytics
+
+Department Citation Rankings
+
+University Citation Rankings
+
+Research Impact Score
+
+Visual citation graphs should be supported.
+
+
+
+PHASE 29 — INTELLIGENT RECOMMENDATION ENGINE
+
+Implement AI-powered recommendations.
+
+Recommendations should consider:
+
+Courses
+
+Departments
+
+Faculty
+
+Institution
+
+Semester
+
+Research Interests
+
+Reading History
+
+Bookmarks
+
+Current Assignments
+
+Current Projects
+
+Current SIWES Reports
+
+Current Discussions
+
+Learning Paths
+
+Communities
+
+Followed Authors
+
+Knowledge Level
+
+Recommendations should improve continuously based on user behavior.
+
+
+
+PHASE 30 — ACADEMIC EVENTS
+
+Allow academic organizations to organize events.
+
+Supported events:
+
+Seminars
+
+Conferences
+
+Guest Lectures
+
+Research Presentations
+
+Project Defenses
+
+SIWES Orientation
+
+Department Meetings
+
+Workshops
+
+Hackathons
+
+Competitions
+
+Training Sessions
+
+Support:
+
+Registration
+
+Attendance
+
+RSVP
+
+Certificates
+
+Event Materials
+
+Recordings
+
+Notifications
+
+Event Analytics
+
+Calendar Integration
+
+
+
+PHASE 31 — CREATOR REPUTATION & LEVELS
+
+Implement a creator ranking system.
+
+Possible levels:
+
+New Contributor
+
+Campus Contributor
+
+Department Expert
+
+Faculty Expert
+
+University Scholar
+
+National Contributor
+
+Research Fellow
+
+Distinguished Researcher
+
+Professor Circle
+
+Hall of Knowledge
+
+Ranking factors:
+
+Publication Quality
+
+Consistency
+
+Engagement
+
+Citations
+
+Reader Satisfaction
+
+Contribution Score
+
+Knowledge Score
+
+Community Impact
+
+Research Impact
+
+Academic Reputation
+
+Badges
+
+Achievements
+
+Milestones
+
+
+
+PHASE 32 — KNOWLEDGE CHALLENGES
+
+Introduce academic competitions.
+
+Examples:
+
+Weekly Writing Challenge
+
+Research Challenge
+
+Innovation Challenge
+
+Tutorial Challenge
+
+Best SIWES Report
+
+Best Project Documentation
+
+Best Technical Article
+
+Best Programming Tutorial
+
+Best Academic Publication
+
+Features:
+
+Leaderboard
+
+Rewards
+
+Badges
+
+Certificates
+
+Voting
+
+Judging
+
+AI Evaluation Assistance
+
+Department Competitions
+
+University Competitions
+
+
+
+PHASE 33 — AI KNOWLEDGE COMPANION
+
+Extend the AI Academic Assistant to interact with every Knowledge Hub publication.
+
+Users should be able to:
+
+Ask questions about an article.
+
+Explain difficult sections.
+
+Summarize publications.
+
+Compare two publications.
+
+Generate flashcards.
+
+Generate quizzes.
+
+Generate practice questions.
+
+Translate academic content.
+
+Recommend related publications.
+
+Generate revision notes.
+
+Highlight key concepts.
+
+Explain equations.
+
+Explain code examples.
+
+Provide simplified explanations.
+
+Generate discussion questions.
+
+Generate teaching notes.
+
+Suggest additional references.
+
+The AI should always reference the original publication and never fabricate academic facts.
+
+
+
+PHASE 34 — FUTURE-READY ARCHITECTURE
+
+Ensure the Knowledge Hub is designed for long-term expansion.
+
+The architecture should support future modules without major refactoring, including:
+
+Academic podcasts.
+Live classes.
+Live streaming.
+MOOCs.
+Peer review journals.
+Institutional repositories.
+Open educational resources (OER).
+Research funding opportunities.
+Grant management.
+Academic mentoring.
+Career services.
+Alumni knowledge network.
+Professional certification courses.
+AI tutors.
+AR/VR learning experiences.
+External research database integrations.
+University library integrations.
+ORCID, Google Scholar, Crossref, and DOI integration.
+APIs for third-party educational tools.
+
+
+=========================================================
+FINAL DELIVERABLE
+=========================================================
+
+At completion, provide:
+
+1. Existing components discovered.
+2. Components reused.
+3. New components created.
+4. Duplicate logic removed or merged.
+5. Integration points with the rest of AcadFlow.
+6. Database changes.
+7. Routes created.
+8. APIs created.
+9. Background jobs added.
+10. AI integrations.
+11. Monetization architecture.
+12. Security implementation.
+13. Scalability considerations.
+14. Future enhancement recommendations.
+
+The final result should be a unified, scalable, production-ready Knowledge Hub that transforms AcadFlow into not only an academic workflow platform but also a trusted academic publishing, learning, collaboration, and creator ecosystem where students, lecturers, researchers, and institutions can build reputation, share knowledge, and generate sustainable income.
+
+You are a senior AI architect, education technology expert, Laravel engineer, machine learning engineer, academic workflow consultant, and software architect.
+
+Your task is to design and implement a comprehensive **AI Academic Assistant** for AcadFlow.
+
+IMPORTANT:
+- Before writing any code, thoroughly inspect the existing AcadFlow codebase.
+- Determine what AI-related features already exist.
+- Reuse existing services, models, controllers, jobs, events, notification systems, storage, queues, and APIs wherever possible.
+- Do NOT duplicate functionality.
+- Do NOT create duplicate controllers, routes, services, models, migrations, settings, or APIs.
+- Extend the existing architecture instead.
+- Ensure the AI Assistant integrates seamlessly with the entire AcadFlow ecosystem.
+
+The AI Academic Assistant should not be a single feature. It should be a centralized AI layer that powers multiple intelligent academic workflows across the platform for students, lecturers, supervisors, departments, and administrators.
+
+====================================================
+OVERALL GOAL
+====================================================
+
+Build a modular AI Academic Assistant capable of helping users before, during, and after every academic activity.
+
+The AI should function as:
+
+- Academic reviewer
+- Writing assistant
+- Submission validator
+- Plagiarism assistant
+- Citation checker
+- Research assistant
+- Study assistant
+- Lecturer assistant
+- Project assistant
+- SIWES report assistant
+- Academic analytics engine
+
+The AI should provide guidance, validation, suggestions, and insights—not automatically replace lecturer decisions.
+
+====================================================
+PHASE 1 — CODEBASE AUDIT
+====================================================
+
+Before implementation:
+
+1. Inspect the entire codebase.
+
+Determine whether the following already exist:
+
+- AI services
+- Prompt services
+- OpenAI integration
+- Anthropic integration
+- Gemini integration
+- AI jobs
+- AI queues
+- AI controllers
+- AI settings
+- AI configuration
+- Notification integration
+- File parsers
+- PDF parsers
+- DOCX parsers
+- Existing plagiarism logic
+- Existing validation logic
+- Existing grading system
+- Existing submission system
+- Existing discussion system
+- Existing project workflow
+- Existing SIWES workflow
+
+Reuse them whenever possible.
+
+====================================================
+PHASE 2 — AI ARCHITECTURE FOUNDATION
+====================================================
+
+Before implementing any AI-powered feature, design and implement a centralized AI architecture that will serve as the intelligence layer across the entire AcadFlow ecosystem.
+
+The architecture must be modular, provider-independent, scalable, and extensible.
+
+Do not allow any controller, model, service, or feature to communicate directly with an AI provider.
+
+Every AI request must pass through a centralized AI Manager.
+
+The architecture should support:
+
+Rule-Based AI
+External AI Providers
+Self-hosted AI Models
+Future AI Providers
+
+without changing feature implementations.
+
+AI Architecture
+
+Implement the following architecture:
+
+Application
+
+↓
+
+AI Manager
+
+↓
+
+AI Router
+
+↓
+
+Rule Engine
+
+↓
+
+OR
+
+↓
+
+AI Provider
+
+↓
+
+Response Formatter
+
+↓
+
+Feature Module
+
+Every AI-powered feature in AcadFlow must use this architecture.
+
+AI Manager
+
+Implement a centralized AI Manager responsible for:
+
+Receiving AI requests
+Determining the requested feature
+Forwarding requests to the AI Router
+Logging AI requests
+Tracking usage
+Returning standardized responses
+
+The AI Manager should become the only gateway for AI operations.
+
+AI Router
+
+The AI Router determines which engine should process a request.
+
+Supported modes:
+
+Rule-Based Only
+
+AI Provider Only
+
+Hybrid Mode
+
+Disabled
+
+The router should be configurable through system settings.
+
+
+====================================================
+PHASE 3 — RULE-BASED AI ENGINE
+====================================================
+
+Implement a complete Rule-Based AI engine.
+
+This engine should become the default AI implementation during development, testing, demonstrations, and initial production deployment.
+
+The Rule Engine must operate without requiring any external AI provider.
+
+The Rule Engine should support:
+
+Assignment validation
+
+SIWES validation
+
+Project validation
+
+Submission validation
+
+Citation validation
+
+Formatting validation
+
+Grammar checks (using local libraries where appropriate)
+
+Required section detection
+
+Word count validation
+
+File structure validation
+
+Required attachment validation
+
+Deadline validation
+
+Academic policy validation
+
+Institution-specific rules
+
+Department-specific rules
+
+Knowledge Hub moderation rules
+
+Discussion moderation
+
+Automatic recommendation templates
+
+Automated lecturer feedback templates
+
+Submission readiness scoring
+
+The Rule Engine should produce structured responses identical to those returned by external AI providers.
+
+Rule Packs
+
+Rules should be organized into independent rule packs.
+
+Examples:
+
+Academic Rule Pack
+
+Assignment Rule Pack
+
+SIWES Rule Pack
+
+Project Rule Pack
+
+Knowledge Hub Rule Pack
+
+Discussion Rule Pack
+
+Research Rule Pack
+
+Institution Rule Pack
+
+Department Rule Pack
+
+Administrators should be able to enable or disable rule packs independently.
+
+====================================================
+PHASE 4 — AI PROVIDER ABSTRACTION
+====================================================
+
+Implement a provider-independent architecture.
+
+Create an AI Provider Interface.
+
+Supported providers should include:
+
+RuleBasedProvider
+
+OpenAIProvider
+
+ClaudeProvider
+
+GeminiProvider
+
+DeepSeekProvider
+
+AzureOpenAIProvider
+
+OllamaProvider
+
+Future providers
+
+Every provider must implement the same interface.
+
+Switching providers should require only changing configuration settings.
+
+Feature code must never depend on a specific provider.
+
+====================================================
+PHASE 5 — HYBRID AI MODE
+====================================================
+
+Implement Hybrid AI mode.
+
+Hybrid mode should always attempt the cheapest solution first.
+
+Workflow:
+
+Check cache
+
+↓
+
+Run Rule Engine
+
+↓
+
+If Rule Engine successfully answers
+
+↓
+
+Return response
+
+↓
+
+Else
+
+↓
+
+Call configured AI Provider
+
+↓
+
+Return response
+
+↓
+
+If provider fails
+
+↓
+
+Fallback to Rule Engine
+
+The user should never experience application errors due to AI provider failures.
+
+====================================================
+PHASE 6 — AI SETTINGS
+====================================================
+
+Extend the existing system settings.
+
+Do not duplicate settings.
+
+Add support for:
+
+AI Mode
+
+Default Provider
+
+Fallback Provider
+
+Provider Priority
+
+API Keys
+
+Request Timeout
+
+Maximum Tokens
+
+Daily Request Limit
+
+Monthly Request Limit
+
+Maximum Cost
+
+Enable Rule Engine
+
+Enable External AI
+
+Enable Hybrid Mode
+
+Enable Cache
+
+Enable Logging
+
+Feature-level AI Permissions
+
+Rule Pack Management
+
+Provider Priority Order
+
+Knowledge Hub AI Settings
+
+Workflow AI Settings
+
+All settings must be centralized.
+
+
+====================================================
+PHASE 7 — AI CACHE
+====================================================
+
+Implement intelligent AI caching.
+
+Cache should prevent unnecessary processing.
+
+If the same document is analyzed multiple times without changes, return the cached analysis.
+
+Support cache invalidation whenever:
+
+Document changes
+
+Submission changes
+
+Report changes
+
+Settings change
+
+Rules change
+
+
+====================================================
+PHASE 8 — AI BACKGROUND PROCESSING
+====================================================
+
+All AI processing must execute asynchronously.
+
+Use:
+
+Laravel Queues
+
+Jobs
+
+Events
+
+Listeners
+
+Notifications
+
+Long-running AI tasks must never block the request lifecycle.
+
+The user interface should display:
+
+Queued
+
+Processing
+
+Completed
+
+Failed
+
+Retrying
+
+
+====================================================
+PHASE 9 — AI ANALYTICS
+====================================================
+
+Track every AI request.
+
+Metrics should include:
+
+Rule Engine Requests
+
+Provider Requests
+
+Hybrid Requests
+
+Cache Hits
+
+Cache Misses
+
+Provider Response Time
+
+Rule Engine Response Time
+
+Provider Costs
+
+Estimated Savings
+
+Daily Usage
+
+Monthly Usage
+
+Per-user Usage
+
+Per-department Usage
+
+Per-university Usage
+
+Most Used Features
+
+Average Processing Time
+
+Failure Rate
+
+
+====================================================
+PHASE 10 — COST OPTIMIZATION
+====================================================
+
+The AI system should prioritize minimizing external API costs.
+
+Processing order:
+
+Cache
+Rule Engine
+External AI
+Fallback Rule Engine
+
+External AI should only be used when:
+
+The Rule Engine cannot produce an acceptable result.
+
+
+
+====================================================
+PHASE 11 — AI SUBMISSION VALIDATOR
+====================================================
+
+Before any lecturer reviews a submission, the AI should automatically inspect it.
+
+Supported submissions:
+
+- Assignments
+- Projects
+- SIWES Reports
+- Seminar Papers
+- Research Papers
+- Lab Reports
+- Any future academic submission
+
+The validator should detect:
+
+Missing chapters
+
+Missing abstract
+
+Missing references
+
+Missing acknowledgements
+
+Missing appendices
+
+Missing table of contents
+
+Missing figures
+
+Missing tables
+
+Empty sections
+
+Incorrect headings
+
+Incorrect chapter order
+
+Formatting issues
+
+Wrong margin
+
+Wrong font size
+
+Wrong spacing
+
+Wrong page numbering
+
+Wrong template
+
+University formatting violations
+
+Citation inconsistencies
+
+Broken references
+
+Reference duplication
+
+Word count issues
+
+Required section omissions
+
+Document completeness
+
+Submission readiness
+
+The AI should produce:
+
+Validation report
+
+Readiness score
+
+List of corrections
+
+Priority level for each issue
+
+Suggestions for fixing issues
+
+Students should see this report immediately.
+
+Lecturers should also see the validation summary before opening the submission.
+
+====================================================
+PHASE 12 — PLAGIARISM DETECTION
+====================================================
+
+Implement intelligent plagiarism analysis.
+
+The system should check against:
+
+Internet sources
+
+Internal university repository
+
+Previous submissions
+
+Research papers
+
+Academic journals
+
+Books
+
+Previously submitted SIWES reports
+
+Previously submitted projects
+
+Previously submitted assignments
+
+Output should include:
+
+Overall similarity percentage
+
+Source list
+
+Highlighted copied text
+
+Matched paragraphs
+
+Citation issues
+
+Duplicate references
+
+Possible AI-generated content indicators (if supported)
+
+Risk score
+
+Lecturer summary
+
+Student summary
+
+Allow institutions to configure similarity thresholds.
+
+====================================================
+PHASE 13 — ACADEMIC WRITING ASSISTANT
+====================================================
+
+Provide writing assistance while students are preparing reports.
+
+Capabilities:
+
+Grammar suggestions
+
+Academic tone improvement
+
+Sentence clarity
+
+Paragraph restructuring
+
+Writing consistency
+
+Academic vocabulary suggestions
+
+Professional writing improvements
+
+Readability improvements
+
+Remove repetition
+
+Detect vague writing
+
+Suggest stronger explanations
+
+Improve introductions
+
+Improve conclusions
+
+Improve transitions
+
+Improve discussion sections
+
+Improve methodology descriptions
+
+The assistant should never silently rewrite work.
+
+Suggestions should always be reviewable by the student.
+
+====================================================
+PHASE 14 — CITATION & REFERENCE ASSISTANT
+====================================================
+
+Support multiple citation styles:
+
+APA
+
+MLA
+
+Chicago
+
+Harvard
+
+IEEE
+
+The assistant should:
+
+Validate citations
+
+Validate bibliography
+
+Detect missing references
+
+Detect uncited references
+
+Detect inconsistent formatting
+
+Suggest corrections
+
+Check reference ordering
+
+Check DOI formatting
+
+Check URLs
+
+Warn about incomplete references
+
+====================================================
+PHASE 15 — FINAL YEAR PROJECT ASSISTANT
+====================================================
+
+Assist students throughout the project lifecycle.
+
+Capabilities:
+
+Proposal review
+
+Title review
+
+Research objective validation
+
+Research question validation
+
+Chapter validation
+
+Methodology suggestions
+
+Literature review guidance
+
+Reference validation
+
+Formatting validation
+
+Submission readiness
+
+Supervisor comment summarization
+
+Version comparison
+
+Correction tracking
+
+Project progress analysis
+
+====================================================
+PHASE 16 — SIWES REPORT ASSISTANT
+====================================================
+
+Focus only on SIWES reports.
+
+Capabilities:
+
+Validate required sections
+
+Check formatting
+
+Check logbook consistency
+
+Check organization details
+
+Check work descriptions
+
+Check supervisor information
+
+Check conclusion
+
+Check recommendations
+
+Generate readiness report
+
+Provide correction suggestions
+
+====================================================
+PHASE 17 — STUDY ASSISTANT
+====================================================
+
+Allow students to ask questions from:
+
+Course materials
+
+Assignments
+
+Slides
+
+Lecture notes
+
+PDFs
+
+Word documents
+
+Discussions
+
+The assistant should:
+
+Explain difficult concepts
+
+Generate summaries
+
+Answer questions
+
+Suggest further reading
+
+Recommend related materials
+
+Explain lecturer feedback
+
+Provide revision tips
+
+====================================================
+PHASE 18 — AI MATERIAL ASSISTANT
+====================================================
+
+For every uploaded material:
+
+Generate automatic summary
+
+Generate keywords
+
+Extract topics
+
+Generate learning objectives
+
+Suggest prerequisite materials
+
+Suggest related discussions
+
+Enable semantic search
+
+====================================================
+PHASE 19 — LECTURER AI ASSISTANT
+====================================================
+
+Assist lecturers with:
+
+Submission summaries
+
+Common mistakes across submissions
+
+Suggested feedback
+
+Rubric assistance
+
+Performance analytics
+
+Class weaknesses
+
+Frequently misunderstood topics
+
+Student progress insights
+
+AI should never automatically grade without lecturer approval.
+
+====================================================
+PHASE 20 — DISCUSSION AI
+====================================================
+
+Enhance discussions by allowing AI to:
+
+Answer common questions
+
+Recommend similar discussions
+
+Recommend relevant materials
+
+Summarize long discussion threads
+
+Detect duplicate questions
+
+Suggest lecturer responses
+
+====================================================
+PHASE 21 — AI SEARCH
+====================================================
+
+Implement semantic search across:
+
+Materials
+
+Assignments
+
+Projects
+
+SIWES reports
+
+Discussions
+
+Announcements
+
+Lecture notes
+
+Students should be able to search by meaning rather than exact keywords.
+
+====================================================
+PHASE 22 — AI ANALYTICS
+====================================================
+
+Generate insights such as:
+
+Most common writing mistakes
+
+Most common plagiarism sources
+
+Average submission readiness
+
+Submission quality trends
+
+Course performance trends
+
+Department insights
+
+Project completion trends
+
+====================================================
+PHASE 23 — BACKGROUND PROCESSING
+====================================================
+
+All heavy AI operations must run asynchronously.
+
+Use:
+
+Laravel Queues
+
+Jobs
+
+Events
+
+Listeners
+
+Notifications
+
+No AI request should block the user interface.
+
+Users should see:
+
+Processing...
+
+Analysis Complete
+
+Validation Ready
+
+====================================================
+PHASE 24 — SETTINGS
+====================================================
+
+Integrate with system settings.
+
+Allow administrators to configure:
+
+AI provider
+
+Model
+
+Temperature
+
+Maximum tokens
+
+Similarity threshold
+
+Supported citation styles
+
+Supported document formats
+
+Maximum document size
+
+Enable/disable plagiarism
+
+Enable/disable writing assistant
+
+Enable/disable semantic search
+
+Enable/disable AI summaries
+
+Enable/disable study assistant
+
+Enable/disable lecturer assistant
+
+Ensure all settings are centralized, respected throughout the application, and not duplicated.
+
+====================================================
+PHASE 25 — SECURITY
+====================================================
+
+Respect permissions.
+
+Students can only access their own analyses.
+
+Lecturers can only access analyses for their assigned courses.
+
+Department admins only within their department.
+
+University admins only within their institution.
+
+Super admins have full access.
+
+====================================================
+PHASE 26 — IMPLEMENTATION RULES
+====================================================
+
+- Inspect the existing system before coding.
+- Extend existing functionality instead of recreating it.
+- Do not duplicate models, services, migrations, settings, jobs, routes, or APIs.
+- Keep the AI Assistant modular and extensible.
+- Follow Laravel best practices.
+- Make the architecture scalable for thousands of concurrent users.
+- Ensure every AI feature integrates cleanly with assignments, projects, SIWES, discussions, materials, and future academic modules.
+
+====================================================
+FINAL DELIVERABLE
+====================================================
+
+At completion, provide:
+
+1. Existing AI components found.
+2. Components reused.
+3. New components created.
+4. Any duplicate logic removed or merged.
+5. How each AI module integrates with the existing AcadFlow system.
+6. Any recommended future enhancements.
+
+The final result should be a unified, production-ready AI Academic Assistant that serves as the intelligence layer across the entire AcadFlow platform, improving academic quality, reducing lecturer workload, and enhancing the learning experience for students.
+
+
+

@@ -16,7 +16,10 @@ use App\Enums\AiProviderName;
 use App\Enums\Permission;
 use App\Events\SubmissionAiAnalysisRequested;
 use App\Models\AiAnalysis;
+use App\Models\AiPromptVersion;
 use App\Models\Submission;
+use App\Models\Course;
+use App\Services\Ai\AcademicAssistantService;
 use App\Services\SettingService;
 use Illuminate\Http\Request;
 
@@ -37,6 +40,7 @@ class AiController extends Controller
         protected PlagiarismModule $plagiarism,
         protected WritingAssistantModule $writing,
         protected CitationAssistantModule $citation,
+        protected AcademicAssistantService $assistant,
     ) {}
 
     /**
@@ -51,21 +55,125 @@ class AiController extends Controller
     }
 
     /**
+     * Shared student/lecturer/member AI Academic Assistant workspace.
+     */
+    public function assistant(Request $request)
+    {
+        $user = $request->user();
+        $courses = collect();
+
+        if ($user->isStudent()) {
+            $courses = Course::query()
+                ->whereHas('enrollments', fn ($query) => $query->where('user_id', $user->id)->where('status', 'enrolled'))
+                ->orderBy('code')->get(['id', 'uuid', 'code', 'name']);
+        } elseif ($user->isLecturer()) {
+            $courses = Course::query()
+                ->whereHas('lecturerAssignments', fn ($query) => $query->where('user_id', $user->id))
+                ->orderBy('code')->get(['id', 'uuid', 'code', 'name']);
+        } elseif ($user->isDepartmentAdmin()) {
+            $courses = Course::query()->where('department_id', $user->department_id)
+                ->orderBy('code')->get(['id', 'uuid', 'code', 'name']);
+        } elseif ($user->isUniversityAdmin()) {
+            $courses = Course::query()
+                ->whereHas('department.faculty', fn ($query) => $query->where('university_id', $user->university_id))
+                ->orderBy('code')->get(['id', 'uuid', 'code', 'name']);
+        }
+
+        return view('ai.assistant', [
+            'courses' => $courses,
+            'mode' => $this->router->mode($user->university_id)->value,
+            'provider' => $this->router->defaultProviderName($user->university_id),
+            'externalAiEnabled' => (bool) SettingService::get('ai_enable_external_ai', config('ai.enable_external_ai', false), $user->university_id),
+            'selectedTool' => in_array($request->query('tool'), ['ask', 'writing', 'citation'], true) ? $request->query('tool') : 'ask',
+        ]);
+    }
+
+    /**
+     * Process a user-facing assistant request through the existing AI modules.
+     */
+    public function askAssistant(Request $request)
+    {
+        $data = $request->validate([
+            'tool' => ['required', 'in:ask,writing,citation'],
+            'message' => ['required', 'string', 'max:50000'],
+            'course_id' => ['nullable', 'integer', 'exists:courses,id'],
+            'style' => ['nullable', 'in:apa,mla,chicago,harvard,ieee,vancouver'],
+        ]);
+
+        $user = $request->user();
+        $courseId = isset($data['course_id']) ? (int) $data['course_id'] : null;
+        if ($courseId && ! $user->canAccessCourse(Course::with('department.faculty')->findOrFail($courseId))) {
+            abort(403, 'You do not have access to the selected course.');
+        }
+
+        if ($data['tool'] === 'writing') {
+            if (! $this->writing->isEnabled($user->university_id)) {
+                return response()->json(['success' => false, 'answer' => 'The writing assistant is disabled for your institution.'], 200);
+            }
+            $response = $this->writing->analyze($data['message'], 'general', $user);
+            return response()->json($this->assistantModulePayload($response->toArray(), 'Writing review'));
+        }
+
+        if ($data['tool'] === 'citation') {
+            if (! $this->citation->isEnabled($user->university_id)) {
+                return response()->json(['success' => false, 'answer' => 'The citation assistant is disabled for your institution.'], 200);
+            }
+            $response = $this->citation->analyze($data['message'], $data['style'] ?? 'apa', $user);
+            return response()->json($this->assistantModulePayload($response->toArray(), 'Citation review'));
+        }
+
+        return response()->json($this->assistant->ask($user, $data['message'], $courseId));
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function assistantModulePayload(array $payload, string $fallbackTitle): array
+    {
+        $answer = $payload['data']['answer'] ?? null;
+        $findings = $payload['findings'] ?? $payload['issues'] ?? [];
+        if ((! is_string($answer) || trim($answer) === '') && is_array($findings) && $findings !== []) {
+            $answer = collect($findings)->map(function ($finding): string {
+                if (! is_array($finding)) return (string) $finding;
+                $message = $finding['message'] ?? $finding['issue'] ?? $finding['title'] ?? 'Suggestion';
+                $suggestion = $finding['suggestion'] ?? null;
+                return trim((string) $message).($suggestion ? ' — '.trim((string) $suggestion) : '');
+            })->implode("\n");
+        }
+        if (! is_string($answer) || trim($answer) === '') {
+            $answer = $payload['summary'] ?? null;
+        }
+
+        return [
+            'success' => (bool) ($payload['success'] ?? true),
+            'answer' => (is_string($answer) && trim($answer) !== '') ? $answer : $fallbackTitle.' completed. No additional suggestions were returned.',
+            'provider' => $payload['provider'] ?? $payload['source'] ?? 'rule_engine',
+            'confidence' => $payload['confidence'] ?? null,
+            'sources' => [],
+            'request_id' => $payload['request_id'] ?? null,
+        ];
+    }
+
+    /**
      * Admin: AI settings page.
      */
     public function settings()
     {
         $this->authorizeAi(Permission::MANAGE_AI_SETTINGS);
 
+        $scopeUniversityId = auth()->user()->isSuperAdmin() ? null : auth()->user()->university_id;
+
         return view('ai.settings', [
             'modes' => AiMode::cases(),
             'providers' => AiProviderName::cases(),
-            'mode' => $this->router->mode()->value,
-            'defaultProvider' => $this->router->defaultProviderName(),
-            'fallbackProvider' => $this->router->fallbackProviderName(),
-            'settings' => $this->aiSettings(),
-            'rulePacks' => $this->rulePackSettings(),
+            'mode' => $this->router->mode($scopeUniversityId)->value,
+            'defaultProvider' => $this->router->defaultProviderName($scopeUniversityId),
+            'fallbackProvider' => $this->router->fallbackProviderName($scopeUniversityId),
+            'settings' => $this->aiSettings($scopeUniversityId),
+            'rulePacks' => $this->rulePackSettings($scopeUniversityId),
             'features' => config('ai.features', []),
+            'promptVersions' => AiPromptVersion::query()->where(function ($query) {
+                if (auth()->user()->isSuperAdmin()) $query->whereNotNull('id');
+                else $query->whereNull('university_id')->orWhere('university_id', auth()->user()->university_id);
+            })->orderBy('feature')->orderByDesc('version')->get(),
         ]);
     }
 
@@ -86,23 +194,37 @@ class AiController extends Controller
             'ai_daily_request_limit' => ['required', 'integer', 'min:0'],
             'ai_monthly_request_limit' => ['required', 'integer', 'min:0'],
             'ai_max_cost' => ['required', 'numeric', 'min:0'],
+            'ai_cache_ttl' => ['required', 'integer', 'min:60', 'max:2592000'],
+            'ai_provider_priority' => ['required', 'string', 'max:1000'],
+            'ai_max_document_size_mb' => ['required', 'integer', 'min:1', 'max:500'],
+            'ai_document_formats' => ['required', 'string', 'max:500'],
         ]);
 
+        $scopeUniversityId = auth()->user()->isSuperAdmin() ? null : auth()->user()->university_id;
+        $actorId = auth()->id();
+        $providerPriority = array_values(array_unique(array_filter(array_map('trim', explode(',', $data['ai_provider_priority'])))));
+        $validProviders = AiProviderName::values();
+        if (array_diff($providerPriority, $validProviders)) {
+            return back()->withErrors(['ai_provider_priority' => 'Provider priority contains an unsupported provider.'])->withInput();
+        }
+        $formats = array_values(array_unique(array_filter(array_map(fn ($item) => strtolower(trim($item)), explode(',', $data['ai_document_formats'])))));
         foreach ($data as $key => $value) {
-            SettingService::set($key, $value, is_numeric($value) ? 'integer' : 'string');
+            if ($key === 'ai_provider_priority') $value = json_encode($providerPriority);
+            if ($key === 'ai_document_formats') $value = json_encode($formats);
+            SettingService::set($key, $value, is_numeric($value) ? 'integer' : 'string', $scopeUniversityId, $actorId);
         }
 
         // Toggles
         foreach (['ai_enable_rule_engine', 'ai_enable_external_ai', 'ai_enable_hybrid_mode', 'ai_enable_cache', 'ai_enable_logging', 'ai_hybrid_escalate_when_clean'] as $toggle) {
-            SettingService::set($toggle, $request->boolean($toggle), 'boolean');
+            SettingService::set($toggle, $request->boolean($toggle), 'boolean', $scopeUniversityId, $actorId);
         }
 
         foreach (config('ai.features', []) as $feature) {
-            SettingService::set('ai_feature_'.$feature, $request->boolean('ai_feature_'.$feature), 'boolean');
+            SettingService::set('ai_feature_'.$feature, $request->boolean('ai_feature_'.$feature), 'boolean', $scopeUniversityId, $actorId);
         }
 
         foreach ($this->rulePackKeys() as $pack) {
-            SettingService::set('ai_rulepack_'.$pack, $request->boolean('ai_rulepack_'.$pack), 'boolean');
+            SettingService::set('ai_rulepack_'.$pack, $request->boolean('ai_rulepack_'.$pack), 'boolean', $scopeUniversityId, $actorId);
         }
 
         // Layout requirements (institution-level defaults)
@@ -110,19 +232,16 @@ class AiController extends Controller
         if (! is_array($layoutFonts)) {
             $layoutFonts = array_filter(array_map('trim', explode(',', (string) $layoutFonts)), fn ($f) => $f !== '');
         }
-        SettingService::set('ai_layout_required_fonts', json_encode(array_values($layoutFonts)), 'string');
-        SettingService::set('ai_layout_page_size', $request->input('ai_layout_page_size', 'A4'), 'string');
-        SettingService::set('ai_layout_min_margin_inches', $request->input('ai_layout_min_margin_inches', 1.0), 'decimal');
-        SettingService::set('ai_layout_line_spacing', $request->input('ai_layout_line_spacing', '1.5'), 'string');
-        SettingService::set('ai_layout_min_font_size', $request->input('ai_layout_min_font_size', 10), 'integer');
-        SettingService::set('ai_layout_require_page_numbering', $request->boolean('ai_layout_require_page_numbering'), 'boolean');
-        SettingService::set('ai_layout_require_branding', $request->boolean('ai_layout_require_branding'), 'boolean');
+        SettingService::set('ai_layout_required_fonts', json_encode(array_values($layoutFonts)), 'string', $scopeUniversityId, $actorId);
+        SettingService::set('ai_layout_page_size', $request->input('ai_layout_page_size', 'A4'), 'string', $scopeUniversityId, $actorId);
+        SettingService::set('ai_layout_min_margin_inches', $request->input('ai_layout_min_margin_inches', 1.0), 'decimal', $scopeUniversityId, $actorId);
+        SettingService::set('ai_layout_line_spacing', $request->input('ai_layout_line_spacing', '1.5'), 'string', $scopeUniversityId, $actorId);
+        SettingService::set('ai_layout_min_font_size', $request->input('ai_layout_min_font_size', 10), 'integer', $scopeUniversityId, $actorId);
+        SettingService::set('ai_layout_require_page_numbering', $request->boolean('ai_layout_require_page_numbering'), 'boolean', $scopeUniversityId, $actorId);
+        SettingService::set('ai_layout_require_branding', $request->boolean('ai_layout_require_branding'), 'boolean', $scopeUniversityId, $actorId);
 
-        // Rule pack / mode changes invalidate cached analyses (Phase 7).
-        $this->manager->invalidateFeature('submission_validator');
-        $this->manager->invalidateFeature('plagiarism');
-        $this->manager->invalidateFeature('citation_assistant');
-        $this->manager->invalidateFeature('writing_assistant');
+        // Provider, quota, prompt-policy and rule-pack changes invalidate every cached feature deterministically.
+        $this->manager->invalidateAll();
 
         return redirect()->route('ai.settings')->with('success', 'AI settings updated.');
     }
@@ -208,7 +327,7 @@ class AiController extends Controller
             ->with('success', 'Layout preferences saved. They will be used when you analyze submissions.');
     }
 
-    protected function analytics(Request $request)
+    public function analytics(Request $request)
     {
         $this->authorizeAi(Permission::VIEW_AI_ANALYTICS);
 
@@ -230,7 +349,7 @@ class AiController extends Controller
             'type' => ['nullable', 'string'],
         ]);
 
-        if (! $this->writing->isEnabled()) {
+        if (! $this->writing->isEnabled($request->user()?->university_id)) {
             return response()->json(['enabled' => false], 200);
         }
 
@@ -246,10 +365,10 @@ class AiController extends Controller
     {
         $data = $request->validate([
             'text' => ['required', 'string', 'max:50000'],
-            'style' => ['nullable', 'in:apa,mla,chicago,harvard,ieee'],
+            'style' => ['nullable', 'in:apa,mla,chicago,harvard,ieee,vancouver'],
         ]);
 
-        if (! $this->citation->isEnabled()) {
+        if (! $this->citation->isEnabled($request->user()?->university_id)) {
             return response()->json(['enabled' => false], 200);
         }
 
@@ -258,48 +377,51 @@ class AiController extends Controller
         return response()->json($response->toArray());
     }
 
-    protected function aiSettings(): array
+    protected function aiSettings(?int $universityId = null): array
     {
-        $layoutRequiredFonts = SettingService::get('ai_layout_required_fonts', config('ai.layout_requirements.required_fonts', []));
+        $layoutRequiredFonts = SettingService::get('ai_layout_required_fonts', config('ai.layout_requirements.required_fonts', []), $universityId);
         if (is_string($layoutRequiredFonts)) {
             $layoutRequiredFonts = json_decode($layoutRequiredFonts, true) ?: [];
         }
 
         return [
-            'ai_enable_rule_engine' => (bool) SettingService::get('ai_enable_rule_engine', config('ai.enable_rule_engine', true)),
-            'ai_enable_external_ai' => (bool) SettingService::get('ai_enable_external_ai', config('ai.enable_external_ai', false)),
-            'ai_enable_hybrid_mode' => (bool) SettingService::get('ai_enable_hybrid_mode', config('ai.enable_hybrid_mode', true)),
-            'ai_enable_cache' => (bool) SettingService::get('ai_enable_cache', config('ai.enable_cache', true)),
-            'ai_enable_logging' => (bool) SettingService::get('ai_enable_logging', config('ai.enable_logging', true)),
-            'ai_hybrid_escalate_when_clean' => (bool) SettingService::get('ai_hybrid_escalate_when_clean', config('ai.hybrid_escalate_when_clean', false)),
-            'ai_similarity_threshold' => (int) SettingService::get('ai_similarity_threshold', config('ai.similarity_threshold', 20)),
-            'ai_request_timeout' => (int) SettingService::get('ai_request_timeout', config('ai.request_timeout', 30)),
-            'ai_max_tokens' => (int) SettingService::get('ai_max_tokens', config('ai.max_tokens', 2048)),
-            'ai_daily_request_limit' => (int) SettingService::get('ai_daily_request_limit', config('ai.daily_request_limit', 1000)),
-            'ai_monthly_request_limit' => (int) SettingService::get('ai_monthly_request_limit', config('ai.monthly_request_limit', 30000)),
-            'ai_max_cost' => (float) SettingService::get('ai_max_cost', config('ai.max_cost', 100)),
+            'ai_enable_rule_engine' => (bool) SettingService::get('ai_enable_rule_engine', config('ai.enable_rule_engine', true), $universityId),
+            'ai_enable_external_ai' => (bool) SettingService::get('ai_enable_external_ai', config('ai.enable_external_ai', false), $universityId),
+            'ai_enable_hybrid_mode' => (bool) SettingService::get('ai_enable_hybrid_mode', config('ai.enable_hybrid_mode', true), $universityId),
+            'ai_enable_cache' => (bool) SettingService::get('ai_enable_cache', config('ai.enable_cache', true), $universityId),
+            'ai_enable_logging' => (bool) SettingService::get('ai_enable_logging', config('ai.enable_logging', true), $universityId),
+            'ai_hybrid_escalate_when_clean' => (bool) SettingService::get('ai_hybrid_escalate_when_clean', config('ai.hybrid_escalate_when_clean', false), $universityId),
+            'ai_similarity_threshold' => (int) SettingService::get('ai_similarity_threshold', config('ai.similarity_threshold', 20), $universityId),
+            'ai_request_timeout' => (int) SettingService::get('ai_request_timeout', config('ai.request_timeout', 30), $universityId),
+            'ai_max_tokens' => (int) SettingService::get('ai_max_tokens', config('ai.max_tokens', 2048), $universityId),
+            'ai_daily_request_limit' => (int) SettingService::get('ai_daily_request_limit', config('ai.daily_request_limit', 1000), $universityId),
+            'ai_monthly_request_limit' => (int) SettingService::get('ai_monthly_request_limit', config('ai.monthly_request_limit', 30000), $universityId),
+            'ai_max_cost' => (float) SettingService::get('ai_max_cost', config('ai.max_cost', 100), $universityId),
+            'ai_cache_ttl' => (int) SettingService::get('ai_cache_ttl', config('ai.cache_ttl', 86400), $universityId),
+            'ai_provider_priority' => (($p = SettingService::get('ai_provider_priority', config('ai.provider_priority', []), $universityId)) && is_string($p)) ? (json_decode($p, true) ?: []) : $p,
+            'ai_max_document_size_mb' => (int) SettingService::get('ai_max_document_size_mb', config('ai.max_document_size_mb', 20), $universityId),
+            'ai_document_formats' => (($f = SettingService::get('ai_document_formats', config('ai.document_formats', []), $universityId)) && is_string($f)) ? (json_decode($f, true) ?: []) : $f,
 
             // Layout requirements
             'ai_layout_required_fonts' => $layoutRequiredFonts,
-            'ai_layout_page_size' => SettingService::get('ai_layout_page_size', config('ai.layout_requirements.page_size', 'A4')),
-            'ai_layout_min_margin_inches' => SettingService::get('ai_layout_min_margin_inches', config('ai.layout_requirements.min_margin_inches', 1.0)),
-            'ai_layout_line_spacing' => SettingService::get('ai_layout_line_spacing', config('ai.layout_requirements.line_spacing', '1.5')),
-            'ai_layout_min_font_size' => SettingService::get('ai_layout_min_font_size', config('ai.layout_requirements.min_font_size_pt', 10)),
-            'ai_layout_require_page_numbering' => (bool) SettingService::get('ai_layout_require_page_numbering', config('ai.layout_requirements.require_page_numbering', false)),
-            'ai_layout_require_branding' => (bool) SettingService::get('ai_layout_require_branding', config('ai.layout_requirements.require_institution_branding', false)),
+            'ai_layout_page_size' => SettingService::get('ai_layout_page_size', config('ai.layout_requirements.page_size', 'A4'), $universityId),
+            'ai_layout_min_margin_inches' => SettingService::get('ai_layout_min_margin_inches', config('ai.layout_requirements.min_margin_inches', 1.0), $universityId),
+            'ai_layout_line_spacing' => SettingService::get('ai_layout_line_spacing', config('ai.layout_requirements.line_spacing', '1.5'), $universityId),
+            'ai_layout_min_font_size' => SettingService::get('ai_layout_min_font_size', config('ai.layout_requirements.min_font_size_pt', 10), $universityId),
+            'ai_layout_require_page_numbering' => (bool) SettingService::get('ai_layout_require_page_numbering', config('ai.layout_requirements.require_page_numbering', false), $universityId),
+            'ai_layout_require_branding' => (bool) SettingService::get('ai_layout_require_branding', config('ai.layout_requirements.require_institution_branding', false), $universityId),
         ];
     }
-
     protected function rulePackKeys(): array
     {
-        return ['academic', 'assignment', 'project', 'siwes', 'citation', 'formatting', 'template', 'layout', 'deadline', 'institution', 'discussion', 'plagiarism'];
+        return ['academic', 'assignment', 'research', 'project', 'siwes', 'seminar', 'citation', 'formatting', 'template', 'knowledge_hub', 'layout', 'deadline', 'institution', 'discussion', 'plagiarism'];
     }
 
-    protected function rulePackSettings(): array
+    protected function rulePackSettings(?int $universityId = null): array
     {
         $out = [];
         foreach ($this->rulePackKeys() as $pack) {
-            $out[$pack] = (bool) SettingService::get('ai_rulepack_'.$pack, true);
+            $out[$pack] = (bool) SettingService::get('ai_rulepack_'.$pack, true, $universityId);
         }
 
         return $out;

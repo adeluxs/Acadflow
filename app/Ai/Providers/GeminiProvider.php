@@ -37,6 +37,19 @@ class GeminiProvider extends ExternalProvider
         return json_encode(['feature' => $feature, 'context' => $payload]);
     }
 
+    protected function body(string $feature, array $payload): array
+    {
+        return [
+            'systemInstruction' => ['parts' => [['text' => $this->systemPrompt($payload)]]],
+            'contents' => [['role' => 'user', 'parts' => [['text' => $this->userPrompt($feature, $payload)]]]],
+            'generationConfig' => [
+                'temperature' => (float) ($this->config['temperature'] ?? 0.2),
+                'maxOutputTokens' => (int) config('ai.max_tokens', 2048),
+                'responseMimeType' => 'application/json',
+            ],
+        ];
+    }
+
     protected function parseResponse(string $feature, array $raw, float $time, float $cost): AiResponse
     {
         $content = $raw['candidates'][0]['content']['parts'][0]['text'] ?? '';

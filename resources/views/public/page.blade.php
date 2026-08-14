@@ -1,0 +1,7 @@
+<!DOCTYPE html>
+<html lang="{{ str_replace('_','-',app()->getLocale()) }}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ $page['title'] }} · AcadFlow</title>@vite(['resources/css/app.css','resources/js/app.js'])</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+<header class="border-b bg-white"><div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4"><a href="{{ route('home') }}" class="text-xl font-bold text-indigo-700">AcadFlow</a><nav class="flex gap-4 text-sm"><a href="{{ route('knowledge.index') }}">Knowledge Hub</a><a href="{{ route('login') }}">Sign in</a></nav></div></header>
+<main class="mx-auto max-w-4xl px-4 py-12"><p class="text-sm font-semibold uppercase tracking-wider text-indigo-600">AcadFlow information</p><h1 class="mt-2 text-4xl font-bold">{{ $page['title'] }}</h1><p class="mt-4 text-lg leading-8 text-slate-600">{{ $page['intro'] }}</p><div class="mt-10 space-y-5">@foreach($page['sections'] as [$heading,$body])<section class="rounded-2xl border bg-white p-6 shadow-sm"><h2 class="text-xl font-bold">{{ $heading }}</h2><p class="mt-3 leading-7 text-slate-600">{{ $body }}</p></section>@endforeach</div><div class="mt-10 flex flex-wrap gap-3"><a href="{{ route('home') }}" class="rounded-xl border bg-white px-5 py-3 font-semibold">Back home</a><a href="{{ route('register') }}" class="rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white">Join AcadFlow</a></div></main>
+</body></html>

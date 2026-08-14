@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class AcademicSession extends Model
 {
@@ -19,6 +20,13 @@ class AcademicSession extends Model
         'is_current',
         'is_active',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $model): void {
+            if (empty($model->uuid)) $model->uuid = (string) Str::uuid();
+        });
+    }
 
     protected function casts(): array
     {

@@ -7,6 +7,7 @@ use App\Ai\Features\SubmissionValidatorModule;
 use App\Models\AiAnalysis;
 use App\Models\Submission;
 use App\Models\User;
+use App\Services\FeatureAccessService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -38,6 +39,11 @@ class ProcessSubmissionAiAnalysis implements ShouldQueue
         PlagiarismModule $plagiarism,
         \App\Ai\AiManager $manager,
     ): void {
+        // Avoid provider calls/cost while the user-facing AI Assistant is paused.
+        if (FeatureAccessService::effectiveStatus('ai_assistant', $this->user?->university_id) !== FeatureAccessService::STATUS_ENABLED) {
+            return;
+        }
+
         // Invalidate any cached result for this submission so a re-run always
         // reflects the latest document/version (Phase 7).
         $manager->invalidateScope($this->submission->uuid);

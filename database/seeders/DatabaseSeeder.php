@@ -10,6 +10,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             UniversitySeeder::class,
+            NigeriaAcademicCatalogSeeder::class,
+            AcadFlowEcosystemSeeder::class,
             SettingsSeeder::class,
             FeatureFlagSeeder::class,
             SubscriptionSeeder::class,

@@ -33,7 +33,7 @@ class SendAssignmentCreatedNotification implements ShouldQueue
                     'course_id' => $event->course->id,
                     'course_name' => $event->course->name,
                     'due_date' => $event->task->due_date?->format('M d, Y H:i'),
-                    'url' => route('submission-tasks.show', [$event->course, $event->task]),
+                    'url' => route('submission-tasks.student.show', [$event->course, $event->task]),
                 ]
             );
         }

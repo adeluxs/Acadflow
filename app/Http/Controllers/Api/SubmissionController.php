@@ -2,345 +2,199 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\ScopesTenantData;
 use App\Http\Controllers\Controller;
+use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Semester;
 use App\Models\Submission;
-use App\Models\SubmissionVersion;
+use App\Services\AcademicContextService;
+use App\Services\Media\MediaSecurityService;
+use App\Services\Media\SafeFileDeliveryService;
+use App\Services\SettingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class SubmissionController extends Controller
 {
+    use ScopesTenantData;
+
     public function index(Request $request)
     {
-        $user = Auth::user();
-        $query = Submission::with(['course', 'versions', 'comments.user']);
-
-        if ($user->role === 'student') {
-            $query->where('user_id', $user->id);
-        } elseif ($user->role === 'lecturer') {
-            $query->whereHas('course.lecturerAssignments', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
-            });
-
-            if ($request->has('course_id')) {
-                $query->where('course_id', $request->course_id);
-            }
+        $user = $request->user();
+        $query = $this->scopeCourseQuery(Submission::query()->with(['course', 'versions', 'comments.user']), $user, 'course');
+        if ($user->isStudent()) {
+            $query->where(fn ($scope) => $scope->where('user_id', $user->id)->orWhereHas('group.members', fn ($members) => $members->where('users.id', $user->id)));
+        } elseif ($user->isLecturer()) {
+            $query->whereHas('course.lecturerAssignments', fn ($scope) => $scope->where('user_id', $user->id));
+        } elseif (! $user->isAdmin()) {
+            abort(403);
         }
-
-        return $query->paginate(20);
+        $query->when($request->filled('course_id'), fn ($scope) => $scope->where('course_id', $request->integer('course_id')))
+            ->when($request->filled('status'), fn ($scope) => $scope->where('status', $request->string('status')->toString()));
+        return $query->latest()->paginate(20);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, AcademicContextService $academicContext)
     {
+        $this->authorize('create', Submission::class);
         $validated = $request->validate([
-            'course_id' => 'required|exists:courses,id',
-            'title' => 'required|string|max:255',
-            'type' => 'required|in:assignment,project,siwes,group,seminar',
-            'description' => 'nullable|string',
-            'content' => 'nullable|string',
-            'semester_id' => 'nullable|exists:semesters,id',
+            'course_id' => 'required|exists:courses,id', 'submission_task_id' => 'nullable|exists:submission_tasks,id',
+            'title' => 'required|string|max:255', 'type' => 'required|in:assignment,project,siwes,group,seminar',
+            'description' => 'nullable|string', 'content' => 'nullable|string', 'semester_id' => 'nullable|exists:semesters,id',
         ]);
-
-        $semester = $request->filled('semester_id')
-            ? Semester::find($validated['semester_id'])
-            : Semester::where('is_active', true)->first();
-
-        if (! $semester) {
-            return response()->json(['message' => 'No active semester found.'], 422);
-        }
-
-        if (! Enrollment::where('user_id', Auth::id())
-            ->where('course_id', $validated['course_id'])
-            ->where('semester_id', $semester->id)
-            ->where('status', 'enrolled')
-            ->exists()) {
-            return response()->json(['message' => 'You must be enrolled in the selected course to create a submission.'], 403);
-        }
+        $course = Course::with('department.faculty')->findOrFail($validated['course_id']);
+        $this->assertCourseTenant($request->user(), $course);
+        $semester = $request->filled('semester_id') ? Semester::with('academicSession')->find($validated['semester_id']) : $academicContext->activeSemesterForCourse($course);
+        if (! $semester) return response()->json(['message' => 'No active semester found.'], 422);
+        abort_unless($semester->academicSession?->university_id === $course->department?->faculty?->university_id, 422, 'Semester and course institutions do not match.');
+        abort_unless(Enrollment::where('user_id', Auth::id())->where('course_id', $course->id)->where('semester_id', $semester->id)->where('status', 'enrolled')->exists(), 403, 'You must be enrolled in the selected course.');
+        if ($validated['submission_task_id'] ?? null) abort_unless($course->submissionTasks()->whereKey($validated['submission_task_id'])->where('type', $validated['type'])->exists(), 422, 'Submission task does not match the course or type.');
 
         $submission = Submission::create([
-            'uuid' => app('Illuminate\Support\Str')->uuid(),
-            'user_id' => Auth::id(),
-            'course_id' => $validated['course_id'],
-            'semester_id' => $semester->id,
-            'status' => 'draft',
-            'title' => $validated['title'],
-            'type' => $validated['type'],
-            'description' => $validated['description'] ?? $validated['content'] ?? null,
+            'uuid' => (string) Str::uuid(), 'user_id' => Auth::id(), 'course_id' => $course->id, 'semester_id' => $semester->id,
+            'submission_task_id' => $validated['submission_task_id'] ?? null, 'status' => 'draft', 'title' => $validated['title'],
+            'type' => $validated['type'], 'description' => $validated['description'] ?? $validated['content'] ?? null,
         ]);
-
         return response()->json($submission, 201);
     }
 
-    public function show(Submission $submission)
+    public function show(Request $request, Submission $submission)
     {
+        $this->assertSubmissionTenant($request, $submission); $this->authorize('view', $submission);
         return $submission->load(['course', 'versions', 'comments.user', 'grade']);
     }
 
     public function update(Request $request, Submission $submission)
     {
-        if ($submission->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        if (! in_array($submission->status, ['draft', 'correction_requested'])) {
-            return response()->json(['message' => 'Only draft or correction requested submissions can be updated.'], 422);
-        }
-
-        $validated = $request->validate([
-            'title' => 'string|max:255',
-            'description' => 'nullable|string',
-            'content' => 'nullable|string',
-            'type' => 'in:assignment,project,siwes,group,seminar',
-        ]);
-
-        $submission->update([
-            'title' => $validated['title'] ?? $submission->title,
-            'type' => $validated['type'] ?? $submission->type,
-            'description' => $validated['description'] ?? $validated['content'] ?? $submission->description,
-        ]);
-
+        $this->assertSubmissionTenant($request, $submission); $this->authorize('update', $submission);
+        $validated = $request->validate(['title' => 'sometimes|string|max:255', 'description' => 'nullable|string', 'content' => 'nullable|string']);
+        $submission->update(['title' => $validated['title'] ?? $submission->title, 'description' => $validated['description'] ?? $validated['content'] ?? $submission->description]);
         return response()->json($submission);
     }
 
-    public function destroy(Submission $submission)
+    public function destroy(Request $request, Submission $submission)
     {
-        if ($submission->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        if ($submission->status !== 'draft') {
-            return response()->json(['message' => 'Only draft submissions can be deleted.'], 403);
-        }
-
+        $this->assertSubmissionTenant($request, $submission); $this->authorize('delete', $submission);
         $submission->delete();
-
         return response()->json(['message' => 'Submission deleted successfully.']);
     }
 
-    public function download(Submission $submission)
+    public function download(Request $request, Submission $submission, SafeFileDeliveryService $files)
     {
+        $this->assertSubmissionTenant($request, $submission); $this->authorize('view', $submission);
         $version = $submission->versions()->where('is_current', true)->first();
-
-        if (! $version) {
-            return response()->json(['message' => 'No file found for this submission.'], 404);
-        }
-
-        return Storage::download($version->file_path, $version->file_name);
+        abort_unless($version, 404, 'No current file found.');
+        $version->loadMissing('mediaAsset');
+        if ($version->mediaAsset) abort_unless(in_array($version->mediaAsset->scan_status, ['clean', 'skipped'], true), 423, 'File security processing is incomplete or failed.');
+        return $files->stream($version->disk ?: (string) config('filesystems.default', 'local'), $version->file_path, $version->file_name, $version->mime_type, 'attachment');
     }
 
-    public function upload(Request $request, Submission $submission)
+    public function upload(Request $request, Submission $submission, MediaSecurityService $media)
     {
-        $allowedMimes = implode(',', \App\Services\SettingService::getAllowedExtensions());
-        $maxFileSizeKb = (int) (\App\Services\SettingService::getMaxUploadSize() / 1024);
-
-        $request->validate([
-            'file' => 'required|file|mimes:' . $allowedMimes . '|max:' . $maxFileSizeKb,
-        ]);
-
-        if ($submission->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        if (! in_array($submission->status, ['draft', 'correction_requested'])) {
-            return response()->json(['message' => 'Files can only be uploaded to draft or correction requested submissions.'], 422);
-        }
-
+        $this->assertSubmissionTenant($request, $submission); $this->authorize('update', $submission);
+        $maxFileSizeKb = (int) (SettingService::getMaxUploadSize() / 1024);
+        $request->validate(['file' => ['required', 'file', 'max:'.$maxFileSizeKb]]);
+        abort_unless(in_array($submission->status, ['draft', 'correction_requested'], true), 422, 'Files can only be uploaded to an editable submission.');
         $versionCount = $submission->versions()->count();
-        if ($versionCount >= 10) {
-            return response()->json(['message' => 'Maximum of 10 submission versions reached.'], 422);
-        }
-
-        $file = $request->file('file');
-        $safeName = sprintf(
-            '%s_%s_%s.%s',
-            Auth::user()->student_id ?? Auth::id(),
-            str_replace(' ', '_', $submission->type),
-            now()->format('YmdHis'),
-            $file->getClientOriginalExtension()
-        );
-
-        $path = $file->storeAs('submissions/'.$submission->uuid, $safeName);
-
+        abort_if($versionCount >= 10, 422, 'Maximum of 10 submission versions reached.');
+        $asset = $media->store($request->file('file'), $request->user(), $submission, 'private', ['purpose' => 'submission_version', 'submission_uuid' => $submission->uuid]);
+        abort_unless(in_array($asset->scan_status, ['clean', 'skipped'], true), 422, 'The uploaded file failed the configured security scan.');
         $submission->versions()->update(['is_current' => false]);
-
         $version = $submission->versions()->create([
-            'submission_id' => $submission->id,
-            'version_number' => $versionCount + 1,
-            'file_name' => $safeName,
-            'file_path' => $path,
-            'file_size' => $file->getSize(),
-            'mime_type' => $file->getClientMimeType(),
-            'uploaded_by' => Auth::id(),
-            'is_current' => true,
+            'version_number' => $versionCount + 1, 'file_name' => $asset->original_name, 'file_path' => $asset->path,
+            'disk' => $asset->disk, 'media_asset_id' => $asset->id, 'file_size' => $asset->size_bytes, 'mime_type' => $asset->mime_type, 'uploaded_by' => $request->user()->id, 'is_current' => true,
         ]);
-
-        return response()->json(['message' => 'File uploaded', 'version' => $version], 201);
+        return response()->json(['message' => 'File uploaded and scanned.', 'version' => $version, 'scan_status' => $asset->scan_status], 201);
     }
 
     public function submit(Request $request, Submission $submission)
     {
-        if ($submission->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        if (! in_array($submission->status, ['draft', 'correction_requested'])) {
-            return response()->json(['message' => 'Only draft or correction requested submissions can be submitted.'], 422);
-        }
-
-        if (! $submission->versions()->exists()) {
-            return response()->json(['message' => 'Submission must include at least one uploaded file before sending.'], 422);
-        }
-
-        if (! Auth::user()->hasPaidCurrentSemester()) {
-            return response()->json(['message' => 'Payment is required before submitting work.'], 403);
-        }
-
-        $submission->update(['status' => 'submitted', 'submitted_at' => now()]);
-
+        $this->assertSubmissionTenant($request, $submission); $this->authorize('submit', $submission);
+        abort_unless($submission->versions()->exists(), 422, 'Submission must include at least one uploaded file.');
+        abort_if($submission->versions()->whereHas('mediaAsset', fn ($query) => $query->whereNotIn('scan_status', ['clean', 'skipped']))->exists(), 423, 'A submission file has not passed security processing.');
+        abort_unless($request->user()->hasPaidCurrentSemester(), 403, 'Payment is required before submitting work.');
+        $deadline = $submission->getEffectiveDeadline();
+        $submission->update(['status' => $submission->status === 'correction_requested' ? 'resubmitted' : 'submitted', 'submitted_at' => now(), 'is_late' => $deadline ? now()->greaterThan($deadline) : false]);
         return response()->json(['message' => 'Submitted successfully']);
     }
 
-    public function versions(Submission $submission)
-    {
-        return $submission->versions()->orderBy('version_number', 'desc')->get();
-    }
-
-    public function comments(Submission $submission)
-    {
-        return $submission->comments()->with('user')->get();
-    }
+    public function versions(Request $request, Submission $submission) { $this->assertSubmissionTenant($request, $submission); $this->authorize('view', $submission); return $submission->versions()->latest('version_number')->paginate(20); }
+    public function comments(Request $request, Submission $submission) { $this->assertSubmissionTenant($request, $submission); $this->authorize('view', $submission); return $submission->comments()->with('user')->latest()->paginate(50); }
 
     public function addComment(Request $request, Submission $submission)
     {
-        $validated = $request->validate(['content' => 'required|string']);
-
-        $comment = $submission->comments()->create([
-            'content' => $validated['content'],
-            'user_id' => Auth::id(),
-        ]);
-
+        $this->assertSubmissionTenant($request, $submission); $this->authorize('comment', $submission);
+        $validated = $request->validate(['content' => 'required|string|max:20000', 'type' => 'nullable|in:general,correction,suggestion', 'parent_id' => 'nullable|exists:submission_comments,id']);
+        if ($validated['parent_id'] ?? null) abort_unless($submission->comments()->whereKey($validated['parent_id'])->exists(), 422);
+        $comment = $submission->comments()->create($validated + ['user_id' => $request->user()->id, 'status' => 'pending']);
         return response()->json($comment, 201);
     }
 
-    public function grade(Submission $submission)
-    {
-        return response()->json($submission->grade()->first());
-    }
+    public function grade(Request $request, Submission $submission) { $this->assertSubmissionTenant($request, $submission); $this->authorize('view', $submission); return response()->json($submission->grade()->first()); }
 
     public function submitGrade(Request $request, Submission $submission)
     {
-        if (! Auth::user()->canGradeSubmission($submission)) {
-            return response()->json(['message' => 'Unauthorized to grade this submission'], 403);
-        }
-
-        if ($submission->status !== 'approved') {
-            return response()->json(['message' => 'Only approved submissions may be graded.'], 422);
-        }
-
-        $validated = $request->validate([
-            'score' => 'required|integer|min:0|max:100',
-            'feedback' => 'nullable|string',
-            'rubric_id' => 'nullable|exists:submission_rubrics,id',
-        ]);
-
-        $grade = $submission->grade()->updateOrCreate(
-            ['submission_id' => $submission->id],
-            [
-                'score' => $validated['score'],
-                'feedback' => $validated['feedback'] ?? null,
-                'rubric_id' => $validated['rubric_id'] ?? null,
-                'user_id' => Auth::id(),
-                'graded_at' => now(),
-                'is_final' => true,
-            ]
-        );
-
+        $this->assertSubmissionTenant($request, $submission); $this->authorize('grade', $submission);
+        abort_unless($submission->status === 'approved', 422, 'Only approved submissions may be graded.');
+        $validated = $request->validate(['score' => 'required|numeric|min:0|max:100', 'feedback' => 'nullable|string|max:20000', 'rubric_id' => 'nullable|exists:submission_rubrics,id']);
+        if ($validated['rubric_id'] ?? null) abort_unless($submission->course->submissionRubrics()->whereKey($validated['rubric_id'])->exists(), 422);
+        $grade = $submission->grade()->updateOrCreate([], ['score' => $validated['score'], 'max_score' => 100, 'feedback' => $validated['feedback'] ?? null, 'rubric_id' => $validated['rubric_id'] ?? null, 'user_id' => $request->user()->id, 'is_final' => true]);
         $submission->update(['status' => 'graded', 'graded_at' => now()]);
-
         return response()->json($grade);
     }
 
-    public function approve(Submission $submission)
-    {
-        if (! Auth::user()->canGradeSubmission($submission)) {
-            return response()->json(['message' => 'Unauthorized to approve this submission'], 403);
-        }
-
-        $submission->update(['status' => 'approved']);
-
-        return response()->json(['message' => 'Approved']);
-    }
+    public function approve(Request $request, Submission $submission) { $this->assertSubmissionTenant($request, $submission); $this->authorize('approve', $submission); $submission->update(['status' => 'approved']); return response()->json(['message' => 'Approved']); }
 
     public function reject(Request $request, Submission $submission)
     {
-        if (! Auth::user()->canGradeSubmission($submission)) {
-            return response()->json(['message' => 'Unauthorized to reject this submission'], 403);
-        }
-
-        $validated = $request->validate(['reason' => 'required|string']);
-
-        $submission->update(['status' => 'rejected']);
-
-        $submission->comments()->create([
-            'content' => 'Rejected: '.$validated['reason'],
-            'user_id' => Auth::id(),
-            'type' => 'general',
-            'status' => 'resolved',
-        ]);
-
-        return response()->json(['message' => 'Rejected']);
+        $this->assertSubmissionTenant($request, $submission); $this->authorize('requestCorrection', $submission);
+        $validated = $request->validate(['reason' => 'required|string|max:20000']);
+        $submission->update(['status' => 'correction_requested']);
+        $submission->comments()->create(['content' => 'Major revision required: '.$validated['reason'], 'user_id' => $request->user()->id, 'type' => 'correction', 'status' => 'pending']);
+        return response()->json(['message' => 'Major revision requested.']);
     }
 
     public function requestCorrection(Request $request, Submission $submission)
     {
-        if (! Auth::user()->canGradeSubmission($submission)) {
-            return response()->json(['message' => 'Unauthorized to request correction for this submission'], 403);
-        }
-
-        $validated = $request->validate(['correction_notes' => 'required|string']);
-
+        $this->assertSubmissionTenant($request, $submission); $this->authorize('requestCorrection', $submission);
+        $validated = $request->validate(['correction_notes' => 'required|string|max:20000']);
         $submission->update(['status' => 'correction_requested']);
-
-        $submission->comments()->create([
-            'content' => 'Correction requested: '.$validated['correction_notes'],
-            'user_id' => Auth::id(),
-            'type' => 'correction',
-            'status' => 'pending',
-        ]);
-
+        $submission->comments()->create(['content' => 'Correction requested: '.$validated['correction_notes'], 'user_id' => $request->user()->id, 'type' => 'correction', 'status' => 'pending']);
         return response()->json(['message' => 'Correction requested']);
     }
 
     public function report(Request $request)
     {
-        $query = Submission::query();
-
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
-        }
-
+        $query = $this->authorizedReportingQuery($request);
+        $query->when($request->filled('status'), fn ($scope) => $scope->where('status', $request->string('status')->toString()));
         return $query->selectRaw('status, COUNT(*) as count')->groupBy('status')->get();
     }
 
     public function export(Request $request)
     {
-        $submissions = Submission::with(['course', 'student', 'grade'])
-            ->where('status', 'approved')
-            ->get();
-
-        return response()->json($submissions);
+        return $this->authorizedReportingQuery($request)->with(['course', 'user', 'grade'])->whereIn('status', ['approved','graded'])->paginate(500);
     }
 
-    public function analytics()
+    public function analytics(Request $request)
     {
-        return [
-            'total' => Submission::count(),
-            'pending' => Submission::where('status', 'submitted')->count(),
-            'graded' => Submission::where('status', 'graded')->count(),
-            'approved' => Submission::where('status', 'approved')->count(),
-        ];
+        $query = $this->authorizedReportingQuery($request);
+        return ['total' => (clone $query)->count(), 'pending' => (clone $query)->whereIn('status', ['submitted','resubmitted','under_review'])->count(), 'graded' => (clone $query)->where('status', 'graded')->count(), 'approved' => (clone $query)->where('status', 'approved')->count()];
+    }
+
+    private function authorizedReportingQuery(Request $request)
+    {
+        abort_unless($request->user()->isAdmin() || $request->user()->isLecturer(), 403);
+        $query = $this->scopeCourseQuery(Submission::query(), $request->user(), 'course');
+        if ($request->user()->isLecturer()) $query->whereHas('course.lecturerAssignments', fn ($scope) => $scope->where('user_id', $request->user()->id));
+        return $query;
+    }
+
+    private function assertSubmissionTenant(Request $request, Submission $submission): void
+    {
+        $submission->loadMissing('course.department.faculty');
+        $this->assertCourseTenant($request->user(), $submission->course);
     }
 }

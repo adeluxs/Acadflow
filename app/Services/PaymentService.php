@@ -33,7 +33,7 @@ class PaymentService
             'semester_id' => $semester->id,
             'subscription_id' => $subscription->id,
             'amount' => $amount,
-            'status' => InvoiceStatus::PENDING,
+            'status' => InvoiceStatus::PENDING->value,
             'due_date' => $semester->start_date->addDays($graceDays),
             'transaction_ref' => $this->generateTransactionRef(),
         ]);
@@ -77,7 +77,7 @@ class PaymentService
             'payment_method' => $paymentMethod,
             'transaction_ref' => $this->generateTransactionRef(),
             'reference' => $reference,
-            'status' => PaymentStatus::PENDING,
+            'status' => PaymentStatus::PENDING->value,
         ]);
 
         return $payment;
@@ -86,15 +86,15 @@ class PaymentService
     public function verifyPayment(Payment $payment, User $verifiedBy): Payment
     {
         $payment->update([
-            'status' => PaymentStatus::VERIFIED,
+            'status' => PaymentStatus::VERIFIED->value,
             'verified_at' => now(),
             'verified_by' => $verifiedBy->id,
         ]);
 
         $payment->invoice->update([
-            'status' => InvoiceStatus::PAID,
+            'status' => InvoiceStatus::PAID->value,
             'paid_at' => now(),
-            'payment_method' => $payment->payment_method->value,
+            'payment_method' => (string) $payment->payment_method,
             'transaction_ref' => $payment->transaction_ref,
         ]);
 
@@ -105,7 +105,7 @@ class PaymentService
     {
         $payment = Payment::where('reference', $reference)->first();
 
-        if (! $payment || $payment->status === PaymentStatus::VERIFIED) {
+        if (! $payment || $payment->status === PaymentStatus::VERIFIED->value) {
             return $payment;
         }
 
@@ -122,11 +122,11 @@ class PaymentService
             return false;
         }
 
-        if ($invoice->status === InvoiceStatus::PAID) {
+        if ($invoice->status === InvoiceStatus::PAID->value) {
             return true;
         }
 
-        if ($invoice->status === InvoiceStatus::PENDING) {
+        if ($invoice->status === InvoiceStatus::PENDING->value) {
             $graceDays = 7;
             $daysSinceStart = $semester->start_date->diffInDays(now());
 
@@ -143,10 +143,10 @@ class PaymentService
         return [
             'total_invoices' => $invoices->count(),
             'total_amount' => $invoices->sum('amount'),
-            'paid' => $invoices->where('status', InvoiceStatus::PAID)->count(),
-            'pending' => $invoices->where('status', InvoiceStatus::PENDING)->count(),
-            'overdue' => $invoices->where('status', InvoiceStatus::OVERDUE)->count(),
-            'waived' => $invoices->where('status', InvoiceStatus::WAIVED)->count(),
+            'paid' => $invoices->where('status', InvoiceStatus::PAID->value)->count(),
+            'pending' => $invoices->where('status', InvoiceStatus::PENDING->value)->count(),
+            'overdue' => $invoices->where('status', InvoiceStatus::OVERDUE->value)->count(),
+            'waived' => $invoices->where('status', InvoiceStatus::WAIVED->value)->count(),
             'collection_rate' => $this->calculateCollectionRate($subscription),
         ];
     }
@@ -182,7 +182,7 @@ class PaymentService
             return 0;
         }
 
-        $paid = $invoices->where('status', InvoiceStatus::PAID)->count();
+        $paid = $invoices->where('status', InvoiceStatus::PAID->value)->count();
 
         return round(($paid / $total) * 100, 2);
     }

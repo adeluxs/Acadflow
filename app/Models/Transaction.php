@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Str;
 
 class Transaction extends Model
 {
@@ -32,6 +33,11 @@ class Transaction extends Model
         'processed_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(fn (self $transaction) => $transaction->uuid ??= (string) Str::uuid());
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -45,6 +51,11 @@ class Transaction extends Model
     public function transactionable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
     }
 
     public function subscriptions(): BelongsToMany

@@ -12,7 +12,7 @@
                 <h3 class="text-lg font-bold">{{ $enrollment->course->code }}</h3>
                 <p class="text-gray-600">{{ $enrollment->course->name }}</p>
                 <div class="mt-4">
-                    <span class="text-sm text-gray-500">{{ $enrollment->course->credits }} Credits</span>
+                    <span class="text-sm text-gray-500">{{ $enrollment->course->credit_hours }} Credits</span>
                 </div>
                 <div class="mt-4">
                     <a href="{{ route('courses.show', $enrollment->course->uuid) }}" class="text-indigo-600 hover:text-indigo-900">View Course</a>

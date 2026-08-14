@@ -1,0 +1,8 @@
+@extends('layouts.app')
+@section('title',$creator->full_name)
+@section('page-title',$creator->full_name)
+@section('page-subtitle',$creator->creatorProfile?->headline ?? 'Academic creator')
+@section('content')
+@include('knowledge._nav')
+<div class="grid gap-6 lg:grid-cols-[320px_1fr]"><aside class="rounded-2xl border bg-white p-6"><h2 class="text-xl font-semibold">{{ $creator->full_name }}</h2><p class="mt-2 text-sm text-slate-600">{{ $creator->creatorProfile?->biography }}</p><dl class="mt-5 space-y-2 text-sm"><div><dt class="text-slate-500">Position</dt><dd>{{ $creator->creatorProfile?->position ?: 'Not specified' }}</dd></div>@if($creator->creatorProfile?->orcid)<div><dt class="text-slate-500">ORCID</dt><dd>{{ $creator->creatorProfile->orcid }}</dd></div>@endif<div><dt class="text-slate-500">Reputation</dt><dd>{{ number_format((float)($creator->reputationProfile?->overall_score ?? 0),1) }} · {{ str_replace('_',' ',$creator->reputationProfile?->level_key ?? 'new_contributor') }}</dd></div></dl></aside><section><div class="grid gap-4 md:grid-cols-2">@forelse($publications as $publication)<a class="rounded-2xl border bg-white p-5" href="{{ route('knowledge.show',$publication) }}"><span class="text-xs text-blue-700">{{ str_replace('_',' ',$publication->content_type) }}</span><h3 class="mt-2 font-semibold">{{ $publication->title }}</h3><p class="mt-2 text-sm text-slate-500">{{ Illuminate\Support\Str::limit($publication->excerpt,120) }}</p></a>@empty<div class="rounded-2xl border bg-white p-8">No public publications yet.</div>@endforelse</div>{{ $publications->links() }}</section></div>
+@endsection

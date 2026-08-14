@@ -11,132 +11,50 @@ class DiscussionPolicy
     public function view(User $user, Discussion $discussion): bool
     {
         $course = $discussion->course;
+        if (! $user->canAccessCourse($course)) return false;
 
-        // Public discussions or open status visible to enrolled users
-        if ($discussion->status === 'open' || $discussion->status === 'resolved') {
-            // Admin can view all
-            if ($user->isAdmin()) {
-                return true;
-            }
-
-            // Owner can view
-            if ($discussion->user_id === $user->id) {
-                return true;
-            }
-
-            // Lecturer of the course can view
-            if ($user->isLecturer()) {
-                $assignment = $course->lecturerAssignments()
-                    ->where('user_id', $user->id)
-                    ->first();
-                if ($assignment){
-                    return true;
-                }
-            }
-
-            // Student must be enrolled
-            if ($user->isStudent()) {
-                $enrollment = $course->enrollments()
-                    ->where('user_id', $user->id)
-                    ->where('status', 'enrolled')
-                    ->first();
-
-                return $enrollment !== null;
-            }
-        }
-
-        // Only admin/lecturer can view closed discussions
+        if (in_array($discussion->status, ['open', 'resolved'], true)) return true;
         if ($discussion->status === 'closed') {
-            if ($user->isAdmin() || $user->isLecturer()) {
-                return true;
-            }
-            if ($discussion->user_id === $user->id) {
-                return true;
-            }
+            return $discussion->user_id === $user->id || $user->isAdmin() || $this->teaches($user, $course);
         }
 
-        return false;
+        return $discussion->user_id === $user->id || $user->isAdmin() || $this->teaches($user, $course);
     }
 
     public function create(User $user, Course $course): bool
     {
-        // Only enrolled students and lecturers can create discussions
-        if ($user->isStudent() || $user->isLecturer()) {
-            $enrollment = $course->enrollments()
-                ->where('user_id', $user->id)
-                ->where('status', 'enrolled')
-                ->first();
-
-            return $enrollment !== null;
+        if ($user->isStudent()) {
+            return $course->enrollments()->where('user_id', $user->id)->where('status', 'enrolled')->exists();
         }
-
-        // Admin can create in any course
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        return false;
+        if ($user->isLecturer()) return $this->teaches($user, $course);
+        return $user->isAdmin() && $user->canAccessCourse($course);
     }
 
     public function update(User $user, Discussion $discussion): bool
     {
-        // Owner can update
-        if ($discussion->user_id === $user->id) {
-            return true;
-        }
-
-        // Admin can update all
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        // Lecturer of the course can update
-        if ($user->isLecturer()) {
-            $enrollment = $discussion->course->enrollments()
-                ->where('user_id', $user->id)
-                ->where('status', 'enrolled')
-                ->first();
-            if ($enrollment) {
-                return true;
-            }
-        }
-
-        return false;
+        if (! $user->canAccessCourse($discussion->course)) return false;
+        if ($discussion->user_id === $user->id) return true;
+        return $user->isAdmin() || $this->teaches($user, $discussion->course);
     }
 
     public function delete(User $user, Discussion $discussion): bool
     {
-        // Admin can delete all
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        // Owner can delete
-        if ($discussion->user_id === $user->id) {
-            return true;
-        }
-
-        // Lecturer of the course can delete
-        if ($user->isLecturer()) {
-            $enrollment = $discussion->course->enrollments()
-                ->where('user_id', $user->id)
-                ->where('status', 'enrolled')
-                ->first();
-            if ($enrollment) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->update($user, $discussion);
     }
 
     public function pin(User $user, Discussion $discussion): bool
     {
-        return $user->isLecturer() || $user->isAdmin();
+        return $user->canAccessCourse($discussion->course)
+            && ($user->isAdmin() || $this->teaches($user, $discussion->course));
     }
 
     public function close(User $user, Discussion $discussion): bool
     {
-        return $user->isLecturer() || $user->isAdmin();
+        return $this->pin($user, $discussion);
+    }
+
+    private function teaches(User $user, Course $course): bool
+    {
+        return $user->isLecturer() && $course->lecturerAssignments()->where('user_id', $user->id)->exists();
     }
 }

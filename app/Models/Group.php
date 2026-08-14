@@ -14,15 +14,24 @@ class Group extends Model
 
     protected $fillable = [
         'uuid',
+        'university_id',
+        'department_id',
+        'knowledge_community_id',
+        'research_project_id',
         'course_id',
         'semester_id',
         'name',
         'description',
+        'group_type',
+        'visibility',
+        'membership_mode',
         'leader_id',
+        'cover_media_id',
         'status',
         'is_locked',
         'max_members',
         'formed_at',
+        'settings',
     ];
 
     protected function casts(): array
@@ -30,6 +39,7 @@ class Group extends Model
         return [
             'is_locked' => 'boolean',
             'formed_at' => 'datetime',
+            'settings' => 'array',
         ];
     }
 
@@ -41,6 +51,12 @@ class Group extends Model
             }
         });
     }
+
+    public function university(): BelongsTo { return $this->belongsTo(University::class); }
+    public function department(): BelongsTo { return $this->belongsTo(Department::class); }
+    public function community(): BelongsTo { return $this->belongsTo(KnowledgeCommunity::class, 'knowledge_community_id'); }
+    public function researchProject(): BelongsTo { return $this->belongsTo(ResearchProject::class); }
+    public function coverMedia(): BelongsTo { return $this->belongsTo(MediaAsset::class, 'cover_media_id'); }
 
     public function course(): BelongsTo
     {
@@ -61,6 +77,13 @@ class Group extends Model
     {
         return $this->hasMany(GroupMember::class);
     }
+
+    public function joinRequests(): HasMany { return $this->hasMany(GroupJoinRequest::class); }
+    public function invitations(): HasMany { return $this->hasMany(GroupInvitation::class); }
+    public function tasks(): HasMany { return $this->hasMany(GroupTask::class); }
+    public function resources(): HasMany { return $this->hasMany(GroupResource::class); }
+    public function events(): HasMany { return $this->hasMany(AcademicEvent::class); }
+    public function challenges(): HasMany { return $this->hasMany(AcademicChallenge::class); }
 
     public function submissions(): HasMany
     {

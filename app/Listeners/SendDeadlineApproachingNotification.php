@@ -31,7 +31,7 @@ class SendDeadlineApproachingNotification implements ShouldQueue
                     'task_id' => $event->submissionTask->uuid,
                     'title' => $event->submissionTask->title,
                     'due_date' => $event->submissionTask->due_date?->format('M d, Y H:i'),
-                    'url' => route('submission-tasks.show', [$event->submissionTask->course, $event->submissionTask]),
+                    'url' => route('submission-tasks.student.show', [$event->submissionTask->course, $event->submissionTask]),
                 ]
             );
         }

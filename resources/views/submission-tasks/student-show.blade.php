@@ -15,7 +15,7 @@
                 <!-- Status -->
                 <div class="flex gap-4 mt-4">
                     @php
-                        $mySubmission = $task->submissions->where('user_id', auth()->id())->first();
+                        $mySubmission = $studentSubmissions->first();
                     @endphp
 
                     @if($mySubmission)
@@ -74,12 +74,12 @@
             @endif
 
             <!-- Previous Submissions -->
-            @if($mySubmission && $mySubmission->files && $mySubmission->files->count() > 0)
+            @if($studentSubmissions->isNotEmpty())
             <div class="bg-white rounded-lg shadow p-6">
                 <h2 class="text-xl font-bold text-gray-900 mb-4">📤 Your Submissions</h2>
                 
                 @php
-                    $submissions = $task->submissions->where('user_id', auth()->id());
+                    $submissions = $studentSubmissions;
                 @endphp
 
                 <div class="space-y-4">
@@ -105,14 +105,14 @@
                         </div>
 
                         <!-- Files -->
-                        @if($sub->files && $sub->files->count() > 0)
+                        @if($sub->versions->isNotEmpty())
                         <div class="bg-gray-50 rounded p-3 mb-3">
                             <p class="text-xs text-gray-600 uppercase tracking-wide mb-2">Files</p>
                             <div class="space-y-1">
-                                @foreach($sub->files as $file)
+                                @foreach($sub->versions as $file)
                                 <div class="flex justify-between items-center text-sm">
-                                    <span class="text-gray-900">{{ $file->original_name }}</span>
-                                    <a href="{{ route('submissions.downloadFile', $file) }}"
+                                    <span class="text-gray-900">{{ $file->file_name }}</span>
+                                    <a href="{{ route('submission-versions.download', $file) }}"
                                        class="text-blue-600 hover:underline">Download</a>
                                 </div>
                                 @endforeach
@@ -151,16 +151,16 @@
                     <li>
                         <p class="text-gray-600">Opens</p>
                         <p class="font-semibold text-gray-900">{{ $task->open_at?->format('M d, Y H:i') ?? 'Not set' }}</p>
-                        @if(now() < $task->open_at)
+                        @if($task->open_at && now()->lt($task->open_at))
                             <p class="text-xs text-orange-600 mt-1">Opens in {{ $task->open_at?->diffForHumans() ?? '' }}</p>
                         @endif
                     </li>
                     <li class="pt-3 border-t">
                         <p class="text-gray-600">Due (Soft)</p>
                         <p class="font-semibold text-gray-900">{{ $task->due_date?->format('M d, Y H:i') ?? 'Not set' }}</p>
-                        @if(now() < $task->due_date)
+                        @if($task->due_date && now()->lt($task->due_date))
                             <p class="text-xs text-green-600 mt-1 font-semibold">Due in {{ $task->due_date?->diffForHumans() ?? '' }}</p>
-                        @elseif(now() < $task->late_deadline)
+                        @elseif($task->late_deadline && now()->lt($task->late_deadline))
                             <p class="text-xs text-orange-600 mt-1 font-semibold">⚠ Overdue - late submissions allowed</p>
                         @else
                             <p class="text-xs text-red-600 mt-1 font-semibold">❌ Closed</p>
@@ -170,7 +170,7 @@
                     <li class="pt-3 border-t">
                         <p class="text-gray-600">Hard Deadline</p>
                         <p class="font-semibold text-gray-900">{{ $task->late_deadline?->format('M d, Y H:i') ?? 'Not set' }}</p>
-                        @if(now() < $task->late_deadline)
+                        @if($task->late_deadline && now()->lt($task->late_deadline))
                             <p class="text-xs text-orange-600 mt-1">Last chance: {{ $task->late_deadline?->diffForHumans() ?? '' }}</p>
                         @endif
                     </li>
@@ -236,7 +236,7 @@
             </div>
 
             <!-- Submit Button -->
-            @if(now() >= $task->open_at && now() <= $task->late_deadline)
+            @if((! $task->open_at || now()->gte($task->open_at)) && (! $task->late_deadline || now()->lte($task->late_deadline)))
                 <div class="bg-white rounded-lg shadow p-6">
                     @php
                         $canResubmit = !$mySubmission || ($task->max_resubmissions === null || $mySubmission->resubmission_count < $task->max_resubmissions);

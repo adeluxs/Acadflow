@@ -1,27 +1,19 @@
-<x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('Forgot your password? No problem. Just let us know your email address and we will email you a password reset link that will allow you to choose a new one.') }}
-    </div>
-
-    @if (session('status'))
-        <div class="mb-4 font-medium text-sm text-green-600">
-            {{ session('status') }}
-        </div>
-    @endif
-
-    <form method="POST" action="{{ route('password.email') }}">
+@extends('layouts.auth')
+@section('title', 'Reset password')
+@section('content')
+<div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-9">
+    <p class="text-sm font-semibold text-blue-700">Account recovery</p>
+    <h2 class="mt-2 text-3xl font-black text-slate-950">Reset your password</h2>
+    <p class="mt-2 text-slate-600">Enter the email linked to your account. We will send a time-limited reset link when the account exists.</p>
+    <form method="POST" action="{{ route('password.email') }}" class="mt-7 space-y-5" data-loading-form>
         @csrf
-
         <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <label for="email" class="mb-2 block text-sm font-semibold text-slate-800">Email address</label>
+            <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus autocomplete="email" class="w-full rounded-2xl border-slate-300 px-4 py-3 focus:border-blue-600 focus:ring-blue-600">
+            @error('email')<p class="mt-2 text-sm text-rose-700">{{ $message }}</p>@enderror
         </div>
-
-        <div class="flex items-center justify-end mt-4">
-            <x-primary-button>
-                {{ __('Email Password Reset Link') }}
-            </x-primary-button>
-        </div>
+        <button class="w-full rounded-2xl bg-blue-700 px-5 py-3.5 font-bold text-white hover:bg-blue-800">Send reset link</button>
     </form>
-</x-guest-layout>
+    <p class="mt-6 text-center text-sm"><a href="{{ route('login') }}" class="font-bold text-blue-700">Back to sign in</a></p>
+</div>
+@endsection

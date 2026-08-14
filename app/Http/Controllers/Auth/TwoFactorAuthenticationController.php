@@ -5,45 +5,68 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Carbon;
+use App\Services\TotpService;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 
 class TwoFactorAuthenticationController extends Controller
 {
-    public function showChallengeForm()
+    public function showChallengeForm(Request $request): View|RedirectResponse
     {
-        return view('auth.two-factor-challenge');
-    }
+        $user = $request->user();
 
-    public function confirm(Request $request)
-    {
-        $request->validate([
-            'code' => ['required', 'string'],
-        ]);
-
-        $user = Auth::user();
-
-        if (! $user->two_factor_secret) {
+        if (! $user?->two_factor_secret || $this->hasValidSession($request)) {
             return redirect()->route('dashboard');
         }
 
-        $valid = false;
+        return view('auth.two-factor-challenge');
+    }
 
-        if (Hash::check($request->code, $user->two_factor_secret)) {
-            $valid = true;
+    public function confirm(Request $request, TotpService $totp): RedirectResponse
+    {
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:100'],
+        ]);
+
+        $user = $request->user();
+        if (! $user?->two_factor_secret) {
+            return redirect()->route('dashboard');
         }
+
+        $valid = $totp->verifyUserCode($user, $data['code']);
 
         if (! $valid) {
             throw ValidationException::withMessages([
-                'code' => ['The provided two-factor authentication code is incorrect.'],
+                'code' => ['The authentication or recovery code is incorrect.'],
             ]);
         }
 
-        $user->update(['two_factor_confirmed_at' => now()]);
+        $request->session()->regenerate();
+        $request->session()->put([
+            'auth.two_factor_passed' => true,
+            'auth.two_factor_user_id' => (int) $user->getKey(),
+            'auth.two_factor_passed_at' => now()->toIso8601String(),
+        ]);
 
-        return redirect()->intended(route('dashboard'));
+        $user->forceFill(['two_factor_confirmed_at' => now()])->save();
+
+        return redirect()->intended(
+            $user->onboarding_completed_at ? route('dashboard') : route('onboarding.show')
+        );
+    }
+
+    private function hasValidSession(Request $request): bool
+    {
+        $user = $request->user();
+        $passedAt = $request->session()->get('auth.two_factor_passed_at');
+        $ttlHours = max(1, (int) config('auth.two_factor_session_hours', 12));
+
+        return (bool) $request->session()->get('auth.two_factor_passed')
+            && (int) $request->session()->get('auth.two_factor_user_id') === (int) $user?->getKey()
+            && is_string($passedAt)
+            && Carbon::parse($passedAt)->addHours($ttlHours)->isFuture();
     }
 }
