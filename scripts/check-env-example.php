@@ -43,14 +43,32 @@ $duplicates = array_count_values($matches[1]);
 $duplicates = array_keys(array_filter($duplicates, static fn (int $count): bool => $count > 1));
 sort($duplicates);
 
-if ($missing || $duplicates) {
+// Values that are syntactically optional to Dotenv but invalid when left empty
+// at runtime. Keep this list deliberately small and limited to values where an
+// empty string causes a framework/runtime failure rather than simply disabling
+// an integration.
+$requiredNonEmpty = ['SESSION_COOKIE', 'DB_CACHE_TABLE', 'DB_CACHE_LOCK_TABLE'];
+$emptyCritical = [];
+foreach ($requiredNonEmpty as $key) {
+    if (preg_match('/^'.preg_quote($key, '/').'=(.*)$/m', $exampleContents, $valueMatch)) {
+        $value = trim($valueMatch[1]);
+        if ($value === '' || $value === '""' || $value === "''") {
+            $emptyCritical[] = $key;
+        }
+    }
+}
+
+if ($missing || $duplicates || $emptyCritical) {
     if ($missing) {
         fwrite(STDERR, "FAIL: env() keys missing from .env.example:\n - ".implode("\n - ", $missing)."\n");
     }
     if ($duplicates) {
         fwrite(STDERR, "FAIL: duplicate keys in .env.example:\n - ".implode("\n - ", $duplicates)."\n");
     }
+    if ($emptyCritical) {
+        fwrite(STDERR, "FAIL: runtime-critical env keys must not be blank in .env.example:\n - ".implode("\n - ", $emptyCritical)."\n");
+    }
     exit(1);
 }
 
-echo 'PASS: '.count($keys)." env() keys are represented in .env.example with no duplicate keys.\n";
+echo 'PASS: '.count($keys)." env() keys are represented in .env.example with no duplicate keys and no blank runtime-critical values.\n";

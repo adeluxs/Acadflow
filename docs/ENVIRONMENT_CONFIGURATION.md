@@ -34,3 +34,8 @@ The check fails if a PHP source file introduces a new `env('KEY')` reference tha
 6. In production, cache configuration with `php artisan config:cache` after the `.env` is finalized.
 
 Never commit the real `.env` or API secrets to version control.
+
+
+## Session cookie safety
+
+`SESSION_COOKIE` must resolve to a non-empty cookie name. The supplied `.env.example` now uses `acadflow_session`. The session configuration also normalizes a blank `SESSION_COOKIE=` to a safe application-derived fallback so older deployments do not fail with Symfony's `The cookie name cannot be empty` exception. After changing session-related environment values, run `php artisan optimize:clear` so cached configuration cannot retain an invalid value.

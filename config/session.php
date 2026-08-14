@@ -2,6 +2,16 @@
 
 use Illuminate\Support\Str;
 
+// Dotenv treats an explicitly present but empty SESSION_COOKIE as an empty
+// string, so env('SESSION_COOKIE', $default) will not use its fallback.
+// Symfony rejects empty cookie names. Normalize the value here so existing
+// installations with SESSION_COOKIE= continue to work safely.
+$sessionCookie = trim((string) env('SESSION_COOKIE', ''));
+if ($sessionCookie === '') {
+    $appSlug = Str::slug((string) (env('APP_NAME', 'AcadFlow') ?: 'AcadFlow'), '_');
+    $sessionCookie = ($appSlug !== '' ? $appSlug : 'acadflow').'_session';
+}
+
 return [
 
     /*
@@ -127,10 +137,7 @@ return [
     |
     */
 
-    'cookie' => env(
-        'SESSION_COOKIE',
-        Str::slug(env('APP_NAME', 'laravel'), '_').'_session'
-    ),
+    'cookie' => $sessionCookie,
 
     /*
     |--------------------------------------------------------------------------
