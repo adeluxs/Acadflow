@@ -69,21 +69,23 @@ class CourseMaterialController extends Controller
      */
     public function index(Course $course)
     {
+        $this->authorize('view', $course);
         $user = Auth::user();
         $semester = $this->academicContext->activeSemesterForCourse($course);
 
         $query = $course->materials()
             ->where('semester_id', $semester?->id)
-            ->where('is_visible', true)
             ->with('uploader')
             ->orderBy('topic')
             ->orderBy('week_number')
             ->orderBy('sequence_order')
             ->orderBy('created_at', 'desc');
 
-        // Students only see materials from enrolled courses unless public
+        // Students only see published/visible material. Authorized lecturers
+        // and admins can see hidden material so they can manage their own work.
         if ($user->isStudent() && ! $user->isAdmin()) {
-            $query->where(function ($q) use ($course, $user) {
+            $query->where('is_visible', true)
+                ->where(function ($q) use ($course, $user) {
                 $q->where('is_public', true)
                     ->orWhereHas('course.enrollments', function ($q2) use ($course, $user) {
                         $q2->where('course_id', $course->id)
@@ -229,9 +231,7 @@ class CourseMaterialController extends Controller
             abort(404);
         }
 
-        if (! $material->canBeViewedBy(Auth::user())) {
-            abort(403);
-        }
+        $this->authorize('view', $material);
 
         $material->load(['uploader', 'accessLogs.user']);
 
@@ -260,9 +260,7 @@ class CourseMaterialController extends Controller
             abort(404);
         }
 
-        if (! $material->canBeViewedBy(Auth::user())) {
-            abort(403);
-        }
+        $this->authorize('view', $material);
 
         // Increment download count
         $material->increment('download_count');
@@ -293,10 +291,8 @@ class CourseMaterialController extends Controller
     {
         $user = Auth::user();
 
-        // Only lecturers and admins can export
-        if (! $user->isLecturer() && ! $user->isAdmin()) {
-            abort(403);
-        }
+        // Only lecturers/admins with access to this exact course can export.
+        abort_unless(($user->isLecturer() || $user->isAdmin()) && $user->canAccessCourse($course), 403);
 
         $materials = $course->materials()
             ->where('is_visible', true)

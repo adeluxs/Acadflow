@@ -223,19 +223,41 @@
         </main>
 
         <aside class="space-y-5 xl:sticky xl:top-24 xl:self-start">
-            <section class="overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-blue-50 p-5 shadow-sm">
-                <div class="flex items-center gap-3">
-                    <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-lg text-white shadow-sm">✦</span>
-                    <div><h2 class="font-black text-slate-950">Grounded AI companion</h2><p class="text-xs text-slate-500">Ask this publication, not the open web.</p></div>
+            <section class="overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-5 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-lg text-white shadow-sm">✦</span>
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2"><h2 class="font-black text-slate-950">Grounded AI companion</h2><span class="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700">Publication only</span></div>
+                        <p class="mt-0.5 text-xs text-slate-500">No open web. No guessing. Source-backed answers only.</p>
+                    </div>
                 </div>
-                <p class="mt-3 text-sm leading-6 text-slate-600">Answers use authorized indexed content and return stored source references where available.</p>
+                <p class="mt-3 text-sm leading-6 text-slate-600">AcadFlow checks whether your question is meaningful, searches only this publication, validates relevance, and rejects unsupported answers instead of inventing a response.</p>
+
                 @auth
-                    <form method="POST" action="{{ route('knowledge.companion.ask', $publication) }}" class="mt-4 space-y-2">
-                        @csrf
-                        <textarea required name="question" rows="4" class="w-full rounded-xl border-slate-300 bg-white" placeholder="What should I understand from this publication?"></textarea>
-                        <button class="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white shadow-sm hover:bg-indigo-700">Ask with sources</button>
-                    </form>
+                    @if($hasAccess)
+                        <div class="mt-4 grid gap-2">
+                            @foreach([
+                                'Summarize the main argument and key points.',
+                                'What evidence supports the main conclusion?',
+                                'What limitations or recommendations are identified?'
+                            ] as $smartPrompt)
+                                <button type="button" data-grounded-prompt="{{ $smartPrompt }}" class="grounded-prompt rounded-xl border border-indigo-100 bg-white px-3 py-2 text-left text-xs font-bold leading-5 text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-800">{{ $smartPrompt }}</button>
+                            @endforeach
+                        </div>
+                        <form method="POST" action="{{ route('knowledge.companion.ask', $publication) }}" class="mt-4 space-y-2" id="grounded-companion-form">
+                            @csrf
+                            <label for="grounded-question" class="sr-only">Ask a question about this publication</label>
+                            <textarea required minlength="2" maxlength="2000" id="grounded-question" name="question" rows="4" class="w-full rounded-xl border-slate-300 bg-white" placeholder="Ask a clear question about this publication…">{{ old('question') }}</textarea>
+                            <div class="flex items-center justify-between gap-3 text-[11px] text-slate-400"><span>Meaningless or unrelated input is rejected before external AI is called.</span><span id="grounded-question-count">0/2000</span></div>
+                            <button class="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-indigo-700">Ask this publication</button>
+                        </form>
+                    @else
+                        <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">You can view this publication preview, but Grounded AI is available only after you have access to the protected publication content.</div>
+                    @endif
                 @endauth
+                @guest
+                    <a href="{{ route('login') }}" class="mt-4 inline-flex w-full justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white">Sign in to ask this publication</a>
+                @endguest
             </section>
 
             <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -310,6 +332,24 @@ document.querySelectorAll('.secure-download').forEach((button) => {
         }
     });
 });
+
+const groundedQuestion = document.getElementById('grounded-question');
+const groundedCount = document.getElementById('grounded-question-count');
+if (groundedQuestion) {
+    const updateGroundedCount = () => {
+        if (groundedCount) groundedCount.textContent = `${groundedQuestion.value.length}/2000`;
+    };
+    updateGroundedCount();
+    groundedQuestion.addEventListener('input', updateGroundedCount);
+    document.querySelectorAll('.grounded-prompt').forEach((button) => {
+        button.addEventListener('click', () => {
+            groundedQuestion.value = button.dataset.groundedPrompt || '';
+            groundedQuestion.focus();
+            updateGroundedCount();
+        });
+    });
+}
+
 </script>
 @endpush
 @endsection

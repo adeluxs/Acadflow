@@ -6,7 +6,7 @@ use App\Ai\AiManager;
 use App\Ai\Contracts\AiResponse;
 use App\Ai\Support\TextExtractor;
 use App\Models\User;
-use App\Services\SettingService;
+use App\Services\Ai\AiRuntimeConfigService;
 
 /**
  * AI Academic Writing Assistant (Phase 13).
@@ -20,11 +20,12 @@ class WritingAssistantModule
     public function __construct(
         protected AiManager $manager,
         protected TextExtractor $extractor,
+        protected AiRuntimeConfigService $runtime,
     ) {}
 
     public function isEnabled(?int $universityId = null): bool
     {
-        return (bool) SettingService::get('ai_feature_writing_assistant', true, $universityId);
+        return $this->runtime->featureEnabled('writing_assistant', $universityId);
     }
 
     public function analyze(string $text, ?string $type = null, ?User $user = null): AiResponse

@@ -29,6 +29,11 @@
         @endif
     </div>
 
+    @include('ai._contextual-assistant', [
+        'assistantFeature' => 'research_assistant',
+        'assistantEndpoint' => route('ai.context.research', $research),
+    ])
+
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div class="space-y-5">
             @foreach($research->sections as $section)
@@ -42,7 +47,7 @@
                     <div class="p-5">
                         @can('update', $research)
                         <form method="POST" action="{{ route('research.sections.save', [$research, $section]) }}" class="space-y-3">@csrf @method('PUT')
-                            <textarea name="body" rows="14" data-rich-editor data-editor-height="340px" data-ai-url="{{ route('ai.writing') }}" data-ai-enabled="{{ \App\Services\SettingService::get('ai_editor_suggestions_enabled', true) ? '1' : '0' }}" data-ai-min-chars="{{ \App\Services\SettingService::get('ai_editor_suggestion_min_chars', 60) }}" data-ai-delay="{{ \App\Services\SettingService::get('ai_editor_suggestion_delay_ms', 1600) }}" class="w-full rounded-xl border-slate-300 font-serif leading-7" placeholder="Write {{ strtolower($section->title) }} here...">{{ old('body', $section->document->body) }}</textarea>
+                            <textarea name="body" rows="14" data-rich-editor data-editor-height="340px" data-ai-url="{{ route('ai.writing') }}" data-ai-enabled="{{ \App\Services\SettingService::get('ai_editor_suggestions_enabled', true, auth()->user()?->university_id) ? '1' : '0' }}" data-ai-min-chars="{{ \App\Services\SettingService::get('ai_editor_suggestion_min_chars', 60, auth()->user()?->university_id) }}" data-ai-delay="{{ \App\Services\SettingService::get('ai_editor_suggestion_delay_ms', 1600, auth()->user()?->university_id) }}" class="w-full rounded-xl border-slate-300 font-serif leading-7" placeholder="Write {{ strtolower($section->title) }} here...">{{ old('body', $section->document->body) }}</textarea>
                             <div class="flex items-center justify-between"><span class="text-xs text-slate-500">Auto-save endpoint supports JSON clients; this form creates a recoverable version.</span><button class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Save version</button></div>
                         </form>
                         @else

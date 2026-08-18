@@ -1,144 +1,31 @@
 @extends('layouts.app')
-
-@section('title', 'Attendance Session Details')
-
+@section('title','Attendance Session')
 @section('content')
-<div class="container mx-auto px-4 py-8">
-    <div class="max-w-6xl mx-auto">
-        <div class="bg-white rounded-lg shadow p-6 mb-6">
-            <div class="flex flex-col gap-4 md:flex-row md:justify-between md:items-start mb-4">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900">Attendance Session</h1>
-                    <p class="text-gray-600 mt-1">{{ $session->course->code }} - {{ $session->course->name }}</p>
-                    <p class="text-sm text-gray-500">Lecturer: {{ $session->lecturer->full_name }}</p>
-                </div>
-                <div class="md:text-right">
-                    <span class="px-3 py-1 rounded-full text-sm font-semibold {{ $session->status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                        {{ ucfirst($session->status) }}
-                    </span>
-                    @can('stop', $session)
-                        <div class="mt-3">
-                            <form method="POST" action="{{ route('attendance.close', $session) }}" class="inline" onsubmit="return confirm('Close this attendance session? Pending students will be marked absent.')">
-                                @csrf
-                                <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm">
-                                    Close Session
-                                </button>
-                            </form>
-                        </div>
-                    @endcan
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-                <div>
-                    <p class="text-gray-600">Started</p>
-                    <p class="font-medium">{{ $session->started_at->format('M d, Y H:i') }}</p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Ended</p>
-                    <p class="font-medium">{{ $session->ended_at?->format('M d, Y H:i') ?? 'Ongoing' }}</p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Students</p>
-                    <p class="font-medium">{{ $summary['total'] }}</p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Present / Late</p>
-                    <p class="font-medium">{{ $summary['present'] }} / {{ $summary['late'] }}</p>
-                </div>
-                <div>
-                    <p class="text-gray-600">Attendance rate</p>
-                    <p class="font-medium">{{ number_format($summary['present_rate'], 1) }}%</p>
-                </div>
-            </div>
-
-            @can('edit', $session)
-                <div class="mt-4 p-4 bg-blue-50 rounded">
-                    <h3 class="font-medium text-blue-900 mb-2">QR Code for Student Check-in</h3>
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-                        <canvas id="qr-code" class="bg-white p-2 rounded" aria-label="Attendance check-in QR code"></canvas>
-                        <div>
-                            <p class="text-sm text-blue-700">Expires: <span id="expires-at">{{ $session->qr_expires_at->format('H:i:s') }}</span></p>
-                            <p class="text-xs text-blue-600 mt-1">Students must be signed in and enrolled in this course.</p>
-                            <button type="button" onclick="refreshQr()" class="mt-2 text-blue-700 hover:underline text-sm">
-                                Refresh QR Code
-                            </button>
-                            <p id="qr-error" class="hidden mt-2 text-sm text-red-700"></p>
-                        </div>
-                    </div>
-                </div>
-            @endcan
+<div class="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+    <section class="rounded-[2rem] bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 p-7 text-white shadow-xl sm:p-9">
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div><a href="{{ auth()->user()->isLecturer() ? route('attendance.lecturer') : route('admin.reports') }}" class="text-sm font-semibold text-emerald-200">← Back</a><p class="mt-5 text-xs font-black uppercase tracking-[.2em] text-emerald-300">{{ $session->course->code }} · Live attendance</p><h1 class="mt-2 text-3xl font-black sm:text-4xl">{{ $session->course->name }}</h1><p class="mt-2 text-sm text-slate-300">Lecturer: {{ $session->lecturer->full_name }}</p></div>
+            <div class="flex flex-wrap items-center gap-2"><span class="rounded-full px-4 py-2 text-sm font-black {{ $session->status==='active'?'bg-emerald-400/20 text-emerald-200':'bg-white/10 text-slate-200' }}">{{ str($session->status)->headline() }}</span>@can('stop',$session)<form method="POST" action="{{ route('attendance.close',$session) }}" onsubmit="return confirm('Close this attendance session? Pending students will be marked absent.')">@csrf<button class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-black text-white">Close session</button></form>@endcan</div>
         </div>
+    </section>
 
-        <div class="bg-white rounded-lg shadow overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h2 class="text-xl font-semibold">Attendance Records</h2>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Check-in Time</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Verification</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        @forelse($session->records as $record)
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">{{ $record->user->full_name }}</div>
-                                    <div class="text-sm text-gray-500">{{ $record->user->email }}</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                        @if($record->status === 'present') bg-green-100 text-green-800
-                                        @elseif($record->status === 'late') bg-yellow-100 text-yellow-800
-                                        @elseif($record->status === 'absent' || $record->status === 'invalid') bg-red-100 text-red-800
-                                        @else bg-gray-100 text-gray-800 @endif">
-                                        {{ ucfirst($record->status) }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ $record->check_in_at?->format('M d, H:i') ?? 'Not checked in' }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    @if($record->latitude !== null && $record->longitude !== null)
-                                        {{ number_format((float) $record->latitude, 6) }}, {{ number_format((float) $record->longitude, 6) }}
-                                    @else
-                                        N/A
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-500">
-                                    {{ $record->verification_notes ?: ($record->status === 'pending' ? 'Pending' : 'Not recorded') }}
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="px-6 py-8 text-center text-gray-500">No enrolled students were found for this session.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="mt-6 flex flex-wrap gap-3">
-            <a href="{{ auth()->user()->isLecturer() ? route('attendance.lecturer') : route('admin.reports') }}" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
-                Back
-            </a>
-            @can('export', $session)
-                <a href="{{ route('admin.reports.export', ['type' => 'attendance', 'session_id' => $session->id]) }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                    Export Report
-                </a>
-            @endcan
-        </div>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase text-slate-400">Started</p><p class="mt-2 font-black text-slate-900">{{ $session->started_at->format('M j · H:i') }}</p></div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase text-slate-400">Ended</p><p class="mt-2 font-black text-slate-900">{{ $session->ended_at?->format('M j · H:i') ?? 'Ongoing' }}</p></div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase text-slate-400">Students</p><p class="mt-2 text-2xl font-black text-slate-900">{{ $summary['total'] }}</p></div>
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p class="text-xs font-bold uppercase text-emerald-600">Present / late</p><p class="mt-2 text-2xl font-black text-emerald-800">{{ $summary['present'] }} / {{ $summary['late'] }}</p></div>
+        <div class="rounded-2xl border border-indigo-200 bg-indigo-50 p-5"><p class="text-xs font-bold uppercase text-indigo-600">Attendance rate</p><p class="mt-2 text-2xl font-black text-indigo-800">{{ number_format($summary['present_rate'],1) }}%</p></div>
     </div>
-</div>
 
+    @can('edit',$session)
+        <section class="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm"><div class="flex flex-col gap-6 md:flex-row md:items-center"><canvas id="qr-code" class="rounded-2xl bg-white p-3 shadow-sm" aria-label="Attendance check-in QR code"></canvas><div><p class="text-xs font-black uppercase tracking-[.18em] text-emerald-600">Student check-in QR</p><h2 class="mt-1 text-xl font-black text-slate-900">Scan to check in</h2><p class="mt-2 text-sm text-slate-600">Expires at <span id="expires-at" class="font-bold">{{ $session->qr_expires_at->format('H:i:s') }}</span>. Students must be signed in and enrolled.</p><button type="button" onclick="refreshQr()" class="mt-4 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-black text-white">Refresh QR code</button><p id="qr-error" class="mt-2 hidden text-sm font-semibold text-rose-700"></p></div></div></section>
+    @endcan
+
+    <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5"><div><p class="text-xs font-black uppercase tracking-[.18em] text-emerald-600">Session register</p><h2 class="mt-1 text-xl font-black text-slate-900">Attendance records</h2></div>@can('export',$session)<a href="{{ route('admin.reports.export',['type'=>'attendance','session_id'=>$session->id]) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">Export report</a>@endcan</div>
+        <div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-slate-50 text-left text-[11px] font-black uppercase tracking-wider text-slate-400"><tr><th class="px-6 py-3">Student</th><th class="px-6 py-3">Status</th><th class="px-6 py-3">Check-in</th><th class="px-6 py-3">Location</th><th class="px-6 py-3">Verification</th></tr></thead><tbody class="divide-y divide-slate-100">@forelse($session->records as $record)<tr class="hover:bg-slate-50"><td class="px-6 py-4"><p class="font-black text-slate-900">{{ $record->user->full_name }}</p><p class="text-xs text-slate-400">{{ $record->user->email }}</p></td><td class="px-6 py-4"><span class="rounded-full px-3 py-1 text-xs font-bold {{ $record->status==='present'?'bg-emerald-100 text-emerald-700':($record->status==='late'?'bg-amber-100 text-amber-700':(($record->status==='absent'||$record->status==='invalid')?'bg-rose-100 text-rose-700':'bg-slate-100 text-slate-600')) }}">{{ str($record->status)->headline() }}</span></td><td class="px-6 py-4 text-sm font-semibold text-slate-600">{{ $record->check_in_at?->format('M j · H:i') ?? 'Not checked in' }}</td><td class="px-6 py-4 text-xs text-slate-500">@if($record->latitude!==null&&$record->longitude!==null){{ number_format((float)$record->latitude,6) }}, {{ number_format((float)$record->longitude,6) }}@else—@endif</td><td class="px-6 py-4 text-sm text-slate-500">{{ $record->verification_notes ?: ($record->status==='pending'?'Pending':'Not recorded') }}</td></tr>@empty<tr><td colspan="5" class="px-6 py-12 text-center text-sm text-slate-500">No enrolled students were found for this session.</td></tr>@endforelse</tbody></table></div>
+    </section>
+</div>
 @can('edit', $session)
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>

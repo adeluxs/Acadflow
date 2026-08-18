@@ -14,9 +14,9 @@ class NigeriaAcademicCatalogSeeder extends Seeder
 
         if ((bool) config('academic_catalog.remote_sync', true)) {
             try {
-                $result = $service->syncInstitutions();
+                $result = $service->syncInstitutions(allowFallback: true, preserveExisting: true);
                 $this->command?->info(sprintf(
-                    'Nigeria institution registry synced: %d NUC university rows, %d NBTE rows, %d fallback polytechnic rows.',
+                    'Nigeria institution registry checked without overwriting existing rows: %d NUC university rows, %d NBTE rows, %d fallback polytechnic rows.',
                     $result['nuc'], $result['nbte'], $result['fallback_polytechnics']
                 ));
                 foreach ($result['warnings'] as $warning) $this->command?->warn($warning);

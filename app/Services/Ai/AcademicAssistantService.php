@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Ai\AiManager;
+use App\Enums\AiMode;
 use App\Models\User;
 use App\Services\Discovery\DiscoverySearchService;
 
@@ -17,12 +18,46 @@ class AcademicAssistantService
     public function __construct(
         private readonly DiscoverySearchService $search,
         private readonly AiManager $ai,
+        private readonly AiRuntimeConfigService $runtime,
+        private readonly AcademicInputQualityService $inputQuality,
     ) {}
+
+    /**
+     * Resolve the single canonical AI feature key used by each tool exposed by
+     * the user-facing assistant. The controller and runtime request path both
+     * call this resolver so provider/model metadata cannot drift from the
+     * feature that actually handles the request.
+     */
+    public function featureFor(User $user, string $tool = 'ask'): string
+    {
+        return match ($tool) {
+            'writing' => 'writing_assistant',
+            'citation' => 'citation_assistant',
+            default => $user->isLecturer() ? 'lecturer_assistant' : 'study_assistant',
+        };
+    }
 
     /** @return array<string,mixed> */
     public function ask(User $user, string $question, ?int $courseId = null): array
     {
-        $feature = $user->isLecturer() ? 'lecturer_assistant' : 'study_assistant';
+        $feature = $this->featureFor($user, 'ask');
+        $quality = $this->inputQuality->assess($question);
+        if (! $quality['accepted']) {
+            return [
+                'success' => false,
+                'answer' => $quality['message'],
+                'provider' => null,
+                'model' => null,
+                'source' => 'input_validation',
+                'fallback_used' => false,
+                'feature' => $feature,
+                'confidence' => 0.0,
+                'cached' => false,
+                'sources' => [],
+                'request_id' => null,
+                'error_code' => 'AI_INPUT_INVALID',
+            ];
+        }
         $filters = [];
         if ($user->university_id) {
             $filters['university_id'] = $user->university_id;
@@ -66,24 +101,47 @@ class AcademicAssistantService
         );
 
         $answer = $this->providerAnswer($response->data, $response->summary);
+        $mode = $this->runtime->mode($user->university_id);
+        $success = $response->success;
+        $groundingFallback = false;
 
-        // The offline rule engine is primarily a validator. When it is the active
-        // engine, make the assistant useful by producing a grounded extractive answer.
+        // Grounded course/Knowledge answers must never be presented as source-backed
+        // unless the provider actually cites the authorized excerpts. In Provider
+        // mode an invalid provider answer is withheld rather than silently replacing
+        // it with deterministic prose. Hybrid and Rule-Based modes may intentionally
+        // use the explicit extractive safeguard.
         if (! $response->success) {
             $answer = $response->summary ?: 'The AI assistant is currently unavailable.';
         } elseif ($sources->isNotEmpty() && ($response->source === 'rule_engine' || str_starts_with($response->source, 'rule_engine_'))) {
-            $answer = $this->extractiveAnswer($question, $sources->all());
+            if ($mode === AiMode::PROVIDER) {
+                $success = false;
+                $answer = 'The configured AI provider did not produce a verifiable grounded answer. Please try again or ask an administrator to review AI provider diagnostics.';
+            } else {
+                $answer = $this->extractiveAnswer($question, $sources->all());
+                $groundingFallback = true;
+            }
         } elseif ($sources->isNotEmpty() && ! $this->hasValidCitation($answer, $sources->count())) {
-            // Never present uncited provider claims as if they were grounded in private course material.
-            $answer = $this->extractiveAnswer($question, $sources->all());
+            if ($mode === AiMode::PROVIDER) {
+                $success = false;
+                $answer = 'The provider response was withheld because its claims could not be traced to the authorized AcadFlow sources.';
+            } elseif ($mode === AiMode::HYBRID && $this->runtime->featureRuleFallbackEnabled($feature, $user->university_id)) {
+                $answer = $this->extractiveAnswer($question, $sources->all());
+                $groundingFallback = true;
+            } else {
+                $success = false;
+                $answer = 'AcadFlow could not verify the response against the authorized sources.';
+            }
         } elseif ($sources->isEmpty() && ($response->source === 'rule_engine' || str_starts_with($response->source, 'rule_engine_'))) {
-            $answer = 'I can help once AcadFlow has relevant indexed course or Knowledge Hub material. For open-ended generative answers, an administrator can enable and configure an external AI provider in AI Settings.';
+            $answer = 'I can help once AcadFlow has relevant indexed course or Knowledge Hub material. For open-ended generative answers, an administrator can select Provider AI or Hybrid mode and configure an external provider in AI Settings.';
         }
 
         return [
-            'success' => $response->success,
+            'success' => $success,
             'answer' => trim((string) $answer),
-            'provider' => $response->source,
+            'provider' => $response->provider ?: $response->source,
+            'model' => $response->model,
+            'source' => $response->source,
+            'fallback_used' => $response->fallbackUsed || $groundingFallback,
             'feature' => $feature,
             'confidence' => $response->confidence,
             'cached' => $response->cached,

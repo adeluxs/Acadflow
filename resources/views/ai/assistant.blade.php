@@ -11,8 +11,9 @@
             <p class="mt-1 max-w-3xl text-sm text-slate-500">Ask questions, explain course topics, review writing, or check citations. Course answers use only material you are authorized to access.</p>
         </div>
         <div class="flex flex-wrap gap-2 text-xs">
-            <span class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600">Mode: <strong>{{ str_replace('_', ' ', ucfirst($mode)) }}</strong></span>
-            <span class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600">Provider: <strong>{{ $externalAiEnabled ? $provider : 'Rule engine' }}</strong></span>
+            <span class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600">Mode: <strong id="assistantModeBadge">{{ str_replace('_', ' ', ucfirst($mode)) }}</strong></span>
+            <span class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600">Provider: <strong id="assistantProviderBadge">{{ $provider }}</strong></span>
+            <span class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600">Model: <strong id="assistantModelBadge">{{ $model }}</strong></span>
         </div>
     </div>
 
@@ -77,7 +78,7 @@
             </div>
             <div class="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
                 <h2 class="font-bold text-slate-950">How it works</h2>
-                <p class="mt-2 leading-6">AcadFlow first checks the AI settings for your institution. For course-aware questions it retrieves only indexed material your account may access, then sends the request through the existing centralized AI Manager. If external AI is disabled, the local rule engine and grounded source extraction are used instead.</p>
+                <p class="mt-2 leading-6">AcadFlow resolves the current AI Mode, feature route, provider and model from centralized AI Settings on every request. Course-aware questions retrieve only material your account may access. Rule-Based Only uses deterministic assistance; Provider AI never silently pretends a rule response came from the configured provider; Hybrid may use an explicitly enabled deterministic fallback when providers fail.</p>
             </div>
             <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-xs leading-5 text-amber-900">
                 Private course material is not exposed to students outside that course. Selecting a course only narrows the authorized material further.
@@ -96,10 +97,22 @@
     const style = document.getElementById('citationStyle');
     const styleWrap = document.getElementById('citationStyleWrap');
     const submit = document.getElementById('assistantSubmit');
+    const modeBadge = document.getElementById('assistantModeBadge');
+    const providerBadge = document.getElementById('assistantProviderBadge');
+    const modelBadge = document.getElementById('assistantModelBadge');
+    const toolRoutes = @json($toolRoutes);
 
     const esc = (value) => String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[ch]));
     const textToHtml = (value) => esc(value).replace(/\n/g, '<br>');
-    const updateTool = () => styleWrap.classList.toggle('hidden', tool.value !== 'citation');
+    const modeLabel = (value) => String(value || '').replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+    const updateTool = () => {
+        styleWrap.classList.toggle('hidden', tool.value !== 'citation');
+        const route = toolRoutes[tool.value] || toolRoutes.ask;
+        if (!route) return;
+        modeBadge.textContent = modeLabel(route.mode);
+        providerBadge.textContent = route.provider || 'Unavailable';
+        modelBadge.textContent = route.model || 'Provider default';
+    };
     tool.addEventListener('change', updateTool);
     updateTool();
 
@@ -133,7 +146,7 @@
             const sourceList = Array.isArray(data.sources) && data.sources.length
                 ? `<div class="mt-3 border-t border-indigo-100 pt-3 text-[11px] text-slate-500"><strong>Sources:</strong> ${data.sources.map(s => `${esc(s.label)} ${esc(s.title)}${s.locator ? ` (${esc(s.locator)})` : ''}`).join(' · ')}</div>`
                 : '';
-            const meta = `<div class="mt-2 text-[10px] uppercase tracking-wide text-slate-400">${esc(data.provider || 'AcadFlow AI')}${data.cached ? ' · cached' : ''}</div>`;
+            const meta = `<div class="mt-2 text-[10px] uppercase tracking-wide text-slate-400">${esc(data.provider || 'AcadFlow AI')}${data.model ? ` · ${esc(data.model)}` : ''}${data.fallback_used ? ' · fallback used' : ''}${data.cached ? ' · cached' : ''}</div>`;
             thread.insertAdjacentHTML('beforeend', `<div class="max-w-2xl rounded-2xl bg-indigo-50 p-4 text-sm leading-6 text-slate-700"><div class="mb-1 font-bold text-slate-950">AcadFlow Assistant</div>${textToHtml(data.answer || 'No response was returned.')}${sourceList}${meta}</div>`);
         } catch (error) {
             thread.insertAdjacentHTML('beforeend', `<div class="max-w-2xl rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>Assistant error:</strong> ${esc(error.message)}</div>`);

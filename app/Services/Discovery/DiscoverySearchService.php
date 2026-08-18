@@ -4,6 +4,7 @@ namespace App\Services\Discovery;
 
 use App\Models\SearchDocument;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
 class DiscoverySearchService
@@ -52,6 +53,148 @@ class DiscoverySearchService
             ->sortByDesc('score')
             ->take($limit)
             ->values();
+    }
+
+    /**
+     * Retrieve chunks only from the exact authorized subject before ranking.
+     * This is the strict retrieval path used by the Grounded AI Companion so a
+     * question can never rank chunks from other publications and filter later.
+     *
+     * @return Collection<int,array{chunk:mixed,score:float,lexical_score:float,semantic_score:float}>
+     */
+    public function relevantChunksForSubject(Model $subject, string $query, ?User $user = null, int $limit = 8): Collection
+    {
+        $builder = SearchDocument::query()
+            ->with('chunks')
+            ->where('searchable_type', $subject->getMorphClass())
+            ->where('searchable_id', $subject->getKey());
+
+        $this->applyPrivacy($builder, $user);
+        $document = $builder->first();
+        if (! $document) {
+            return collect();
+        }
+
+        $embedding = $this->embeddings->embed($query);
+        $terms = $this->meaningfulQueryTerms($query);
+        $normalizedQuery = mb_strtolower(trim($query));
+
+        return $document->chunks->map(function ($chunk) use ($embedding, $terms, $normalizedQuery): array {
+            $content = mb_strtolower((string) $chunk->content);
+            $heading = mb_strtolower((string) $chunk->heading);
+            $matched = 0;
+            $candidateTokens = $this->searchableTokens($heading.' '.$content);
+            foreach ($terms as $term) {
+                if (str_contains($content, $term) || str_contains($heading, $term) || $this->hasCloseTokenMatch($term, $candidateTokens)) {
+                    $matched++;
+                }
+            }
+            $lexical = $terms === [] ? 0.0 : ($matched / count($terms));
+            $semantic = max(0.0, $this->embeddings->cosine($embedding, $chunk->embedding));
+            $phraseBoost = mb_strlen($normalizedQuery) >= 6 && mb_strlen($normalizedQuery) <= 160 && str_contains($content, $normalizedQuery) ? 0.20 : 0.0;
+            $headingBoost = $terms !== [] && collect($terms)->contains(fn (string $term): bool => str_contains($heading, $term)) ? 0.08 : 0.0;
+            $score = min(1.0, ($lexical * 0.57) + ($semantic * 0.35) + $phraseBoost + $headingBoost);
+
+            return [
+                'chunk' => $chunk,
+                'score' => round($score, 6),
+                'lexical_score' => round($lexical, 6),
+                'semantic_score' => round($semantic, 6),
+            ];
+        })->sortByDesc('score')->take(max(1, $limit))->values();
+    }
+
+    /**
+     * Return broad document coverage for summary-style grounded questions.
+     * Chunks are selected across the document rather than relying on a narrow
+     * semantic match, so summaries do not accidentally ignore the beginning or
+     * conclusion of a long publication.
+     *
+     * @return Collection<int,array{chunk:mixed,score:float,lexical_score:float,semantic_score:float}>
+     */
+    public function representativeChunksForSubject(Model $subject, ?User $user = null, int $limit = 8): Collection
+    {
+        $builder = SearchDocument::query()
+            ->with('chunks')
+            ->where('searchable_type', $subject->getMorphClass())
+            ->where('searchable_id', $subject->getKey());
+
+        $this->applyPrivacy($builder, $user);
+        $document = $builder->first();
+        if (! $document || $document->chunks->isEmpty()) {
+            return collect();
+        }
+
+        $chunks = $document->chunks->values();
+        $count = $chunks->count();
+        $limit = max(1, min($limit, $count));
+        if ($count <= $limit) {
+            return $chunks->map(fn ($chunk) => [
+                'chunk' => $chunk,
+                'score' => 0.50,
+                'lexical_score' => 0.50,
+                'semantic_score' => 0.50,
+            ])->values();
+        }
+
+        $indexes = [];
+        for ($i = 0; $i < $limit; $i++) {
+            $index = (int) round($i * ($count - 1) / max(1, $limit - 1));
+            $indexes[$index] = true;
+        }
+
+        return collect(array_keys($indexes))->sort()->map(function (int $index) use ($chunks): array {
+            return [
+                'chunk' => $chunks[$index],
+                'score' => 0.50,
+                'lexical_score' => 0.50,
+                'semantic_score' => 0.50,
+            ];
+        })->values();
+    }
+
+    /** @return list<string> */
+    private function meaningfulQueryTerms(string $query): array
+    {
+        $stop = [
+            'a','am','an','and','are','as','at','be','been','but','by','can','could','did','do','does','for','from','had','has','have','how','i','if','in','is','it','may','me','my','of','on','or','our','please','should','so','than','that','the','their','them','there','these','they','this','those','to','us','was','we','were','what','when','where','which','who','why','will','with','would','you','your',
+            'summarize','summary','overview','explain','clarify','simplify','define','definition','meaning','compare','comparison','contrast','method','methods','methodology','finding','findings','result','results','outcome','outcomes','limitation','limitations','conclusion','conclusions','recommendation','recommendations','evidence','proof','citation','citations','reference','references','source','sources','article','document','paper','publication','resource','study','author','authors','say','says','tell','show','shows','about','main','key','major','overall','used','use','using','reach','reaches','identify','identifies','identified','provide','provides','provided','give','gives','given','no','ok','up','go',
+        ];
+        $tokens = preg_split('/[^\pL\pN]+/u', mb_strtolower($query), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_unique(array_filter($tokens, fn (string $term): bool => mb_strlen($term) >= 2 && ! in_array($term, $stop, true))));
+    }
+
+
+    /** @return list<string> */
+    private function searchableTokens(string $text): array
+    {
+        return array_values(array_unique(preg_split('/[^\pL\pN]+/u', mb_strtolower($text), -1, PREG_SPLIT_NO_EMPTY) ?: []));
+    }
+
+    /**
+     * Conservative typo matching used only after exact matching fails. Short
+     * tokens are deliberately excluded so fuzzy matching cannot make random
+     * noise appear relevant to a publication.
+     *
+     * @param list<string> $candidates
+     */
+    private function hasCloseTokenMatch(string $term, array $candidates): bool
+    {
+        $term = mb_strtolower($term);
+        $length = mb_strlen($term);
+        if ($length < 5 || preg_match('/^[a-z0-9]+$/i', $term) !== 1) return false;
+
+        $maxDistance = $length >= 8 ? 2 : 1;
+        $first = mb_substr($term, 0, 1);
+        foreach ($candidates as $candidate) {
+            if (mb_substr($candidate, 0, 1) !== $first) continue;
+            if (abs(mb_strlen($candidate) - $length) > $maxDistance) continue;
+            if (preg_match('/^[a-z0-9]+$/i', $candidate) !== 1) continue;
+            if (levenshtein($term, $candidate) <= $maxDistance) return true;
+        }
+
+        return false;
     }
 
     private function applyPrivacy($query, ?User $user): void

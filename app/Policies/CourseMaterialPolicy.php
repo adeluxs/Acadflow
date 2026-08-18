@@ -10,14 +10,27 @@ class CourseMaterialPolicy
 {
     public function view(User $user, CourseMaterial $material): bool
     {
-        if ($material->is_public) return true;
-        if ($material->uploaded_by === $user->id) return true;
-
         $course = $material->course;
+
+        // Owners and authorized teaching/admin staff must always be able to
+        // inspect materials they manage, including hidden/draft materials.
+        if ($material->uploaded_by === $user->id) return true;
+        if ($user->canAccessCourse($course) && ($user->isAdmin() || $user->isLecturer())) return true;
+
+        // Hidden materials are never exposed to students/public viewers.
+        if (! $material->is_visible) return false;
+        if ($material->is_public) return true;
         if (! $user->canAccessCourse($course)) return false;
 
-        if ($user->isStudent()) return (bool) $material->is_visible;
-        return $user->isAdmin() || $user->isLecturer();
+        if ($user->isStudent()) {
+            if (! $material->requires_enrollment) return true;
+            return $user->enrollments()
+                ->where('course_id', $course->id)
+                ->where('status', 'enrolled')
+                ->exists();
+        }
+
+        return false;
     }
 
     public function create(User $user, Course $course): bool

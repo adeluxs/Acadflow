@@ -24,9 +24,9 @@ class PublicPageController extends Controller
                 'title' => 'Product Documentation',
                 'intro' => 'A practical overview of AcadFlow’s integrated academic ecosystem.',
                 'sections' => [
-                    ['Research Studio', 'Configure a research type and workflow, create a project, write versioned sections, manage references, collaborate with supervisors, run validation, approve, archive, and publish eligible work.'],
-                    ['Knowledge Hub', 'Create and moderate publications, build creator reputation, organize learning paths and reading lists, join communities, attend events, and participate in academic challenges.'],
-                    ['Institutions', 'University and department administrators manage academic structures, users, permissions, courses, billing, settings, moderation, reports, and tenant-specific AI controls.'],
+                    ['Research Studio', 'Configure a research type and workflow, create a project, write versioned sections, manage references, collaborate with supervisors, use the Research/SIWES/Project AI assistants where enabled, validate, approve, archive, and publish eligible work.'],
+                    ['Knowledge Hub', 'Create and moderate publications, use the publication-grounded AI Companion, build creator reputation, organize learning paths and reading lists, join communities, attend events, and participate in academic challenges.'],
+                    ['Institutions', 'University and department administrators manage academic structures, users, courses, billing, settings, reports, and tenant-aware AI controls. Super administrators also manage centralized feature availability and platform AI routing.'],
                 ],
             ],
             'status' => [
@@ -78,9 +78,9 @@ class PublicPageController extends Controller
                 'title' => 'Changelog',
                 'intro' => 'A high-level record of platform capability areas. Deployment-specific release notes belong in the source repository.',
                 'sections' => [
-                    ['Unified ecosystem', 'AI Academic Assistant, Research Studio, and Knowledge Hub share identity, workflow, content, engagement, references, discovery, analytics, commerce, notifications, security, and audit foundations.'],
-                    ['Enterprise identity', 'Registration, email verification, password recovery, two-factor checks, independent and institutional onboarding, resumable progress, and role-aware navigation are integrated.'],
-                    ['Academic collaboration', 'Communities, working groups, events, challenges, research projects, learning paths, reading lists, citations, moderation, and premium resources are connected end to end.'],
+                    ['Centralized AI', 'AcadFlow now routes the main AI Assistant, Grounded Companion, Research, Assignment, SIWES, Project, Material and Discussion assistants, validators and moderation through one provider-routing architecture with explicit Provider AI, Hybrid, Rule-Based and Disabled modes.'],
+                    ['Feature management', 'Thirty platform modules can be enabled, placed in maintenance, or kept unreleased from one central Feature & Module Management area with dependency-aware access control.'],
+                    ['Academic ecosystem', 'Research Studio, Knowledge Hub, courses, assignments/submissions, attendance, groups, communities, events, challenges, learning paths, commerce, notifications and reporting share tenant-aware identity, permissions and audit foundations.'],
                 ],
             ],
             'security' => [

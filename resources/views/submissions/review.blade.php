@@ -61,6 +61,15 @@
                 @endif
             </div>
 
+            @if($submission->type === 'project')
+                <div class="px-6 py-5 border-b border-gray-200">
+                    @include('ai._contextual-assistant', [
+                        'assistantFeature' => 'project_assistant',
+                        'assistantEndpoint' => route('ai.context.project', $submission),
+                    ])
+                </div>
+            @endif
+
             <!-- Grading Section -->
             @if(!$submission->grade)
                 <div class="px-6 py-4 border-b border-gray-200">

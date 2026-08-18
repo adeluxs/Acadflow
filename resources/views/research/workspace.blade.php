@@ -12,6 +12,12 @@
         <a href="{{ route('research.export.html', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Export HTML</a>
     </nav>
 
+    @include('ai._contextual-assistant', [
+        'assistantFeature' => 'research_assistant',
+        'assistantEndpoint' => route('ai.context.research', $research),
+        'assistantDescription' => 'Use the current research plan, milestones, tasks, literature notes, sections and authorized research evidence to get source-aware guidance without fabricating academic work.',
+    ])
+
     <div class="grid gap-6 xl:grid-cols-2">
         <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div class="flex items-center justify-between gap-3">

@@ -24,6 +24,7 @@ use App\Models\ReadingList;
 use App\Models\User;
 use App\Models\VerificationRequest;
 use App\Services\Ai\GroundedCompanionService;
+use App\Services\Ai\GroundedQuestionIntelligenceService;
 use App\Services\Discovery\DiscoverySearchService;
 use App\Services\Discovery\RecommendationService;
 use App\Services\EngagementService;
@@ -644,12 +645,44 @@ class KnowledgeEcosystemController extends Controller
 
     public function askCompanion(Request $request, KnowledgePublication $publication, GroundedCompanionService $companion): RedirectResponse
     {
-        $this->authorize('view',$publication);$data=$request->validate(['question'=>['required','string','max:2000']]);$session=$companion->ask($publication,$data['question'],$request->user());return redirect()->route('knowledge.companion.show',$session);
+        $this->authorize('view', $publication);
+        $data = $request->validate(['question' => ['required', 'string', 'min:2', 'max:2000']]);
+        $session = $companion->ask($publication, $data['question'], $request->user());
+
+        return redirect()->route('knowledge.companion.show', $session);
     }
 
     public function companion(AiGroundingSession $session): View
     {
-        abort_unless(auth()->id()===$session->user_id||auth()->user()->isAdmin(),403);$session->load('sources');return view('knowledge.companion',compact('session'));
+        abort_unless(auth()->id() === $session->user_id || auth()->user()->isAdmin(), 403);
+        $session->load(['sources', 'subject']);
+
+        return view('knowledge.companion', compact('session'));
+    }
+
+    public function companionFeedback(Request $request, AiGroundingSession $session, GroundedQuestionIntelligenceService $questions): RedirectResponse
+    {
+        abort_unless(auth()->id() === $session->user_id || auth()->user()->isAdmin(), 403);
+        $data = $request->validate([
+            'rating' => ['required', 'in:helpful,not_helpful'],
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $metadata = is_array($session->metadata) ? $session->metadata : [];
+        $metadata['feedback'] = [
+            'rating' => $data['rating'],
+            'note' => trim((string) ($data['note'] ?? '')) ?: null,
+            'recorded_at' => now()->toIso8601String(),
+            'recorded_by' => $request->user()->id,
+        ];
+        $session->update(['metadata' => $metadata]);
+
+        $subject = $session->subject;
+        if ($subject instanceof KnowledgePublication) {
+            $questions->clearPatternCache($subject);
+        }
+
+        return back()->with('success', 'Thanks. Your feedback will help AcadFlow improve future grounded retrieval patterns for this publication.');
     }
 
     public function commentPublication(Request $request, KnowledgePublication $publication, EngagementService $engagement): RedirectResponse

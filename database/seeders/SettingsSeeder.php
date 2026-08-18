@@ -97,41 +97,88 @@ class SettingsSeeder extends Seeder
 
         // AI Academic Assistant Settings (Phase 6)
         $aiSettings = [
-            'ai_mode' => ['value' => 'rule_based', 'type' => 'string', 'group' => 'ai', 'description' => 'AI mode: rule_based, provider, hybrid, disabled'],
-            'ai_default_provider' => ['value' => 'rule_based', 'type' => 'string', 'group' => 'ai', 'description' => 'Default AI provider'],
-            'ai_fallback_provider' => ['value' => 'rule_based', 'type' => 'string', 'group' => 'ai', 'description' => 'Fallback AI provider'],
-            'ai_similarity_threshold' => ['value' => 20, 'type' => 'integer', 'group' => 'ai', 'description' => 'Plagiarism similarity threshold (%)'],
-            'ai_request_timeout' => ['value' => 30, 'type' => 'integer', 'group' => 'ai', 'description' => 'Provider request timeout (seconds)'],
-            'ai_max_tokens' => ['value' => 2048, 'type' => 'integer', 'group' => 'ai', 'description' => 'Maximum tokens per request'],
-            'ai_daily_request_limit' => ['value' => 1000, 'type' => 'integer', 'group' => 'ai', 'description' => 'Daily AI request limit'],
-            'ai_monthly_request_limit' => ['value' => 30000, 'type' => 'integer', 'group' => 'ai', 'description' => 'Monthly AI request limit'],
-            'ai_max_cost' => ['value' => 100, 'type' => 'integer', 'group' => 'ai', 'description' => 'Maximum monthly AI cost (USD)'],
-            'ai_enable_rule_engine' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable rule-based engine'],
-            'ai_enable_external_ai' => ['value' => false, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable external AI providers'],
-            'ai_enable_hybrid_mode' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable hybrid AI mode'],
-            'ai_enable_cache' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable AI response caching'],
-            'ai_enable_logging' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable AI usage logging'],
-            'ai_feature_submission_validator' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable submission validator'],
-            'ai_feature_plagiarism' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable plagiarism detection'],
-            'ai_feature_writing_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable writing assistant'],
+            'ai_mode' => ['value' => config('ai.default_mode', 'rule_based'), 'type' => 'string', 'group' => 'ai', 'description' => 'AI mode: rule_based, provider, hybrid, disabled'],
+            'ai_default_provider' => ['value' => config('ai.default_provider', 'rule_based'), 'type' => 'string', 'group' => 'ai', 'description' => 'Default AI provider'],
+            'ai_fallback_provider' => ['value' => config('ai.fallback_provider', '') ?: 'none', 'type' => 'string', 'group' => 'ai', 'description' => 'Fallback AI provider'],
+            'ai_similarity_threshold' => ['value' => config('ai.similarity_threshold', 20), 'type' => 'integer', 'group' => 'ai', 'description' => 'Plagiarism similarity threshold (%)'],
+            'ai_request_timeout' => ['value' => config('ai.request_timeout', 30), 'type' => 'integer', 'group' => 'ai', 'description' => 'Provider request timeout (seconds)'],
+            'ai_max_tokens' => ['value' => config('ai.max_tokens', 2048), 'type' => 'integer', 'group' => 'ai', 'description' => 'Maximum tokens per request'],
+            'ai_daily_request_limit' => ['value' => config('ai.daily_request_limit', 1000), 'type' => 'integer', 'group' => 'ai', 'description' => 'Daily AI request limit'],
+            'ai_monthly_request_limit' => ['value' => config('ai.monthly_request_limit', 30000), 'type' => 'integer', 'group' => 'ai', 'description' => 'Monthly AI request limit'],
+            'ai_max_cost' => ['value' => config('ai.max_cost', 100.0), 'type' => 'decimal', 'group' => 'ai', 'description' => 'Maximum monthly AI cost (USD)'],
+            'ai_enable_cache' => ['value' => config('ai.enable_cache', true), 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable AI response caching'],
+            'ai_enable_logging' => ['value' => config('ai.enable_logging', true), 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable AI usage logging'],
+            'ai_hybrid_escalate_when_clean' => ['value' => config('ai.hybrid_escalate_when_clean', false), 'type' => 'boolean', 'group' => 'ai', 'description' => 'Allow clean Hybrid checks to escalate to configured provider where appropriate'],
+            'ai_layout_required_fonts' => ['value' => json_encode(config('ai.layout_requirements.required_fonts', ['Times New Roman','Arial'])), 'type' => 'json', 'group' => 'ai', 'description' => 'Institution default fonts used by AI layout validation'],
+            'ai_layout_page_size' => ['value' => config('ai.layout_requirements.page_size', 'A4'), 'type' => 'string', 'group' => 'ai', 'description' => 'Institution default page size used by AI layout validation'],
+            'ai_layout_min_margin_inches' => ['value' => config('ai.layout_requirements.min_margin_inches', 1.0), 'type' => 'decimal', 'group' => 'ai', 'description' => 'Minimum margin used by AI layout validation'],
+            'ai_layout_line_spacing' => ['value' => config('ai.layout_requirements.line_spacing', '1.5'), 'type' => 'string', 'group' => 'ai', 'description' => 'Required line spacing used by AI layout validation'],
+            'ai_layout_min_font_size' => ['value' => config('ai.layout_requirements.min_font_size_pt', 10), 'type' => 'integer', 'group' => 'ai', 'description' => 'Minimum font size used by AI layout validation'],
+            'ai_layout_require_page_numbering' => ['value' => config('ai.layout_requirements.require_page_numbering', false), 'type' => 'boolean', 'group' => 'ai', 'description' => 'Require page numbering during AI layout validation'],
+            'ai_layout_require_branding' => ['value' => config('ai.layout_requirements.require_institution_branding', false), 'type' => 'boolean', 'group' => 'ai', 'description' => 'Require institution branding during AI layout validation'],
             'ai_editor_suggestions_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Show reviewable AI writing suggestions while using rich-text editors'],
             'ai_editor_suggestion_min_chars' => ['value' => 60, 'type' => 'integer', 'group' => 'ai', 'description' => 'Minimum editor characters before AI suggestions are requested'],
             'ai_editor_suggestion_delay_ms' => ['value' => 1600, 'type' => 'integer', 'group' => 'ai', 'description' => 'Debounce delay for AI editor suggestions in milliseconds'],
-            'ai_feature_citation_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable citation assistant'],
-            'ai_feature_project_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable project assistant'],
-            'ai_feature_siwes_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable SIWES assistant'],
-            'ai_feature_study_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable study assistant'],
-            'ai_feature_material_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable material assistant'],
-            'ai_feature_lecturer_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable lecturer assistant'],
-            'ai_feature_discussion_assistant' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable discussion assistant'],
-            'ai_feature_ai_search' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable AI semantic search'],
-            'ai_feature_ai_analytics' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable AI analytics'],
+            'ai_min_word_count' => ['value' => 200, 'type' => 'integer', 'group' => 'ai', 'description' => 'Minimum expected academic document word count for deterministic validation'],
+            'ai_max_word_count' => ['value' => 20000, 'type' => 'integer', 'group' => 'ai', 'description' => 'Maximum expected academic document word count for deterministic validation'],
+            'ai_institution_required_sections' => ['value' => '', 'type' => 'string', 'group' => 'ai', 'description' => 'Optional comma-separated sections required by institution rule validation'],
+            'ai_grounded_pattern_learning_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Learn conservative retrieval patterns from successful grounded companion sessions'],
+            'ai_grounded_min_question_chars' => ['value' => 3, 'type' => 'integer', 'group' => 'ai', 'description' => 'Minimum normalized question length for the Grounded AI Companion'],
+            'ai_grounded_gibberish_threshold' => ['value' => 0.60, 'type' => 'decimal', 'group' => 'ai', 'description' => 'Maximum tolerated ratio of likely gibberish tokens before a grounded question is rejected'],
+            'ai_grounded_relevance_threshold' => ['value' => 0.18, 'type' => 'decimal', 'group' => 'ai', 'description' => 'Minimum publication-scoped retrieval relevance score for specific grounded questions'],
+            'ai_grounded_lexical_floor' => ['value' => 0.20, 'type' => 'decimal', 'group' => 'ai', 'description' => 'Minimum lexical evidence floor for a specific grounded question'],
+            'ai_grounded_citation_coverage_min' => ['value' => 0.85, 'type' => 'decimal', 'group' => 'ai', 'description' => 'Minimum fraction of substantive provider answer sentences that must contain valid source citations'],
+            'ai_grounded_support_threshold' => ['value' => 0.20, 'type' => 'decimal', 'group' => 'ai', 'description' => 'Minimum cited-sentence support score against the referenced source excerpt'],
+            'ai_grounded_support_coverage_min' => ['value' => 0.70, 'type' => 'decimal', 'group' => 'ai', 'description' => 'Minimum fraction of cited sentences that must be supported by their referenced excerpts'],
+            'ai_default_model' => ['value' => config('ai.default_model', ''), 'type' => 'string', 'group' => 'ai', 'description' => 'Default model; blank uses the selected provider model'],
+            'ai_fallback_model' => ['value' => config('ai.fallback_model', ''), 'type' => 'string', 'group' => 'ai', 'description' => 'Fallback model; blank uses fallback provider model'],
+            'ai_secondary_fallback_provider' => ['value' => config('ai.secondary_fallback_provider', ''), 'type' => 'string', 'group' => 'ai', 'description' => 'Optional secondary fallback provider'],
+            'ai_secondary_fallback_model' => ['value' => config('ai.secondary_fallback_model', ''), 'type' => 'string', 'group' => 'ai', 'description' => 'Optional secondary fallback model'],
+            'ai_automatic_failover' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Automatically fail over through configured external providers'],
+            'ai_provider_health_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable cached provider health visibility'],
+            'ai_retry_count' => ['value' => config('ai.retry_count', 1), 'type' => 'integer', 'group' => 'ai', 'description' => 'Retry count for retryable provider errors'],
+            'ai_retry_delay_ms' => ['value' => config('ai.retry_delay_ms', 300), 'type' => 'integer', 'group' => 'ai', 'description' => 'Base provider retry delay in milliseconds'],
+            'ai_temperature' => ['value' => config('ai.temperature', 0.2), 'type' => 'decimal', 'group' => 'ai', 'description' => 'Global default AI generation temperature'],
+            'ai_context_limit' => ['value' => config('ai.context_limit', 16000), 'type' => 'integer', 'group' => 'ai', 'description' => 'Global AI context budget'],
+            'ai_grounding_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable grounded AI where supported'],
+            'ai_web_research_enabled' => ['value' => false, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Live external web research is unavailable until a dedicated web-search adapter is configured'],
+            'ai_global_system_prompt' => ['value' => 'You are AcadFlow AI Academic Assistant. Respect authorization, tenant boundaries, academic integrity, source grounding, and uncertainty.', 'type' => 'string', 'group' => 'ai', 'description' => 'Global instruction composed before feature prompts'],
+            'ai_rate_limit_per_minute' => ['value' => config('ai.rate_limit_per_minute', 20), 'type' => 'integer', 'group' => 'ai', 'description' => 'Per-user AI requests per minute'],
         ];
+
+        foreach (['academic','assignment','research','project','siwes','seminar','citation','formatting','template','knowledge_hub','layout','deadline','institution','discussion','plagiarism'] as $rulePack) {
+            $aiSettings['ai_rulepack_'.$rulePack] = ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable deterministic '.$rulePack.' AI rule pack'];
+        }
+
+        foreach (\App\Enums\AiProviderName::cases() as $providerCase) {
+            $provider = $providerCase->value;
+            if ($provider === \App\Enums\AiProviderName::RULE_BASED->value) continue;
+            $bootstrap = (array) config('ai.providers.'.$provider, []);
+            $model = (string) ($bootstrap['model'] ?? '');
+            $configured = $provider === 'ollama'
+                ? trim((string) ($bootstrap['endpoint'] ?? '')) !== ''
+                : ($provider === 'azure_openai'
+                    ? trim((string) ($bootstrap['api_key'] ?? '')) !== '' && trim((string) ($bootstrap['endpoint'] ?? '')) !== ''
+                    : trim((string) ($bootstrap['api_key'] ?? '')) !== '');
+            $aiSettings['ai_provider_'.$provider.'_enabled'] = ['value' => $configured, 'type' => 'boolean', 'group' => 'ai', 'description' => $providerCase->label().' is available for central routing'];
+            $aiSettings['ai_provider_'.$provider.'_model'] = ['value' => $model, 'type' => 'string', 'group' => 'ai', 'description' => 'Default configured model/deployment for '.$providerCase->label()];
+            $aiSettings['ai_provider_'.$provider.'_models'] = ['value' => json_encode(array_values(array_filter([$model]))), 'type' => 'json', 'group' => 'ai', 'description' => 'Allowed configured models/deployments for '.$providerCase->label()];
+            $aiSettings['ai_provider_'.$provider.'_temperature'] = ['value' => $bootstrap['temperature'] ?? config('ai.temperature', 0.2), 'type' => 'decimal', 'group' => 'ai', 'description' => 'Provider-specific temperature'];
+            $aiSettings['ai_provider_'.$provider.'_base_url'] = ['value' => '', 'type' => 'string', 'group' => 'ai', 'description' => 'Optional provider endpoint/base URL override'];
+            $aiSettings['ai_provider_'.$provider.'_api_key'] = ['value' => '', 'type' => 'string', 'group' => 'ai', 'description' => 'Encrypted provider credential override; blank uses secure environment bootstrap'];
+        }
+
+        foreach ((array) config('ai.features', []) as $feature) {
+            $aiSettings['ai_feature_'.$feature] ??= ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable '.$feature.' AI capability'];
+            $aiSettings['ai_feature_'.$feature.'_provider'] = ['value' => 'global', 'type' => 'string', 'group' => 'ai', 'description' => 'Provider route; global inherits the default provider'];
+            $aiSettings['ai_feature_'.$feature.'_model'] = ['value' => 'global', 'type' => 'string', 'group' => 'ai', 'description' => 'Model route; global inherits provider/default model'];
+            $aiSettings['ai_feature_'.$feature.'_rule_fallback'] = ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Allow explicit Rule Engine fallback in Hybrid mode'];
+        }
 
         $settings = array_merge($settings, $aiSettings);
 
         foreach ($settings as $key => $data) {
-            Setting::updateOrCreate(
+            Setting::firstOrCreate(
                 ['key' => $key],
                 [
                     'value' => $data['value'],

@@ -235,9 +235,9 @@ return [
         'ai_assistant' => [
             'title' => 'AI Assistant',
             'category' => 'AI & Intelligence',
-            'description' => 'AcadFlow AI workspace, writing assistant, citation assistant and student/lecturer AI analysis actions.',
+            'description' => 'AcadFlow AI workspace plus centralized student, lecturer, writing, citation, research, assignment, SIWES, project, material and discussion AI assistance.',
             'default_status' => 'enabled',
-            'routes' => ['ai.assistant', 'ai.assistant.*', 'ai.writing', 'ai.citation', 'ai.submission.*'],
+            'routes' => ['ai.assistant', 'ai.assistant.*', 'ai.writing', 'ai.citation', 'ai.submission.*', 'ai.context.*'],
             'paths' => [],
             'depends_on' => [],
             'impact' => 'AI Assistant and user-facing AI assistance will be unavailable to normal users. AI Settings remain accessible to administrators.',

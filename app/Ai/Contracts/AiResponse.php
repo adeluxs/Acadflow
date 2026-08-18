@@ -5,8 +5,11 @@ namespace App\Ai\Contracts;
 use Illuminate\Support\Str;
 
 /**
- * Provider-independent, evidence-rich response contract used by every AcadFlow
- * AI and rule-backed feature.
+ * Provider-independent response contract used by every AcadFlow AI feature.
+ *
+ * `source` describes how the answer was produced (provider, rule_engine,
+ * rule_engine_fallback, disabled, etc.). `provider` and `model` record the
+ * actual external provider/model when one handled the request.
  */
 final class AiResponse
 {
@@ -29,6 +32,14 @@ final class AiResponse
         public array $suggestedActions = [],
         public ?float $confidence = null,
         public bool $humanReviewRequired = false,
+        public ?string $provider = null,
+        public ?string $model = null,
+        public ?int $inputTokens = null,
+        public ?int $outputTokens = null,
+        public bool $fallbackUsed = false,
+        public ?string $fallbackProvider = null,
+        public ?string $errorCode = null,
+        public array $metadata = [],
     ) {
         $this->requestId ??= (string) Str::uuid();
         $this->status ??= $success ? 'completed' : 'failed';
@@ -39,6 +50,10 @@ final class AiResponse
             ? $suggestedActions
             : $this->collectField($this->findings, 'suggestion');
         $this->confidence ??= $success ? ($source === 'rule_engine' ? 0.85 : 0.70) : 0.0;
+
+        if ($this->provider === null && ! in_array($source, ['rule_engine', 'rule_engine_fallback', 'disabled', 'limit_exceeded', 'unavailable'], true)) {
+            $this->provider = $source;
+        }
     }
 
     public function toArray(): array
@@ -47,7 +62,8 @@ final class AiResponse
             'request_id' => $this->requestId,
             'status' => $this->status,
             'source' => $this->source,
-            'provider' => $this->source,
+            'provider' => $this->provider,
+            'model' => $this->model,
             'feature' => $this->feature,
             'success' => $this->success,
             'summary' => $this->summary,
@@ -63,6 +79,12 @@ final class AiResponse
             'processing_time' => $this->processingTime,
             'cost' => $this->cost,
             'cached' => $this->cached,
+            'tokens_input' => $this->inputTokens,
+            'tokens_output' => $this->outputTokens,
+            'fallback_used' => $this->fallbackUsed,
+            'fallback_provider' => $this->fallbackProvider,
+            'error_code' => $this->errorCode,
+            'metadata' => $this->metadata,
         ];
     }
 
@@ -71,6 +93,8 @@ final class AiResponse
         $metaKeys = [
             'source', 'cost', 'status', 'findings', 'severity', 'evidence',
             'suggested_actions', 'confidence', 'human_review_required', 'request_id',
+            'provider', 'model', 'tokens_input', 'tokens_output', 'fallback_used',
+            'fallback_provider', 'error_code', 'metadata',
         ];
 
         return new self(
@@ -82,7 +106,7 @@ final class AiResponse
             score: $this->score,
             issues: $this->issues,
             processingTime: $this->processingTime,
-            cost: $extra['cost'] ?? $this->cost,
+            cost: isset($extra['cost']) ? (float) $extra['cost'] : $this->cost,
             cached: $this->cached,
             requestId: $extra['request_id'] ?? $this->requestId,
             status: $extra['status'] ?? $this->status,
@@ -92,6 +116,14 @@ final class AiResponse
             suggestedActions: $extra['suggested_actions'] ?? $this->suggestedActions,
             confidence: isset($extra['confidence']) ? (float) $extra['confidence'] : $this->confidence,
             humanReviewRequired: (bool) ($extra['human_review_required'] ?? $this->humanReviewRequired),
+            provider: array_key_exists('provider', $extra) ? $extra['provider'] : $this->provider,
+            model: array_key_exists('model', $extra) ? $extra['model'] : $this->model,
+            inputTokens: isset($extra['tokens_input']) ? (int) $extra['tokens_input'] : $this->inputTokens,
+            outputTokens: isset($extra['tokens_output']) ? (int) $extra['tokens_output'] : $this->outputTokens,
+            fallbackUsed: (bool) ($extra['fallback_used'] ?? $this->fallbackUsed),
+            fallbackProvider: array_key_exists('fallback_provider', $extra) ? $extra['fallback_provider'] : $this->fallbackProvider,
+            errorCode: array_key_exists('error_code', $extra) ? $extra['error_code'] : $this->errorCode,
+            metadata: array_merge($this->metadata, (array) ($extra['metadata'] ?? [])),
         );
     }
 
@@ -101,6 +133,7 @@ final class AiResponse
         $highest = null;
         $score = 0;
         foreach ($findings as $finding) {
+            if (! is_array($finding)) continue;
             $severity = strtolower((string) ($finding['severity'] ?? ''));
             if (($rank[$severity] ?? 0) > $score) {
                 $score = $rank[$severity];

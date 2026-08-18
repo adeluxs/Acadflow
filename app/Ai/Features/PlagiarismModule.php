@@ -7,31 +7,33 @@ use App\Ai\Contracts\AiResponse;
 use App\Ai\Support\TextExtractor;
 use App\Models\Submission;
 use App\Models\User;
-use App\Services\SettingService;
+use App\Services\Ai\AiRuntimeConfigService;
 
 /**
  * AI Plagiarism Detection (Phase 12).
  *
  * Compares a submission's text against previous submissions, internal
- * repository and a lightweight internet-style fingerprint index. Produces an
+ * repository and a lightweight local fingerprint index. Produces an
  * overall similarity percentage, matched paragraphs, risk score and source list.
  *
  * Rule-based similarity uses shingling + hashing against other submissions in
- * the same course/university. External providers (when enabled) can augment with
- * internet checks.
+ * the same course/university. When Provider AI / Hybrid is enabled, an LLM may
+ * interpret the authorized local evidence, but this module does not claim to
+ * perform live open-web similarity search. External similarity providers, where
+ * separately configured, remain a distinct academic-integrity integration.
  */
 class PlagiarismModule
 {
-    public function __construct(protected AiManager $manager) {}
+    public function __construct(protected AiManager $manager, protected AiRuntimeConfigService $runtime) {}
 
     public function isEnabled(?int $universityId = null): bool
     {
-        return (bool) SettingService::get('ai_feature_plagiarism', true, $universityId);
+        return $this->runtime->featureEnabled('plagiarism', $universityId);
     }
 
     public function threshold(?int $universityId = null): int
     {
-        return (int) SettingService::get('ai_similarity_threshold', config('ai.similarity_threshold', 20), $universityId);
+        return $this->runtime->similarityThreshold($universityId);
     }
 
     /**

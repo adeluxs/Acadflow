@@ -1,196 +1,72 @@
 @extends('layouts.app')
-
 @section('title', $material->title)
-
 @section('content')
-<div class="container mx-auto px-4 py-8">
-    <div class="flex justify-between items-start mb-6">
-        <div class="flex-1">
-            <div class="flex items-center gap-2 mb-2">
-                <a href="{{ route('materials.index', $course) }}" class="text-indigo-600 hover:underline">
-                    ← Back to Materials
-                </a>
-            </div>
-            <h1 class="text-2xl font-bold">{{ $material->title }}</h1>
-            <p class="text-gray-600">{{ $course->name }}</p>
-            <div class="flex gap-2 mt-2">
-                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                    {{ ucfirst(str_replace('_', ' ', $material->type)) }}
-                </span>
-                @if($material->topic)
-                    <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
-                        {{ $material->topic }}
-                    </span>
-                @endif
-                @if($material->week_number)
-                    <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded text-sm">
-                        Week {{ $material->week_number }}
-                    </span>
-                @endif
-            </div>
-        </div>
-        <div class="flex gap-2">
-            <a href="{{ route('materials.download', [$course, $material]) }}" 
-               class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
-               Download
-            </a>
-            @if(auth()->user()->isLecturer() || auth()->user()->isAdmin())
-                <a href="{{ route('lecturer.materials.edit', [$course, $material]) }}" 
-                   class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
-                   Edit
-                </a>
-            @endif
-        </div>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2">
-            <div class="bg-white rounded-lg shadow p-6">
-                @if($material->description)
-                    <h2 class="text-lg font-bold mb-3">Description</h2>
-                    <p class="text-gray-700 mb-6">{{ $material->description }}</p>
-                @endif
-
-                <div class="border-t pt-6">
-                    <h2 class="text-lg font-bold mb-3">File Information</h2>
-                    <dl class="grid grid-cols-2 gap-4">
-                        <div>
-                            <dt class="text-gray-500 text-sm">File Name</dt>
-                            <dd class="font-medium">{{ $material->file_name }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-gray-500 text-sm">File Size</dt>
-                            <dd class="font-medium">{{ number_format($material->file_size / 1024, 2) }} KB</dd>
-                        </div>
-                        <div>
-                            <dt class="text-gray-500 text-sm">MIME Type</dt>
-                            <dd class="font-medium">{{ $material->mime_type }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-gray-500 text-sm">Uploaded By</dt>
-                            <dd class="font-medium">{{ $material->uploader->full_name ?? 'Unknown' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-gray-500 text-sm">Uploaded At</dt>
-                            <dd class="font-medium">{{ $material->created_at->format('M d, Y H:i') }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-gray-500 text-sm">Downloads</dt>
-                            <dd class="font-medium">{{ $material->download_count }}</dd>
-                        </div>
-                    </dl>
+<div class="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+    <section class="overflow-hidden rounded-[2rem] border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-7 text-white shadow-xl sm:p-9">
+        <a href="{{ route('materials.index', $course) }}" class="text-sm font-semibold text-indigo-200 hover:text-white">← Back to course materials</a>
+        <div class="mt-6 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div class="max-w-4xl">
+                <div class="flex flex-wrap gap-2">
+                    <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">{{ str($material->type)->replace('_',' ')->headline() }}</span>
+                    @if($material->topic)<span class="rounded-full bg-cyan-400/15 px-3 py-1 text-xs font-bold text-cyan-200">{{ $material->topic }}</span>@endif
+                    @if($material->week_number)<span class="rounded-full bg-violet-400/15 px-3 py-1 text-xs font-bold text-violet-200">Week {{ $material->week_number }}</span>@endif
+                    @if(!$material->is_visible)<span class="rounded-full bg-amber-400/15 px-3 py-1 text-xs font-bold text-amber-200">Hidden from students</span>@endif
                 </div>
-
-                @if($material->is_public)
-                    <div class="mt-6 p-4 bg-green-50 rounded">
-                        <span class="text-green-800">✓ This material is publicly accessible</span>
-                    </div>
-                @endif
+                <h1 class="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{{ $material->title }}</h1>
+                <p class="mt-2 text-sm text-slate-300">{{ $course->code }} · {{ $course->name }}</p>
             </div>
-
-            <!-- Q&A Section -->
-            <div class="bg-white rounded-lg shadow p-6 mt-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-bold">Questions & Discussion</h2>
-                    <a href="{{ route('discussions.create', ['course' => $course, 'material_id' => $material->id]) }}" 
-                       class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-                        Ask Question
-                    </a>
-                </div>
-                
-                @if($discussions && $discussions->count() > 0)
-                    <div class="space-y-4">
-                        @foreach($discussions as $discussion)
-                            <div class="border-b pb-4">
-                                <h4 class="font-semibold">
-                                    <a href="{{ route('discussions.show', [$course, $discussion]) }}" 
-                                       class="text-indigo-600 hover:underline">
-                                        {{ $discussion->title }}
-                                    </a>
-                                </h4>
-                                <p class="text-sm text-gray-600 mt-1">
-                                    by {{ $discussion->user->full_name }} • {{ $discussion->created_at->format('M d, Y') }}
-                                    @if($discussion->is_pinned)
-                                        <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded ml-1">Pinned</span>
-                                    @endif
-                                    @if($discussion->status === 'resolved')
-                                        <span class="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded ml-1">Resolved</span>
-                                    @endif
-                                </p>
-                                <p class="text-sm text-gray-700 mt-1">
-                                    {{ \Str::limit($discussion->content, 150) }}
-                                </p>
-                                <div class="flex gap-2 mt-2">
-                                    @foreach($discussion->tags as $tag)
-                                        <span class="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded">
-                                            {{ $tag->name }}
-                                        </span>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                    {{ $discussions->links() }}
-                @else
-                    <p class="text-gray-500">No questions yet. Be the first to ask!</p>
-                @endif
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('materials.download', [$course, $material]) }}" class="rounded-xl bg-white px-5 py-2.5 text-sm font-black text-slate-950 hover:bg-slate-100">Download</a>
+                @can('update', $material)<a href="{{ route('lecturer.materials.edit', [$course, $material]) }}" class="rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-bold hover:bg-white/20">Edit material</a>@endcan
             </div>
         </div>
+    </section>
 
-        <div class="lg:col-span-1">
-            <div class="bg-white rounded-lg shadow p-6 sticky top-4">
-                <h3 class="font-bold mb-4">Material Details</h3>
-                <dl class="space-y-3">
-                    <div>
-                        <dt class="text-gray-500 text-sm">Type</dt>
-                        <dd>{{ ucfirst(str_replace('_', ' ', $material->type)) }}</dd>
-                    </div>
-                    @if($material->topic)
-                        <div>
-                            <dt class="text-gray-500 text-sm">Topic</dt>
-                            <dd>{{ $material->topic }}</dd>
-                        </div>
-                    @endif
-                    @if($material->week_number)
-                        <div>
-                            <dt class="text-gray-500 text-sm">Week</dt>
-                            <dd>{{ $material->week_number }}</dd>
-                        </div>
-                    @endif
-                    <div>
-                        <dt class="text-gray-500 text-sm">Visibility</dt>
-                        <dd>
-                            @if($material->is_public)
-                                <span class="text-green-600">Public</span>
-                            @elseif($material->requires_enrollment)
-                                <span class="text-blue-600">Enrolled Only</span>
-                            @else
-                                <span class="text-gray-600">Restricted</span>
-                            @endif
-                        </dd>
-                    </div>
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,.8fr)]">
+        <main class="space-y-6">
+            <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+                <div class="flex items-center justify-between gap-4"><h2 class="text-xl font-black text-slate-900">About this resource</h2><span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">{{ $material->download_count ?? 0 }} downloads</span></div>
+                @if($material->description)<p class="mt-4 whitespace-pre-line text-sm leading-7 text-slate-600">{{ $material->description }}</p>@else<p class="mt-4 text-sm text-slate-500">No additional description was provided.</p>@endif
+                <div class="mt-6 grid gap-3 border-t border-slate-100 pt-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="rounded-2xl bg-slate-50 p-4"><p class="text-[11px] font-black uppercase tracking-wider text-slate-400">File</p><p class="mt-1 break-all text-sm font-bold text-slate-800">{{ $material->file_name ?: 'Digital resource' }}</p></div>
+                    <div class="rounded-2xl bg-slate-50 p-4"><p class="text-[11px] font-black uppercase tracking-wider text-slate-400">Size</p><p class="mt-1 text-sm font-bold text-slate-800">{{ $material->file_size ? number_format($material->file_size/1024,2).' KB' : '—' }}</p></div>
+                    <div class="rounded-2xl bg-slate-50 p-4"><p class="text-[11px] font-black uppercase tracking-wider text-slate-400">Uploaded</p><p class="mt-1 text-sm font-bold text-slate-800">{{ $material->created_at?->format('M j, Y') ?? '—' }}</p></div>
+                </div>
+                @if($material->is_public)<div class="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">This material is marked as publicly accessible.</div>@endif
+            </section>
+
+            @include('ai._contextual-assistant', ['assistantFeature' => 'material_assistant', 'assistantEndpoint' => route('ai.context.material',[$course,$material])])
+
+            <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div><p class="text-xs font-black uppercase tracking-[.18em] text-indigo-600">Learning conversation</p><h2 class="mt-1 text-xl font-black text-slate-900">Questions & discussion</h2></div>
+                    @auth<a href="{{ route('discussions.create', $course) }}" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">Start discussion</a>@endauth
+                </div>
+                <div class="mt-5 space-y-3">
+                    @forelse($discussions as $discussion)
+                        <a href="{{ route('discussions.show', [$course, $discussion]) }}" class="block rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:bg-indigo-50/30">
+                            <div class="flex items-start justify-between gap-4"><div><p class="font-bold text-slate-900">{{ $discussion->title }}</p><p class="mt-1 text-sm text-slate-500">{{ $discussion->user?->full_name ?? $discussion->user?->name ?? 'Course member' }} · {{ $discussion->created_at?->diffForHumans() }}</p></div><span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">{{ $discussion->replies_count ?? 0 }} replies</span></div>
+                        </a>
+                    @empty
+                        <div class="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">No discussion has been linked to this material yet.</div>
+                    @endforelse
+                </div>
+            </section>
+        </main>
+
+        <aside class="space-y-5">
+            <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 class="font-black text-slate-900">Resource details</h2>
+                <dl class="mt-4 space-y-4 text-sm">
+                    <div><dt class="text-xs font-bold uppercase tracking-wide text-slate-400">Uploaded by</dt><dd class="mt-1 font-semibold text-slate-800">{{ $material->uploader->full_name ?? $material->uploader->name ?? 'Unknown' }}</dd></div>
+                    <div><dt class="text-xs font-bold uppercase tracking-wide text-slate-400">MIME type</dt><dd class="mt-1 break-all font-semibold text-slate-800">{{ $material->mime_type ?: '—' }}</dd></div>
+                    <div><dt class="text-xs font-bold uppercase tracking-wide text-slate-400">Access</dt><dd class="mt-1 font-semibold text-slate-800">{{ $material->requires_enrollment ? 'Course enrollment required' : ($material->is_public ? 'Public' : 'Course access') }}</dd></div>
                 </dl>
-
-                <div class="mt-6">
-                    <h3 class="font-bold mb-3">Access Log</h3>
-                    @if($material->accessLogs->count() > 0)
-                        <div class="space-y-2 text-sm">
-                            @foreach($material->accessLogs->take(5) as $log)
-                                <div class="flex justify-between">
-                                    <span>{{ $log->user->full_name }}</span>
-                                    <span class="text-gray-500">{{ $log->action }}</span>
-                                </div>
-                            @endforeach
-                        </div>
-                        <p class="text-xs text-gray-500 mt-2">
-                            {{ $material->accessLogs->count() }} total accesses
-                        </p>
-                    @else
-                        <p class="text-sm text-gray-500">No access logs yet.</p>
-                    @endif
-                </div>
-            </div>
-        </div>
+            </section>
+            @if($material->accessLogs->count())
+                <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><h2 class="font-black text-slate-900">Recent activity</h2><div class="mt-4 space-y-3">@foreach($material->accessLogs->take(8) as $log)<div class="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">{{ $log->user?->full_name ?? 'User' }} · {{ $log->created_at?->diffForHumans() }}</div>@endforeach</div></section>
+            @endif
+        </aside>
     </div>
 </div>
 @endsection

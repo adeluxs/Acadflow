@@ -5,6 +5,7 @@ use App\Http\Middleware\CheckSessionTimeout;
 use App\Http\Middleware\ConcurrentSessionLimitMiddleware;
 use App\Http\Middleware\EnsureOnboardingComplete;
 use App\Http\Middleware\EnsureApiAccountReady;
+use App\Http\Middleware\EnsureAiFeatureEnabled;
 use App\Http\Middleware\EnsureTwoFactorAuthenticated;
 use App\Http\Middleware\FeatureFlagMiddleware;
 use App\Http\Middleware\FeatureAccessMiddleware;
@@ -35,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'feature.flag' => FeatureFlagMiddleware::class,
             'feature.access' => FeatureAccessMiddleware::class,
+            'ai.feature' => EnsureAiFeatureEnabled::class,
             'subscription.feature' => SubscriptionFeatureMiddleware::class,
             'webhook.verify' => \App\Http\Middleware\VerifyPaymentWebhook::class,
             'onboarding.complete' => EnsureOnboardingComplete::class,

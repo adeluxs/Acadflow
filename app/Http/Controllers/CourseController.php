@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Course;
 use App\Models\Department;
+use App\Models\Discussion;
 use App\Models\Enrollment;
 use App\Models\Semester;
 use App\Models\User;
@@ -27,7 +28,15 @@ class CourseController extends Controller
             ->where('user_id', $user->id)
             ->where('status', 'enrolled')
             ->whereHas('course.department.faculty', fn ($query) => $query->where('university_id', $user->university_id))
-            ->with(['course.department.faculty', 'semester'])
+            ->with([
+                'semester',
+                'course' => fn ($query) => $query
+                    ->with(['department.faculty', 'lecturerAssignments.user'])
+                    ->withCount([
+                        'materials as visible_materials_count' => fn ($materials) => $materials->where('is_visible', true),
+                        'submissionTasks as published_assignments_count' => fn ($tasks) => $tasks->where('status', 'published')->where('is_visible_to_students', true),
+                    ]),
+            ])
             ->latest('enrolled_at')
             ->get();
 
@@ -46,8 +55,32 @@ class CourseController extends Controller
         $isLecturer = $course->lecturerAssignments()->where('user_id', $user->id)->exists();
 
         $course->load('department.faculty', 'lecturerAssignments.user', 'enrollments.user');
+        $course->loadCount([
+            'materials as visible_materials_count' => fn ($q) => $q->where('is_visible', true),
+            'submissionTasks as published_assignments_count' => fn ($q) => $q->where('status', 'published')->where('is_visible_to_students', true),
+            'enrollments as enrolled_students_count' => fn ($q) => $q->where('status', 'enrolled'),
+        ]);
 
-        return view('courses.show', compact('course', 'isEnrolled', 'isLecturer'));
+        $recentMaterials = $course->materials()
+            ->when($user->isStudent(), fn ($q) => $q->where('is_visible', true))
+            ->with('uploader')
+            ->latest('published_at')
+            ->limit(4)
+            ->get();
+        $recentTasks = $course->submissionTasks()
+            ->when($user->isStudent(), fn ($q) => $q->where('status', 'published')->where('is_visible_to_students', true))
+            ->orderByRaw('due_date IS NULL, due_date ASC')
+            ->limit(4)
+            ->get();
+        $recentDiscussions = Discussion::query()
+            ->where('course_id', $course->id)
+            ->when($user->isStudent(), fn ($q) => $q->whereIn('status', ['open', 'resolved']))
+            ->with('user')
+            ->latest()
+            ->limit(4)
+            ->get();
+
+        return view('courses.show', compact('course', 'isEnrolled', 'isLecturer', 'recentMaterials', 'recentTasks', 'recentDiscussions'));
     }
 
     public function enroll(Request $request, Course $course): RedirectResponse

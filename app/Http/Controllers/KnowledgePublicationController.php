@@ -47,9 +47,31 @@ class KnowledgePublicationController extends Controller
         return redirect()->route('knowledge.manage.edit', $publication)->with('success', 'Knowledge Hub draft created.');
     }
 
-    public function edit(Request $request, KnowledgePublication $publication): View
+    public function showManage(Request $request, KnowledgePublication $publication): View
     {
-        $this->authorize('update',$publication);$publication->load(['document.versions.author','tags','sourceResearchProject','moderationReports.plagiarismCheck.matches','digitalFiles.mediaAsset']);
+        $this->authorize('view', $publication);
+        $publication->load([
+            'document.versions.author', 'tags', 'category', 'creator', 'sourceResearchProject',
+            'moderationReports.plagiarismCheck.matches', 'moderationReport', 'digitalFiles.mediaAsset',
+        ]);
+
+        return view('knowledge.manage-show', compact('publication'));
+    }
+
+    public function edit(Request $request, KnowledgePublication $publication): View|RedirectResponse
+    {
+        if (! $request->user()->can('update', $publication)) {
+            // A creator must always be able to open their own publication. When
+            // its workflow state is read-only (for example pending review), show
+            // the management view instead of turning the Open action into a 403.
+            if ($publication->creator_id === $request->user()->id || $request->user()->can('view', $publication)) {
+                return redirect()->route('knowledge.manage.show', $publication)
+                    ->with('info', 'This publication is currently read-only. You can still review its status and available workflow actions here.');
+            }
+            abort(403);
+        }
+
+        $publication->load(['document.versions.author','tags','sourceResearchProject','moderationReports.plagiarismCheck.matches','digitalFiles.mediaAsset']);
         return view('knowledge.form',compact('publication')+['categories'=>$this->categoriesFor($request)]);
     }
 

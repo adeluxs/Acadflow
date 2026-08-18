@@ -101,19 +101,15 @@ class CourseMaterial extends Model
      */
     public function canBeViewedBy(User $user): bool
     {
-        if (! $this->is_visible) {
-            return false;
-        }
+        $this->loadMissing('course.department.faculty');
 
-        if ($this->is_public) {
-            return true;
-        }
+        if ($this->uploaded_by === $user->id) return true;
+        if ($user->canAccessCourse($this->course) && ($user->isAdmin() || $user->isLecturer())) return true;
+        if (! $this->is_visible) return false;
+        if ($this->is_public) return true;
+        if (! $user->canAccessCourse($this->course)) return false;
 
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        if ($this->requires_enrollment) {
+        if ($user->isStudent() && $this->requires_enrollment) {
             return $user->enrollments()
                 ->where('course_id', $this->course_id)
                 ->where('status', 'enrolled')

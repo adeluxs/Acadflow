@@ -13,7 +13,9 @@ class DispatchSubmissionAiAnalysis
     public function handle(SubmissionAiAnalysisRequested $event): void
     {
         foreach ($event->features as $feature) {
-            ProcessSubmissionAiAnalysis::dispatch($event->submission, $event->user, $feature);
+            ProcessSubmissionAiAnalysis::dispatch($event->submission, $event->user, $feature)
+                ->onConnection(config('ai.queue_connection') ?: config('queue.default'))
+                ->onQueue('ai');
         }
     }
 }

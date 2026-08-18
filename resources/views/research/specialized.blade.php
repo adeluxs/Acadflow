@@ -8,6 +8,12 @@
 
   <section class="rounded-2xl border bg-white p-5">
     <h2 class="text-xl font-semibold">SIWES placement and logbook</h2>
+    <div class="mt-4">
+      @include('ai._contextual-assistant', [
+          'assistantFeature' => 'siwes_assistant',
+          'assistantEndpoint' => route('ai.context.siwes', $research),
+      ])
+    </div>
     @if(!$placement)
       <form method="POST" action="{{ route('research.siwes.placements.store',$research) }}" class="mt-4 grid gap-3 md:grid-cols-2">@csrf
         <select name="submission_id" required class="rounded-xl border-slate-300"><option value="">Select existing SIWES submission</option>@foreach($eligibleSubmissions->where('type','siwes') as $submission)<option value="{{ $submission->id }}">{{ $submission->title }}</option>@endforeach</select>

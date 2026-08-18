@@ -27,7 +27,7 @@ class UniversitySeeder extends Seeder
 
         $password = Hash::make((string) env('ACADEMIC_DEMO_PASSWORD', 'password123'));
 
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'admin@uniacademic.com'],
             [
                 'first_name' => 'System',
@@ -40,7 +40,7 @@ class UniversitySeeder extends Seeder
 
         // Keep one deterministic demo tenant for local development. The national
         // catalogue seeder later merges this exact institution with the NUC row.
-        $university = University::updateOrCreate(
+        $university = University::firstOrCreate(
             ['code' => 'FUTO'],
             [
                 'name' => 'Federal University of Technology, Owerri',
@@ -58,7 +58,7 @@ class UniversitySeeder extends Seeder
             ]
         );
 
-        $faculty = Faculty::updateOrCreate(
+        $faculty = Faculty::firstOrCreate(
             ['university_id' => $university->id, 'code' => 'SCI'],
             [
                 'name' => 'Faculty of Science',
@@ -69,7 +69,7 @@ class UniversitySeeder extends Seeder
             ]
         );
 
-        $department = Department::updateOrCreate(
+        $department = Department::firstOrCreate(
             ['faculty_id' => $faculty->id, 'code' => 'CSC'],
             [
                 'name' => 'Computer Science',
@@ -80,7 +80,7 @@ class UniversitySeeder extends Seeder
             ]
         );
 
-        $session = AcademicSession::updateOrCreate(
+        $session = AcademicSession::firstOrCreate(
             ['university_id' => $university->id, 'name' => '2025/2026'],
             [
                 'start_date' => '2025-09-01',
@@ -90,7 +90,7 @@ class UniversitySeeder extends Seeder
             ]
         );
 
-        $semester = Semester::updateOrCreate(
+        $semester = Semester::firstOrCreate(
             ['academic_session_id' => $session->id, 'number' => 1],
             [
                 'name' => 'First Semester',
@@ -110,7 +110,7 @@ class UniversitySeeder extends Seeder
         ];
 
         $courses = collect($courseRows)->map(function (array $row) use ($department) {
-            return Course::updateOrCreate(
+            return Course::firstOrCreate(
                 ['department_id' => $department->id, 'code' => $row['code']],
                 [
                     'name' => $row['name'],
@@ -126,7 +126,7 @@ class UniversitySeeder extends Seeder
             );
         });
 
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'universityadmin@futo.edu.ng'],
             [
                 'university_id' => $university->id,
@@ -138,7 +138,7 @@ class UniversitySeeder extends Seeder
             ]
         );
 
-        User::updateOrCreate(
+        User::firstOrCreate(
             ['email' => 'deptadmin@futo.edu.ng'],
             [
                 'university_id' => $university->id,
@@ -155,7 +155,7 @@ class UniversitySeeder extends Seeder
             'dr.ibrahim@futo.edu.ng' => ['Dr.', 'Ibrahim'],
             'prof.adeyemi@futo.edu.ng' => ['Prof.', 'Adeyemi'],
         ])->map(function (array $name, string $email) use ($university, $department, $password) {
-            return User::updateOrCreate(
+            return User::firstOrCreate(
                 ['email' => $email],
                 [
                     'university_id' => $university->id,
@@ -187,7 +187,7 @@ class UniversitySeeder extends Seeder
             'student002@student.futo.edu.ng' => ['Amina', 'Yusuf', 'FUTO/CSC/002'],
             'student003@student.futo.edu.ng' => ['Chinedu', 'Okafor', 'FUTO/CSC/003'],
         ] as $email => $name) {
-            $student = User::updateOrCreate(
+            $student = User::firstOrCreate(
                 ['email' => $email],
                 [
                     'university_id' => $university->id,
@@ -209,6 +209,6 @@ class UniversitySeeder extends Seeder
             }
         }
 
-        $this->command?->info('AcadFlow demo tenant and role accounts seeded.');
+        $this->command?->info('AcadFlow demo tenant and role accounts ensured without overwriting existing rows.');
     }
 }

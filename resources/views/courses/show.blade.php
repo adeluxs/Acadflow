@@ -1,256 +1,49 @@
 @extends('layouts.app')
-
 @section('title', $course->name)
-
+@section('page-title', $course->code)
+@section('page-subtitle', $course->name)
 @section('content')
-<div class="container mx-auto px-4 py-8">
-    <div class="mb-6">
-        <a href="{{ route('courses.index') }}" class="text-blue-600 hover:underline flex items-center gap-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-            </svg>
-            Back to My Courses
-        </a>
-    </div>
+<div class="mx-auto max-w-7xl space-y-6">
+    <a href="{{ auth()->user()->isLecturer() ? route('lecturer.courses') : route('courses.index') }}" class="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-700">← Back to courses</a>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Main Content -->
-        <div class="lg:col-span-2">
-            <!-- Course Header -->
-            <div class="bg-white rounded-2xl shadow p-6 mb-6">
-                <div class="flex items-start justify-between mb-4">
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">{{ $course->name }}</h1>
-                        <p class="text-gray-500">{{ $course->code }}</p>
-                    </div>
-                    <span class="px-3 py-1 rounded-full text-sm font-semibold {{ $course->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                        {{ $course->is_active ? 'Active' : 'Inactive' }}
-                    </span>
-                </div>
-
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
-                    <div>
-                        <p class="text-sm text-gray-500">Credits</p>
-                        <p class="font-semibold">{{ $course->credit_hours }} hrs</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Level</p>
-                        <p class="font-semibold">{{ ucfirst($course->level) }}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Semester</p>
-                        <p class="font-semibold">{{ ucfirst($course->semester) }}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Type</p>
-                        <p class="font-semibold">{{ ucfirst($course->type) }}</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Description -->
-            @if($course->description)
-            <div class="bg-white rounded-2xl shadow p-6 mb-6">
-                <h2 class="text-lg font-bold mb-4">Course Description</h2>
-                <p class="text-gray-700 leading-relaxed">{{ $course->description }}</p>
-            </div>
-            @endif
-
-            <!-- Submissions (if any) -->
-            @if($isEnrolled && $course->submissionTasks()->count() > 0)
-            <div class="bg-white rounded-2xl shadow p-6 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-bold">Assignments</h2>
-                    <a href="{{ route('courses.assignments', $course) }}" class="text-sm text-blue-600 hover:underline">View all</a>
-                </div>
-                <div class="space-y-3">
-                    @forelse($course->submissionTasks()->where('status', 'published')->orderBy('due_date')->take(3)->get() as $task)
-                        <a href="{{ route('submission-tasks.student.show', [$course, $task]) }}" 
-                           class="block p-4 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition">
-                            <div class="flex items-start justify-between">
-                                <div>
-                                    <h3 class="font-semibold text-gray-900">{{ $task->title }}</h3>
-                                    <p class="text-sm text-gray-600 mt-1">{{ $task->description ?? 'No description' }}</p>
-                                    <div class="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                                        <span class="flex items-center gap-1">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                            </svg>
-                                            {{ $task->due_date->format('M d, Y') }}
-                                        </span>
-                                        @if($task->max_score)
-                                        <span class="flex items-center gap-1">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                                            </svg>
-                                            {{ $task->max_score }} pts
-                                        </span>
-                                        @endif
-                                    </div>
-                                </div>
-                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                </svg>
-                            </div>
-                        </a>
-                    @empty
-                        <p class="text-gray-500 text-center py-4">No published assignments</p>
-                    @endforelse
-                </div>
-                @if($course->submissionTasks()->where('status', 'published')->count() > 3)
-                <div class="text-center pt-4 border-t border-gray-100">
-                    <a href="{{ route('courses.assignments', $course) }}" class="text-blue-600 hover:underline font-medium">View all assignments</a>
-                </div>
-                @endif
-            </div>
-            @endif
-
-            <!-- Materials (if any) -->
-            <div class="bg-white rounded-2xl shadow p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-bold">Course Materials</h2>
-                    <a href="{{ route('materials.index', $course) }}" class="text-sm text-blue-600 hover:underline">View all</a>
-                </div>
-                <div class="space-y-3">
-                    @forelse($course->materials()->where('is_visible', true)->latest()->take(3)->get() as $material)
-                        <a href="{{ route('materials.show', [$course, $material]) }}" 
-                           class="block p-4 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 class="font-semibold text-gray-900">{{ $material->title }}</h3>
-                                        <p class="text-sm text-gray-500">{{ $material->file_type }} • {{ $material->file_size_formatted }}</p>
-                                    </div>
-                                </div>
-                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                </svg>
-                            </div>
-                        </a>
-                    @empty
-                        <p class="text-gray-500 text-center py-4">No materials available</p>
-                    @endforelse
+    <section class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+        <div class="relative bg-gradient-to-br from-slate-950 via-indigo-950 to-indigo-700 p-6 text-white sm:p-8 lg:p-10">
+            <div class="absolute right-8 top-0 h-48 w-48 rounded-full bg-sky-400/10 blur-3xl"></div>
+            <div class="relative flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+                <div class="max-w-4xl"><div class="flex flex-wrap items-center gap-2"><span class="rounded-full bg-white/10 px-3 py-1 text-xs font-black ring-1 ring-white/15">{{ $course->code }}</span><span class="rounded-full px-3 py-1 text-xs font-black {{ $course->is_active ? 'bg-emerald-400/20 text-emerald-100 ring-1 ring-emerald-300/20' : 'bg-rose-400/20 text-rose-100' }}">{{ $course->is_active ? 'Active course' : 'Inactive course' }}</span></div><h1 class="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{{ $course->name }}</h1><p class="mt-3 max-w-3xl text-sm leading-7 text-slate-300">{{ $course->description ?: 'Course workspace for learning materials, assignments, discussions and attendance.' }}</p></div>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('materials.index',$course) }}" class="rounded-xl bg-white px-4 py-2.5 text-sm font-black text-indigo-900">Materials</a>
+                    @if($isEnrolled)<a href="{{ route('courses.assignments',$course) }}" class="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-bold">Assignments</a>@elseif($isLecturer)<a href="{{ route('submission-tasks.manage.index',$course) }}" class="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-bold">Manage assignments</a>@endif
+                    <a href="{{ route('discussions.index',$course) }}" class="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-bold">Discussions</a>
                 </div>
             </div>
         </div>
-
-        <!-- Sidebar -->
-        <div class="space-y-6">
-            <!-- Quick Actions -->
-            <div class="bg-white rounded-2xl shadow p-6">
-                <h3 class="font-bold mb-4">Quick Actions</h3>
-                <div class="space-y-2">
-                    @if($isEnrolled)
-                        <a href="{{ route('courses.assignments', $course) }}" 
-                           class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-medium">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            View Assignments
-                        </a>
-                        <a href="{{ route('materials.index', $course) }}" 
-                           class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                            </svg>
-                            Course Materials
-                        </a>
-                        <a href="{{ route('discussions.index', $course) }}" 
-                           class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                            </svg>
-                            Discussions
-                        </a>
-                    @endif
-                    @if($isLecturer)
-                        <a href="{{ route('lecturer.materials.index', $course) }}" 
-                           class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition font-medium">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            Manage Materials
-                        </a>
-                        <a href="{{ route('discussions.index', $course) }}" 
-                           class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                            </svg>
-                            Discussions
-                        </a>
-                        <a href="{{ route('submission-tasks.manage.index', $course) }}" 
-                           class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-medium">
-    
-                          <!-- Create / Add Icon -->
-                           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                           d="M12 4v16m8-8H4" />
-                           </svg>
-
-                          Create Assignments
-                        </a>
-                    @endif
-                </div>
-            </div>
-
-            <!-- Course Stats -->
-            <div class="bg-white rounded-2xl shadow p-6">
-                <h3 class="font-bold mb-4">Course Info</h3>
-                <div class="space-y-3">
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Department</span>
-                        <span class="font-medium">{{ $course->department->name ?? 'N/A' }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Enrolled Students</span>
-                        <span class="font-medium">{{ $course->enrollments()->where('status', 'enrolled')->count() }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Lecturers</span>
-                        <span class="font-medium">{{ $course->lecturerAssignments()->count() }}</span>
-                    </div>
-                    @if($course->max_capacity)
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Capacity</span>
-                        <span class="font-medium">{{ $course->enrollments()->where('status', 'enrolled')->count() }}/{{ $course->max_capacity }}</span>
-                    </div>
-                    @endif
-                    @if($course->pass_mark)
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Pass Mark</span>
-                        <span class="font-medium">{{ $course->pass_mark }}%</span>
-                    </div>
-                    @endif
-                </div>
-            </div>
-
-            <!-- Lecturers -->
-            @if($course->lecturerAssignments->count() > 0)
-            <div class="bg-white rounded-2xl shadow p-6">
-                <h3 class="font-bold mb-4">Course Lecturers</h3>
-                <div class="space-y-3">
-                    @forelse($course->lecturerAssignments as $assignment)
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                <span class="text-indigo-600 font-semibold">{{ substr($assignment->user->name, 0, 1) }}</span>
-                            </div>
-                            <div>
-                                <p class="font-medium text-gray-900">{{ $assignment->user->name }}</p>
-                                <p class="text-sm text-gray-500">{{ $assignment->user->email }}</p>
-                            </div>
-                        </div>
-                    @empty
-                        <p class="text-gray-500 text-sm">No lecturers assigned</p>
-                    @endforelse
-                </div>
-            </div>
-            @endif
+        <div class="grid gap-px bg-slate-200 sm:grid-cols-3 lg:grid-cols-6">
+            @foreach([
+                ['Credits',$course->credit_hours],['Level',ucfirst($course->level)],['Semester',ucfirst($course->semester)],['Students',$course->enrolled_students_count ?? 0],['Materials',$course->visible_materials_count ?? 0],['Assignments',$course->published_assignments_count ?? 0]
+            ] as [$label,$value])<div class="bg-white p-4"><p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">{{ $label }}</p><p class="mt-1 font-black text-slate-900">{{ $value }}</p></div>@endforeach
         </div>
+    </section>
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <main class="space-y-6">
+            <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                <div class="flex items-center justify-between gap-3"><div><h2 class="text-lg font-black text-slate-950">Upcoming & recent assignments</h2><p class="mt-1 text-sm text-slate-500">Stay ahead of the work published for this course.</p></div>@if($isEnrolled)<a href="{{ route('courses.assignments',$course) }}" class="text-sm font-black text-indigo-700">View all →</a>@endif</div>
+                <div class="mt-5 space-y-3">@forelse($recentTasks as $task)<a href="{{ $isEnrolled ? route('submission-tasks.student.show',[$course,$task]) : route('submission-tasks.lecturer.show',[$course,$task]) }}" class="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:bg-indigo-50/40 sm:flex-row sm:items-center sm:justify-between"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-black uppercase text-indigo-700">{{ ucfirst($task->type) }}</span><span class="text-xs text-slate-400">{{ $task->max_score }} pts</span></div><h3 class="mt-2 font-black text-slate-900">{{ $task->title }}</h3><p class="mt-1 line-clamp-1 text-sm text-slate-500">{{ $task->description ?: 'Open the assignment for instructions and submission requirements.' }}</p></div><div class="shrink-0 text-left sm:text-right"><p class="text-xs text-slate-400">Due</p><p class="font-bold {{ $task->due_date && $task->due_date->isPast() ? 'text-rose-600' : 'text-slate-800' }}">{{ $task->due_date?->format('M j, Y · H:i') ?? 'No date' }}</p></div></a>@empty<div class="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-500">No assignments are available right now.</div>@endforelse</div>
+            </section>
+
+            <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                <div class="flex items-center justify-between"><div><h2 class="text-lg font-black text-slate-950">Latest materials</h2><p class="mt-1 text-sm text-slate-500">Lecture notes, slides, readings and resources.</p></div><a href="{{ route('materials.index',$course) }}" class="text-sm font-black text-indigo-700">All materials →</a></div>
+                <div class="mt-5 grid gap-3 sm:grid-cols-2">@forelse($recentMaterials as $material)<a href="{{ route('materials.show',[$course,$material]) }}" class="group rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:shadow-md"><div class="flex items-start gap-3"><div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-lg">▤</div><div class="min-w-0"><p class="text-[10px] font-black uppercase tracking-wide text-sky-700">{{ str($material->type)->headline() }}</p><h3 class="mt-1 line-clamp-2 font-black text-slate-900">{{ $material->title }}</h3><p class="mt-2 text-xs text-slate-500">{{ $material->topic ?: ($material->week_number ? 'Week '.$material->week_number : 'Course resource') }}</p></div></div></a>@empty<div class="sm:col-span-2 rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-500">No course materials have been added yet.</div>@endforelse</div>
+            </section>
+
+            <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div class="flex items-center justify-between"><div><h2 class="text-lg font-black text-slate-950">Recent discussions</h2><p class="mt-1 text-sm text-slate-500">Questions and academic conversations from this course.</p></div><a href="{{ route('discussions.index',$course) }}" class="text-sm font-black text-indigo-700">Open forum →</a></div><div class="mt-5 space-y-3">@forelse($recentDiscussions as $discussion)<a href="{{ route('discussions.show',[$course,$discussion]) }}" class="block rounded-2xl border border-slate-200 p-4 hover:border-indigo-200"><div class="flex items-start justify-between gap-4"><div><h3 class="font-black text-slate-900">{{ $discussion->title }}</h3><p class="mt-1 line-clamp-2 text-sm text-slate-500">{{ strip_tags($discussion->content) }}</p></div>@if($discussion->is_pinned)<span class="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700">Pinned</span>@endif</div><p class="mt-3 text-xs text-slate-400">{{ $discussion->user?->full_name ?? 'Course member' }} · {{ $discussion->created_at?->diffForHumans() }}</p></a>@empty<div class="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-500">No discussion threads yet.</div>@endforelse</div></section>
+        </main>
+
+        <aside class="space-y-5">
+            <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm"><h2 class="font-black text-slate-950">Course team</h2><div class="mt-4 space-y-3">@forelse($course->lecturerAssignments as $assignment)<div class="flex items-center gap-3"><div class="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-xs font-black text-indigo-700">{{ strtoupper(substr($assignment->user?->first_name ?? 'L',0,1)) }}</div><div><p class="text-sm font-bold text-slate-900">{{ $assignment->user?->full_name ?? 'Lecturer' }}</p><p class="text-xs text-slate-500">{{ $assignment->is_coordinator ? 'Course coordinator' : 'Lecturer' }}</p></div></div>@empty<p class="text-sm text-slate-500">No lecturer has been assigned.</p>@endforelse</div></section>
+            <section class="rounded-[1.75rem] border border-slate-200 bg-gradient-to-br from-indigo-50 to-sky-50 p-5"><h2 class="font-black text-slate-950">Quick access</h2><div class="mt-4 grid gap-2"><a href="{{ route('materials.index',$course) }}" class="rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm">▤ Course materials</a><a href="{{ route('discussions.index',$course) }}" class="rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm">◌ Discussions</a>@if($isEnrolled)<a href="{{ route('courses.assignments',$course) }}" class="rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm">✓ Assignments</a>@endif</div></section>
+        </aside>
     </div>
 </div>
 @endsection

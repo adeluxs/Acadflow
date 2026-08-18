@@ -1,9 +1,9 @@
 @extends('layouts.app')
 @section('title',$group->name)
 @section('content')
-<div class="mx-auto max-w-7xl space-y-6 px-4 py-8">
-@if($group->coverMedia)<img src="{{ route('media.preview',$group->coverMedia) }}" alt="{{ $group->name }} cover" class="h-64 w-full rounded-3xl object-cover">@endif
-<header class="rounded-3xl bg-slate-900 p-7 text-white"><div class="flex flex-col gap-5 md:flex-row md:items-end md:justify-between"><div><p class="text-sm font-semibold text-blue-300">{{ str($group->group_type)->headline() }} group · {{ ucfirst($group->visibility) }}</p><h1 class="mt-2 text-3xl font-bold">{{ $group->name }}</h1><p class="mt-3 max-w-3xl text-slate-300">{{ $group->description }}</p></div><div class="flex flex-wrap gap-2">@can('update',$group)<a href="{{ route('groups.edit',$group) }}" class="rounded-xl bg-white px-4 py-2 font-semibold text-slate-900">Manage</a>@endcan
+<div class="mx-auto max-w-7xl space-y-7 px-4 py-8 sm:px-6 lg:px-8">
+@if($group->coverMedia)<img src="{{ route('media.preview',$group->coverMedia) }}" alt="{{ $group->name }} cover" class="h-72 w-full rounded-[2rem] object-cover shadow-lg">@endif
+<header class="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-950 via-blue-950 to-cyan-950 p-7 text-white shadow-xl"><div class="flex flex-col gap-5 md:flex-row md:items-end md:justify-between"><div><p class="text-sm font-semibold text-blue-300">{{ str($group->group_type)->headline() }} group · {{ ucfirst($group->visibility) }}</p><h1 class="mt-2 text-3xl font-bold">{{ $group->name }}</h1><p class="mt-3 max-w-3xl text-slate-300">{{ $group->description }}</p></div><div class="flex flex-wrap gap-2">@can('update',$group)<a href="{{ route('groups.edit',$group) }}" class="rounded-xl bg-white px-4 py-2 font-semibold text-slate-900">Manage</a>@endcan
 @if(!$group->members->contains('user_id',auth()->id()))<form method="POST" action="{{ route('groups.join',$group) }}">@csrf<button class="rounded-xl bg-blue-500 px-4 py-2 font-semibold">{{ $group->membership_mode==='open'?'Join group':'Request to join' }}</button></form>@elseif($group->leader_id!==auth()->id())<form method="POST" action="{{ route('groups.leave',$group) }}">@csrf @method('DELETE')<button class="rounded-xl border border-slate-500 px-4 py-2">Leave</button></form>@endif</div></div></header>
 <div class="grid gap-6 xl:grid-cols-[2fr_1fr]">
 <main class="space-y-6">

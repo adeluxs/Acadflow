@@ -3,75 +3,85 @@
 namespace App\Ai\Providers;
 
 use App\Ai\Contracts\AiResponse;
-use App\Ai\Rules\RuleEngine;
 
-/**
- * Anthropic Claude provider. Falls back to the rule engine on any failure.
- */
 class ClaudeProvider extends ExternalProvider
 {
-    public function __construct(RuleEngine $engine)
-    {
-        parent::__construct($engine, config('ai.providers.claude', []));
-    }
-
-    public function name(): string
-    {
-        return 'claude';
-    }
+    public function name(): string { return 'claude'; }
 
     protected function hasCredentials(): bool
     {
-        return ! empty($this->config['api_key'] ?? null);
+        return trim((string) ($this->config['api_key'] ?? '')) !== '';
     }
 
     protected function endpoint(): ?string
     {
-        return 'https://api.anthropic.com/v1/messages';
+        $base = rtrim((string) ($this->config['base_url'] ?? 'https://api.anthropic.com/v1'), '/');
+        if ($base === '') return null;
+        return preg_match('~/messages$~i', $base) ? $base : $base.'/messages';
     }
 
     protected function headers(): array
     {
-        return [
-            'Content-Type' => 'application/json',
-            'x-api-key' => $this->config['api_key'],
-            'anthropic-version' => '2023-06-01',
+        return parent::headers() + [
+            'x-api-key' => (string) ($this->config['api_key'] ?? ''),
+            'anthropic-version' => (string) ($this->config['api_version'] ?? '2023-06-01'),
         ];
     }
 
     protected function body(string $feature, array $payload): array
     {
-        return [
-            'model' => $this->config['model'] ?? 'claude-3-5-sonnet-latest',
-            'max_tokens' => (int) config('ai.max_tokens', 2048),
-            'temperature' => (float) ($this->config['temperature'] ?? 0.2),
+        $body = [
+            'model' => $this->model(),
+            'max_tokens' => $feature === '__health_check'
+                ? min(64, (int) ($this->config['max_tokens'] ?? 2048))
+                : (int) ($this->config['max_tokens'] ?? 2048),
             'system' => $this->systemPrompt($payload),
-            'messages' => [
-                ['role' => 'user', 'content' => $this->userPrompt($feature, $payload)],
-            ],
+            'messages' => [['role' => 'user', 'content' => $this->userPrompt($feature, $payload)]],
         ];
+
+        // Claude 4.7+ and newer families reject sampling parameters such
+        // as temperature. Keep the central temperature setting only for models
+        // whose Messages API still accepts it.
+        if ($this->supportsTemperature()) {
+            $body['temperature'] = (float) ($this->config['temperature'] ?? 0.2);
+        }
+
+        return $body;
+    }
+
+    private function supportsTemperature(): bool
+    {
+        $model = strtolower((string) $this->model());
+        if ($model === '') return true;
+        if (str_contains($model, 'mythos') || str_contains($model, 'fable')) return false;
+
+        if (preg_match('/^claude-(?:opus|sonnet)-(\d+)(?:-(\d+))?/', $model, $matches)) {
+            $major = (int) ($matches[1] ?? 0);
+            $minor = (int) ($matches[2] ?? 0);
+            if ($major >= 5) return false;
+            if ($major === 4 && $minor >= 7) return false;
+        }
+
+        return true;
     }
 
     protected function buildPrompt(string $feature, array $payload): string
     {
-        return json_encode(['feature' => $feature, 'context' => $payload]);
+        return json_encode(['feature' => $feature, 'context' => $payload], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}';
     }
 
     protected function parseResponse(string $feature, array $raw, float $time, float $cost): AiResponse
     {
-        $content = $raw['content'][0]['text'] ?? '';
-        $data = json_decode($content, true) ?: ['raw' => $content];
+        $content = (string) data_get($raw, 'content.0.text', '');
+        $data = json_decode($content, true);
+        if (! is_array($data)) $data = ['raw' => $content];
 
         return new AiResponse(
-            source: 'claude',
-            feature: $feature,
-            success: true,
-            data: $data['data'] ?? $data,
-            summary: $data['summary'] ?? null,
-            score: $data['score'] ?? null,
-            issues: $data['issues'] ?? [],
-            processingTime: $time,
-            cost: $cost,
+            source: $this->name(), feature: $feature, success: true,
+            data: $data['data'] ?? $data, summary: $data['summary'] ?? null,
+            score: isset($data['score']) ? (float) $data['score'] : null,
+            issues: is_array($data['issues'] ?? null) ? $data['issues'] : [],
+            processingTime: $time, cost: $cost, provider: $this->name(), model: $this->model(),
         );
     }
 }

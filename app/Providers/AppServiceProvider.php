@@ -11,6 +11,7 @@ use App\Models\KnowledgePublication;
 use App\Models\ResearchProject;
 use App\Observers\SearchableContentObserver;
 use App\Services\SettingService;
+use App\Services\Ai\AiRuntimeConfigService;
 use App\Services\FeatureAccessService;
 use App\Contracts\Media\MalwareScannerInterface;
 use App\Support\Database\MysqlIdentifierGuard;
@@ -60,7 +61,8 @@ class AppServiceProvider extends ServiceProvider
         ResearchProject::observe(SearchableContentObserver::class);
 
         RateLimiter::for('ai', function (Request $request): Limit {
-            $perMinute = max(1, (int) config('ai.rate_limit_per_minute', 20));
+            $universityId = $request->user()?->university_id;
+            $perMinute = app(AiRuntimeConfigService::class)->rateLimitPerMinute($universityId);
 
             return Limit::perMinute($perMinute)
                 ->by((string) ($request->user()?->id ?? $request->ip()));

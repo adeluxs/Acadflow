@@ -37,7 +37,7 @@ class NigeriaAcademicCatalogService
         'Yobe','Zamfara','Federal Capital Territory','FCT','Abuja',
     ];
 
-    public function syncInstitutions(bool $allowFallback = true): array
+    public function syncInstitutions(bool $allowFallback = true, bool $preserveExisting = false): array
     {
         $result = [
             'nuc' => 0,
@@ -51,7 +51,7 @@ class NigeriaAcademicCatalogService
                 $html = $this->http()->get($url)->throw()->body();
                 $rows = $this->parseNucTable($html, (string) $ownership, (string) $url);
                 foreach ($rows as $row) {
-                    $this->upsertInstitution($row);
+                    $this->upsertInstitution($row, $preserveExisting);
                     $result['nuc']++;
                 }
             } catch (Throwable $e) {
@@ -64,7 +64,7 @@ class NigeriaAcademicCatalogService
             $response = $this->http()->get($url)->throw();
             $rows = $this->parseNbtePayload($response->body(), $response->header('content-type'), $url);
             foreach ($rows as $row) {
-                $this->upsertInstitution($row);
+                $this->upsertInstitution($row, $preserveExisting);
                 $result['nbte']++;
             }
         } catch (Throwable $e) {
@@ -77,7 +77,8 @@ class NigeriaAcademicCatalogService
         if ($allowFallback && $result['nbte'] === 0) {
             try {
                 $result['fallback_polytechnics'] = $this->importInstitutionFallbackCsv(
-                    (string) config('academic_catalog.fallback.institutions_csv')
+                    (string) config('academic_catalog.fallback.institutions_csv'),
+                    $preserveExisting
                 );
             } catch (Throwable $e) {
                 $result['warnings'][] = 'Polytechnic fallback registry: '.$e->getMessage();
@@ -259,12 +260,20 @@ class NigeriaAcademicCatalogService
             }
 
             $settings = (array) ($institution->settings ?? []);
-            $settings['academic_catalog'] = array_merge((array) ($settings['academic_catalog'] ?? []), [
+            $catalogSettings = (array) ($settings['academic_catalog'] ?? []);
+
+            // Preserve an existing seed marker/timestamp and any administrator
+            // catalogue preferences. Defaults are added only when they are missing.
+            $catalogSettings += [
                 'starter_template_seeded' => true,
                 'starter_template_seeded_at' => now()->toIso8601String(),
                 'requires_institution_verification' => true,
-            ]);
-            $institution->forceFill(['settings' => $settings])->save();
+            ];
+
+            if (($settings['academic_catalog'] ?? null) !== $catalogSettings) {
+                $settings['academic_catalog'] = $catalogSettings;
+                $institution->forceFill(['settings' => $settings])->save();
+            }
         });
 
         return $stats;
@@ -385,7 +394,7 @@ class NigeriaAcademicCatalogService
         foreach ($value as $item) if (is_array($item)) $this->walkNbteJson($item, $rows, $sourceUrl);
     }
 
-    private function importInstitutionFallbackCsv(string $url): int
+    private function importInstitutionFallbackCsv(string $url, bool $preserveExisting = false): int
     {
         $body = $this->http()->get($url)->throw()->body();
         $stream = fopen('php://temp', 'w+b');
@@ -416,20 +425,28 @@ class NigeriaAcademicCatalogService
                 'catalog_source' => 'community_fallback',
                 'catalog_verified_at' => null,
                 'settings' => isset($row['year']) && is_numeric($row['year']) ? ['year_established' => (int) $row['year']] : [],
-            ]);
+            ], $preserveExisting);
             $count++;
         }
         fclose($stream);
         return $count;
     }
 
-    public function upsertInstitution(array $row): University
+    public function upsertInstitution(array $row, bool $preserveExisting = false): University
     {
         $name = trim((string) ($row['name'] ?? ''));
         if ($name === '') throw new RuntimeException('Institution name cannot be empty.');
 
         $institution = University::query()->whereRaw('LOWER(name) = ?', [Str::lower($name)])->first();
         $desiredCode = $this->normaliseCode((string) ($row['code'] ?? ''), $name, 10);
+
+        // Seeders use preserveExisting=true so re-running db:seed only creates
+        // missing institutions and never resets administrator-edited catalogue data.
+        // Explicit catalogue sync/import commands keep the default false so a
+        // deliberate registry refresh can still update regulator metadata.
+        if ($institution && $preserveExisting) {
+            return $institution;
+        }
 
         if (! $institution) {
             $code = $desiredCode;

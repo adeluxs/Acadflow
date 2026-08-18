@@ -1,46 +1,9 @@
 @extends('layouts.app')
-
-@section('title', 'My Attendance Records')
-
+@section('title','My Attendance Records')
 @section('content')
-<div class="container mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold mb-6">My Attendance Records</h1>
-
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="min-w-full">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Course</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Check-in Time</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-                @forelse($records as $record)
-                    <tr>
-                        <td class="px-6 py-4">{{ $record->check_in_at?->format('Y-m-d') }}</td>
-                        <td class="px-6 py-4">{{ $record->session->course->code ?? 'N/A' }}</td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {{ $record->status === 'present' ? 'bg-green-100 text-green-800' : 
-                                   ($record->status === 'late' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">
-                                {{ ucfirst($record->status) }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4">{{ $record->check_in_at?->format('H:i') }}</td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">No attendance records found.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    <div class="mt-4">
-        {{ $records->links() }}
-    </div>
+<div class="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+    <section class="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-end sm:justify-between"><div><p class="text-xs font-black uppercase tracking-[.2em] text-emerald-600">Attendance history</p><h1 class="mt-1 text-3xl font-black text-slate-950">Detailed records</h1><p class="mt-2 text-sm text-slate-500">A chronological view of your recorded course attendance.</p></div><a href="{{ route('attendance.my') }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700">← Attendance overview</a></section>
+    <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"><div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-slate-50 text-left text-[11px] font-black uppercase tracking-wider text-slate-400"><tr><th class="px-6 py-3">Date</th><th class="px-6 py-3">Course</th><th class="px-6 py-3">Status</th><th class="px-6 py-3">Check-in time</th></tr></thead><tbody class="divide-y divide-slate-100">@forelse($records as $record)<tr class="hover:bg-slate-50"><td class="px-6 py-4 text-sm font-semibold text-slate-700">{{ $record->check_in_at?->format('M j, Y') ?? $record->session?->started_at?->format('M j, Y') ?? '—' }}</td><td class="px-6 py-4"><p class="font-black text-slate-900">{{ $record->session?->course?->code ?? 'N/A' }}</p><p class="text-xs text-slate-400">{{ $record->session?->course?->name ?? '' }}</p></td><td class="px-6 py-4"><span class="rounded-full px-3 py-1 text-xs font-bold {{ $record->status==='present'?'bg-emerald-100 text-emerald-700':($record->status==='late'?'bg-amber-100 text-amber-700':'bg-rose-100 text-rose-700') }}">{{ str($record->status)->headline() }}</span></td><td class="px-6 py-4 text-sm font-semibold text-slate-600">{{ $record->check_in_at?->format('H:i') ?? '—' }}</td></tr>@empty<tr><td colspan="4" class="px-6 py-12 text-center text-sm text-slate-500">No attendance records found.</td></tr>@endforelse</tbody></table></div></section>
+    {{ $records->links() }}
 </div>
 @endsection

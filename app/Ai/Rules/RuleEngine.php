@@ -7,9 +7,10 @@ use App\Ai\Contracts\AiResponse;
 /**
  * The Rule-Based AI Engine.
  *
- * This is the default AI implementation. It is provider-independent and runs
- * entirely offline. It produces structured responses identical in shape to the
- * external providers so feature modules never branch on the source.
+ * Deterministic provider-independent validation/guardrail engine. It runs
+ * entirely offline and returns the same normalized response shape as provider
+ * adapters. It is active only when AI Mode explicitly selects Rule-Based Only
+ * or when Hybrid mode explicitly permits a rule fallback for the feature.
  */
 class RuleEngine
 {
@@ -55,6 +56,7 @@ class RuleEngine
                 'submission_validator' => in_array($pack->key(), [
                     'academic', 'assignment', 'project', 'siwes', 'citation', 'formatting', 'template', 'layout', 'deadline', 'institution',
                 ], true),
+                'assignment_assistant' => in_array($pack->key(), ['assignment', 'academic', 'deadline', 'institution'], true),
                 'citation_assistant' => $pack->key() === 'citation',
                 'writing_assistant' => in_array($pack->key(), ['academic', 'formatting'], true),
                 'siwes_assistant' => $pack->key() === 'siwes',
@@ -81,6 +83,9 @@ class RuleEngine
 
         foreach ($this->packsForFeature($feature, $context) as $pack) {
             try {
+                if ($pack instanceof BaseRulePack) {
+                    $pack->setRuntimeUniversity((int) ($context['_tenant_university_id'] ?? 0) ?: null);
+                }
                 $result = $pack->analyze($context);
 
                 // Packs return ['issues' => [...], 'data' => [...]] so that

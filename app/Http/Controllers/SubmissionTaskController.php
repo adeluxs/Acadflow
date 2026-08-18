@@ -48,18 +48,41 @@ class SubmissionTaskController extends Controller
     /**
      * Show all tasks visible to a student for a course
      */
-    public function availableForStudent(Course $course)
+    public function availableForStudent(Request $request, Course $course)
     {
         $this->authorize('view', $course);
 
-        $tasks = $course->submissionTasks()
+        $status = $request->validate([
+            'status' => ['nullable', Rule::in(['open', 'submitted', 'graded'])],
+        ])['status'] ?? null;
+        $userId = (int) Auth::id();
+        $now = now();
+
+        $query = $course->submissionTasks()
             ->where('status', 'published')
             ->where('is_visible_to_students', true)
-            ->orderBy('open_at', 'asc')
-            ->get();
+            // Only the authenticated student's submission state belongs in a
+            // student assignment listing. Do not eager-load classmates' work.
+            ->with(['submissions' => fn ($q) => $q->where('user_id', $userId)->with('grade')]);
 
-        // Load submission count for each task
-        $tasks->load('submissions');
+        if ($status === 'open') {
+            $query->where(fn ($q) => $q->whereNull('open_at')->orWhere('open_at', '<=', $now))
+                ->where(function ($q) use ($now) {
+                    $q->where(function ($inner) use ($now) {
+                        $inner->where('allow_late_submissions', true)
+                            ->where(fn ($late) => $late->whereNull('late_deadline')->orWhere('late_deadline', '>=', $now));
+                    })->orWhere(function ($inner) use ($now) {
+                        $inner->where('allow_late_submissions', false)
+                            ->where(fn ($due) => $due->whereNull('due_date')->orWhere('due_date', '>=', $now));
+                    });
+                });
+        } elseif ($status === 'submitted') {
+            $query->whereHas('submissions', fn ($q) => $q->where('user_id', $userId));
+        } elseif ($status === 'graded') {
+            $query->whereHas('submissions', fn ($q) => $q->where('user_id', $userId)->whereHas('grade'));
+        }
+
+        $tasks = $query->orderByRaw('due_date IS NULL, due_date ASC')->get();
 
         return view('submission-tasks.available', compact('course', 'tasks'));
     }

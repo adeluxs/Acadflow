@@ -75,3 +75,38 @@ Artisan::command('acadflow:sync-nigeria-catalog {--csv= : Import an exact instit
         return self::FAILURE;
     }
 })->purpose('Synchronise Nigerian universities/polytechnics and ensure academic catalogue structures');
+
+Artisan::command('acadflow:ai-health {--force : Check now even when scheduled health checking is disabled} {--strict : Exit with failure when any configured provider is unhealthy}', function (): int {
+    /** @var \App\Services\Ai\AiRuntimeConfigService $runtime */
+    $runtime = app(\App\Services\Ai\AiRuntimeConfigService::class);
+    /** @var \App\Ai\AiProviderRegistry $registry */
+    $registry = app(\App\Ai\AiProviderRegistry::class);
+
+    if (! $this->option('force') && ! $runtime->providerHealthChecking()) {
+        $this->comment('AI provider health checking is disabled in AI Settings.');
+        return self::SUCCESS;
+    }
+
+    $failed = false;
+    foreach (\App\Enums\AiProviderName::cases() as $provider) {
+        if ($provider === \App\Enums\AiProviderName::RULE_BASED) continue;
+        if (! $runtime->providerEnabled($provider->value) || ! $runtime->providerConfigurationComplete($provider->value)) continue;
+
+        $result = $registry->health($provider->value, null, true);
+        $this->line(sprintf('%-16s %-24s %s', $provider->label(), $result['status'] ?? 'unknown', $result['message'] ?? ''));
+        if (! empty($result['diagnostic']) && ($result['status'] ?? '') !== 'healthy') {
+            $this->comment('  Diagnostic: '.$result['diagnostic']);
+        }
+        if (($result['status'] ?? '') !== 'healthy') $failed = true;
+    }
+
+    // Scheduled monitoring is observational: an upstream provider outage must
+    // not make Laravel report the scheduler itself as failed. Operators can use
+    // --strict in CI/manual monitoring when a non-zero exit code is desired.
+    return ($failed && $this->option('strict')) ? self::FAILURE : self::SUCCESS;
+})->purpose('Check configured AcadFlow AI providers and refresh cached health status');
+
+Schedule::command('acadflow:ai-health')
+    ->hourly()
+    ->name('acadflow-ai-provider-health')
+    ->withoutOverlapping();

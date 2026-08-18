@@ -11,9 +11,16 @@ use App\Services\SettingService;
  */
 abstract class BaseRulePack implements RulePackInterface
 {
+    protected ?int $runtimeUniversityId = null;
+
+    public function setRuntimeUniversity(?int $universityId): void
+    {
+        $this->runtimeUniversityId = $universityId;
+    }
+
     protected function setting(string $key, mixed $default = null): mixed
     {
-        return SettingService::get($key, $default);
+        return SettingService::get($key, $default, $this->runtimeUniversityId);
     }
 
     public function enabled(): bool

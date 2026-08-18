@@ -1,76 +1,121 @@
- HEAD
-# Acadflow
-Acadflow a platfom to simplify academics workflow in universities
+# AcadFlow
 
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+AcadFlow is a Laravel-based academic collaboration platform for universities, lecturers, students, independent platform members, research teams, knowledge creators, and administrators. It brings course workflows, assignments and submissions, attendance, research supervision, Knowledge Hub publishing, academic communities, events, AI assistance, notifications, subscriptions, commerce, documents, and reporting into one application.
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+> **Canonical documentation:** Start with [`docs/README.md`](docs/README.md). The older dated documents in `docs/` are implementation-history records; the current developer and user guides are the primary source for how the present codebase works.
 
-## About Laravel
+## Current platform snapshot
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Laravel `^12.40`, PHP `^8.2`
+- MySQL-oriented schema and identifier-safety checks
+- Blade + Tailwind CSS + Vite; Vue is present for selected frontend components
+- Sanctum API authentication
+- Database or Redis queues; production Redis is recommended where hosting supports it
+- 30 centrally managed feature/module switches
+- 16 centrally registered AI capabilities through one AI router
+- Role-aware dashboards for Super Admin, University Admin, Department Admin, Lecturer, Student, and Platform Member
+- Research Studio, Knowledge Hub, communities, groups, SIWES, seminars, project defense, billing, marketplace/wallet, notifications, documents/exports, and PWA support
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Documentation
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Document | Purpose |
+|---|---|
+| [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md) | Canonical technical guide for developers working on the codebase |
+| [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) | End-user guide for every supported role and major feature |
+| [`docs/DOCUMENTATION_MAINTENANCE.md`](docs/DOCUMENTATION_MAINTENANCE.md) | Mandatory documentation/changelog update policy |
+| [`CHANGELOG.md`](CHANGELOG.md) | Human-readable history of product and technical changes |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Development workflow, quality gates, migration/seeding rules, and PR checklist |
+| [`docs/OPERATIONS_REDIS_QUEUE_AND_SHARED_HOSTING.md`](docs/OPERATIONS_REDIS_QUEUE_AND_SHARED_HOSTING.md) | Queue, scheduler, Redis, local and shared-hosting operations |
+| [`docs/ENVIRONMENT_CONFIGURATION.md`](docs/ENVIRONMENT_CONFIGURATION.md) | Environment variable reference |
+| [`docs/ACADFLOW_2026_08_15_AI_ARCHITECTURE_AUDIT.md`](docs/ACADFLOW_2026_08_15_AI_ARCHITECTURE_AUDIT.md) | Current centralized AI routing architecture and audit |
 
-## Learning Laravel
+## Quick local start
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+1. Install PHP 8.2+, Composer 2, Node.js/npm, and MySQL.
+2. Copy the environment template:
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+```bash
+cp .env.example .env
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+On Windows Command Prompt:
 
-## Laravel Sponsors
+```bat
+copy .env.example .env
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+3. Install dependencies and initialize the app:
 
-### Premium Partners
+```bash
+composer install
+php artisan key:generate
+npm install
+php artisan migrate
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+4. Seed only when you intentionally want the default/demo/bootstrap records:
 
-## Contributing
+```bash
+php artisan db:seed
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Normal AcadFlow seeders are designed to be idempotent and preserve matching existing records. **Never use `migrate:fresh --seed` against an existing production database.**
 
-## Code of Conduct
+5. Start the application:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+composer dev
+```
 
-## Security Vulnerabilities
+The `composer dev` command starts the Laravel development server, a queue worker for `default,ai,indexing,analytics`, Laravel Pail, and Vite. Run the scheduler separately when testing scheduled workflows:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+php artisan schedule:work
+```
 
-## License
+## Production deployment
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
- master
+For production, keep `APP_DEBUG=false`, run migrations with `--force`, use a real queue worker/scheduler, and configure Redis where available. See [`docs/OPERATIONS_REDIS_QUEUE_AND_SHARED_HOSTING.md`](docs/OPERATIONS_REDIS_QUEUE_AND_SHARED_HOSTING.md).
 
-## Windows Composer permission repair
+Typical post-deployment commands:
 
-When Composer reports `vendor/composer/tmp-*.zip: Permission denied`, run `FIX_COMPOSER_WINDOWS.bat`. It relocates projects extracted under Downloads to a user-owned project directory, repairs write permissions, removes partial dependencies, clears Composer's cache, and retries installation safely. Full instructions are in `docs/WINDOWS_COMPOSER_INSTALL.md`.
+```bash
+composer install --no-dev --optimize-autoloader
+php artisan optimize:clear
+php artisan migrate --force
+php artisan optimize
+php artisan queue:restart
+```
 
+## Quality checks
+
+AcadFlow includes project-specific preflight checks:
+
+```bash
+php scripts/check-documentation.php
+php scripts/check-env-example.php
+php scripts/check-runtime-regressions.php
+php scripts/check-feature-management.php
+php scripts/check-mysql-identifiers.php
+php scripts/check-idempotent-seeders.php
+php scripts/check-ai-central-routing.php
+php scripts/check-ai-assistant-routing.php
+php scripts/check-grounded-companion.php
+php scripts/check-specialized-ai-assistants.php
+```
+
+PHPUnit tests can be run after Composer dependencies are installed:
+
+```bash
+php artisan test
+```
+
+Frontend production build:
+
+```bash
+npm run build
+```
+
+## Documentation rule
+
+Every functional change to AcadFlow must update the relevant canonical documentation and `CHANGELOG.md` in the same change. New roles, feature flags, AI capabilities, or major modules are checked by `scripts/check-documentation.php` so they cannot quietly appear without documentation.

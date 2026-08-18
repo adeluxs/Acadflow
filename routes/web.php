@@ -43,6 +43,7 @@ use App\Http\Controllers\Auth\TwoFactorAuthenticationController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\StudentImportController;
 use App\Http\Controllers\AiController;
+use App\Http\Controllers\ContextualAiController;
 use App\Http\Controllers\AiPromptController;
 use Illuminate\Support\Facades\Route;
 
@@ -203,6 +204,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::get('/create', [KnowledgePublicationController::class, 'create'])->name('.create');
         Route::post('/', [KnowledgePublicationController::class, 'store'])->name('.store');
         Route::get('/{publication}/edit', [KnowledgePublicationController::class, 'edit'])->name('.edit');
+        Route::get('/{publication}', [KnowledgePublicationController::class, 'showManage'])->name('.show');
         Route::put('/{publication}', [KnowledgePublicationController::class, 'update'])->name('.update');
         Route::post('/{publication}/submit', [KnowledgePublicationController::class, 'submit'])->name('.submit');
         Route::post('/{publication}/moderate', [KnowledgePublicationController::class, 'moderate'])->name('.moderate');
@@ -278,8 +280,9 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::post('/knowledge-hub/{publication}/citations/rebuild', [KnowledgeEcosystemController::class, 'rebuildCitations'])->name('knowledge.citations.rebuild');
         Route::post('/knowledge-hub/{publication}/citations/external', [KnowledgeEcosystemController::class, 'syncExternalCitations'])->name('knowledge.citations.external');
         Route::get('/knowledge-hub/citation-rankings', [KnowledgeEcosystemController::class, 'citationRankings'])->name('knowledge.citations.rankings');
-        Route::post('/knowledge-hub/{publication}/companion', [KnowledgeEcosystemController::class, 'askCompanion'])->middleware('throttle:ai')->name('knowledge.companion.ask');
         Route::get('/knowledge-hub/companion/{session}', [KnowledgeEcosystemController::class, 'companion'])->name('knowledge.companion.show');
+        Route::post('/knowledge-hub/companion/{session}/feedback', [KnowledgeEcosystemController::class, 'companionFeedback'])->middleware('throttle:30,1')->name('knowledge.companion.feedback');
+        Route::post('/knowledge-hub/{publication}/companion', [KnowledgeEcosystemController::class, 'askCompanion'])->middleware('throttle:ai')->name('knowledge.companion.ask');
         Route::post('/knowledge-hub/{publication}/comments', [KnowledgeEcosystemController::class, 'commentPublication'])->name('knowledge.comments.store');
         Route::post('/knowledge-hub/{publication}/reactions', [KnowledgeEcosystemController::class, 'reactPublication'])->name('knowledge.reactions');
         Route::post('/knowledge-hub/{publication}/reports', [KnowledgeEcosystemController::class, 'reportPublication'])->name('knowledge.reports');
@@ -449,10 +452,31 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::post('/ai/writing', [AiController::class, 'writingAssistant'])->middleware('throttle:ai')->name('ai.writing');
     Route::post('/ai/citation', [AiController::class, 'citationAssistant'])->middleware('throttle:ai')->name('ai.citation');
 
+    // Specialized contextual assistants. Each endpoint performs model-level
+    // authorization and delegates provider/model selection to the central AI
+    // runtime. Module availability and AI Assistant availability are both
+    // enforced before a provider request can be initialized.
+    Route::prefix('ai/context')->name('ai.context.')->middleware('feature.flag:ai_assistant')->group(function () {
+        Route::post('/research/{research}', [ContextualAiController::class, 'research'])
+            ->middleware(['feature.flag:research_studio', 'ai.feature:research_assistant', 'throttle:ai'])->name('research');
+        Route::post('/assignments/{course}/{task}', [ContextualAiController::class, 'assignment'])
+            ->middleware(['feature.flag:assignments', 'ai.feature:assignment_assistant', 'throttle:ai'])->name('assignment');
+        Route::post('/siwes/{research}', [ContextualAiController::class, 'siwes'])
+            ->middleware(['feature.flag:siwes_module', 'ai.feature:siwes_assistant', 'throttle:ai'])->name('siwes');
+        Route::post('/projects/{submission}', [ContextualAiController::class, 'project'])
+            ->middleware(['feature.flag:submissions', 'feature.flag:final_year_project', 'ai.feature:project_assistant', 'throttle:ai'])->name('project');
+        Route::post('/materials/{course}/{material}', [ContextualAiController::class, 'material'])
+            ->middleware(['feature.flag:course_materials', 'ai.feature:material_assistant', 'throttle:ai'])->name('material');
+        Route::post('/discussions/{course}/{discussion}', [ContextualAiController::class, 'discussion'])
+            ->middleware(['feature.flag:course_discussions', 'ai.feature:discussion_assistant', 'throttle:ai'])->name('discussion');
+    });
+
     // Admin routes (department_admin, university_admin, super_admin)
     Route::middleware('role:department_admin,university_admin,super_admin')->group(function () {
         Route::get('/admin/ai/settings', [AiController::class, 'settings'])->name('ai.settings');
         Route::post('/admin/ai/settings', [AiController::class, 'updateSettings'])->name('ai.settings.update');
+        Route::post('/admin/ai/providers/{provider}/test', [AiController::class, 'testProvider'])->middleware('throttle:10,1')->name('ai.providers.test');
+        Route::get('/admin/ai/diagnostics', [AiController::class, 'diagnostics'])->name('ai.diagnostics');
         Route::get('/admin/ai/analytics', [AiController::class, 'analytics'])->name('ai.analytics');
         Route::post('/admin/ai/prompts', [AiPromptController::class, 'store'])->name('ai.prompts.store');
         Route::post('/admin/ai/prompts/{prompt}/activate', [AiPromptController::class, 'activate'])->name('ai.prompts.activate');

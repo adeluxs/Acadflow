@@ -3,12 +3,12 @@
 @section('title', $task->title)
 
 @section('content')
-<div class="container mx-auto px-4 py-8">
+<div class="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
     <!-- Header -->
-    <div class="flex justify-between items-start mb-8">
+    <div class="rounded-[2rem] bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 p-7 text-white shadow-xl sm:p-9 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">{{ $task->title }}</h1>
-            <p class="text-gray-600 mt-2">{{ $task->description }}</p>
+            <h1 class="text-3xl font-black text-white sm:text-4xl">{{ $task->title }}</h1>
+            <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-300">{{ $task->description }}</p>
             <div class="flex gap-4 mt-4 text-sm">
                 <span class="px-3 py-1 rounded-full 
                     {{ $task->status === 'published' ? 'bg-green-100 text-green-800' : '' }}
@@ -50,11 +50,16 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-3 gap-8 mb-8">
+    @include('ai._contextual-assistant', [
+        'assistantFeature' => 'assignment_assistant',
+        'assistantEndpoint' => route('ai.context.assignment', [$course, $task]),
+    ])
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_340px]">
         <!-- Left: Details -->
-        <div class="col-span-2">
+        <div class="space-y-6">
             <!-- Instructions -->
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 class="text-xl font-bold text-gray-900 mb-4">Instructions</h2>
                 <div class="prose prose-sm max-w-none">
                     {!! nl2br(e($task->instructions)) !!}
@@ -62,7 +67,7 @@
             </div>
 
             <!-- File Requirements -->
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 class="text-xl font-bold text-gray-900 mb-4">File Requirements</h2>
                 <ul class="space-y-3">
                     <li class="flex justify-between">
@@ -85,7 +90,7 @@
             </div>
 
             <!-- Attachments -->
-            <div class="bg-white rounded-lg shadow p-6">
+            <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-bold text-gray-900">Supporting Materials</h2>
                     @if($task->status === 'draft' || $task->status === 'published')
@@ -160,7 +165,7 @@
         <!-- Right: Sidebar -->
         <div>
             <!-- Key Dates -->
-            <div class="bg-blue-50 rounded-lg p-6 mb-6">
+            <div class="rounded-3xl border border-blue-200 bg-blue-50 p-6">
                 <h3 class="font-bold text-gray-900 mb-4">Important Dates</h3>
                 <ul class="space-y-3 text-sm">
                     <li>
@@ -179,7 +184,7 @@
             </div>
 
             <!-- Submission Stats -->
-            <div class="bg-green-50 rounded-lg p-6 mb-6">
+            <div class="rounded-3xl border border-emerald-200 bg-emerald-50 p-6">
                 <h3 class="font-bold text-gray-900 mb-4">Submissions</h3>
                 <div class="text-3xl font-bold text-green-600">{{ $stats['total_submissions'] ?? 0 }}</div>
                 <p class="text-sm text-gray-600 mt-1">of {{ ($stats['total_submissions'] ?? 0) + ($nonSubmitters->count() ?? 0) }} enrolled students</p>
@@ -191,7 +196,7 @@
             </div>
 
             <!-- Late Penalty Info -->
-            <div class="bg-yellow-50 rounded-lg p-6">
+            <div class="rounded-3xl border border-amber-200 bg-amber-50 p-6">
                 <h3 class="font-bold text-gray-900 mb-3">Late Submission Policy</h3>
                 <ul class="space-y-2 text-sm">
                     <li class="flex items-start gap-2">
@@ -210,7 +215,7 @@
     </div>
 
     <!-- Submissions List -->
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="text-xl font-bold text-gray-900 mb-4">Student Submissions</h2>
         
         @if($submissions && $submissions->count() > 0)

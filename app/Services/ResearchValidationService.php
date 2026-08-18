@@ -17,7 +17,9 @@ class ResearchValidationService
     public function queue(ResearchProject $project, User $actor): ResearchValidationReport
     {
         $report = ResearchValidationReport::create(['research_project_id' => $project->id, 'requested_by' => $actor->id, 'status' => 'queued', 'summary' => 'Validation and provider-independent similarity analysis are queued.']);
-        ValidateResearchProject::dispatch($report)->onQueue('ai');
+        ValidateResearchProject::dispatch($report)
+            ->onConnection(config('ai.queue_connection') ?: config('queue.default'))
+            ->onQueue('ai');
         return $report;
     }
 

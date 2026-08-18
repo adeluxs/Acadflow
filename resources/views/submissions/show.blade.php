@@ -63,6 +63,14 @@
             @endif
         </div>
 
+        @if($submission->type === 'project')
+            @include('ai._contextual-assistant', [
+                'assistantFeature' => 'project_assistant',
+                'assistantEndpoint' => route('ai.context.project', $submission),
+            ])
+            <div class="h-6"></div>
+        @endif
+
         <!-- Comments -->
         <div class="bg-white p-6 rounded-lg shadow">
             <h3 class="font-bold mb-4">Feedback</h3>

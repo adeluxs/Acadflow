@@ -16,7 +16,7 @@ enum AiMode: string
     {
         return match ($this) {
             self::RULE_BASED => 'Rule-Based Only',
-            self::PROVIDER => 'AI Provider Only',
+            self::PROVIDER => 'Provider AI',
             self::HYBRID => 'Hybrid Mode',
             self::DISABLED => 'Disabled',
         };

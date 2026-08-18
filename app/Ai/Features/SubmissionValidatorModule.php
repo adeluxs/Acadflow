@@ -7,7 +7,7 @@ use App\Ai\Contracts\AiResponse;
 use App\Ai\Support\TextExtractor;
 use App\Models\Submission;
 use App\Models\User;
-use App\Services\SettingService;
+use App\Services\Ai\AiRuntimeConfigService;
 
 /**
  * AI Submission Validator (Phase 11).
@@ -24,11 +24,12 @@ class SubmissionValidatorModule
     public function __construct(
         protected AiManager $manager,
         protected TextExtractor $extractor,
+        protected AiRuntimeConfigService $runtime,
     ) {}
 
     public function isEnabled(?int $universityId = null): bool
     {
-        return (bool) SettingService::get('ai_feature_submission_validator', true, $universityId);
+        return $this->runtime->featureEnabled('submission_validator', $universityId);
     }
 
     /**

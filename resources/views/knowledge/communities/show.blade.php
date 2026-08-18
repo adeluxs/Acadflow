@@ -19,8 +19,8 @@
     $postTypeHints = collect($postTypes)->mapWithKeys(fn ($item, $key) => [$key => $item['hint']])->all();
 @endphp
 
-<div class="space-y-6">
-    <section class="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-xl shadow-slate-950/10">
+<div class="space-y-7">
+    <section class="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-indigo-950 to-cyan-950 text-white shadow-xl shadow-slate-950/10">
         @if($community->coverMedia)
             <img src="{{ route('media.preview', $community->coverMedia) }}" alt="{{ $community->name }} cover" class="absolute inset-0 h-full w-full object-cover opacity-30">
         @endif

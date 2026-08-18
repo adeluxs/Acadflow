@@ -21,7 +21,9 @@ class ModerationService
     {
         $report = $publication->moderationReports()->create(['requested_by' => $actor->id, 'status' => 'queued', 'summary' => 'Academic quality and similarity checks are queued.', 'human_review_required' => true]);
         $publication->update(['moderation_report_id' => $report->id]);
-        ModerateKnowledgePublication::dispatch($report)->onQueue('ai');
+        ModerateKnowledgePublication::dispatch($report)
+            ->onConnection(config('ai.queue_connection') ?: config('queue.default'))
+            ->onQueue('ai');
         return $report;
     }
 

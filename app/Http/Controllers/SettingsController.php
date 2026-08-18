@@ -38,6 +38,9 @@ class SettingsController extends Controller
         $settings = Setting::query()->orderBy('group')->orderBy('key')->get()
             ->reject(fn (Setting $setting) => SettingService::canonicalKey($setting->key) !== $setting->key)
             ->reject(fn (Setting $setting) => in_array($setting->key, self::RUNTIME_AVAILABILITY_SETTING_KEYS, true))
+            // AI runtime/provider settings have one authoritative management UI:
+            // Admin -> AI Settings. They must not appear again in System Settings.
+            ->reject(fn (Setting $setting) => in_array($setting->group, ['ai', 'ai_legacy'], true))
             ->reject(fn (Setting $setting) => ! $user->isSuperAdmin() && $this->isGlobalOnlySetting($setting))
             ->each(function (Setting $setting) use ($scopeUniversityId, $user): void {
                 $setting->value = $user->isSuperAdmin()

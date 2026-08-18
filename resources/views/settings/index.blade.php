@@ -9,13 +9,16 @@
             <h1 class="text-2xl font-bold">{{ auth()->user()->isSuperAdmin() ? 'System Settings' : 'Institution Settings' }}</h1>
             <p class="text-sm text-gray-500 mt-1">{{ auth()->user()->isSuperAdmin() ? 'Manage platform-wide defaults and infrastructure controls.' : 'Manage settings for your institution. Platform-only controls remain protected.' }}</p>
         </div>
-        @if(auth()->user()->isSuperAdmin())
-            <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
-                <a href="{{ route('admin.settings.features') }}" class="acad-primary-button inline-flex items-center rounded-lg px-3 py-2 text-xs font-semibold">Feature & Module Management</a>
+        <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+            @if(auth()->user()->hasPermission(\App\Enums\Permission::MANAGE_AI_SETTINGS))
+                <a href="{{ route('ai.settings') }}" class="acad-primary-button inline-flex items-center rounded-lg px-3 py-2 text-xs font-semibold">AI Settings</a>
+            @endif
+            @if(auth()->user()->isSuperAdmin())
+                <a href="{{ route('admin.settings.features') }}" class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Feature & Module Management</a>
                 <a href="{{ route('admin.settings.permissions') }}" class="acad-link">Permission Management</a>
                 <a href="{{ route('admin.settings.audit-logs') }}" class="acad-link">Audit Logs</a>
-            </div>
-        @endif
+            @endif
+        </div>
     </div>
 
     @if(session('success'))

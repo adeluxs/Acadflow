@@ -73,6 +73,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'ai_provider' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/ai-provider.log'),
+            'level' => env('AI_PROVIDER_LOG_LEVEL', 'info'),
+            'days' => env('AI_PROVIDER_LOG_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

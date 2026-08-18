@@ -3,38 +3,36 @@
 namespace App\Ai\Providers;
 
 use App\Ai\Contracts\AiResponse;
-use App\Ai\Rules\RuleEngine;
 
-/**
- * Google Gemini provider. Falls back to the rule engine on any failure.
- */
 class GeminiProvider extends ExternalProvider
 {
-    public function __construct(RuleEngine $engine)
-    {
-        parent::__construct($engine, config('ai.providers.gemini', []));
-    }
-
-    public function name(): string
-    {
-        return 'gemini';
-    }
+    public function name(): string { return 'gemini'; }
 
     protected function hasCredentials(): bool
     {
-        return ! empty($this->config['api_key'] ?? null);
+        return trim((string) ($this->config['api_key'] ?? '')) !== '';
     }
 
     protected function endpoint(): ?string
     {
-        $model = $this->config['model'] ?? 'gemini-1.5-flash';
+        $base = rtrim((string) ($this->config['base_url'] ?? 'https://generativelanguage.googleapis.com/v1beta'), '/');
+        if ($base === '' || $this->model() === null) return null;
+        if (str_contains(strtolower($base), ':generatecontent')) return $base;
+        return $base.'/models/'.rawurlencode((string) $this->model()).':generateContent';
+    }
 
-        return "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=".$this->config['api_key'];
+
+    protected function headers(): array
+    {
+        return parent::headers() + [
+            'x-goog-api-key' => (string) ($this->config['api_key'] ?? ''),
+            'x-goog-api-client' => 'acadflow-laravel/1.0',
+        ];
     }
 
     protected function buildPrompt(string $feature, array $payload): string
     {
-        return json_encode(['feature' => $feature, 'context' => $payload]);
+        return json_encode(['feature' => $feature, 'context' => $payload], JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}';
     }
 
     protected function body(string $feature, array $payload): array
@@ -44,7 +42,9 @@ class GeminiProvider extends ExternalProvider
             'contents' => [['role' => 'user', 'parts' => [['text' => $this->userPrompt($feature, $payload)]]]],
             'generationConfig' => [
                 'temperature' => (float) ($this->config['temperature'] ?? 0.2),
-                'maxOutputTokens' => (int) config('ai.max_tokens', 2048),
+                'maxOutputTokens' => $feature === '__health_check'
+                    ? min(64, (int) ($this->config['max_tokens'] ?? 2048))
+                    : (int) ($this->config['max_tokens'] ?? 2048),
                 'responseMimeType' => 'application/json',
             ],
         ];
@@ -52,19 +52,16 @@ class GeminiProvider extends ExternalProvider
 
     protected function parseResponse(string $feature, array $raw, float $time, float $cost): AiResponse
     {
-        $content = $raw['candidates'][0]['content']['parts'][0]['text'] ?? '';
-        $data = json_decode($content, true) ?: ['raw' => $content];
+        $content = (string) data_get($raw, 'candidates.0.content.parts.0.text', '');
+        $data = json_decode($content, true);
+        if (! is_array($data)) $data = ['raw' => $content];
 
         return new AiResponse(
-            source: 'gemini',
-            feature: $feature,
-            success: true,
-            data: $data['data'] ?? $data,
-            summary: $data['summary'] ?? null,
-            score: $data['score'] ?? null,
-            issues: $data['issues'] ?? [],
-            processingTime: $time,
-            cost: $cost,
+            source: $this->name(), feature: $feature, success: true,
+            data: $data['data'] ?? $data, summary: $data['summary'] ?? null,
+            score: isset($data['score']) ? (float) $data['score'] : null,
+            issues: is_array($data['issues'] ?? null) ? $data['issues'] : [],
+            processingTime: $time, cost: $cost, provider: $this->name(), model: $this->model(),
         );
     }
 }

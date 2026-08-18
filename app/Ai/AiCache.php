@@ -2,18 +2,20 @@
 
 namespace App\Ai;
 
-use App\Services\SettingService;
+use App\Services\Ai\AiRuntimeConfigService;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Generation-based AI cache.
+ * Generation-based AI response cache.
  *
- * Cache keys include global, feature and scope generations. Invalidation is
- * therefore deterministic on every Laravel cache driver and does not depend on
- * unsupported key iteration or cache tags.
+ * The AiManager includes an AI routing fingerprint in the payload, so changing
+ * provider, model, mode or feature routing cannot return a stale response from
+ * a previous configuration even before old entries expire.
  */
 class AiCache
 {
+    public function __construct(private readonly AiRuntimeConfigService $runtime) {}
+
     protected function key(string $feature, array $payload, ?string $scope = null): string
     {
         $fingerprint = hash('sha256', json_encode([
@@ -29,31 +31,19 @@ class AiCache
 
     public function get(string $feature, array $payload, ?string $scope = null, ?int $universityId = null): mixed
     {
-        return $this->enabled($universityId) ? Cache::get($this->key($feature, $payload, $scope)) : null;
+        return $this->runtime->cacheEnabled($universityId) ? Cache::get($this->key($feature, $payload, $scope)) : null;
     }
 
     public function put(string $feature, array $payload, mixed $value, ?string $scope = null, ?int $universityId = null): void
     {
-        if ($this->enabled($universityId)) {
-            $ttl = (int) SettingService::get('ai_cache_ttl', config('ai.cache_ttl', 86400), $universityId);
-            Cache::put($this->key($feature, $payload, $scope), $value, $ttl);
+        if ($this->runtime->cacheEnabled($universityId)) {
+            Cache::put($this->key($feature, $payload, $scope), $value, $this->runtime->cacheTtl($universityId));
         }
     }
 
-    public function forgetScope(string $scope): void
-    {
-        $this->bump('scope:'.$scope);
-    }
-
-    public function forgetFeature(string $feature): void
-    {
-        $this->bump('feature:'.$feature);
-    }
-
-    public function forgetAll(): void
-    {
-        $this->bump('global');
-    }
+    public function forgetScope(string $scope): void { $this->bump('scope:'.$scope); }
+    public function forgetFeature(string $feature): void { $this->bump('feature:'.$feature); }
+    public function forgetAll(): void { $this->bump('global'); }
 
     protected function generation(string $name): int
     {
@@ -64,10 +54,5 @@ class AiCache
     {
         $key = 'ai:generation:'.hash('sha256', $name);
         Cache::forever($key, $this->generation($name) + 1);
-    }
-
-    protected function enabled(?int $universityId = null): bool
-    {
-        return (bool) SettingService::get('ai_enable_cache', config('ai.enable_cache', true), $universityId);
     }
 }

@@ -1,263 +1,86 @@
-# Security Plan
+# AcadFlow Security Architecture
 
----
+**Current source snapshot:** 2026-08-15  
+**Canonical engineering guide:** `DEVELOPER_GUIDE.md`
 
-## 1. Authentication Security
+## Authentication
 
-### 1.1 User Authentication
+- Laravel web auth and Sanctum API auth
+- email verification before protected application routes
+- password reset flow
+- optional/required two-factor authentication through account security/challenge middleware
+- session timeout and concurrent-session middleware
+- CSRF protection on web routes, with explicit verified webhook exclusions
 
-| Security Measure | Implementation |
-|----------------|--------------|
-| Password Hashing | Bcrypt with cost factor 10 |
-| Minimum Password | 8 characters, mixed case, numbers |
-| Login Throttling | 5 attempts per minute |
-| Session Timeout | 30 minutes idle |
-| Concurrent Sessions | 3 devices maximum |
-| Two-Factor Auth | Optional for lecturers/admins |
+Current named rate limits include:
 
-### 1.2 Registration Controls
+- login: 10/minute by email+IP
+- registration: 5/hour by IP
+- password reset: 5/minute by email+IP
+- verification: 6/minute by user/IP
+- two-factor: 5/minute by user/IP
+- AI: runtime-configurable per-minute limit
+- challenge votes: 20/minute
+- secure downloads: 30/minute
+- commerce webhooks: 120/minute by IP
 
-- Email verification required before activation
-- Student ID validation against university records
-- Department approval for lecturer accounts
-- Admin approval for admin accounts
+## Authorization
 
----
+AcadFlow uses layered authorization:
 
-## 2. Authorization Security
+1. role middleware;
+2. permission enum mapping;
+3. model policies;
+4. tenant/department/course membership queries;
+5. feature/module availability;
+6. subscription feature gates;
+7. AI feature gates.
 
-### 2.1 Role-Based Access Control (RBAC)
+Never use UI visibility as the only authorization control.
 
-```
-Implementation: Laravel Policies + Gates
-```
+## Tenant isolation
 
-| Component | Implementation |
-|-----------|--------------|
-| Middleware | Role middleware checks |
-| Controllers | Policy authorization |
-| Routes | Route-level protection |
-| Views | Blade `@can` directives |
-| API | Token abilities |
+Institutional data is scoped by university and often department/course. AI context, research records, student submissions, settings/credentials and Knowledge permissions must preserve tenant boundaries.
 
-### 2.2 Permission Layers
+## Feature management
 
-- **Route Level**: Route middleware
-- **Controller Level**: Policy checks
-- **Model Level**: Gate definitions
-- **View Level**: Blade directives
+Feature status is centrally enforced for web/API. Admins can preview restricted features; normal users cannot. API unavailable responses include controlled feature status codes.
 
----
+## AI security
 
-## 3. Data Security
+- provider credentials are centralized and must be masked/encrypted where stored;
+- provider secrets must never be logged or returned to clients;
+- retrieved documents are treated as untrusted data;
+- prompt injection patterns are sanitized/guarded;
+- Grounded Companion requires evidence/source validation;
+- contextual assistants authorize the model before building context;
+- gibberish can be rejected before provider calls;
+- Provider AI mode cannot silently pretend Rule Engine output came from the selected provider.
 
-### 3.1 Input Validation
+## File/media security
 
-| Validation Layer | Implementation |
-|----------------|--------------|
-| Form Requests | Laravel FormRequest classes |
-| Custom Rules | Custom validation rules |
-| File Validation | Type, size, malware scanning |
-| API Validation | API Resource validation |
+- secure media services and expiring tokens
+- configurable malware scanning
+- server-side MIME/size validation
+- private academic files should not be exposed by raw public URLs
+- safe streaming/missing-file handling
 
-### 3.2 Output Encoding
+## Webhooks/payments
 
-- All user input escaped in Blade templates
-- JSON encoding for API responses
-- HTML sanitization for user-generated content
+Payment/commerce webhooks are intentionally outside signed-in browser auth and use webhook verification middleware. Keep them CSRF-exempt only where verified by gateway signature logic.
 
-### 3.3 SQL Injection Prevention
+## Database/seeding safety
 
-- Eloquent ORM uses parameterized queries
-- No raw query building
-- Query builder with bindings
+- production-safe migrations
+- explicit short MySQL index names
+- idempotent seeders
+- no production `migrate:fresh`
+- no truncation/reset of administrator settings/credentials during upgrades
 
----
+## Logging/privacy
 
-## 4. File Security
+Do not log passwords, recovery codes, API keys, access tokens or payment secrets. AI usage logs should store routing/usage metadata without leaking provider credentials. Be conservative when storing prompts/responses containing student/research content.
 
-### 4.1 Upload Restrictions
+## Reporting vulnerabilities
 
-| Restriction | Value |
-|------------|-------|
-| Max File Size | 50MB |
-| Allowed Types | PDF, DOCX, ZIP, PNG, JPG |
-| Scan Malware | ClamAV (if available) |
-| Rename | UUID-based safe names |
-| Storage | Private S3 bucket |
-
-### 4.2 File Access Control
-
-- Signed URLs with expiration
-- No direct file access
-- Private storage disk
-- Path traversal prevention
-
-### 4.3 Download Protection
-
-```php
-// Download flow
-$file = Storage::disk('private')->get($path);
-$url = Storage::disk('private')->temporaryUrl($path, now()->addHour());
-```
-
----
-
-## 5. API Security
-
-### 5.1 Authentication
-
-| Method | Implementation |
-|--------|--------------|
-| Web | Session + CSRF cookie |
-| Mobile/API | Sanctum token (Bearer) |
-| Token Expiry | 60 minutes (configurable) |
-| Refresh Token | Long-lived (30 days) |
-
-### 5.2 Rate Limiting
-
-| Endpoint | Limit |
-|----------|-------|
-| Login | 5 per minute |
-| API General | 60 per minute |
-| API Submissions | 30 per minute |
-| Upload | 10 per minute |
-
-### 5.3 CORS Configuration
-
-```php
-// config/cors.php
-'paths' => ['api/*'],
-'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE'],
-'allowed_origins' => ['https://app.example.com'],
-'allowed_headers' => ['Authorization', 'Content-Type'],
-```
-
----
-
-## 6. Network Security
-
-### 6.1 HTTPS
-
-- TLS 1.3 required in production
-- HTTP redirects to HTTPS
-- HSTS header enabled
-
-### 6.2 Firewall Rules
-
-| Port | Service |
-|------|---------|
-| 443 | HTTPS |
-| 22 | SSH (key-only) |
-
----
-
-## 7. Application Security
-
-### 7.1 CSRF Protection
-
-```php
-// All forms include CSRF token
-@csrf
-```
-
-### 7.2 XSS Prevention
-
-- Blade `{{ }}` escapes HTML
-- No raw output of user content
-- Content Security Policy header
-
-### 7.3 Clickjacking Prevention
-
-```
-X-Frame-Options: DENY
-```
-
-### 7.4 MIME Sniffing Prevention
-
-```
-X-Content-Type-Options: nosniff
-```
-
----
-
-## 8. Audit Logging
-
-### 8.1 Logged Actions
-
-| Category | Actions |
-|----------|---------|
-| Authentication | Login, logout, failed attempts |
-| Authorization | Access denied |
-| Data Changes | Create, update, delete |
-| Submissions | Submit, grade, approve |
-| Billing | Payment, verification |
-| Attendance | Session start/end, check-in |
-
-### 8.2 Log Format
-
-```json
-{
-  "user_id": 1,
-  "action": "submission.grade",
-  "entity_type": "submission",
-  "entity_id": 123,
-  "old_values": {...},
-  "new_values": {...},
-  "ip_address": "192.168.1.1",
-  "timestamp": "2024-01-01 12:00:00"
-}
-```
-
----
-
-## 9. Security Checklist
-
-### 9.1 Production Checklist
-
-- [ ] HTTPS enforced
-- [ ] DEBUG disabled
-- [ ] API keys rotated
-- [ ] Session timeout configured
-- [ ] Rate limiting enabled
-- [ ] CSRF protection active
-- [ ] Security headers configured
-- [ ] Audit logging enabled
-- [ ] File upload restrictions
-- [ ] Backup strategy in place
-
-### 9.2 Code Review Checklist
-
-- [ ] No hardcoded credentials
-- [ ] No SQL injection risks
-- [ ] XSS protection in views
-- [ ] CSRF tokens on forms
-- [ ] Authorization on routes
-- [ ] Input validation present
-- [ ] File upload validation
-- [ ] Error handling complete
-
----
-
-## 10. Incident Response
-
-### 10.1 Security Incident Types
-
-| Severity | Response Time |
-|----------|--------------|
-| Critical | 1 hour |
-| High | 4 hours |
-| Medium | 24 hours |
-| Low | 72 hours |
-
-### 10.2 Backup Strategy
-
-- Full backup: Daily
-- Incremental: Every 6 hours
-- Retention: 30 days
-- Offsite: Weekly copy
-
----
-
-*Document Version: 1.0*
-*Last Updated: 2026-04-14*
+Use the organization/platform security contact configured for the deployment. Do not use the default Laravel framework security-contact wording from old boilerplate README files.

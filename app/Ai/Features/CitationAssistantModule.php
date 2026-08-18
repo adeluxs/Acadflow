@@ -5,7 +5,7 @@ namespace App\Ai\Features;
 use App\Ai\AiManager;
 use App\Ai\Contracts\AiResponse;
 use App\Models\User;
-use App\Services\SettingService;
+use App\Services\Ai\AiRuntimeConfigService;
 
 /**
  * AI Citation & Reference Assistant (Phase 14).
@@ -16,11 +16,11 @@ use App\Services\SettingService;
  */
 class CitationAssistantModule
 {
-    public function __construct(protected AiManager $manager) {}
+    public function __construct(protected AiManager $manager, protected AiRuntimeConfigService $runtime) {}
 
     public function isEnabled(?int $universityId = null): bool
     {
-        return (bool) SettingService::get('ai_feature_citation_assistant', true, $universityId);
+        return $this->runtime->featureEnabled('citation_assistant', $universityId);
     }
 
     public function supportedStyles(): array

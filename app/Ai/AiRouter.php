@@ -3,86 +3,89 @@
 namespace App\Ai;
 
 use App\Ai\Contracts\AiProviderInterface;
-use App\Ai\Providers\AzureOpenAiProvider;
-use App\Ai\Providers\ClaudeProvider;
-use App\Ai\Providers\DeepSeekProvider;
-use App\Ai\Providers\GeminiProvider;
-use App\Ai\Providers\OllamaProvider;
-use App\Ai\Providers\OpenAiProvider;
-use App\Ai\Providers\RuleBasedProvider;
-use App\Ai\Rules\RuleEngine;
 use App\Enums\AiMode;
-use App\Enums\AiProviderName;
-use App\Services\SettingService;
+use App\Services\Ai\AiRuntimeConfigService;
 
 /**
- * AI Router.
- *
- * Determines which engine (rule engine or external provider) should process a
- * request based on the configured AI mode. Mode is configurable through system
- * settings (ai_mode). Supports: rule_based, provider, hybrid, disabled.
+ * Central provider router. All runtime provider/model selection flows through
+ * AiRuntimeConfigService and AiProviderRegistry.
  */
 class AiRouter
 {
-    public function __construct(protected RuleEngine $engine) {}
-
-    /**
-     * Resolve the active provider for a given feature.
-     *
-     * Returns the provider or null when AI is disabled.
-     */
-    public function resolve(string $feature, ?int $universityId = null): ?AiProviderInterface
-    {
-        $mode = $this->mode($universityId);
-
-        return match ($mode) {
-            AiMode::DISABLED => null,
-            AiMode::RULE_BASED => new RuleBasedProvider($this->engine),
-            AiMode::PROVIDER => $this->provider($this->defaultProviderName($universityId)),
-            AiMode::HYBRID => new RuleBasedProvider($this->engine), // manager runs hybrid flow
-        };
-    }
+    public function __construct(
+        private readonly AiRuntimeConfigService $settings,
+        private readonly AiProviderRegistry $providers,
+    ) {}
 
     public function mode(?int $universityId = null): AiMode
     {
-        $value = SettingService::get('ai_mode', config('ai.default_mode', 'rule_based'), $universityId);
-
-        return AiMode::tryFrom($value) ?? AiMode::RULE_BASED;
+        return $this->settings->mode($universityId);
     }
 
     public function defaultProviderName(?int $universityId = null): string
     {
-        return (string) SettingService::get('ai_default_provider', config('ai.default_provider', 'rule_based'), $universityId);
+        return $this->settings->defaultProvider($universityId);
     }
 
-    public function fallbackProviderName(?int $universityId = null): string
+    public function fallbackProviderName(?int $universityId = null): ?string
     {
-        return (string) SettingService::get('ai_fallback_provider', config('ai.fallback_provider', 'rule_based'), $universityId);
+        return $this->settings->fallbackProvider($universityId);
     }
 
-    /**
-     * Build a provider instance by name.
-     */
-    public function provider(string $name): AiProviderInterface
+    public function secondaryFallbackProviderName(?int $universityId = null): ?string
     {
-        return match ($name) {
-            AiProviderName::OPENAI->value => new OpenAiProvider($this->engine),
-            AiProviderName::CLAUDE->value => new ClaudeProvider($this->engine),
-            AiProviderName::GEMINI->value => new GeminiProvider($this->engine),
-            AiProviderName::DEEPSEEK->value => new DeepSeekProvider($this->engine),
-            AiProviderName::AZURE_OPENAI->value => new AzureOpenAiProvider($this->engine),
-            AiProviderName::OLLAMA->value => new OllamaProvider($this->engine),
-            default => new RuleBasedProvider($this->engine),
-        };
+        return $this->settings->secondaryFallbackProvider($universityId);
     }
 
-    public function availableProviders(): array
+    public function provider(string $name, ?int $universityId = null, ?string $model = null): AiProviderInterface
     {
-        $names = array_merge(
-            [AiProviderName::RULE_BASED->value],
-            config('ai.provider_priority', [])
-        );
+        return $this->providers->make($name, $universityId, $model);
+    }
 
-        return array_values(array_unique($names));
+    /** @return list<string> */
+    public function requiredCapabilities(string $feature): array
+    {
+        return array_values((array) config('ai.feature_capabilities.'.$feature, []));
+    }
+
+    public function providerSupportsFeature(string $provider, string $feature): bool
+    {
+        return $this->providers->supports($provider, $this->requiredCapabilities($feature));
+    }
+
+    /** @return list<array{provider:string,model:string,role:string}> */
+    public function providerChain(string $feature, ?int $universityId = null): array
+    {
+        return $this->settings->providerChain($feature, $universityId);
+    }
+
+    /** @return array<string,mixed> */
+    public function route(string $feature, ?int $universityId = null): array
+    {
+        $primary = $this->settings->featurePrimary($feature, $universityId);
+        return [
+            'feature' => $feature,
+            'mode' => $this->mode($universityId)->value,
+            'feature_enabled' => $this->settings->featureEnabled($feature, $universityId),
+            'requested_configuration' => $primary['uses_global'] ? 'global' : 'feature_override',
+            'resolved_provider' => $primary['provider'],
+            'resolved_model' => $primary['model'],
+            'fallback_provider' => $this->settings->fallbackProvider($universityId),
+            'fallback_model' => $this->settings->fallbackModel($universityId),
+            'secondary_fallback_provider' => $this->settings->secondaryFallbackProvider($universityId),
+            'secondary_fallback_model' => $this->settings->secondaryFallbackModel($universityId),
+            'automatic_failover' => $this->settings->automaticFailover($universityId),
+            'rule_fallback' => $this->settings->featureRuleFallbackEnabled($feature, $universityId),
+            'provider_chain' => $this->providerChain($feature, $universityId),
+            'required_capabilities' => $this->requiredCapabilities($feature),
+            'provider_compatible' => $primary['provider'] === 'rule_based'
+                ? $this->mode($universityId) === AiMode::RULE_BASED
+                : $this->providerSupportsFeature($primary['provider'], $feature),
+        ];
+    }
+
+    public function availableProviders(?int $universityId = null): array
+    {
+        return array_keys($this->providers->definitions($universityId));
     }
 }

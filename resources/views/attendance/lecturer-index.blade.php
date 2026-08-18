@@ -1,101 +1,13 @@
 @extends('layouts.app')
-
-@section('title', 'Attendance Sessions')
-
+@section('title','Attendance Sessions')
 @section('content')
-<div class="container mx-auto px-4 py-8">
-    <div class="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-start mb-6">
-        <div>
-            <h1 class="text-2xl font-bold">Attendance Sessions</h1>
-            <p class="text-sm text-gray-600 mt-1">Start and manage attendance for courses assigned to you.</p>
-        </div>
-        <form method="POST" action="{{ route('attendance.start') }}" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" id="start-attendance-form">
-            @csrf
-            <select name="course_id" required class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 sm:col-span-2">
-                <option value="">Select Course</option>
-                @foreach($courses as $course)
-                    <option value="{{ $course->id }}" @selected(old('course_id') == $course->id)>{{ $course->code }} - {{ $course->name }}</option>
-                @endforeach
-            </select>
-            <input type="number" name="check_in_window" min="1" max="180" value="{{ old('check_in_window', 30) }}" class="px-3 py-2 border border-gray-300 rounded-md" aria-label="Check-in window in minutes" title="Check-in window in minutes">
-            <input type="number" name="late_threshold" min="0" max="180" value="{{ old('late_threshold', 15) }}" class="px-3 py-2 border border-gray-300 rounded-md" aria-label="Late threshold in minutes" title="Late threshold in minutes">
-            <input type="hidden" name="latitude" id="session-latitude">
-            <input type="hidden" name="longitude" id="session-longitude">
-            <input type="hidden" name="geofence_radius" value="100">
-            <button type="button" id="capture-location" class="border border-blue-600 text-blue-700 px-4 py-2 rounded hover:bg-blue-50 sm:col-span-2">
-                Use Current Location (Optional)
-            </button>
-            <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 sm:col-span-2">
-                Start Session
-            </button>
-            <p id="location-message" class="hidden text-xs text-gray-600 sm:col-span-4"></p>
-        </form>
-    </div>
-
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="min-w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Course</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Started</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Students</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    @forelse($sessions as $session)
-                        <tr>
-                            <td class="px-6 py-4">{{ $session->course->code }} - {{ $session->course->name }}</td>
-                            <td class="px-6 py-4">{{ $session->started_at->format('Y-m-d H:i') }}</td>
-                            <td class="px-6 py-4">{{ $session->records->count() }}</td>
-                            <td class="px-6 py-4">
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $session->status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                    {{ ucfirst($session->status) }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4">
-                                <a href="{{ route('attendance.session', $session) }}" class="text-indigo-600 hover:text-indigo-900">View</a>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="px-6 py-8 text-center text-gray-500">No sessions found.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="mt-4">{{ $sessions->links() }}</div>
+<div class="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+    <section class="rounded-[2rem] bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 p-7 text-white shadow-xl sm:p-9"><p class="text-xs font-black uppercase tracking-[.24em] text-emerald-300">Lecturer attendance control</p><h1 class="mt-2 text-3xl font-black sm:text-4xl">Attendance sessions</h1><p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300">Start a secure course check-in, optionally add geofencing, monitor participation and review completed sessions.</p></section>
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><div><p class="text-xs font-black uppercase tracking-[.18em] text-emerald-600">Start session</p><h2 class="mt-1 text-xl font-black text-slate-900">Configure check-in</h2></div><form method="POST" action="{{ route('attendance.start') }}" id="start-attendance-form" class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">@csrf<select name="course_id" required class="rounded-xl border-slate-300 xl:col-span-2"><option value="">Select course</option>@foreach($courses as $course)<option value="{{ $course->id }}" @selected(old('course_id')==$course->id)>{{ $course->code }} — {{ $course->name }}</option>@endforeach</select><label class="text-xs font-bold text-slate-500">Check-in window<input type="number" name="check_in_window" min="1" max="180" value="{{ old('check_in_window',30) }}" class="mt-1 w-full rounded-xl border-slate-300"></label><label class="text-xs font-bold text-slate-500">Late threshold<input type="number" name="late_threshold" min="0" max="180" value="{{ old('late_threshold',15) }}" class="mt-1 w-full rounded-xl border-slate-300"></label><input type="hidden" name="latitude" id="session-latitude"><input type="hidden" name="longitude" id="session-longitude"><input type="hidden" name="geofence_radius" value="100"><button type="button" id="capture-location" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">Use current location</button><button class="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-black text-white">Start session</button><p id="location-message" class="hidden text-xs text-slate-500 xl:col-span-6"></p></form></section>
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">@forelse($sessions as $session)<article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"><div class="flex items-start justify-between gap-3"><div><p class="text-xs font-black uppercase tracking-wide text-emerald-600">{{ $session->course->code }}</p><h2 class="mt-1 font-black text-slate-900">{{ $session->course->name }}</h2></div><span class="rounded-full px-3 py-1 text-xs font-bold {{ $session->status==='active'?'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-600' }}">{{ str($session->status)->headline() }}</span></div><div class="mt-5 grid grid-cols-2 gap-3"><div class="rounded-xl bg-slate-50 p-3"><p class="text-[10px] font-bold uppercase text-slate-400">Started</p><p class="mt-1 text-sm font-bold text-slate-700">{{ $session->started_at->format('M j · H:i') }}</p></div><div class="rounded-xl bg-slate-50 p-3"><p class="text-[10px] font-bold uppercase text-slate-400">Records</p><p class="mt-1 text-sm font-bold text-slate-700">{{ $session->records->count() }}</p></div></div><a href="{{ route('attendance.session',$session) }}" class="mt-5 block rounded-xl bg-slate-900 px-4 py-2.5 text-center text-sm font-black text-white">Open session</a></article>@empty<div class="md:col-span-2 xl:col-span-3 rounded-[2rem] border border-dashed border-slate-300 bg-white p-14 text-center"><h2 class="text-xl font-black text-slate-900">No sessions yet</h2><p class="mt-2 text-sm text-slate-500">Start an attendance session for one of your assigned courses.</p></div>@endforelse</div>
+    {{ $sessions->links() }}
 </div>
-
 <script>
-const locationButton = document.getElementById('capture-location');
-const locationMessage = document.getElementById('location-message');
-
-locationButton.addEventListener('click', () => {
-    locationMessage.classList.remove('hidden');
-    locationMessage.textContent = 'Capturing location…';
-
-    if (!('geolocation' in navigator)) {
-        locationMessage.textContent = 'Location is not supported by this browser. The session will start without geofencing.';
-        return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-        position => {
-            document.getElementById('session-latitude').value = position.coords.latitude;
-            document.getElementById('session-longitude').value = position.coords.longitude;
-            locationMessage.textContent = 'Location captured. A 100-metre geofence will be applied.';
-        },
-        () => {
-            locationMessage.textContent = 'Location could not be captured. The session can still start without geofencing.';
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
-    );
-});
+const locationButton=document.getElementById('capture-location');const locationMessage=document.getElementById('location-message');locationButton.addEventListener('click',()=>{locationMessage.classList.remove('hidden');locationMessage.textContent='Capturing location…';if(!('geolocation' in navigator)){locationMessage.textContent='Location is not supported by this browser. The session will start without geofencing.';return;}navigator.geolocation.getCurrentPosition(position=>{document.getElementById('session-latitude').value=position.coords.latitude;document.getElementById('session-longitude').value=position.coords.longitude;locationMessage.textContent='Location captured. A 100-metre geofence will be applied.';},()=>{locationMessage.textContent='Location could not be captured. The session can still start without geofencing.';},{enableHighAccuracy:true,timeout:8000,maximumAge:30000});});
 </script>
 @endsection

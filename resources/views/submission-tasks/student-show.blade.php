@@ -1,284 +1,59 @@
 @extends('layouts.app')
-
 @section('title', $task->title)
-
 @section('content')
-<div class="container mx-auto px-4 py-8">
-    <div class="grid grid-cols-3 gap-8">
-        <!-- Left: Assignment Details -->
-        <div class="col-span-2">
-            <!-- Header -->
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
-                <h1 class="text-3xl font-bold text-gray-900">{{ $task->title }}</h1>
-                <p class="text-gray-600 mt-2">{{ $task->type }}</p>
+@php
+    $mySubmission = $studentSubmissions->first();
+    $isBeforeOpen = $task->open_at && now()->lt($task->open_at);
+    $effectiveClose = $task->allow_late_submissions ? $task->late_deadline : ($task->due_date ?? $task->close_at);
+    $isClosed = $effectiveClose && now()->gt($effectiveClose);
+    $canResubmit = !$mySubmission || $task->max_resubmissions===null || $mySubmission->resubmission_count < $task->max_resubmissions;
+@endphp
+<div class="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+    <section class="rounded-[2rem] bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 p-7 text-white shadow-xl sm:p-9">
+        <a href="{{ route('courses.assignments',$course) }}" class="text-sm font-semibold text-indigo-200 hover:text-white">← Back to assignments</a>
+        <div class="mt-5 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div class="max-w-4xl"><div class="flex flex-wrap gap-2"><span class="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">{{ str($task->type)->headline() }}</span>@if($mySubmission)<span class="rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-bold text-emerald-200">{{ $mySubmission->is_late ? 'Late · ' : '' }}{{ str($mySubmission->status)->headline() }}</span>@else<span class="rounded-full bg-amber-400/15 px-3 py-1 text-xs font-bold text-amber-200">Not submitted</span>@endif</div><h1 class="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{{ $task->title }}</h1><p class="mt-3 text-sm text-slate-300">{{ $course->code }} · {{ $course->name }}</p></div>
+            <div class="rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-center backdrop-blur"><p class="text-xs text-slate-300">Maximum score</p><p class="mt-1 text-3xl font-black">{{ $task->max_score }}</p></div>
+        </div>
+    </section>
 
-                <!-- Status -->
-                <div class="flex gap-4 mt-4">
-                    @php
-                        $mySubmission = $studentSubmissions->first();
-                    @endphp
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_340px]">
+        <main class="space-y-6">
+            <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+                <p class="text-xs font-black uppercase tracking-[.18em] text-indigo-600">Assignment brief</p><h2 class="mt-1 text-xl font-black text-slate-900">What you need to do</h2>
+                @if($task->description)<p class="mt-4 whitespace-pre-line text-sm leading-7 text-slate-600">{{ $task->description }}</p>@endif
+                @if($task->instructions)<div class="mt-6 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-5"><p class="text-xs font-black uppercase tracking-wide text-indigo-600">Instructions</p><div class="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700">{{ $task->instructions }}</div></div>@endif
+            </section>
 
-                    @if($mySubmission)
-                        <span class="px-3 py-1 rounded-full text-sm font-semibold
-                            {{ $mySubmission->status === 'submitted' ? 'bg-green-100 text-green-800' : '' }}
-                            {{ $mySubmission->status === 'draft' ? 'bg-yellow-100 text-yellow-800' : '' }}
-                        ">
-                            {{ $mySubmission->is_late ? 'Late' : ucfirst($mySubmission->status) }}
-                        </span>
+            @include('ai._contextual-assistant', ['assistantFeature' => 'assignment_assistant', 'assistantEndpoint' => route('ai.context.assignment',[$course,$task])])
 
-                        @if($mySubmission->grade)
-                            <span class="text-lg font-bold text-gray-900">
-                                Grade: {{ $mySubmission->grade->score }}/{{ $task->max_score }}
-                            </span>
-                        @endif
-                    @else
-                        <span class="px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
-                            Not Submitted
-                        </span>
-                    @endif
-                </div>
-            </div>
-
-            <!-- Description -->
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">About This Assignment</h2>
-                <p class="text-gray-700 whitespace-pre-wrap mb-6">{{ $task->description }}</p>
-
-                <div class="bg-blue-50 border-l-4 border-blue-500 p-4">
-                    <h3 class="font-bold text-gray-900 mb-2">Instructions</h3>
-                    <div class="prose prose-sm max-w-none text-gray-700">
-                        {!! nl2br(e($task->instructions)) !!}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Supporting Materials -->
-            @if($task->attachments && $task->attachments->count() > 0)
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">📎 Supporting Materials</h2>
-                <div class="space-y-2">
-                    @foreach($task->attachments as $attachment)
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded border">
-                        <div>
-                            <p class="font-semibold text-gray-900">{{ $attachment->file_name }}</p>
-                            <p class="text-xs text-gray-600">{{ ucfirst($attachment->type) }}</p>
-                        </div>
-                         <a href="{{ route('submission-tasks.attachment.download', [$course, $task, $attachment]) }}"
-                            class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition">
-                            Download
-                        </a>
-                    </div>
-                    @endforeach
-                </div>
-            </div>
+            @if($task->attachments && $task->attachments->count())
+                <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><h2 class="text-xl font-black text-slate-900">Supporting materials</h2><div class="mt-4 grid gap-3 sm:grid-cols-2">@foreach($task->attachments as $attachment)<a href="{{ route('submission-tasks.attachment.download',[$course,$task,$attachment]) }}" class="flex items-center justify-between rounded-2xl border border-slate-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/30"><div><p class="font-bold text-slate-900">{{ $attachment->file_name }}</p><p class="mt-1 text-xs text-slate-500">{{ str($attachment->type)->headline() }}</p></div><span class="text-sm font-bold text-indigo-600">Download</span></a>@endforeach</div></section>
             @endif
 
-            <!-- Previous Submissions -->
             @if($studentSubmissions->isNotEmpty())
-            <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">📤 Your Submissions</h2>
-                
-                @php
-                    $submissions = $studentSubmissions;
-                @endphp
-
-                <div class="space-y-4">
-                    @foreach($submissions as $sub)
-                    <div class="border rounded-lg p-4 {{ $sub->status === 'submitted' ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200' }}">
-                        <div class="flex justify-between items-start mb-3">
-                            <div>
-                                <p class="font-semibold text-gray-900">
-                                    Submission {{ $loop->index + 1 }}
-                                    <span class="text-sm font-normal text-gray-600 ml-2">
-                                        {{ $sub->submitted_at ? '✓ Submitted ' . $sub->submitted_at->diffForHumans() : 'Draft' }}
-                                    </span>
-                                </p>
-                                @if($sub->is_late)
-                                    <p class="text-sm text-red-600 font-semibold">⚠ Submitted Late</p>
-                                @endif
-                            </div>
-                            @if($sub->grade)
-                                <span class="text-xl font-bold text-gray-900">
-                                    {{ $sub->grade->score }}/{{ $task->max_score }}
-                                </span>
-                            @endif
-                        </div>
-
-                        <!-- Files -->
-                        @if($sub->versions->isNotEmpty())
-                        <div class="bg-gray-50 rounded p-3 mb-3">
-                            <p class="text-xs text-gray-600 uppercase tracking-wide mb-2">Files</p>
-                            <div class="space-y-1">
-                                @foreach($sub->versions as $file)
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-gray-900">{{ $file->file_name }}</span>
-                                    <a href="{{ route('submission-versions.download', $file) }}"
-                                       class="text-blue-600 hover:underline">Download</a>
-                                </div>
-                                @endforeach
-                            </div>
-                        </div>
-                        @endif
-
-                        <!-- Comments -->
-                        @if($sub->comments && $sub->comments->count() > 0)
-                        <div class="bg-white rounded p-3">
-                            <p class="text-xs text-gray-600 uppercase tracking-wide mb-2">Comments</p>
-                            <div class="space-y-2">
-                                @foreach($sub->comments as $comment)
-                                <div class="text-sm border-l-2 border-gray-300 pl-3">
-                                    <p class="font-semibold text-gray-900">{{ $comment->user->name }}</p>
-                                    <p class="text-gray-700">{{ $comment->comment }}</p>
-                                    <p class="text-xs text-gray-500">{{ $comment->created_at->format('M d, H:i') }}</p>
-                                </div>
-                                @endforeach
-                            </div>
-                        </div>
-                        @endif
-                    </div>
+                <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><div class="flex items-center justify-between"><h2 class="text-xl font-black text-slate-900">Your submissions</h2><span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{{ $studentSubmissions->count() }} version{{ $studentSubmissions->count()===1?'':'s' }}</span></div><div class="mt-5 space-y-4">
+                    @foreach($studentSubmissions as $sub)
+                        <article class="rounded-2xl border {{ $sub->grade ? 'border-violet-200 bg-violet-50/40' : 'border-slate-200' }} p-5"><div class="flex items-start justify-between gap-4"><div><p class="font-black text-slate-900">Submission {{ $loop->iteration }}</p><p class="mt-1 text-xs text-slate-500">{{ $sub->submitted_at ? 'Submitted '.$sub->submitted_at->diffForHumans() : 'Draft' }} @if($sub->is_late)· <span class="font-bold text-rose-600">Late</span>@endif</p></div>@if($sub->grade)<p class="text-2xl font-black text-violet-700">{{ $sub->grade->score }}/{{ $task->max_score }}</p>@endif</div>
+                        @if($sub->versions->isNotEmpty())<div class="mt-4 grid gap-2">@foreach($sub->versions as $file)<a href="{{ route('submission-versions.download',$file) }}" class="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm"><span class="font-semibold text-slate-700">{{ $file->file_name }}</span><span class="font-bold text-indigo-600">Download</span></a>@endforeach</div>@endif
+                        @if($sub->comments && $sub->comments->count())<div class="mt-4 space-y-2 border-t border-slate-200 pt-4">@foreach($sub->comments as $comment)<div class="rounded-xl bg-white p-3"><p class="text-xs font-bold text-slate-800">{{ $comment->user->name ?? $comment->user->full_name ?? 'Reviewer' }} · {{ $comment->created_at->format('M j, H:i') }}</p><p class="mt-1 text-sm text-slate-600">{{ $comment->comment }}</p></div>@endforeach</div>@endif
+                        </article>
                     @endforeach
-                </div>
-            </div>
+                </div></section>
             @endif
-        </div>
+        </main>
 
-        <!-- Right: Sidebar -->
-        <div>
-            <!-- Key Dates -->
-            <div class="bg-blue-50 rounded-lg p-6 mb-6 border border-blue-200">
-                <h3 class="font-bold text-gray-900 mb-4">📅 Important Dates</h3>
-                <ul class="space-y-3 text-sm">
-                    <li>
-                        <p class="text-gray-600">Opens</p>
-                        <p class="font-semibold text-gray-900">{{ $task->open_at?->format('M d, Y H:i') ?? 'Not set' }}</p>
-                        @if($task->open_at && now()->lt($task->open_at))
-                            <p class="text-xs text-orange-600 mt-1">Opens in {{ $task->open_at?->diffForHumans() ?? '' }}</p>
-                        @endif
-                    </li>
-                    <li class="pt-3 border-t">
-                        <p class="text-gray-600">Due (Soft)</p>
-                        <p class="font-semibold text-gray-900">{{ $task->due_date?->format('M d, Y H:i') ?? 'Not set' }}</p>
-                        @if($task->due_date && now()->lt($task->due_date))
-                            <p class="text-xs text-green-600 mt-1 font-semibold">Due in {{ $task->due_date?->diffForHumans() ?? '' }}</p>
-                        @elseif($task->late_deadline && now()->lt($task->late_deadline))
-                            <p class="text-xs text-orange-600 mt-1 font-semibold">⚠ Overdue - late submissions allowed</p>
-                        @else
-                            <p class="text-xs text-red-600 mt-1 font-semibold">❌ Closed</p>
-                        @endif
-                    </li>
-                    @if($task->allow_late_submissions)
-                    <li class="pt-3 border-t">
-                        <p class="text-gray-600">Hard Deadline</p>
-                        <p class="font-semibold text-gray-900">{{ $task->late_deadline?->format('M d, Y H:i') ?? 'Not set' }}</p>
-                        @if($task->late_deadline && now()->lt($task->late_deadline))
-                            <p class="text-xs text-orange-600 mt-1">Last chance: {{ $task->late_deadline?->diffForHumans() ?? '' }}</p>
-                        @endif
-                    </li>
-                    @endif
-                </ul>
-            </div>
-
-            <!-- File Requirements -->
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
-                <h3 class="font-bold text-gray-900 mb-4">📋 Requirements</h3>
-                <ul class="space-y-3 text-sm">
-                    <li class="flex justify-between">
-                        <span class="text-gray-600">File Count:</span>
-                        <span class="font-semibold">{{ $task->min_file_count }}-{{ $task->max_file_count }}</span>
-                    </li>
-                    <li class="flex justify-between">
-                        <span class="text-gray-600">Max Size:</span>
-                        <span class="font-semibold">{{ $task->max_file_size_mb }}MB</span>
-                    </li>
-                    <li class="flex justify-between">
-                        <span class="text-gray-600">Formats:</span>
-                        <span class="font-semibold text-right">{{ implode(', ', array_map('strtoupper', $task->allowed_file_types ?? [])) }}</span>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Submission Policy -->
-            <div class="bg-yellow-50 rounded-lg p-6 mb-6 border border-yellow-200">
-                <h3 class="font-bold text-gray-900 mb-4">⚙️ Submission Rules</h3>
-                <ul class="space-y-2 text-sm text-gray-700">
-                    <li class="flex items-start gap-2">
-                        <span class="font-bold text-yellow-600 mt-1">•</span>
-                        <span>
-                            <strong>Resubmissions:</strong> 
-                            {{ $task->max_resubmissions ?? 'Unlimited' }}
-                        </span>
-                    </li>
-                    @if($task->late_submission_penalty_percent > 0)
-                    <li class="flex items-start gap-2">
-                        <span class="font-bold text-yellow-600 mt-1">•</span>
-                        <span>
-                            <strong>Late Penalty:</strong> 
-                            {{ $task->late_submission_penalty_percent }}% off grade
-                        </span>
-                    </li>
-                    @endif
-                    @if($task->allow_group_submissions)
-                    <li class="flex items-start gap-2">
-                        <span class="font-bold text-yellow-600 mt-1">•</span>
-                        <span>
-                            <strong>Group:</strong> 
-                            {{ $task->min_group_size }}-{{ $task->max_group_size }} members
-                        </span>
-                    </li>
-                    @endif
-                </ul>
-            </div>
-
-            <!-- Max Score -->
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
-                <p class="text-gray-600 text-sm mb-1">Total Points</p>
-                <p class="text-4xl font-bold text-blue-600">{{ $task->max_score }}</p>
-            </div>
-
-            <!-- Submit Button -->
-            @if((! $task->open_at || now()->gte($task->open_at)) && (! $task->late_deadline || now()->lte($task->late_deadline)))
-                <div class="bg-white rounded-lg shadow p-6">
-                    @php
-                        $canResubmit = !$mySubmission || ($task->max_resubmissions === null || $mySubmission->resubmission_count < $task->max_resubmissions);
-                    @endphp
-
-                    @if($canResubmit)
-                        <a href="{{ route('submissions.create') }}?task_id={{ $task->id }}" 
-                           class="block w-full px-4 py-3 bg-green-600 text-white text-center rounded-lg hover:bg-green-700 transition font-bold text-lg mb-3">
-                            {{ $mySubmission ? '🔄 Resubmit' : '📤 Submit Assignment' }}
-                        </a>
-                    @else
-                        <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
-                            <p class="text-red-700 font-semibold text-center">❌ Max resubmissions reached</p>
-                        </div>
-                    @endif
-
-                    @if($mySubmission && $mySubmission->status === 'draft')
-                        <form action="{{ route('submissions.submit', $mySubmission) }}" method="POST">
-                            @csrf
-                            <button type="submit" class="block w-full px-4 py-3 bg-blue-600 text-white text-center rounded-lg hover:bg-blue-700 transition font-semibold"
-                                    onclick="return confirm('Submit this assignment? You cannot edit it after submission.')">
-                                ✓ Submit Draft
-                            </button>
-                        </form>
-                    @endif
-                </div>
-            @elseif(now() < $task->open_at)
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center">
-                        <p class="text-gray-700 font-semibold">🔒 Not yet open</p>
-                        <p class="text-gray-600 text-sm mt-2">Opens {{ $task->open_at->diffForHumans() }}</p>
-                    </div>
-                </div>
-            @else
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
-                        <p class="text-red-700 font-semibold">❌ Closed</p>
-                        <p class="text-red-600 text-sm mt-2">No more submissions allowed</p>
-                    </div>
-                </div>
-            @endif
-        </div>
+        <aside class="space-y-5 xl:sticky xl:top-24 xl:self-start">
+            <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><h2 class="font-black text-slate-900">Timeline</h2><div class="mt-4 space-y-4 text-sm"><div><p class="text-xs font-bold uppercase text-slate-400">Opens</p><p class="mt-1 font-bold text-slate-800">{{ $task->open_at?->format('M j, Y · H:i') ?? 'Immediately' }}</p></div><div><p class="text-xs font-bold uppercase text-slate-400">Due</p><p class="mt-1 font-bold text-slate-800">{{ $task->due_date?->format('M j, Y · H:i') ?? 'Not set' }}</p></div><div><p class="text-xs font-bold uppercase text-slate-400">Hard deadline</p><p class="mt-1 font-bold text-slate-800">{{ $task->late_deadline?->format('M j, Y · H:i') ?? 'Not set' }}</p></div></div></section>
+            <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><h2 class="font-black text-slate-900">Submission requirements</h2><dl class="mt-4 space-y-3 text-sm"><div class="flex justify-between gap-3"><dt class="text-slate-500">Files</dt><dd class="font-bold">{{ $task->min_file_count }}–{{ $task->max_file_count }}</dd></div><div class="flex justify-between gap-3"><dt class="text-slate-500">Max size</dt><dd class="font-bold">{{ $task->max_file_size_mb }} MB</dd></div><div><dt class="text-slate-500">Formats</dt><dd class="mt-1 break-words font-bold">{{ implode(', ',array_map('strtoupper',$task->allowed_file_types ?? [])) ?: 'As instructed' }}</dd></div><div class="flex justify-between"><dt class="text-slate-500">Resubmissions</dt><dd class="font-bold">{{ $task->max_resubmissions ?? 'Unlimited' }}</dd></div></dl>@if($task->late_submission_penalty_percent>0)<div class="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800">Late work may receive a {{ $task->late_submission_penalty_percent }}% penalty.</div>@endif</section>
+            <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                @if(!$isBeforeOpen && !$isClosed && $canResubmit)<a href="{{ route('submissions.create') }}?task_id={{ $task->id }}" class="block w-full rounded-xl bg-indigo-600 px-4 py-3 text-center text-sm font-black text-white hover:bg-indigo-700">{{ $mySubmission ? 'Resubmit assignment' : 'Submit assignment' }}</a>
+                @elseif($isBeforeOpen)<div class="rounded-xl bg-slate-100 p-4 text-center text-sm font-bold text-slate-600">Opens {{ $task->open_at->diffForHumans() }}</div>
+                @elseif($isClosed)<div class="rounded-xl bg-rose-50 p-4 text-center text-sm font-bold text-rose-700">Submission window closed</div>
+                @else<div class="rounded-xl bg-amber-50 p-4 text-center text-sm font-bold text-amber-700">Maximum resubmissions reached</div>@endif
+                @if($mySubmission && $mySubmission->status==='draft')<form action="{{ route('submissions.submit',$mySubmission) }}" method="POST" class="mt-3">@csrf<button onclick="return confirm('Submit this assignment? You cannot edit it after submission.')" class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white">Submit current draft</button></form>@endif
+            </section>
+        </aside>
     </div>
 </div>
 @endsection
