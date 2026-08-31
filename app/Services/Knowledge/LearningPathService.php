@@ -8,6 +8,7 @@ use App\Models\LearningEnrollment;
 use App\Models\LearningPath;
 use App\Models\LearningPathItem;
 use App\Models\User;
+use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -17,7 +18,7 @@ class LearningPathService
 {
     public function create(User $creator, array $data): LearningPath
     {
-        return LearningPath::create(['university_id' => $creator->university_id, 'creator_id' => $creator->id, 'title' => $data['title'], 'slug' => Str::slug($data['title']).'-'.Str::lower(Str::random(6)), 'description' => $data['description'] ?? null, 'visibility' => $data['visibility'] ?? 'public', 'access_type' => $data['access_type'] ?? 'free', 'price' => ($data['access_type'] ?? 'free') === 'premium' ? ($data['price'] ?? 0) : 0, 'status' => $data['status'] ?? 'draft', 'certificate_enabled' => (bool) ($data['certificate_enabled'] ?? false), 'outcomes' => $this->list($data['outcomes'] ?? []), 'settings' => $data['settings'] ?? [], 'published_at' => ($data['status'] ?? null) === 'published' ? now() : null]);
+        return LearningPath::create(['university_id' => $creator->university_id, 'creator_id' => $creator->id, 'title' => $data['title'], 'slug' => Str::slug($data['title']).'-'.Str::lower(Str::random(6)), 'description' => $data['description'] ?? null, 'visibility' => $data['visibility'] ?? 'public', 'access_type' => $data['access_type'] ?? 'free', 'price' => ($data['access_type'] ?? 'free') === 'premium' ? Money::fromMinor(Money::toMinor((string)($data['price'] ?? '0'))) : '0.00', 'status' => $data['status'] ?? 'draft', 'certificate_enabled' => (bool) ($data['certificate_enabled'] ?? false), 'outcomes' => $this->list($data['outcomes'] ?? []), 'settings' => $data['settings'] ?? [], 'published_at' => ($data['status'] ?? null) === 'published' ? now() : null]);
     }
 
     public function addItem(LearningPath $path, User $actor, array $data): LearningPathItem
@@ -36,7 +37,7 @@ class LearningPathService
     {
         if ($path->status !== 'published') throw ValidationException::withMessages(['path' => 'This learning path is not published.']);
         if ($path->visibility !== 'public' && ! $user->isSuperAdmin() && $path->university_id !== $user->university_id) abort(403);
-        if ($path->access_type === 'premium' && ! $user->hasEntitlement($path)) throw ValidationException::withMessages(['path' => 'Purchase or subscription entitlement is required.']);
+        if ($path->access_type === 'premium' && ! $user->hasEntitlement($path)) throw ValidationException::withMessages(['path' => 'Purchase entitlement is required for this premium learning path.']);
         return DB::transaction(function () use ($path, $user) {
             $enrollment = $path->enrollments()->firstOrCreate(['user_id' => $user->id], ['status' => 'active', 'progress' => 0, 'current_item_id' => $path->items()->orderBy('position')->value('id'), 'started_at' => now()]);
             foreach ($path->items as $item) $enrollment->progressRecords()->firstOrCreate(['learning_path_item_id' => $item->id], ['status' => 'not_started']);

@@ -27,7 +27,7 @@ interface GatewayInterface
     /**
      * Process refund
      */
-    public function refund(string $transactionId, ?float $amount = null): array;
+    public function refund(string $transactionId, ?int $amountMinor = null): array;
 
     /**
      * Get payment status

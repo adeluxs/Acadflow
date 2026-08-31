@@ -351,6 +351,11 @@ class User extends Authenticatable implements MustVerifyEmailContract
             ->exists();
     }
 
+    public function featureEntitlements(): HasMany
+    {
+        return $this->hasMany(FeatureEntitlement::class);
+    }
+
     public function activeSubscription(): HasOne
     {
         return $this->hasOne(UserSubscription::class)->where('status', 'active');
@@ -417,37 +422,12 @@ class User extends Authenticatable implements MustVerifyEmailContract
     }
 
     /**
-     * Check if user has access to a feature based on subscription plan
+     * Commercial feature access is independent of subscriptions.
+     * Features are free by default until an enabled pricing rule explicitly
+     * requires an entitlement.
      */
     public function hasFeature(string $feature): bool
     {
-        // Super admins have all features
-        if ($this->isSuperAdmin()) {
-            return true;
-        }
-
-        $subscription = $this->activeSubscription()->first();
-        if (! $subscription || ! $subscription->plan) {
-            return false;
-        }
-
-        $plan = $subscription->plan;
-
-        // Check boolean column if applicable
-        $booleanFeatures = [
-            'allow_group_submissions',
-            'allow_rubrics',
-            'allow_attendance_tracking',
-            'allow_document_generation',
-            'allow_api_access',
-            'allow_white_label',
-        ];
-
-        if (in_array($feature, $booleanFeatures)) {
-            return (bool) ($plan->$feature ?? false);
-        }
-
-        // Check features array
-        return $plan->hasFeature($feature);
+        return app(\App\Services\Commerce\EntitlementService::class)->has($this, $feature);
     }
 }

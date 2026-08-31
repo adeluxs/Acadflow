@@ -218,13 +218,39 @@ class SettingService
     public static function isMaintenanceMode(): bool { return (bool) self::getGlobal('maintenance_mode', false); }
     public static function isPwaEnabled(): bool { return FeatureAccessService::effectiveStatus('pwa_enabled') === FeatureAccessService::STATUS_ENABLED; }
 
-    public static function getPasswordRules(): array
+    public static function getPasswordPolicy(?int $universityId = null): array
     {
-        $rules = ['required', 'string', 'min:'.(int) self::get('password_min_length', 8)];
-        if (self::get('password_require_uppercase', true)) $rules[] = 'regex:/[A-Z]/';
-        if (self::get('password_require_numbers', true)) $rules[] = 'regex:/[0-9]/';
-        if (self::get('password_require_special', false)) $rules[] = 'regex:/[@$!%*#?&]/';
+        return [
+            'min_length' => max(1, min(128, (int) self::get('password_min_length', 8, $universityId))),
+            'require_uppercase' => (bool) self::get('password_require_uppercase', true, $universityId),
+            'require_numbers' => (bool) self::get('password_require_numbers', true, $universityId),
+            'require_special' => (bool) self::get('password_require_special', false, $universityId),
+            'special_characters' => '@$!%*#?&',
+        ];
+    }
+
+    public static function getPasswordRules(?int $universityId = null): array
+    {
+        $policy = self::getPasswordPolicy($universityId);
+        $rules = ['required', 'string', 'min:'.$policy['min_length']];
+
+        if ($policy['require_uppercase']) $rules[] = 'regex:/[A-Z]/';
+        if ($policy['require_numbers']) $rules[] = 'regex:/[0-9]/';
+        if ($policy['require_special']) $rules[] = 'regex:/[@$!%*#?&]/';
+
         return $rules;
+    }
+
+    public static function getSecurityRateLimits(?int $universityId = null): array
+    {
+        return [
+            'login_requests_per_minute' => max(1, min(120, (int) self::get('login_requests_per_minute', 10, $universityId))),
+            'registration_requests_per_hour' => max(1, min(100, (int) self::get('registration_requests_per_hour', 5, $universityId))),
+            'password_reset_requests_per_minute' => max(1, min(30, (int) self::get('password_reset_requests_per_minute', 5, $universityId))),
+            'verification_requests_per_minute' => max(1, min(30, (int) self::get('verification_requests_per_minute', 6, $universityId))),
+            'two_factor_attempts_per_minute' => max(1, min(30, (int) self::get('two_factor_attempts_per_minute', 5, $universityId))),
+            'payment_requests_per_minute' => max(1, min(60, (int) self::get('payment_requests_per_minute', 10, $universityId))),
+        ];
     }
 
     public static function getPlatformSettings(): array
@@ -289,6 +315,12 @@ class SettingService
             'password_require_uppercase' => self::get('password_require_uppercase', true),
             'password_require_numbers' => self::get('password_require_numbers', true),
             'password_require_special' => self::get('password_require_special', false),
+            'login_requests_per_minute' => self::get('login_requests_per_minute', 10),
+            'registration_requests_per_hour' => self::get('registration_requests_per_hour', 5),
+            'password_reset_requests_per_minute' => self::get('password_reset_requests_per_minute', 5),
+            'verification_requests_per_minute' => self::get('verification_requests_per_minute', 6),
+            'two_factor_attempts_per_minute' => self::get('two_factor_attempts_per_minute', 5),
+            'payment_requests_per_minute' => self::get('payment_requests_per_minute', 10),
             'enable_audit_logs' => self::get('enable_audit_logs', true),
         ];
     }

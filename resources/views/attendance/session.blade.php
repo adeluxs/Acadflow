@@ -18,7 +18,7 @@
     </div>
 
     @can('edit',$session)
-        <section class="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm"><div class="flex flex-col gap-6 md:flex-row md:items-center"><canvas id="qr-code" class="rounded-2xl bg-white p-3 shadow-sm" aria-label="Attendance check-in QR code"></canvas><div><p class="text-xs font-black uppercase tracking-[.18em] text-emerald-600">Student check-in QR</p><h2 class="mt-1 text-xl font-black text-slate-900">Scan to check in</h2><p class="mt-2 text-sm text-slate-600">Expires at <span id="expires-at" class="font-bold">{{ $session->qr_expires_at->format('H:i:s') }}</span>. Students must be signed in and enrolled.</p><button type="button" onclick="refreshQr()" class="mt-4 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-black text-white">Refresh QR code</button><p id="qr-error" class="mt-2 hidden text-sm font-semibold text-rose-700"></p></div></div></section>
+        <section class="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm"><div class="flex flex-col gap-6 md:flex-row md:items-center"><canvas id="qr-code" class="rounded-2xl bg-white p-3 shadow-sm" aria-label="Attendance check-in QR code"></canvas><div><p class="text-xs font-black uppercase tracking-[.18em] text-emerald-600">Student check-in QR</p><h2 class="mt-1 text-xl font-black text-slate-900">Scan to check in</h2><p class="mt-2 text-sm text-slate-600">Expires at <span id="expires-at" class="font-bold">{{ $session->qr_expires_at->format('H:i:s') }}</span>. Students must be signed in and enrolled.</p><button type="button" onclick="refreshQr()" class="mt-4 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-black text-white">Refresh QR code</button><p id="qr-error" class="mt-2 hidden text-sm font-semibold text-rose-700"></p><button id="qr-retry" type="button" onclick="refreshQr()" class="mt-2 hidden rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700">Try Again</button></div></div></section>
     @endcan
 
     <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -46,7 +46,9 @@ function generateQrCode(data) {
 
 async function refreshQr() {
     const errorElement = document.getElementById('qr-error');
+    const retryButton = document.getElementById('qr-retry');
     errorElement.classList.add('hidden');
+    retryButton?.classList.add('hidden');
 
     try {
         const response = await fetch(refreshQrUrl, {
@@ -59,15 +61,22 @@ async function refreshQr() {
         });
         const data = await response.json();
 
-        if (!response.ok) {
-            throw new Error(data.message || 'Unable to refresh the QR code.');
+        if (!response.ok || data.success === false) {
+            const requestError = new Error(data.message || 'Unable to refresh the QR code.');
+            requestError.data = data;
+            requestError.status = response.status;
+            throw requestError;
         }
 
         generateQrCode(data.qr_payload);
         document.getElementById('expires-at').textContent = new Date(data.qr_expires_at).toLocaleTimeString();
     } catch (error) {
-        errorElement.textContent = error.message;
+        const detail = window.AcadFlowFeedback?.normalize(error, 'Unable to refresh the QR code right now.') || {
+            message: 'Unable to refresh the QR code right now.', retryable: true
+        };
+        errorElement.textContent = detail.message;
         errorElement.classList.remove('hidden');
+        if (detail.retryable) retryButton?.classList.remove('hidden');
     }
 }
 

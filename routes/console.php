@@ -50,6 +50,12 @@ Schedule::call(function (): void {
 
 Schedule::command('queue:prune-failed --hours=168')->daily();
 
+
+Schedule::command('acadflow:release-creator-earnings --limit=1000')
+    ->hourly()
+    ->name('acadflow-release-creator-earnings')
+    ->withoutOverlapping();
+
 Artisan::command('acadflow:sync-nigeria-catalog {--csv= : Import an exact institution/faculty/department/course CSV after registry sync} {--no-templates : Do not create starter academic templates}', function (): int {
     /** @var \App\Services\NigeriaAcademicCatalogService $service */
     $service = app(\App\Services\NigeriaAcademicCatalogService::class);

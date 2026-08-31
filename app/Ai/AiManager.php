@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Ai\AiPromptService;
 use App\Services\Ai\AiResponseSchemaValidator;
 use App\Services\Ai\AiRuntimeConfigService;
+use App\Services\Commerce\AiUsageBillingService;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -33,6 +34,7 @@ class AiManager
         protected AiPromptService $prompts,
         protected AiResponseSchemaValidator $responseValidator,
         protected AiRuntimeConfigService $runtime,
+        protected AiUsageBillingService $billing,
     ) {}
 
     public function analyze(string $feature, array $payload, ?User $user = null, ?string $scope = null): AiResponse
@@ -92,7 +94,7 @@ class AiManager
                     errorCode: 'AI_USAGE_LIMIT_REACHED', confidence: 0.0,
                     metadata: ['routing' => $this->router->route($feature, $universityId)],
                 )
-                : $this->callProviderChain($feature, $payload, $universityId, $requestId);
+                : $this->callProviderChain($feature, $payload, $universityId, $requestId, $user);
         } else {
             $ruleResponse = $this->engine->run($feature, $payload)->withData([
                 'request_id' => $requestId,
@@ -118,7 +120,7 @@ class AiManager
                         metadata: ['routing' => $this->router->route($feature, $universityId)],
                     );
             } else {
-                $response = $this->runHybrid($feature, $payload, $ruleResponse, $universityId, $requestId);
+                $response = $this->runHybrid($feature, $payload, $ruleResponse, $universityId, $requestId, $user);
             }
         }
 
@@ -127,7 +129,7 @@ class AiManager
             $this->cache->put($feature, $payload, $response, $scope, $universityId);
         }
 
-        $this->accountRequest($user, (float) ($response->cost ?? 0.0));
+        $this->accountRequest($user, $response);
         return $this->recordAndReturn($response, $feature, $mode, $user, false, false);
     }
 
@@ -135,7 +137,7 @@ class AiManager
     public function invalidateFeature(string $feature): void { $this->cache->forgetFeature($feature); }
     public function invalidateAll(): void { $this->cache->forgetAll(); }
 
-    protected function runHybrid(string $feature, array $payload, AiResponse $ruleResponse, ?int $universityId, string $requestId): AiResponse
+    protected function runHybrid(string $feature, array $payload, AiResponse $ruleResponse, ?int $universityId, string $requestId, ?User $user = null): AiResponse
     {
         $providerFirst = in_array($feature, (array) config('ai.provider_first_features', []), true);
         $escalateWhenClean = $this->runtime->hybridEscalateWhenClean($universityId);
@@ -150,7 +152,7 @@ class AiManager
                 'score' => $ruleResponse->score,
                 'issues' => $ruleResponse->issues,
             ];
-            $provider = $this->callProviderChain($feature, $payload, $universityId, $requestId);
+            $provider = $this->callProviderChain($feature, $payload, $universityId, $requestId, $user);
             if ($provider->success) return $provider;
 
             if ($this->runtime->featureRuleFallbackEnabled($feature, $universityId)) {
@@ -170,12 +172,13 @@ class AiManager
         return $ruleResponse->withData(['source' => 'rule_engine']);
     }
 
-    protected function callProviderChain(string $feature, array $payload, ?int $universityId, string $requestId): AiResponse
+    protected function callProviderChain(string $feature, array $payload, ?int $universityId, string $requestId, ?User $user = null): AiResponse
     {
         $chain = $this->router->providerChain($feature, $universityId);
         $route = $this->router->route($feature, $universityId);
         $attempts = [];
         $last = null;
+        $reservation = ['source' => 'platform', 'charge_minor' => 0, 'request_id' => $requestId];
 
         if ($chain === []) {
             return new AiResponse(
@@ -183,6 +186,17 @@ class AiManager
                 summary: 'No enabled and configured external AI provider is selected for this feature.',
                 requestId: $requestId, errorCode: 'AI_INVALID_CONFIGURATION', confidence: 0.0,
                 metadata: ['routing' => $route, 'provider_attempts' => []],
+            );
+        }
+
+        try {
+            $reservation = $this->billing->reserve($user, $feature, $requestId);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return new AiResponse(
+                source: 'billing', feature: $feature, success: false,
+                summary: $e->validator->errors()->first('ai') ?: 'Your balance is too low for this AI request.',
+                requestId: $requestId, errorCode: 'AI_INSUFFICIENT_BALANCE', confidence: 0.0,
+                metadata: ['routing' => $route, 'action' => 'add_funds'],
             );
         }
 
@@ -245,7 +259,7 @@ class AiManager
                     continue;
                 }
 
-                return $providerResponse->withData([
+                $successful = $providerResponse->withData([
                     'provider' => $providerName,
                     'model' => $model,
                     'fallback_used' => $index > 0,
@@ -259,10 +273,14 @@ class AiManager
                         'selected_role' => $entry['role'],
                     ],
                 ]);
+                $this->billing->settle($user, $feature, $successful, $reservation);
+                return $successful;
             }
 
             $last = $providerResponse;
         }
+
+        $this->billing->release($user, $reservation);
 
         return new AiResponse(
             source: 'unavailable', feature: $feature, success: false,
@@ -278,26 +296,26 @@ class AiManager
     {
         $daily = $this->runtime->dailyRequestLimit($user?->university_id);
         $monthly = $this->runtime->monthlyRequestLimit($user?->university_id);
-        $maxCost = $this->runtime->maxMonthlyCost($user?->university_id);
-        if ($daily <= 0 && $monthly <= 0 && $maxCost <= 0) return false;
+        $maxCostMicroUsd = $this->runtime->maxMonthlyCostMicroUsd($user?->university_id);
+        if ($daily <= 0 && $monthly <= 0 && $maxCostMicroUsd <= 0) return false;
 
         $scope = $user ? "ai:limits:user:{$user->id}" : 'ai:limits:global';
         $today = now()->toDateString();
         $month = now()->format('Y-m');
         return ($daily > 0 && (int) Cache::get("{$scope}:day:{$today}", 0) >= $daily)
             || ($monthly > 0 && (int) Cache::get("{$scope}:month:{$month}", 0) >= $monthly)
-            || ($maxCost > 0 && (float) Cache::get("{$scope}:cost:{$month}", 0.0) >= $maxCost);
+            || ($maxCostMicroUsd > 0 && (int) Cache::get("{$scope}:cost_micro_usd:{$month}", 0) >= $maxCostMicroUsd);
     }
 
-    protected function accountRequest(?User $user, float $cost): void
+    protected function accountRequest(?User $user, AiResponse $response): void
     {
         $scope = $user ? "ai:limits:user:{$user->id}" : 'ai:limits:global';
         $today = now()->toDateString();
         $month = now()->format('Y-m');
         Cache::increment("{$scope}:day:{$today}");
         Cache::increment("{$scope}:month:{$month}");
-        $key = "{$scope}:cost:{$month}";
-        Cache::put($key, round((float) Cache::get($key, 0.0) + max(0.0, $cost), 8), now()->addMonths(2));
+        $costMicroUsd = max(0, (int) ($response->metadata['provider_cost_micro_usd'] ?? 0));
+        if ($costMicroUsd > 0) Cache::increment("{$scope}:cost_micro_usd:{$month}", $costMicroUsd);
     }
 
     protected function resolveLayoutRequirements(?User $user, ?int $universityId = null): array
@@ -345,7 +363,7 @@ class AiManager
 
     private function recordAndReturn(AiResponse $response, string $feature, AiMode $mode, ?User $user, bool $cached, bool $account = false): AiResponse
     {
-        if ($account) $this->accountRequest($user, (float) ($response->cost ?? 0));
+        if ($account) $this->accountRequest($user, $response);
         $this->analytics->record($this->analyticsContext($feature, $mode, $response, $user, $cached));
         return $response;
     }

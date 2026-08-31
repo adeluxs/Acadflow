@@ -6,6 +6,7 @@ use App\Ai\Providers\AzureOpenAiProvider;
 use App\Ai\Providers\ClaudeProvider;
 use App\Ai\Providers\DeepSeekProvider;
 use App\Ai\Providers\GeminiProvider;
+use App\Ai\Providers\GrokProvider;
 use App\Ai\Providers\OllamaProvider;
 use App\Ai\Providers\OpenAiProvider;
 use Illuminate\Http\Client\Request;
@@ -72,6 +73,22 @@ class AiProviderTransportTest extends TestCase
             && $request->hasHeader('Authorization', 'Bearer deepseek-test'));
     }
 
+    public function test_grok_health_uses_xai_chat_completions_and_bearer_auth(): void
+    {
+        Http::fake(['https://api.x.ai/*' => Http::response(['choices' => []], 200, ['x-request-id' => 'req-grok'])]);
+
+        $provider = new GrokProvider($this->config(['base_url' => 'https://api.x.ai/v1', 'api_key' => 'xai-test', 'model' => 'grok-4.5']));
+        $this->assertSame('healthy', $provider->healthCheck()['status']);
+
+        Http::assertSent(function (Request $request): bool {
+            $data = $request->data();
+            return $request->url() === 'https://api.x.ai/v1/chat/completions'
+                && $request->hasHeader('Authorization', 'Bearer xai-test')
+                && ($data['model'] ?? null) === 'grok-4.5'
+                && is_array($data['messages'] ?? null);
+        });
+    }
+
     public function test_azure_v1_and_ollama_full_endpoints_are_not_duplicated(): void
     {
         Http::fake([
@@ -105,15 +122,18 @@ class AiProviderTransportTest extends TestCase
             'https://proxy.example/*' => Http::response(['choices' => []], 200),
             'https://claude-proxy.example/*' => Http::response(['content' => []], 200),
             'https://deepseek-proxy.example/*' => Http::response(['choices' => []], 200),
+            'https://xai-proxy.example/*' => Http::response(['choices' => []], 200),
         ]);
 
         (new OpenAiProvider($this->config(['base_url' => 'https://proxy.example/v1/chat/completions', 'api_key' => 'a', 'model' => 'm'])))->healthCheck();
         (new ClaudeProvider($this->config(['base_url' => 'https://claude-proxy.example/v1/messages', 'api_key' => 'b', 'model' => 'claude-haiku-4-5-20251001'])))->healthCheck();
         (new DeepSeekProvider($this->config(['base_url' => 'https://deepseek-proxy.example/chat/completions', 'api_key' => 'c', 'model' => 'deepseek-v4-flash'])))->healthCheck();
+        (new GrokProvider($this->config(['base_url' => 'https://xai-proxy.example/v1/chat/completions', 'api_key' => 'd', 'model' => 'grok-4.5'])))->healthCheck();
 
         Http::assertSent(fn (Request $request) => $request->url() === 'https://proxy.example/v1/chat/completions');
         Http::assertSent(fn (Request $request) => $request->url() === 'https://claude-proxy.example/v1/messages');
         Http::assertSent(fn (Request $request) => $request->url() === 'https://deepseek-proxy.example/chat/completions');
+        Http::assertSent(fn (Request $request) => $request->url() === 'https://xai-proxy.example/v1/chat/completions');
     }
 
     /** @param array<string,mixed> $overrides */

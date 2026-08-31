@@ -15,6 +15,8 @@ class Payment extends Model
         'invoice_id',
         'user_id',
         'amount',
+        'amount_minor',
+        'currency',
         'payment_method',
         'transaction_ref',
         'reference',
@@ -28,6 +30,7 @@ class Payment extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'amount_minor' => 'integer',
             'verified_at' => 'datetime',
         ];
     }

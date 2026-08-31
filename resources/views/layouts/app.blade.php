@@ -11,6 +11,9 @@
     $pwaAvailable = $pwaFeatureStatus === \App\Services\FeatureAccessService::STATUS_ENABLED || $featureUser?->isAdmin();
     $notificationFeatureStatus = \App\Services\FeatureAccessService::effectiveStatus('notifications', $featureUser?->university_id);
     $notificationsVisible = $featureUser?->isAdmin() || $notificationFeatureStatus !== \App\Services\FeatureAccessService::STATUS_DISABLED;
+    $unreadNotificationCount = ($featureUser && $notificationsVisible)
+        ? $featureUser->unreadNotifications()->count()
+        : 0;
     $featurePreview = request()->attributes->get('restricted_feature_preview');
 @endphp
 <!DOCTYPE html>
@@ -121,9 +124,9 @@
                     <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                     </svg>
-                    @if(auth()->user()?->unreadNotifications?->count())
+                    @if($unreadNotificationCount > 0)
                         <span class="absolute -top-1 -right-1 h-5 min-w-5 px-1 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center">
-                            {{ auth()->user()->unreadNotifications->count() }}
+                            {{ $unreadNotificationCount }}
                         </span>
                     @endif
                 </a>
@@ -192,9 +195,9 @@
                                 <svg class="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                                 </svg>
-                                @if(auth()->user()?->unreadNotifications?->count())
+                                @if($unreadNotificationCount > 0)
                                     <span class="absolute -top-1 -right-1 h-5 min-w-5 px-1 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center">
-                                        {{ auth()->user()->unreadNotifications->count() }}
+                                        {{ $unreadNotificationCount }}
                                     </span>
                                 @endif
                             </a>
@@ -249,12 +252,10 @@
                                         </a>
                                     @endif
 
-                                    @if(auth()->user()?->isStudent())
-                                        @if(Route::has('subscription.show'))
-                                            <a href="{{ route('subscription.show') }}" class="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">
-                                                Subscription
-                                            </a>
-                                        @endif
+                                    @if(Route::has('commerce.wallet'))
+                                        <a href="{{ route('commerce.wallet') }}" class="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">
+                                            Wallet &amp; Earnings
+                                        </a>
                                     @endif
 
                                     <div class="border-t border-slate-100"></div>
@@ -284,18 +285,7 @@
                         </div>
                     @endif
 
-                    @if(session('success'))
-                        <div class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('success') }}</div>
-                    @endif
-                    @if(session('error'))
-                        <div class="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ session('error') }}</div>
-                    @endif
-                    @if($errors->any())
-                        <div class="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                            <p class="font-semibold">Please correct the following:</p>
-                            <ul class="mt-2 list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
-                        </div>
-                    @endif
+                    @include('partials.feedback')
 
                     @yield('content')
                 </div>
@@ -303,7 +293,7 @@
         </div>
     </div>
 
-    <script src="/js/sync-manager.js"></script>
+    <script src="/js/sync-manager.js" defer></script>
 
     <script>
         @if($pwaAvailable)

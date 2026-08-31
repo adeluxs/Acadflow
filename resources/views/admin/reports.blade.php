@@ -3,6 +3,7 @@
 @section('title', 'Reports')
 
 @section('content')
+@php($reportCurrency = strtoupper((string) \App\Services\SettingService::get('currency', 'NGN', auth()->user()?->university_id)))
 <div class="container mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold mb-6">Reports & Analytics</h1>
 
@@ -19,7 +20,7 @@
         
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-sm font-medium text-gray-500 uppercase">Payments Collected</h3>
-            <div class="text-3xl font-bold mt-2">₦{{ number_format($stats['payments_collected'] ?? 0, 2) }}</div>
+            <div class="text-3xl font-bold mt-2">{{ $reportCurrency }} {{ \App\Support\Money::fromMinor(\App\Support\Money::toMinorRounded((string) ($stats['payments_collected'] ?? '0'))) }}</div>
         </div>
         
         <div class="bg-white rounded-lg shadow p-6">

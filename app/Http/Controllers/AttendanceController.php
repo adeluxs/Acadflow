@@ -10,6 +10,7 @@ use App\Models\AttendanceSession;
 use App\Models\Course;
 use App\Services\AcademicContextService;
 use App\Services\AttendanceService;
+use App\Support\Errors\UserFacingError;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,10 +40,8 @@ class AttendanceController extends Controller
         ]);
 
         $user = $request->user();
-        $subscription = $user->activeSubscription()->first();
-
-        if ($subscription?->plan && ! $subscription->plan->allow_attendance_tracking) {
-            return back()->with('error', 'Your subscription plan does not allow attendance tracking. Please upgrade your plan.');
+        if (! $user->hasFeature('attendance_tracking')) {
+            return back()->with('error', 'Attendance tracking is not currently available for your account.');
         }
 
         $course = Course::with('department.faculty')->findOrFail($validated['course_id']);
@@ -64,7 +63,7 @@ class AttendanceController extends Controller
                 $validated['late_threshold'] ?? null,
             );
         } catch (InvalidArgumentException $exception) {
-            return back()->withInput()->with('error', $exception->getMessage());
+            return back()->withInput()->with('error', UserFacingError::safeMessage($exception->getMessage(), 'The attendance action could not be completed. Please review the session and try again.'));
         }
 
         return redirect()->route('attendance.session', $session)
@@ -128,7 +127,7 @@ class AttendanceController extends Controller
                 $request->ip(),
             );
         } catch (InvalidArgumentException $exception) {
-            return back()->with('error', $exception->getMessage());
+            return back()->with('error', UserFacingError::safeMessage($exception->getMessage(), 'The attendance action could not be completed. Please review the session and try again.'));
         }
 
         return redirect()->route('attendance.my')
@@ -153,7 +152,7 @@ class AttendanceController extends Controller
         try {
             $this->attendanceService->closeSession($session);
         } catch (InvalidArgumentException $exception) {
-            return back()->with('error', $exception->getMessage());
+            return back()->with('error', UserFacingError::safeMessage($exception->getMessage(), 'The attendance action could not be completed. Please review the session and try again.'));
         }
 
         return redirect()->route('attendance.lecturer')->with('success', 'Attendance session closed.');
@@ -166,7 +165,14 @@ class AttendanceController extends Controller
         try {
             $session = $this->attendanceService->refreshQr($session);
         } catch (InvalidArgumentException $exception) {
-            return response()->json(['message' => $exception->getMessage()], 422);
+            return response()->json([
+                'status' => false,
+                'success' => false,
+                'code' => 'ATTENDANCE_ACTION_REJECTED',
+                'message' => UserFacingError::safeMessage($exception->getMessage(), 'The attendance action could not be completed.'),
+                'retryable' => false,
+                'request_id' => UserFacingError::requestId(request()),
+            ], 422);
         }
 
         $qrPayload = $this->checkInUrl($session);
@@ -247,7 +253,7 @@ class AttendanceController extends Controller
         $this->authorize('viewAny', AttendanceSession::class);
 
         $user = $request->user();
-        $query = AttendanceSession::query()->with(['course', 'records.user']);
+        $query = AttendanceSession::query()->with('course')->withCount('records');
 
         if ($user->isLecturer()) {
             $query->where('lecturer_id', $user->id);

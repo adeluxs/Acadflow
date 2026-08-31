@@ -5,7 +5,6 @@ namespace Tests\Feature\Database;
 use App\Models\AiPromptVersion;
 use App\Models\FeatureFlag;
 use App\Models\Setting;
-use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,8 +26,6 @@ class SeederIdempotencyTest extends TestCase
         $tables = [
             'settings',
             'feature_flags',
-            'subscription_plans',
-            'coupons',
             'users',
             'universities',
             'faculties',
@@ -65,8 +62,6 @@ class SeederIdempotencyTest extends TestCase
             ]),
         ])->save();
 
-        $plan = SubscriptionPlan::query()->where('name', 'basic')->firstOrFail();
-        $plan->forceFill(['display_name' => 'Customized Basic Plan'])->save();
 
         $student = User::query()->where('email', 'student001@student.futo.edu.ng')->firstOrFail();
         $student->forceFill(['first_name' => 'Customized Student'])->save();
@@ -98,10 +93,6 @@ class SeederIdempotencyTest extends TestCase
         $this->assertSame('maintenance', data_get($feature->settings, 'access_status'));
         $this->assertSame('Keep this existing administrator choice.', data_get($feature->settings, 'admin_note'));
 
-        $this->assertSame(
-            'Customized Basic Plan',
-            SubscriptionPlan::query()->where('name', 'basic')->value('display_name')
-        );
 
         $this->assertSame(
             'Customized Student',

@@ -2,52 +2,24 @@
 
 namespace App\Console\Commands;
 
-use App\Models\UserSubscription;
-use App\Services\SubscriptionProrationService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 
+/**
+ * Compatibility tombstone for legacy cron entries.
+ *
+ * Recurring subscriptions were retired by the 2026 monetization rebuild.
+ * Keeping the command name as a no-op prevents an old server cron entry from
+ * failing loudly while guaranteeing it can never renew or charge a customer.
+ */
 class ProcessSubscriptionRenewals extends Command
 {
     protected $signature = 'subscriptions:process-renewals';
-    protected $description = 'Process automatic subscription renewals';
+    protected $description = 'Deprecated: recurring subscriptions are retired; no charges are performed';
 
-    public function handle(SubscriptionProrationService $prorationService)
+    public function handle(): int
     {
-        $this->info('Processing subscription renewals...');
+        $this->warn('No action taken: recurring subscriptions have been retired. Remove this legacy cron entry when convenient.');
 
-        $subscriptions = UserSubscription::where('status', 'active')
-            ->where('auto_renew', true)
-            ->where('ends_at', '<=', now()->addDays(7))
-            ->where('ends_at', '>', now())
-            ->with('plan', 'user')
-            ->get();
-
-        $this->info("Found {$subscriptions->count()} subscriptions to renew.");
-
-        $renewed = 0;
-        $failed = 0;
-
-        foreach ($subscriptions as $subscription) {
-            try {
-                DB::transaction(function () use ($subscription, $prorationService) {
-                    $prorationService->renewSubscription($subscription);
-                    
-                    // Send renewal notification
-                    $subscription->user->notify(new \App\Notifications\SubscriptionRenewed($subscription));
-                    
-                    $this->info("Renewed subscription {$subscription->id} for user {$subscription->user->email}");
-                });
-                
-                $renewed++;
-            } catch (\Exception $e) {
-                $this->error("Failed to renew subscription {$subscription->id}: " . $e->getMessage());
-                $failed++;
-            }
-        }
-
-        $this->info("Renewal complete: {$renewed} renewed, {$failed} failed.");
-        
-        return 0;
+        return self::SUCCESS;
     }
 }

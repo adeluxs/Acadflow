@@ -58,7 +58,7 @@
         ],
         'university_admin' => [
             ['Faculties','admin.faculties','building'],['Courses','admin.courses','book'],['Users','admin.users','users'],
-            ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Subscriptions','admin.subscriptions','wallet'],
+            ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Monetization','admin.monetization','wallet'],
             ['Reports','admin.reports','grade'],['Notifications','admin.notifications.index','bell'],['Settings','admin.settings','settings'],
         ],
         'department_admin' => [
@@ -68,7 +68,7 @@
         ],
         'super_admin' => [
             ['Institutions','admin.universities','building'],['Users','admin.users','users'],['System Settings','admin.settings','settings'],
-            ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Subscriptions','admin.subscriptions','wallet'],
+            ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Monetization','admin.monetization','wallet'],
             ['Reports','admin.reports','grade'],['Notifications','admin.notifications.index','bell'],['Onboarding','admin.onboarding.index','users'],
         ],
         default => [],

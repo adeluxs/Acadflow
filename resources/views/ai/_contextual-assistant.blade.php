@@ -56,6 +56,7 @@
             <div class="mt-2 space-y-1.5 text-xs text-slate-600" data-ai-sources></div>
         </div>
         <p class="mt-3 hidden text-[11px] text-slate-400" data-ai-request></p>
+        <button type="button" class="mt-3 hidden rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60" data-ai-retry>Try Again</button>
     </div>
 </section>
 @elseif($assistantModuleAccessible && $assistantFeatureEnabled && $assistantModeDisabled)
@@ -88,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sourcesWrap = root.querySelector('[data-ai-sources-wrap]');
         const sources = root.querySelector('[data-ai-sources]');
         const request = root.querySelector('[data-ai-request]');
+        const retry = root.querySelector('[data-ai-retry]');
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
         root.querySelectorAll('[data-ai-suggestion]').forEach(button => button.addEventListener('click', () => {
@@ -108,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fallback.classList.add('hidden');
             sourcesWrap.classList.add('hidden');
             request.classList.add('hidden');
+            retry?.classList.add('hidden');
 
             try {
                 const response = await fetch(form.dataset.endpoint, {
@@ -116,7 +119,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({question:value})
                 });
                 const data = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(data.message || 'The AI request could not be completed.');
+                if (!response.ok || data.success === false) {
+                    const requestError = new Error(data.message || data.answer || 'AI assistance is currently unavailable.');
+                    requestError.data = data;
+                    requestError.status = response.status;
+                    throw requestError;
+                }
                 answer.textContent = data.answer || 'No response was returned.';
                 if (data.provider) { provider.textContent = `Provider: ${data.provider}`; provider.classList.remove('hidden'); }
                 if (data.model) { model.textContent = `Model: ${data.model}`; model.classList.remove('hidden'); }
@@ -132,11 +140,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (data.request_id) { request.textContent = `Request ID: ${data.request_id}`; request.classList.remove('hidden'); }
             } catch (error) {
-                answer.textContent = error.message || 'AI assistance is currently unavailable.';
+                const detail = window.AcadFlowFeedback?.normalize(error, 'AI assistance is currently unavailable. Please try again.') || {
+                    message: 'AI assistance is currently unavailable. Please try again.', retryable: true, requestId: null
+                };
+                answer.textContent = detail.message;
+                if (detail.requestId) { request.textContent = `Request ID: ${detail.requestId}`; request.classList.remove('hidden'); }
+                if (detail.retryable && retry) retry.classList.remove('hidden');
             } finally {
                 submit.disabled = false;
                 submit.textContent = 'Ask AI';
             }
+        });
+
+        retry?.addEventListener('click', () => {
+            if (!submit.disabled) form.requestSubmit();
         });
     });
 });

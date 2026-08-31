@@ -6,31 +6,40 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\SettingService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
 
 class NewPasswordController extends Controller
 {
     public function create(Request $request): View
     {
+        $user = $this->userForEmail((string) $request->query('email', ''));
+
         return view('auth.reset-password', [
             'request' => $request,
             'status' => $request->session()->get('status'),
+            'passwordPolicy' => SettingService::getPasswordPolicy($user?->university_id),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $user = $this->userForEmail((string) $request->input('email', ''));
+        $passwordRules = array_values(array_unique(array_merge(
+            SettingService::getPasswordRules($user?->university_id),
+            ['confirmed']
+        )));
+
         $request->validate([
             'token' => ['required'],
             'email' => ['required', 'email:rfc'],
-            'password' => ['required', 'confirmed', PasswordRule::min(8)->letters()->mixedCase()->numbers()->uncompromised()],
+            'password' => $passwordRules,
         ]);
 
         $status = Password::reset(
@@ -50,5 +59,15 @@ class NewPasswordController extends Controller
         }
 
         return back()->withInput($request->only('email'))->withErrors(['email' => __($status)]);
+    }
+
+    private function userForEmail(string $email): ?User
+    {
+        $email = Str::lower(trim($email));
+        if ($email === '') {
+            return null;
+        }
+
+        return User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
     }
 }

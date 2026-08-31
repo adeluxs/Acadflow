@@ -13,6 +13,7 @@ class CommerceRevenueAllocation extends Model
         'allocation_type',
         'percentage',
         'amount',
+        'amount_minor',
         'status',
         'released_at',
         'metadata',
@@ -27,6 +28,7 @@ class CommerceRevenueAllocation extends Model
         return [
             'percentage' => 'decimal:4',
             'amount' => 'decimal:2',
+            'amount_minor' => 'integer',
             'released_at' => 'datetime',
             'metadata' => 'array',
         ];

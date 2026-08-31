@@ -3,6 +3,7 @@
 @section('title', 'Invoice Details')
 
 @section('content')
+@php($billingCurrency = strtoupper((string) \App\Services\SettingService::get('currency', 'NGN', auth()->user()?->university_id)))
 <div class="container mx-auto max-w-4xl px-4 py-8">
     <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -24,7 +25,7 @@
         <dl class="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <div>
                 <dt class="text-sm text-gray-500">Amount</dt>
-                <dd class="mt-1 text-2xl font-bold text-gray-900">{{ number_format((float) $invoice->amount, 2) }}</dd>
+                <dd class="mt-1 text-2xl font-bold text-gray-900">{{ $invoice->currency ?: $billingCurrency }} {{ \App\Support\Money::fromMinor($invoice->amount_minor !== null ? (int) $invoice->amount_minor : \App\Support\Money::toMinor((string) $invoice->amount)) }}</dd>
             </div>
             <div>
                 <dt class="text-sm text-gray-500">Status</dt>
@@ -48,7 +49,6 @@
                 <form method="POST" action="{{ route('billing.pay', $invoice) }}" class="mt-5 space-y-4">
                     @csrf
                     <input type="hidden" name="payment_method" value="bank_transfer">
-                    <input type="hidden" name="amount" value="{{ $invoice->amount }}">
                     <div>
                         <label for="transaction_ref" class="block text-sm font-medium text-gray-700">Bank transaction reference</label>
                         <input id="transaction_ref" name="transaction_ref" value="{{ old('transaction_ref') }}" maxlength="100" required

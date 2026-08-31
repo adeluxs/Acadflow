@@ -9,8 +9,10 @@ use App\Ai\Providers\AzureOpenAiProvider;
 use App\Ai\Providers\ClaudeProvider;
 use App\Ai\Providers\DeepSeekProvider;
 use App\Ai\Providers\GeminiProvider;
+use App\Ai\Providers\GrokProvider;
 use App\Ai\Providers\OllamaProvider;
 use App\Ai\Providers\OpenAiProvider;
+use App\Ai\Providers\OpenRouterProvider;
 use App\Ai\Providers\RuleBasedProvider;
 use App\Ai\Rules\RuleEngine;
 use App\Enums\AiProviderName;
@@ -73,6 +75,8 @@ class AiProviderRegistry
             AiProviderName::CLAUDE->value => new ClaudeProvider($config),
             AiProviderName::GEMINI->value => new GeminiProvider($config),
             AiProviderName::DEEPSEEK->value => new DeepSeekProvider($config),
+            AiProviderName::GROK->value => new GrokProvider($config),
+            AiProviderName::OPENROUTER->value => new OpenRouterProvider($config),
             AiProviderName::AZURE_OPENAI->value => new AzureOpenAiProvider($config),
             AiProviderName::OLLAMA->value => new OllamaProvider($config),
             AiProviderName::RULE_BASED->value => new RuleBasedProvider($this->engine),
@@ -89,6 +93,8 @@ class AiProviderRegistry
             AiProviderName::CLAUDE->value,
             AiProviderName::GEMINI->value,
             AiProviderName::DEEPSEEK->value,
+            AiProviderName::GROK->value,
+            AiProviderName::OPENROUTER->value,
             AiProviderName::AZURE_OPENAI->value,
             AiProviderName::OLLAMA->value => ['chat', 'structured_output'],
             default => [],

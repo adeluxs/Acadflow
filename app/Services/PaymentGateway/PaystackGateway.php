@@ -2,6 +2,8 @@
 
 namespace App\Services\PaymentGateway;
 
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -26,17 +28,17 @@ class PaystackGateway extends AbstractGateway
 
     public function initializePayment(array $data): array
     {
-        $response = Http::withToken($this->getSecretKey())
+        $response = $this->client()
             ->post($this->baseUrl . '/transaction/initialize', [
                 'email' => $data['email'],
-                'amount' => $data['amount'] * 100, // Convert to kobo/lowest currency unit
+                'amount' => isset($data['amount_minor']) ? (int) $data['amount_minor'] : \App\Support\Money::toMinor((string) $data['amount']),
                 'reference' => $data['reference'],
                 'currency' => $data['currency'] ?? 'NGN',
                 'callback_url' => $data['callback_url'] ?? null,
                 'metadata' => $data['metadata'] ?? [
                     'user_id' => $data['user_id'] ?? null,
                     'order_id' => $data['order_id'] ?? null,
-                    'type' => $data['type'] ?? 'subscription'
+                    'type' => $data['type'] ?? 'payment'
                 ],
                 'channels' => $data['channels'] ?? ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer']
             ]);
@@ -49,7 +51,11 @@ class PaystackGateway extends AbstractGateway
             
             return [
                 'status' => false,
-                'message' => 'Failed to initialize payment: ' . $response->json('message', 'Unknown error'),
+                'message' => $response->status() === 429
+                    ? 'The payment service is temporarily busy. Please try again shortly.'
+                    : 'We could not start the payment right now. Please try again.',
+                'code' => $response->status() === 429 ? 'PAYMENT_GATEWAY_RATE_LIMITED' : 'PAYMENT_GATEWAY_REJECTED',
+                'retryable' => $response->status() === 429 || $response->serverError(),
             ];
         }
 
@@ -65,7 +71,7 @@ class PaystackGateway extends AbstractGateway
 
     public function verifyPayment(string $reference): array
     {
-        $response = Http::withToken($this->getSecretKey())
+        $response = $this->client()
             ->get($this->baseUrl . '/transaction/verify/' . $reference);
 
         if ($response->failed()) {
@@ -76,7 +82,11 @@ class PaystackGateway extends AbstractGateway
             
             return [
                 'status' => false,
-                'message' => 'Failed to verify payment',
+                'message' => $response->status() === 429
+                    ? 'The payment service is temporarily busy. Please try again shortly.'
+                    : 'We could not verify the payment right now. Please try again.',
+                'code' => $response->status() === 429 ? 'PAYMENT_GATEWAY_RATE_LIMITED' : 'PAYMENT_VERIFICATION_FAILED',
+                'retryable' => $response->status() === 429 || $response->serverError(),
             ];
         }
 
@@ -89,41 +99,66 @@ class PaystackGateway extends AbstractGateway
         ];
     }
 
-    public function refund(string $transactionId, ?float $amount = null): array
+    public function refund(string $transactionId, ?int $amountMinor = null): array
     {
         $payload = [
             'transaction' => $transactionId,
             'reason' => 'Refund requested',
         ];
 
-        if ($amount !== null) {
-            $payload['amount'] = $amount * 100;
+        if ($amountMinor !== null) {
+            $payload['amount'] = $amountMinor;
         }
 
-        $response = Http::withToken($this->getSecretKey())
-            ->post($this->baseUrl . '/refund', $payload);
+        try {
+            // Refund POSTs are deliberately never auto-retried. A transport timeout can
+            // occur after Paystack accepted the request, so replaying automatically could
+            // issue a duplicate refund.
+            $response = $this->client()->post($this->baseUrl . '/refund', $payload);
+        } catch (ConnectionException $exception) {
+            Log::warning('Paystack refund outcome is unknown after a transport failure', [
+                'transactionId' => $transactionId,
+                'exception' => $exception->getMessage(),
+            ]);
+
+            return [
+                'status' => false,
+                'message' => 'The refund provider did not return a conclusive response. Do not retry this refund until it has been reconciled with Paystack.',
+                'code' => 'REFUND_OUTCOME_UNKNOWN',
+                'retryable' => false,
+                'outcome_unknown' => true,
+            ];
+        }
 
         if ($response->failed()) {
             Log::error('Paystack refund failed', [
                 'transactionId' => $transactionId,
+                'http_status' => $response->status(),
                 'response' => $response->json(),
             ]);
-            
+
             return [
                 'status' => false,
-                'message' => 'Refund failed: ' . $response->json('message', 'Unknown error'),
+                'message' => 'Paystack rejected the refund request. No local refund was posted.',
+                'code' => 'REFUND_REQUEST_FAILED',
+                'retryable' => false,
+                'outcome_unknown' => false,
+                'data' => $response->json(),
             ];
         }
 
+        $data = (array) ($response->json('data') ?? []);
+
         return [
             'status' => true,
-            'data' => $response->json()['data'],
+            'data' => $data,
+            'outcome_unknown' => false,
         ];
     }
 
     public function getStatus(string $reference): string
     {
-        $response = Http::withToken($this->getSecretKey())
+        $response = $this->client()
             ->get($this->baseUrl . '/transaction/verify/' . $reference);
 
         if ($response->failed()) {
@@ -197,7 +232,19 @@ class PaystackGateway extends AbstractGateway
         ];
     }
 
-    private function getSecretKey(): string
+
+    private function client(): PendingRequest
+    {
+        // Bound external calls so a provider/network problem cannot leave the UI
+        // hanging indefinitely. Transactional POSTs are intentionally not given
+        // automatic retries here because their server-side outcome may be unknown.
+        return Http::withToken($this->getSecretKey())
+            ->acceptJson()
+            ->connectTimeout((int) config('services.paystack.connect_timeout', 8))
+            ->timeout((int) config('services.paystack.timeout', 20));
+    }
+
+    public function getSecretKey(): string
     {
         $isLive = $this->settings['environment'] ?? 'live';
         $keyField = $isLive === 'live' ? 'secret_key_live' : 'secret_key_test';

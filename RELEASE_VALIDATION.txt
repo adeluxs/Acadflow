@@ -1,0 +1,25 @@
+AcadFlow Monetization + OpenRouter Rebuild — Release Validation
+Date: 2026-08-28
+
+PASS: 764 PHP files passed php -l syntax validation.
+PASS: 478 statically declared route -> controller method targets resolved.
+PASS: 155 Blade templates passed the repository runtime-regression preflight.
+PASS: AI central routing/provider/transport preflights.
+PASS: Documentation and .env.example coverage preflights.
+PASS: Feature management preflight.
+PASS: Grounded companion preflight.
+PASS: Seeder idempotency preflight.
+PASS: Monetization rebuild preflight.
+PASS: MySQL identifier length preflight.
+PASS: Safe-error experience preflight.
+PASS: Security policy/rate-limit preflight.
+PASS: Specialized AI assistants preflight.
+PASS: New monetization-domain floating-point static scan.
+
+Environment limitation:
+- vendor/ is not included in the supplied source tree.
+- Composer is not installed in the packaging environment.
+- node_modules/ is not included.
+Therefore Laravel boot/PHPUnit and Vite production build must be run after dependency installation in staging/production-like infrastructure.
+
+See docs/MONETIZATION_REBUILD_IMPLEMENTATION.md for deployment, migration and end-to-end validation instructions.

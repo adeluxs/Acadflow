@@ -12,7 +12,6 @@ use App\Services\Media\MediaSecurityService;
 use App\Services\Media\SafeFileDeliveryService;
 use App\Services\PdfService;
 use App\Services\SettingService;
-use App\Services\SubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +22,6 @@ use Illuminate\Validation\ValidationException;
 class CourseMaterialController extends Controller
 {
     public function __construct(
-        private SubscriptionService $subscriptionService,
         private PdfService $pdfService,
         private MediaSecurityService $mediaSecurityService,
         private AcademicContextService $academicContext,
@@ -136,10 +134,10 @@ class CourseMaterialController extends Controller
 
         $this->authorize('create', $course);
 
-        // Get effective upload limit from user's plan
-        $maxFileSizeBytes = $this->subscriptionService->getUploadLimitForUser($user);
-        $maxFileSizeKb = $maxFileSizeBytes / 1024;
-        $allowedMimes = implode(',', SettingService::getAllowedExtensions());
+        // Upload policy is an operational institution setting, not a paid-plan entitlement.
+        $maxFileSizeBytes = SettingService::getMaxUploadSize($user->university_id);
+        $maxFileSizeKb = intdiv($maxFileSizeBytes, 1024);
+        $allowedMimes = implode(',', SettingService::getAllowedExtensions($user->university_id));
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -154,16 +152,6 @@ class CourseMaterialController extends Controller
         ]);
 
         $file = $request->file('file');
-
-        // Subscription validation
-        $subscriptionErrors = $this->subscriptionService->validateMaterialUpload(
-            $user,
-            $file->getSize(),
-            $file->getMimeType()
-        );
-        if (! empty($subscriptionErrors)) {
-            return back()->withErrors(['file' => $subscriptionErrors]);
-        }
 
         $universityId = $course->loadMissing('department.faculty')->department?->faculty?->university_id;
         abort_unless($universityId && $universityId === $user->university_id, 403);

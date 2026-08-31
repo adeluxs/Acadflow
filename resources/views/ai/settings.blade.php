@@ -115,7 +115,7 @@
             </div>
 
             <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                @foreach(['ai_automatic_failover'=>'Automatic provider failover','ai_provider_health_enabled'=>'Provider health caching','ai_enable_cache'=>'AI response caching','ai_enable_logging'=>'AI usage logging','ai_grounding_enabled'=>'Grounding enabled','ai_hybrid_escalate_when_clean'=>'Hybrid escalation when rule-clean'] as $key=>$label)
+                @foreach(['ai_automatic_failover'=>'Automatic provider failover','ai_fast_failover'=>'Fast interactive failover','ai_provider_health_enabled'=>'Provider health caching','ai_enable_cache'=>'AI response caching','ai_enable_logging'=>'AI usage logging','ai_grounding_enabled'=>'Grounding enabled','ai_hybrid_escalate_when_clean'=>'Hybrid escalation when rule-clean'] as $key=>$label)
                     <label class="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-sm font-medium"><input type="checkbox" name="{{ $key }}" value="1" @checked(old($key,$settings[$key] ?? false))><span>{{ $label }}</span></label>
                 @endforeach
             </div>
@@ -148,6 +148,9 @@
                             <div class="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">Provider credentials and endpoints are platform-managed. Your institution inherits them and may select configured providers in Feature Routing.</div>
                         @endif
                         <button type="submit" formaction="{{ route('ai.providers.test',$p->value) }}" formmethod="POST" class="mt-4 rounded-xl border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50">Test Connection</button>
+                        @if($isPlatformAdmin && $p->value === 'openrouter')
+                            <button type="submit" formaction="{{ route('ai.providers.discover-models',$p->value) }}" formmethod="POST" class="mt-4 ml-2 rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Refresh Model Catalog</button>
+                        @endif
                     </article>
                 @endforeach
             </div>

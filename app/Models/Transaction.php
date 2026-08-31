@@ -17,6 +17,7 @@ class Transaction extends Model
         'transactionable_type',
         'transactionable_id',
         'amount',
+        'amount_minor',
         'currency',
         'type',
         'status',
@@ -29,6 +30,7 @@ class Transaction extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'amount_minor' => 'integer',
         'metadata' => 'array',
         'processed_at' => 'datetime',
     ];

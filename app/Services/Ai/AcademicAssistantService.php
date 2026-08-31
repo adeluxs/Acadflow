@@ -8,6 +8,7 @@ use App\Ai\AiManager;
 use App\Enums\AiMode;
 use App\Models\User;
 use App\Services\Discovery\DiscoverySearchService;
+use App\Support\Errors\UserFacingError;
 
 /**
  * User-facing academic copilot. This does not bypass AcadFlow's AI architecture:
@@ -56,6 +57,7 @@ class AcademicAssistantService
                 'sources' => [],
                 'request_id' => null,
                 'error_code' => 'AI_INPUT_INVALID',
+                'retryable' => false,
             ];
         }
         $filters = [];
@@ -135,6 +137,11 @@ class AcademicAssistantService
             $answer = 'I can help once AcadFlow has relevant indexed course or Knowledge Hub material. For open-ended generative answers, an administrator can select Provider AI or Hybrid mode and configure an external provider in AI Settings.';
         }
 
+        $failure = $success ? null : UserFacingError::fromAiCode($response->errorCode, $answer);
+        if ($failure) {
+            $answer = $failure['message'];
+        }
+
         return [
             'success' => $success,
             'answer' => trim((string) $answer),
@@ -152,6 +159,8 @@ class AcademicAssistantService
                 'score' => $source['score'],
             ])->all(),
             'request_id' => $response->requestId,
+            'error_code' => $response->errorCode,
+            'retryable' => (bool) ($failure['retryable'] ?? false),
         ];
     }
 

@@ -25,10 +25,8 @@ class ExportController extends Controller
     {
         $user = Auth::user();
 
-        // Check if subscription allows document generation
-        $subscription = $user->activeSubscription()->first();
-        if ($subscription && $subscription->plan && ! $subscription->plan->allow_document_generation) {
-            abort(403, 'Your subscription plan does not allow document generation.');
+        if (! $user->hasFeature('document_generation')) {
+            abort(403, 'Document generation is not currently available for your account.');
         }
 
         $pdfContent = $this->pdfService->generateTranscript($user);

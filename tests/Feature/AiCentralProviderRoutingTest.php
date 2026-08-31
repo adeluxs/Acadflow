@@ -191,6 +191,32 @@ class AiCentralProviderRoutingTest extends TestCase
         $this->assertSame('gemini-1.5-flash', $runtime->defaultModel($university->id));
     }
 
+    public function test_grok_can_be_selected_through_the_same_central_router(): void
+    {
+        config([
+            'ai.providers.grok.api_key' => 'test-xai-key',
+            'ai.providers.grok.base_url' => 'https://api.x.ai/v1',
+            'ai.providers.grok.model' => 'grok-4.5',
+        ]);
+        $this->setAi('ai_provider_grok_enabled', true, 'boolean');
+        $this->setAi('ai_provider_grok_model', 'grok-4.5');
+        $this->setAi('ai_provider_grok_models', ['grok-4.5'], 'json');
+        $this->setAi('ai_default_provider', 'grok');
+        $this->setAi('ai_default_model', 'grok-4.5');
+        $this->refreshAiRuntime();
+
+        Http::fake([
+            'https://api.x.ai/*' => Http::response($this->openAiPayload('grok routed response'), 200),
+        ]);
+
+        $response = app(AiManager::class)->analyze('writing_assistant', ['text' => 'Route this request through Grok.']);
+
+        $this->assertTrue($response->success);
+        $this->assertSame('grok', $response->provider);
+        $this->assertSame('grok-4.5', $response->model);
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'api.x.ai/v1/chat/completions'));
+    }
+
     public function test_rule_based_only_mode_never_calls_external_provider(): void
     {
         $this->setAi('ai_mode', 'rule_based');

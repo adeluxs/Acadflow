@@ -11,6 +11,11 @@ class WalletAccount extends Model
         'uuid',
         'user_id',
         'currency',
+        'spending_balance_minor',
+        'pending_earnings_minor',
+        'available_earnings_minor',
+        'lifetime_earnings_minor',
+        'recovery_debt_minor',
         'available_balance',
         'pending_balance',
         'lifetime_earnings',
@@ -20,6 +25,11 @@ class WalletAccount extends Model
     protected function casts(): array
     {
         return [
+            'spending_balance_minor' => 'integer',
+            'pending_earnings_minor' => 'integer',
+            'available_earnings_minor' => 'integer',
+            'lifetime_earnings_minor' => 'integer',
+            'recovery_debt_minor' => 'integer',
             'available_balance' => 'decimal:2',
             'pending_balance' => 'decimal:2',
             'lifetime_earnings' => 'decimal:2',

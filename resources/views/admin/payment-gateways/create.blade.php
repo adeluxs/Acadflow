@@ -12,7 +12,7 @@
             Back to Gateways
         </a>
         <h1 class="text-3xl font-bold">Add Payment Gateway</h1>
-        <p class="text-gray-600 mt-2">Configure a new payment gateway for subscription billing.</p>
+        <p class="text-gray-600 mt-2">Configure a payment gateway for wallet funding, marketplace payments and institutional billing.</p>
     </div>
 
     <div class="bg-white rounded-lg shadow p-6">

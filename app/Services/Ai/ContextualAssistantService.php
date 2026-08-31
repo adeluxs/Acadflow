@@ -17,6 +17,7 @@ use App\Services\Discovery\DiscoverySearchService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use App\Support\Errors\UserFacingError;
 
 /**
  * Specialized contextual assistants used inside AcadFlow modules.
@@ -378,6 +379,7 @@ class ContextualAssistantService
                 'fallback_used' => false,
                 'request_id' => null,
                 'sources' => [],
+                'retryable' => false,
             ];
         }
 
@@ -400,6 +402,10 @@ class ContextualAssistantService
 
         $response = $this->ai->analyze($feature, $payload, $user, $scope);
         $answer = $this->answerFrom($response->data, $response->summary, $response->issues, $response->suggestedActions);
+        $failure = $response->success ? null : UserFacingError::fromAiCode($response->errorCode, $answer);
+        if ($failure) {
+            $answer = $failure['message'];
+        }
 
         return [
             'success' => $response->success,
@@ -414,6 +420,7 @@ class ContextualAssistantService
             'confidence' => $response->confidence,
             'request_id' => $response->requestId,
             'error_code' => $response->errorCode,
+            'retryable' => (bool) ($failure['retryable'] ?? false),
             'suggested_actions' => array_values((array) ($response->data['suggested_actions'] ?? $response->suggestedActions)),
             'sources' => collect($sources)->map(fn ($source) => [
                 'label' => $source['label'] ?? null,

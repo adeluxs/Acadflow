@@ -7,6 +7,7 @@ namespace App\Services\Ai;
 use App\Enums\AiMode;
 use App\Enums\AiProviderName;
 use App\Services\SettingService;
+use App\Support\Money;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
@@ -118,6 +119,11 @@ class AiRuntimeConfigService
         return max(0, min(10000, (int) $this->setting('ai_retry_delay_ms', config('ai.retry_delay_ms', 300), $universityId)));
     }
 
+    public function fastFailover(?int $universityId = null): bool
+    {
+        return (bool) $this->setting('ai_fast_failover', config('ai.fast_failover', true), $universityId);
+    }
+
     public function globalTemperature(?int $universityId = null): float
     {
         return max(0.0, min(2.0, (float) $this->setting('ai_temperature', config('ai.temperature', 0.2), $universityId)));
@@ -160,7 +166,15 @@ class AiRuntimeConfigService
 
     public function maxMonthlyCost(?int $universityId = null): float
     {
-        return max(0.0, (float) $this->setting('ai_max_cost', config('ai.max_cost', 100.0), $universityId));
+        // Display/backwards-compatibility accessor. Runtime budget enforcement uses
+        // maxMonthlyCostMicroUsd() so no monetary comparison depends on floats.
+        return $this->maxMonthlyCostMicroUsd($universityId) / 1_000_000;
+    }
+
+    public function maxMonthlyCostMicroUsd(?int $universityId = null): int
+    {
+        $raw = (string) $this->setting('ai_max_cost', config('ai.max_cost', '100'), $universityId);
+        return max(0, Money::toMinorRounded($raw, 6));
     }
 
     public function rateLimitPerMinute(?int $universityId = null): int
@@ -362,6 +376,7 @@ class AiRuntimeConfigService
             'request_timeout' => $this->requestTimeout($universityId),
             'retry_count' => $this->retryCount($universityId),
             'retry_delay_ms' => $this->retryDelayMs($universityId),
+            'fast_failover' => $this->fastFailover($universityId),
             'max_tokens' => $this->maxTokens($universityId),
             'context_limit' => $this->contextLimit($universityId),
             'connect_timeout' => max(1, min(60, (int) config('ai.http.connect_timeout', 10))),

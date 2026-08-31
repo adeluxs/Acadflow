@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\UserOnboardingState;
 use App\Services\SettingService;
+use App\Support\Security\RetryAfter;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,16 +43,19 @@ class WebAuthController extends Controller
         $lockoutSeconds = max(60, (int) SettingService::get('lockout_duration_minutes', 15, $scope) * 60);
 
         if (RateLimiter::tooManyAttempts($throttleKey, $maxAttempts)) {
-            $seconds = RateLimiter::availableIn($throttleKey);
-            throw ValidationException::withMessages([
-                'email' => ["Too many sign-in attempts. Try again in {$seconds} seconds."],
-            ]);
+            return $this->loginLockoutResponse($request, RateLimiter::availableIn($throttleKey));
         }
 
         if (! $user || ! Auth::attempt(['email' => $user->email, 'password' => $credentials['password']], $request->boolean('remember'))) {
             RateLimiter::hit($throttleKey, $lockoutSeconds);
+            $remaining = RateLimiter::remaining($throttleKey, $maxAttempts);
+
+            if ($remaining <= 0) {
+                return $this->loginLockoutResponse($request, RateLimiter::availableIn($throttleKey));
+            }
+
             throw ValidationException::withMessages([
-                'email' => ['The email address or password is incorrect.'],
+                'email' => ["The email address or password is incorrect. {$remaining} ".($remaining === 1 ? 'attempt' : 'attempts').' remaining before temporary lockout.'],
             ]);
         }
 
@@ -76,7 +80,9 @@ class WebAuthController extends Controller
             return $this->nextDestination($request->user());
         }
 
-        return view('auth.register');
+        return view('auth.register', [
+            'passwordPolicy' => SettingService::getPasswordPolicy(),
+        ]);
     }
 
     public function register(Request $request): RedirectResponse
@@ -134,6 +140,17 @@ class WebAuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('login')->with('status', 'You have signed out securely.');
+    }
+
+    private function loginLockoutResponse(Request $request, int $seconds): RedirectResponse
+    {
+        $seconds = max(1, $seconds);
+
+        return redirect()->back()
+            ->withInput($request->only('email', 'remember'))
+            ->withErrors(['email' => RetryAfter::message('Too many sign-in attempts.', $seconds)])
+            ->with('retry_after', $seconds)
+            ->withHeaders(['Retry-After' => (string) $seconds]);
     }
 
     private function nextDestination(User $user): RedirectResponse

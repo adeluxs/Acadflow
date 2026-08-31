@@ -1,6 +1,6 @@
 # AcadFlow Documentation Index
 
-**Canonical documentation date:** 2026-08-16
+**Canonical documentation date:** 2026-08-20
 
 This folder contains both **current operational documentation** and **dated implementation-history reports**. Developers should use the canonical documents below first and consult dated reports when they need the history behind a specific subsystem.
 
@@ -20,6 +20,7 @@ This folder contains both **current operational documentation** and **dated impl
 
 ## Current specialist references
 
+- [`ACADFLOW_2026_08_20_PASSWORD_POLICY_RATE_LIMIT_UX.md`](ACADFLOW_2026_08_20_PASSWORD_POLICY_RATE_LIMIT_UX.md)
 - [`ENVIRONMENT_CONFIGURATION.md`](ENVIRONMENT_CONFIGURATION.md)
 - [`API.md`](API.md)
 - [`DATABASE.md`](DATABASE.md)

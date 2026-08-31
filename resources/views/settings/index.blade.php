@@ -13,6 +13,9 @@
             @if(auth()->user()->hasPermission(\App\Enums\Permission::MANAGE_AI_SETTINGS))
                 <a href="{{ route('ai.settings') }}" class="acad-primary-button inline-flex items-center rounded-lg px-3 py-2 text-xs font-semibold">AI Settings</a>
             @endif
+            @if(Route::has('admin.monetization'))
+                <a href="{{ route('admin.monetization') }}" class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Monetization</a>
+            @endif
             @if(auth()->user()->isSuperAdmin())
                 <a href="{{ route('admin.settings.features') }}" class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Feature & Module Management</a>
                 <a href="{{ route('admin.settings.permissions') }}" class="acad-link">Permission Management</a>
@@ -129,52 +132,74 @@
         </div>
         @endif
 
-        <!-- Subscription Settings -->
-        @if(isset($settings['subscription']))
-        <div id="subscription" class="bg-white rounded-lg shadow mb-6">
-            <div class="px-6 py-4 border-b">
-                <h2 class="text-lg font-bold">Subscription Settings</h2>
-                <p class="text-sm text-gray-600">Billing, trials, plan rules</p>
-            </div>
-            <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    @foreach($settings['subscription'] as $setting)
-                        <div>
-                            <label class="block text-gray-700 text-sm font-bold mb-2">
-                                {{ \Str::title(str_replace('_', ' ', $setting->key)) }}
-                            </label>
-                            @include('settings.partials.field', ['setting' => $setting])
-                            @if($setting->description)
-                                <p class="text-xs text-gray-500 mt-1">{{ $setting->description }}</p>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        </div>
-        @endif
-
         <!-- Security Settings -->
         @if(isset($settings['security']))
+        @php
+            $securityLabels = [
+                'password_min_length' => 'Minimum password length',
+                'password_require_uppercase' => 'Require uppercase letter',
+                'password_require_numbers' => 'Require number',
+                'password_require_special' => 'Require special character',
+                'max_login_attempts' => 'Failed login attempts before lockout',
+                'lockout_duration_minutes' => 'Login lockout duration (minutes)',
+                'login_requests_per_minute' => 'Login requests per minute',
+                'registration_requests_per_hour' => 'Registration requests per hour',
+                'password_reset_requests_per_minute' => 'Password reset requests per minute',
+                'verification_requests_per_minute' => 'Verification requests per minute',
+                'two_factor_attempts_per_minute' => 'Two-factor attempts per minute',
+                'payment_requests_per_minute' => 'Payment requests per minute',
+            ];
+            $securitySections = [
+                'Password policy' => [
+                    'description' => 'These are the exact password rules used by registration and password-change/reset validation.',
+                    'keys' => ['password_min_length','password_require_uppercase','password_require_numbers','password_require_special'],
+                ],
+                'Login protection' => [
+                    'description' => 'Failed-attempt lockout and request throttling for sign-in.',
+                    'keys' => ['max_login_attempts','lockout_duration_minutes','login_requests_per_minute'],
+                ],
+                'Security request limits' => [
+                    'description' => 'Existing sensitive actions use these central limits. Users receive the real remaining retry time when a limit is reached.',
+                    'keys' => ['registration_requests_per_hour','password_reset_requests_per_minute','verification_requests_per_minute','two_factor_attempts_per_minute','payment_requests_per_minute'],
+                ],
+                'Sessions & account security' => [
+                    'description' => 'Existing session, two-factor and audit controls.',
+                    'keys' => ['session_timeout_minutes','enable_two_factor','max_concurrent_sessions','enable_audit_logs','audit_log_retention_days'],
+                ],
+            ];
+        @endphp
         <div id="security" class="bg-white rounded-lg shadow mb-6">
             <div class="px-6 py-4 border-b">
                 <h2 class="text-lg font-bold">Security Settings</h2>
-                <p class="text-sm text-gray-600">Passwords, sessions, 2FA, audit logs</p>
+                <p class="text-sm text-gray-600">One source of truth for password policy, login protection and existing authentication rate limits.</p>
             </div>
-            <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    @foreach($settings['security'] as $setting)
-                        <div>
-                            <label class="block text-gray-700 text-sm font-bold mb-2">
-                                {{ \Str::title(str_replace('_', ' ', $setting->key)) }}
-                            </label>
-                            @include('settings.partials.field', ['setting' => $setting])
-                            @if($setting->description)
-                                <p class="text-xs text-gray-500 mt-1">{{ $setting->description }}</p>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
+            <div class="space-y-8 p-6">
+                @foreach($securitySections as $sectionName => $section)
+                    @php
+                        $sectionSettings = $settings['security']->filter(fn ($item) => in_array($item->key, $section['keys'], true));
+                    @endphp
+                    @if($sectionSettings->isNotEmpty())
+                        <section>
+                            <div class="mb-4">
+                                <h3 class="font-bold text-slate-900">{{ $sectionName }}</h3>
+                                <p class="mt-1 text-sm text-slate-500">{{ $section['description'] }}</p>
+                            </div>
+                            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                                @foreach($sectionSettings as $setting)
+                                    <div>
+                                        <label class="mb-2 block text-sm font-bold text-gray-700">
+                                            {{ $securityLabels[$setting->key] ?? \Str::title(str_replace('_', ' ', $setting->key)) }}
+                                        </label>
+                                        @include('settings.partials.field', ['setting' => $setting])
+                                        @if($setting->description)
+                                            <p class="mt-1 text-xs text-gray-500">{{ $setting->description }}</p>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        </section>
+                    @endif
+                @endforeach
             </div>
         </div>
         @endif
@@ -253,7 +278,7 @@
         <div class="px-6 py-4 border-b flex justify-between items-center">
             <div>
                 <h2 class="text-lg font-bold">Payment Gateways</h2>
-                <p class="text-sm text-gray-600">Configure payment providers for subscription billing</p>
+                <p class="text-sm text-gray-600">Configure payment providers for wallet funding, marketplace purchases, refunds and other supported transactions</p>
             </div>
             <a href="{{ route('admin.payment-gateways.create') }}" 
                class="acad-primary-button px-4 py-2 rounded text-sm">
@@ -320,60 +345,14 @@
         </div>
     </div>
 
-    <!-- Subscription Plans -->
-    <div class="bg-white rounded-lg shadow mb-6">
-        <div class="px-6 py-4 border-b flex justify-between items-center">
+    <div class="mb-6 overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50/60 shadow-sm">
+        <div class="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
             <div>
-                <h2 class="text-lg font-bold">Subscription Plans</h2>
-                <p class="text-sm text-gray-600">Manage subscription tiers and pricing</p>
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Commercial controls</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-950">Subscriptions have been retired</h2>
+                <p class="mt-1 max-w-3xl text-sm text-slate-600">Pricing, wallets, commissions, AI usage, withdrawals and institutional commercial accounts are managed from the centralized Monetization Center.</p>
             </div>
-            <a href="{{ route('admin.subscription-plans.create') }}" 
-               class="acad-primary-button px-4 py-2 rounded text-sm">
-               + Add Plan
-            </a>
-        </div>
-        <div class="p-6">
-            <table class="w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-2 text-left text-sm">Plan Name</th>
-                        <th class="px-4 py-2 text-left text-sm">Type</th>
-                        <th class="px-4 py-2 text-left text-sm">Price</th>
-                        <th class="px-4 py-2 text-left text-sm">Max Courses</th>
-                        <th class="px-4 py-2 text-left text-sm">Max Storage</th>
-                        <th class="px-4 py-2 text-left text-sm">Status</th>
-                        <th class="px-4 py-2 text-left text-sm">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($subscriptionPlans as $plan)
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="px-4 py-3">
-                                {{ $plan->display_name }}
-                                @if($plan->is_recommended)
-                                    <span class="ml-2 bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">Recommended</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="px-2 py-1 rounded text-xs {{ $plan->plan_type === 'b2b' ? 'bg-purple-100 text-purple-800' : ($plan->plan_type === 'free' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800') }}">
-                                    {{ strtoupper($plan->plan_type) }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">${{ number_format($plan->price_per_month, 2) }}/mo</td>
-                            <td class="px-4 py-3">{{ $plan->max_courses ?? 'Unlimited' }}</td>
-                            <td class="px-4 py-3">{{ $plan->max_storage_gb ?? 'Unlimited' }} GB</td>
-                            <td class="px-4 py-3">
-                                <span class="px-2 py-1 rounded text-xs {{ $plan->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                                    {{ $plan->is_active ? 'Active' : 'Inactive' }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <a href="{{ route('admin.subscription-plans.edit', $plan) }}" class="acad-link text-sm">Edit</a>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
+            <a href="{{ route('admin.monetization') }}" class="acad-primary-button inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold">Open Monetization →</a>
         </div>
     </div>
     @endif

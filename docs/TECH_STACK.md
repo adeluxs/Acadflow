@@ -54,7 +54,7 @@ AcadFlow is not currently an Inertia/Livewire SPA architecture. Do not add those
 ## AI
 
 - centralized provider architecture under `app/Ai` and `app/Services/Ai`
-- providers: Rule-Based Engine, OpenAI, Claude/Anthropic, Gemini/Google, DeepSeek, Azure OpenAI, Ollama
+- providers: Rule-Based Engine, OpenAI, Claude/Anthropic, Gemini/Google, DeepSeek, Grok/xAI, Azure OpenAI, Ollama
 - runtime provider/model selection is database/admin-driven through `AiRuntimeConfigService` and `AiRouter`
 - local search/indexing uses `SearchDocument`, `SearchChunk` and `LocalEmbeddingService`
 

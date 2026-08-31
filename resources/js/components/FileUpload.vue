@@ -50,6 +50,7 @@
                     <div>
                         <p class="text-sm font-medium text-gray-900">{{ file.name }}</p>
                         <p class="text-xs text-gray-500">{{ formatFileSize(file.size) }}</p>
+                        <p v-if="file.error" class="mt-1 max-w-md text-xs leading-5 text-red-600">{{ file.error }}</p>
                     </div>
                 </div>
                 
@@ -235,7 +236,10 @@ export default {
                     file.file_url = response.data.url;
                     this.$emit('uploaded', response.data);
                 } catch (error) {
-                    file.error = error.response?.data?.message || 'Upload failed';
+                    const detail = window.AcadFlowFeedback?.normalize(error, 'The file could not be uploaded right now.') || {
+                        message: 'The file could not be uploaded right now.'
+                    };
+                    file.error = detail.message + ' The file remains selected. Remove and select it again only after confirming it was not already attached.';
                     this.$emit('error', file.error);
                 } finally {
                     file.uploading = false;

@@ -88,7 +88,7 @@ foreach ($runtimeDirs as $dir) {
 }
 
 // Concrete provider construction belongs only to the provider registry.
-$providerClasses = ['OpenAiProvider','ClaudeProvider','GeminiProvider','DeepSeekProvider','AzureOpenAiProvider','OllamaProvider'];
+$providerClasses = ['OpenAiProvider','ClaudeProvider','GeminiProvider','DeepSeekProvider','GrokProvider','AzureOpenAiProvider','OllamaProvider'];
 $appIterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root.'/app', FilesystemIterator::SKIP_DOTS));
 foreach ($appIterator as $file) {
     if (! $file->isFile() || strtolower($file->getExtension()) !== 'php') continue;
@@ -103,7 +103,7 @@ foreach ($appIterator as $file) {
 }
 
 // Provider HTTP hosts/calls may exist only in adapters; unrelated HTTP services are ignored.
-$providerHostPatterns = ['api.openai.com', 'api.anthropic.com', 'generativelanguage.googleapis.com', 'api.deepseek.com'];
+$providerHostPatterns = ['api.openai.com', 'api.anthropic.com', 'generativelanguage.googleapis.com', 'api.deepseek.com', 'api.x.ai'];
 foreach ($appIterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root.'/app', FilesystemIterator::SKIP_DOTS)) as $file) {
     if (! $file->isFile() || strtolower($file->getExtension()) !== 'php') continue;
     $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
@@ -161,6 +161,7 @@ foreach ($providerClasses as $class) {
         'ClaudeProvider' => 'app/Ai/Providers/ClaudeProvider.php',
         'GeminiProvider' => 'app/Ai/Providers/GeminiProvider.php',
         'DeepSeekProvider' => 'app/Ai/Providers/DeepSeekProvider.php',
+        'GrokProvider' => 'app/Ai/Providers/GrokProvider.php',
         'AzureOpenAiProvider' => 'app/Ai/Providers/AzureOpenAiProvider.php',
         'OllamaProvider' => 'app/Ai/Providers/OllamaProvider.php',
     };

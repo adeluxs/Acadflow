@@ -76,7 +76,7 @@ $expected = [
     'dashboard', 'courses', 'course_materials', 'assignments', 'submissions', 'attendance',
     'course_discussions', 'group_collaboration', 'research_studio', 'knowledge_hub',
     'knowledge_communities', 'ai_assistant', 'notifications', 'push_notifications',
-    'billing_subscriptions', 'documents_exports', 'advanced_analytics', 'pwa_enabled',
+    'monetization_commerce', 'documents_exports', 'advanced_analytics', 'pwa_enabled',
 ];
 foreach ($expected as $key) {
     if (! isset($definitions[$key])) $errors[] = "Expected existing module {$key} is not registered.";

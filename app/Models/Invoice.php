@@ -18,6 +18,8 @@ class Invoice extends Model
         'subscription_id',
         'user_subscription_id',
         'amount',
+        'amount_minor',
+        'currency',
         'status',
         'due_date',
         'paid_at',
@@ -29,6 +31,7 @@ class Invoice extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'amount_minor' => 'integer',
             'due_date' => 'date',
             'paid_at' => 'datetime',
         ];

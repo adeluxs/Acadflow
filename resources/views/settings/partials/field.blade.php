@@ -5,6 +5,18 @@
     $displayValue = is_array($value) || is_object($value)
         ? json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
         : (string) ($value ?? '');
+    $integerBounds = [
+        'password_min_length' => [6, 128],
+        'max_login_attempts' => [1, 50],
+        'lockout_duration_minutes' => [1, 1440],
+        'login_requests_per_minute' => [1, 120],
+        'registration_requests_per_hour' => [1, 100],
+        'password_reset_requests_per_minute' => [1, 30],
+        'verification_requests_per_minute' => [1, 30],
+        'two_factor_attempts_per_minute' => [1, 30],
+        'payment_requests_per_minute' => [1, 60],
+    ];
+    [$integerMin, $integerMax] = $integerBounds[$key] ?? [null, null];
 @endphp
 
 @if($type === 'boolean')
@@ -13,8 +25,11 @@
         <option value="0" {{ $value == '0' || $value === false ? 'selected' : '' }}>Disabled</option>
     </select>
 @elseif($type === 'integer')
-    <input type="number" name="settings[{{ $key }}]" 
+    <input type="number" name="settings[{{ $key }}]"
            value="{{ $displayValue }}"
+           @if($integerMin !== null) min="{{ $integerMin }}" @endif
+           @if($integerMax !== null) max="{{ $integerMax }}" @endif
+           step="1"
            class="w-full rounded border border-slate-300 px-3 py-2 hover:border-indigo-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
 @elseif($type === 'json')
     <textarea name="settings[{{ $key }}]" 

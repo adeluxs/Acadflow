@@ -12,6 +12,8 @@ enum AiProviderName: string
     case CLAUDE = 'claude';
     case GEMINI = 'gemini';
     case DEEPSEEK = 'deepseek';
+    case GROK = 'grok';
+    case OPENROUTER = 'openrouter';
     case AZURE_OPENAI = 'azure_openai';
     case OLLAMA = 'ollama';
 
@@ -23,6 +25,8 @@ enum AiProviderName: string
             self::CLAUDE => 'Claude (Anthropic)',
             self::GEMINI => 'Gemini (Google)',
             self::DEEPSEEK => 'DeepSeek',
+            self::GROK => 'Grok (xAI)',
+            self::OPENROUTER => 'OpenRouter',
             self::AZURE_OPENAI => 'Azure OpenAI',
             self::OLLAMA => 'Ollama (Self-hosted)',
         };

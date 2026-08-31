@@ -55,7 +55,7 @@ class PlagiarismService
                 return $check->fresh('matches');
             });
         } catch (\Throwable $exception) {
-            $check->update(['status' => 'failed', 'summary' => 'Similarity processing failed safely.', 'metadata' => array_merge($check->metadata ?? [], ['error' => $exception->getMessage()])]);
+            $check->update(['status' => 'failed', 'summary' => 'Similarity processing failed safely.', 'metadata' => array_merge($check->metadata ?? [], ['error_type' => class_basename($exception)])]);
             report($exception);
             return $check->fresh();
         }

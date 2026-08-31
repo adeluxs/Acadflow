@@ -7,7 +7,6 @@ use App\Models\Enrollment;
 use App\Models\Invoice;
 use App\Services\AcademicContextService;
 use App\Services\SettingService;
-use App\Models\UserSubscription;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -54,14 +53,9 @@ class EnrollmentController extends Controller
             ->where('status', 'paid')
             ->first();
 
-        // Allow enrollment if paid or if within grace period
-        $subscription = UserSubscription::where('university_id', Auth::user()->university_id)
-            ->where('status', 'active')
-            ->where('is_active', true)
-            ->whereHas('plan', fn ($q) => $q->where('plan_type', '!=', 'b2c'))
-            ->first();
-
-        $graceDays = $subscription?->grace_days ?? 7;
+        // Institutional semester-fee grace is an academic policy, not a
+        // subscription entitlement. Admin controls it independently.
+        $graceDays = max(0, (int) SettingService::get('enrollment_payment_grace_days', 7, $user->university_id));
         $withinGrace = now()->lessThanOrEqualTo($semester->start_date->addDays($graceDays));
 
         if (! $invoice && ! $withinGrace) {

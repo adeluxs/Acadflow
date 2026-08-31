@@ -12,6 +12,7 @@ $required = [
     'app/Ai/Providers/ClaudeProvider.php',
     'app/Ai/Providers/GeminiProvider.php',
     'app/Ai/Providers/DeepSeekProvider.php',
+    'app/Ai/Providers/GrokProvider.php',
     'app/Ai/Providers/AzureOpenAiProvider.php',
     'app/Ai/Providers/OllamaProvider.php',
     'config/logging.php',
@@ -27,6 +28,7 @@ $ollama = $read('app/Ai/Providers/OllamaProvider.php');
 $openai = $read('app/Ai/Providers/OpenAiProvider.php');
 $claude = $read('app/Ai/Providers/ClaudeProvider.php');
 $deepseek = $read('app/Ai/Providers/DeepSeekProvider.php');
+$grok = $read('app/Ai/Providers/GrokProvider.php');
 $logging = $read('config/logging.php');
 $console = $read('routes/console.php');
 $settings = $read('resources/views/ai/settings.blade.php');
@@ -38,7 +40,7 @@ $materialPolicy = $read('app/Policies/CourseMaterialPolicy.php');
 $knowledgeController = $read('app/Http/Controllers/KnowledgePublicationController.php');
 $webRoutes = $read('routes/web.php');
 
-foreach (['connectTimeout(', "'ca_bundle'", "'proxy'", "'force_ipv4'", "'verify_tls'", 'connectionError(', 'providerErrorMessage(', "Log::channel('ai_provider')", 'safeEndpoint(', 'sanitizeDiagnostic(', 'sendJson(', 'withBody(', 'safePayloadMetadata(', 'payload_model', 'shouldTryIpv4Fallback('] as $needle) {
+foreach (['connectTimeout(', "'ca_bundle'", "'proxy'", "'force_ipv4'", "'verify_tls'", "'fast_failover'", 'connectionError(', 'providerErrorMessage(', "Log::channel('ai_provider')", 'safeEndpoint(', 'sanitizeDiagnostic(', 'sendJson(', 'withBody(', 'safePayloadMetadata(', 'payload_model', 'shouldTryIpv4Fallback('] as $needle) {
     if (! str_contains($external, $needle)) $errors[] = "ExternalProvider missing transport/diagnostic safeguard: {$needle}";
 }
 foreach (['AI_TLS_ERROR','AI_DNS_ERROR','AI_CONNECTION_REFUSED','AI_PROVIDER_TIMEOUT','AI_NETWORK_ERROR','AI_PROVIDER_AUTH_FAILED','AI_PROVIDER_RATE_LIMITED','AI_MODEL_NOT_FOUND'] as $code) {
@@ -52,6 +54,7 @@ if (! str_contains($gemini, ':generateContent')) $errors[] = 'Gemini adapter is 
 if (! str_contains($openai, '/chat/completions')) $errors[] = 'OpenAI adapter is missing Chat Completions endpoint.';
 if (! str_contains($claude, '/messages') || ! str_contains($claude, "'x-api-key'") || ! str_contains($claude, "'anthropic-version'")) $errors[] = 'Claude adapter protocol headers/endpoint are incomplete.';
 if (! str_contains($deepseek, '/chat/completions') || ! str_contains($deepseek, "'Authorization'")) $errors[] = 'DeepSeek adapter protocol is incomplete.';
+if (! str_contains($grok, 'https://api.x.ai/v1') || ! str_contains($grok, '/chat/completions') || ! str_contains($grok, "'Authorization'")) $errors[] = 'Grok (xAI) adapter protocol is incomplete.';
 if (! str_contains($azure, '/openai/v1') || ! str_contains($azure, '/chat/completions') || ! str_contains($azure, "'api-key'")) $errors[] = 'Azure OpenAI v1/legacy compatibility is incomplete.';
 if (! str_contains($ollama, '/api/chat') || ! str_contains($ollama, 'Bearer ')) $errors[] = 'Ollama adapter must support /api/chat and optional cloud Bearer authentication.';
 if (! str_contains($logging, "'ai_provider' =>") || ! str_contains($logging, "storage_path('logs/ai-provider.log')")) $errors[] = 'Dedicated ai-provider.log channel is missing.';
@@ -85,7 +88,7 @@ echo " - OpenAI/provider POST bodies are sent as explicit JSON with safe payload
 echo " - Retryable connection failures get one automatic IPv4 transport fallback\n";
 echo " - Retired Gemini 1.5/2.0 model identifiers are normalized to supported replacements\n";
 echo " - Gemini credentials are sent in x-goog-api-key, not in the URL\n";
-echo " - OpenAI, Claude, Gemini, DeepSeek, Azure OpenAI and Ollama protocol adapters checked\n";
+echo " - OpenAI, Claude, Gemini, DeepSeek, Grok (xAI), Azure OpenAI and Ollama protocol adapters checked\n";
 echo " - Scheduled health command is non-fatal unless --strict is requested\n";
 echo " - Course material creator/lecturer access regression checked\n";
 echo " - Knowledge publication creator workspace regression checked\n";

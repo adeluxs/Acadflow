@@ -42,7 +42,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
 });
 
 // Protected API Routes
-Route::prefix('v1')->middleware(['auth:sanctum', 'feature.access', 'api.account.ready', 'subscription.feature:allow_api_access'])->group(function () {
+Route::prefix('v1')->middleware(['auth:sanctum', 'feature.access', 'api.account.ready'])->group(function () {
     // User
     Route::get('/user', [AuthController::class, 'me']);
     Route::put('/user', [AuthController::class, 'updateProfile']);
@@ -116,7 +116,6 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'feature.access', 'api.account.
     Route::get('/payments', [BillingController::class, 'payments']);
     Route::post('/payments/verify', [BillingController::class, 'verifyPayment']);
     Route::post('/payments/initiate', [BillingController::class, 'initiatePayment']);
-    Route::get('/subscriptions', [BillingController::class, 'subscriptions']);
 
     // Documents
     Route::get('/documents/templates', [DocumentController::class, 'templates']);

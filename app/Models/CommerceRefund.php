@@ -14,9 +14,15 @@ class CommerceRefund extends Model
         'processed_by',
         'transaction_id',
         'amount',
+        'amount_minor',
         'reason',
         'status',
         'gateway_refund_id',
+        'provider_status',
+        'provider_payload',
+        'processing_started_at',
+        'provider_confirmed_at',
+        'reconciliation_required',
         'decision_note',
         'processed_at',
     ];
@@ -25,6 +31,11 @@ class CommerceRefund extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'amount_minor' => 'integer',
+            'provider_payload' => 'array',
+            'processing_started_at' => 'datetime',
+            'provider_confirmed_at' => 'datetime',
+            'reconciliation_required' => 'boolean',
             'processed_at' => 'datetime',
         ];
     }

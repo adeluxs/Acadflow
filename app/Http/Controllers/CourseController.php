@@ -54,7 +54,7 @@ class CourseController extends Controller
             ->exists();
         $isLecturer = $course->lecturerAssignments()->where('user_id', $user->id)->exists();
 
-        $course->load('department.faculty', 'lecturerAssignments.user', 'enrollments.user');
+        $course->load('department.faculty', 'lecturerAssignments.user');
         $course->loadCount([
             'materials as visible_materials_count' => fn ($q) => $q->where('is_visible', true),
             'submissionTasks as published_assignments_count' => fn ($q) => $q->where('status', 'published')->where('is_visible_to_students', true),

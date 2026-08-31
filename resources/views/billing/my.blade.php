@@ -3,6 +3,7 @@
 @section('title', 'My Invoices')
 
 @section('content')
+@php($billingCurrency = strtoupper((string) \App\Services\SettingService::get('currency', 'NGN', auth()->user()?->university_id)))
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-900">My Invoices</h1>
@@ -27,7 +28,7 @@
                         <tr>
                             <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ $invoice->uuid }}</td>
                             <td class="px-6 py-4 text-sm text-gray-600">{{ $invoice->semester?->name ?? '—' }}</td>
-                            <td class="px-6 py-4 text-sm text-gray-900">{{ number_format((float) $invoice->amount, 2) }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-900">{{ $invoice->currency ?: $billingCurrency }} {{ \App\Support\Money::fromMinor($invoice->amount_minor !== null ? (int) $invoice->amount_minor : \App\Support\Money::toMinor((string) $invoice->amount)) }}</td>
                             <td class="px-6 py-4 text-sm text-gray-600">{{ $invoice->due_date?->format('Y-m-d') ?? '—' }}</td>
                             <td class="px-6 py-4">
                                 <span class="inline-flex rounded-full px-2 py-1 text-xs font-semibold

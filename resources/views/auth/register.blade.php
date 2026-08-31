@@ -63,7 +63,7 @@
             <div>
                 <label for="password" class="mb-2 block text-sm font-semibold text-slate-800">Password</label>
                 <div class="relative">
-                    <input id="password" name="password" type="password" required autocomplete="new-password" class="w-full rounded-2xl border-slate-300 px-4 py-3 pr-16 focus:border-blue-600 focus:ring-blue-600">
+                    <input id="password" name="password" type="password" required minlength="{{ $passwordPolicy['min_length'] }}" autocomplete="new-password" class="w-full rounded-2xl border-slate-300 px-4 py-3 pr-16 focus:border-blue-600 focus:ring-blue-600">
                     <button type="button" data-password-toggle="password" class="absolute inset-y-0 right-3 text-sm font-semibold text-slate-500">Show</button>
                 </div>
             </div>
@@ -75,7 +75,11 @@
                 </div>
             </div>
         </div>
-        <p class="text-xs leading-5 text-slate-500">Use at least 8 characters with mixed letters and numbers. Common or compromised passwords are rejected.</p>
+        @include('auth.partials.password-policy', [
+            'passwordPolicy' => $passwordPolicy,
+            'passwordInputId' => 'password',
+            'confirmationInputId' => 'password_confirmation',
+        ])
         @error('password')<p class="text-sm text-rose-700">{{ $message }}</p>@enderror
 
         <label class="flex items-start gap-3 text-sm text-slate-600">

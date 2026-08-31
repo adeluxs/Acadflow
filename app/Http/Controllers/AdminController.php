@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\CommercialAccount;
 use App\Models\AttendanceRecord;
 use App\Models\AttendanceSession;
 use App\Models\Department;
@@ -12,7 +13,6 @@ use App\Models\Invoice;
 use App\Models\Submission;
 use App\Models\University;
 use App\Models\User;
-use App\Models\UserSubscription;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -176,13 +176,11 @@ class AdminController extends Controller
         }
 
         if ($validated['role'] === 'department_admin') {
-            $subscription = UserSubscription::query()
-                ->where('department_id', $department->id)
+            $commercialAccount = CommercialAccount::query()
+                ->where('university_id', $departmentUniversityId)
                 ->where('status', 'active')
-                ->whereHas('plan', fn ($plan) => $plan->where('plan_type', '!=', 'b2c'))
                 ->first();
-
-            $maxAdmins = $subscription?->plan?->max_administrators;
+            $maxAdmins = data_get($commercialAccount?->metadata, 'max_administrators');
             if ($maxAdmins !== null) {
                 $currentCount = User::query()
                     ->where('role', 'department_admin')
@@ -191,7 +189,7 @@ class AdminController extends Controller
 
                 if ($currentCount >= $maxAdmins) {
                     return back()->withErrors([
-                        'role' => 'Maximum number of administrators ('.$maxAdmins.') reached for this subscription plan.',
+                        'role' => "Maximum number of administrators ({$maxAdmins}) reached for this institution's commercial access configuration.",
                     ]);
                 }
             }

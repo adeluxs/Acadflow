@@ -11,6 +11,7 @@ use App\Services\EngagementService;
 use App\Services\Knowledge\ModerationService;
 use App\Services\Knowledge\PublicationService;
 use App\Services\KnowledgeDiscoveryService;
+use App\Support\Money;
 use Illuminate\Http\Request;
 
 class KnowledgeController extends Controller
@@ -48,7 +49,7 @@ class KnowledgeController extends Controller
     {
         $this->authorize('submit', $publication);
         abort_if(trim(strip_tags((string) $publication->document?->body)) === '', 422, 'Publication content cannot be empty.');
-        abort_if($publication->access_type === 'premium' && (float) $publication->price <= 0, 422, 'Premium publications require a price.');
+        abort_if($publication->access_type === 'premium' && Money::toMinor((string) $publication->price) <= 0, 422, 'Premium publications require a price.');
         $publication->update(['status' => 'pending_review', 'submitted_at' => now(), 'moderation_note' => null]);
         $publication->document->update(['status' => 'review']);
         return response()->json($moderation->queue($publication, $request->user()), 202);
@@ -102,7 +103,7 @@ class KnowledgeController extends Controller
         return $request->validate([
             'title' => 'required|string|max:255', 'body' => 'required|string|max:2000000', 'category_id' => 'nullable|integer|exists:knowledge_categories,id',
             'doi' => 'nullable|string|max:255', 'content_type' => 'required|string|max:80', 'language' => 'nullable|string|max:10', 'excerpt' => 'nullable|string|max:2000',
-            'visibility' => 'required|in:private,public,institution', 'access_type' => 'required|in:free,premium,institution', 'price' => 'nullable|numeric|min:0',
+            'visibility' => 'required|in:private,public,institution', 'access_type' => 'required|in:free,premium,institution', 'price' => ['nullable','regex:/^\d+(?:\.\d{1,2})?$/'],
             'tags' => 'nullable', 'copyright' => 'nullable|string|max:255',
         ]);
     }

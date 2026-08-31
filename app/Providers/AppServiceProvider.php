@@ -78,24 +78,46 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(120)->by($request->ip());
         });
 
+
+        RateLimiter::for('payments', function (Request $request): Limit {
+            $limits = SettingService::getSecurityRateLimits($request->user()?->university_id);
+
+            return Limit::perMinute($limits['payment_requests_per_minute'])
+                ->by((string) ($request->user()?->id ?? $request->ip()));
+        });
+
         RateLimiter::for('login', function (Request $request): Limit {
-            return Limit::perMinute(10)->by(strtolower((string) $request->input('email')).'|'.$request->ip());
+            $limits = SettingService::getSecurityRateLimits();
+
+            return Limit::perMinute($limits['login_requests_per_minute'])
+                ->by(strtolower((string) $request->input('email')).'|'.$request->ip());
         });
 
         RateLimiter::for('register', function (Request $request): Limit {
-            return Limit::perHour(5)->by($request->ip());
+            $limits = SettingService::getSecurityRateLimits();
+
+            return Limit::perHour($limits['registration_requests_per_hour'])->by($request->ip());
         });
 
         RateLimiter::for('password-reset', function (Request $request): Limit {
-            return Limit::perMinute(5)->by(strtolower((string) $request->input('email')).'|'.$request->ip());
+            $limits = SettingService::getSecurityRateLimits();
+
+            return Limit::perMinute($limits['password_reset_requests_per_minute'])
+                ->by(strtolower((string) $request->input('email')).'|'.$request->ip());
         });
 
         RateLimiter::for('verification', function (Request $request): Limit {
-            return Limit::perMinute(6)->by((string) ($request->user()?->id ?? $request->ip()));
+            $limits = SettingService::getSecurityRateLimits($request->user()?->university_id);
+
+            return Limit::perMinute($limits['verification_requests_per_minute'])
+                ->by((string) ($request->user()?->id ?? $request->ip()));
         });
 
         RateLimiter::for('two-factor', function (Request $request): Limit {
-            return Limit::perMinute(5)->by((string) ($request->user()?->id ?? $request->ip()));
+            $limits = SettingService::getSecurityRateLimits($request->user()?->university_id);
+
+            return Limit::perMinute($limits['two_factor_attempts_per_minute'])
+                ->by((string) ($request->user()?->id ?? $request->ip()));
         });
         // Explicit route model binding for SubmissionTask to use uuid column
         Route::bind('task', function (string $value) {

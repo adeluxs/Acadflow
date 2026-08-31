@@ -7,6 +7,7 @@ use App\Models\KnowledgePublication;
 use App\Models\KnowledgeTag;
 use App\Models\User;
 use App\Services\ContentWorkspaceService;
+use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -44,7 +45,7 @@ class PublicationService
                 'status' => 'draft',
                 'visibility' => $data['visibility'] ?? 'private',
                 'access_type' => $data['access_type'] ?? 'free',
-                'price' => ($data['access_type'] ?? 'free') === 'premium' ? (float) ($data['price'] ?? 0) : 0,
+                'price' => ($data['access_type'] ?? 'free') === 'premium' ? Money::fromMinor(Money::toMinor((string)($data['price'] ?? '0'))) : '0.00',
                 'reading_time_minutes' => $this->readingTime($data['body'] ?? ''),
                 'metadata' => array_filter(['copyright' => $data['copyright'] ?? null]),
             ]);
@@ -71,7 +72,7 @@ class PublicationService
                 'excerpt' => $data['excerpt'] ?? null,
                 'visibility' => $data['visibility'] ?? $publication->visibility,
                 'access_type' => $data['access_type'] ?? $publication->access_type,
-                'price' => ($data['access_type'] ?? $publication->access_type) === 'premium' ? (float) ($data['price'] ?? $publication->price ?? 0) : 0,
+                'price' => ($data['access_type'] ?? $publication->access_type) === 'premium' ? Money::fromMinor(Money::toMinor((string)($data['price'] ?? $publication->price ?? '0'))) : '0.00',
                 'reading_time_minutes' => $this->readingTime($body),
                 'status' => in_array($publication->status, ['changes_requested', 'rejected'], true) ? 'draft' : $publication->status,
                 'metadata' => array_merge($publication->metadata ?? [], array_filter(['copyright' => $data['copyright'] ?? null], fn ($value) => $value !== null)),

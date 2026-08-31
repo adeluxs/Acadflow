@@ -14,7 +14,9 @@ class CommerceOrderItem extends Model
         'title',
         'quantity',
         'unit_price',
+        'unit_price_minor',
         'total_price',
+        'total_price_minor',
         'metadata',
     ];
 
@@ -29,6 +31,8 @@ class CommerceOrderItem extends Model
         return [
             'quantity' => 'integer',
             'unit_price' => 'decimal:2',
+            'unit_price_minor' => 'integer',
+            'total_price_minor' => 'integer',
             'total_price' => 'decimal:2',
             'metadata' => 'array',
         ];

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Money;
 use App\Jobs\IndexSearchableContent;
 use App\Models\AuditLog;
 use App\Models\ContentVersion;
@@ -91,7 +92,7 @@ class KnowledgePublicationController extends Controller
 
     public function submit(Request $request, KnowledgePublication $publication, ModerationService $moderation): RedirectResponse
     {
-        $this->authorize('submit',$publication);abort_if(trim(strip_tags((string)$publication->document->body))==='',422,'Publication content cannot be empty.');abort_if($publication->access_type==='premium'&&(float)$publication->price<=0,422,'Premium publications require a price.');
+        $this->authorize('submit',$publication);abort_if(trim(strip_tags((string)$publication->document->body))==='',422,'Publication content cannot be empty.');abort_if($publication->access_type==='premium'&&Money::toMinor((string)$publication->price)<=0,422,'Premium publications require a price.');
         $publication->update(['status'=>'pending_review','submitted_at'=>now(),'moderation_note'=>null]);$publication->document->update(['status'=>'review']);$report=$moderation->queue($publication,$request->user());
         return back()->with('success','Publication submitted. Automated quality and similarity checks are queued for the human moderator. Report '.$report->uuid.'.');
     }
@@ -144,7 +145,7 @@ class KnowledgePublicationController extends Controller
 
     protected function validated(Request $request): array
     {
-        $data=$request->validate(['title'=>['required','string','max:255'],'body'=>['required','string','max:1000000'],'excerpt'=>['nullable','string','max:2000'],'category_id'=>['nullable','integer','exists:knowledge_categories,id'],'content_type'=>['required','in:academic_article,research_output,research_insight,study_guide,exam_preparation,tutorial,programming_tutorial,campus_guide,career_guide,siwes_experience,project_experience,educational_video,presentation,reference_material,case_study,announcement,digital_resource,question_bank,mock_exam,template,ebook,video_course'],'language'=>['nullable','string','max:10'],'doi'=>['nullable','string','max:255'],'copyright'=>['nullable','string','max:255'],'visibility'=>['required','in:public,institution'],'access_type'=>['required','in:free,premium,institution'],'price'=>['nullable','numeric','min:0'],'tags'=>['nullable','string','max:1000']]);
+        $data=$request->validate(['title'=>['required','string','max:255'],'body'=>['required','string','max:1000000'],'excerpt'=>['nullable','string','max:2000'],'category_id'=>['nullable','integer','exists:knowledge_categories,id'],'content_type'=>['required','in:academic_article,research_output,research_insight,study_guide,exam_preparation,tutorial,programming_tutorial,campus_guide,career_guide,siwes_experience,project_experience,educational_video,presentation,reference_material,case_study,announcement,digital_resource,question_bank,mock_exam,template,ebook,video_course'],'language'=>['nullable','string','max:10'],'doi'=>['nullable','string','max:255'],'copyright'=>['nullable','string','max:255'],'visibility'=>['required','in:public,institution'],'access_type'=>['required','in:free,premium,institution'],'price'=>['nullable','regex:/^\d+(?:\.\d{1,2})?$/'],'tags'=>['nullable','string','max:1000']]);
         $data['body'] = app(RichTextSanitizer::class)->sanitize($data['body']);
         abort_if(trim(strip_tags($data['body'])) === '', 422, 'Publication content cannot be empty.');
         if(!empty($data['category_id'])){$category=KnowledgeCategory::findOrFail($data['category_id']);abort_unless($category->university_id===null||$request->user()->isSuperAdmin()||$category->university_id===$request->user()->university_id,403);}return $data;

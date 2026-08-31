@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Support\Errors\UserFacingError;
 use App\Models\Course;
 use App\Models\Department;
 use App\Models\Enrollment;
@@ -146,7 +147,7 @@ class StudentImportController extends Controller
                 $imported++;
             } catch (\Throwable $exception) {
                 $skipped++;
-                $errors[] = "Row {$rowNumber}: {$exception->getMessage()}";
+                $errors[] = "Row {$rowNumber}: ".UserFacingError::safeMessage($exception->getMessage(), 'This row could not be imported.');
             }
         }
 

@@ -58,7 +58,7 @@
                         <input type="checkbox" name="is_active" value="1" {{ $paymentGateway->is_active ? 'checked' : '' }} 
                                class="h-4 w-4 text-indigo-600 rounded">
                         <span class="ml-2 text-sm text-gray-700">Activate gateway</span>
-                        <p class="text-xs text-gray-500 ml-2">Enable this gateway for use in subscription billing</p>
+                        <p class="text-xs text-gray-500 ml-2">Enable this gateway for wallet, marketplace and institutional payment flows</p>
                     </label>
                 </div>
             </div>
@@ -141,22 +141,49 @@
 </div>
 
 <script>
-function testGatewayConnection(gatewayId) {
+async function testGatewayConnection(gatewayId) {
     const resultDiv = document.getElementById('connection-test-result');
-    resultDiv.innerHTML = '<div class="text-blue-600">Testing connection...</div>';
-    
-    fetch(`/admin/payment-gateways/${gatewayId}/test`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                resultDiv.innerHTML = '<div class="text-green-600 mt-2">✓ Connection successful! Gateway is configured correctly.</div>';
-            } else {
-                resultDiv.innerHTML = '<div class="text-red-600 mt-2">✗ Connection failed: ' + data.message + '</div>';
-            }
-        })
-        .catch(error => {
-            resultDiv.innerHTML = '<div class="text-red-600 mt-2">✗ Error testing connection: ' + error + '</div>';
+    const render = (message, tone = 'info', retryable = false) => {
+        resultDiv.innerHTML = '';
+        const panel = document.createElement('div');
+        panel.className = tone === 'success'
+            ? 'mt-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800'
+            : tone === 'error'
+                ? 'mt-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800'
+                : 'mt-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm font-semibold text-sky-800';
+        panel.textContent = message;
+        resultDiv.appendChild(panel);
+
+        if (retryable) {
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.className = 'mt-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700';
+            retry.textContent = 'Try Again';
+            retry.addEventListener('click', () => testGatewayConnection(gatewayId));
+            resultDiv.appendChild(retry);
+        }
+    };
+
+    render('Testing gateway connection…');
+
+    try {
+        const response = await fetch(`/admin/payment-gateways/${gatewayId}/test`, {
+            headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
         });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.status !== 'success') {
+            const requestError = new Error(data.message || 'The gateway connection could not be verified.');
+            requestError.data = data;
+            requestError.status = response.status;
+            throw requestError;
+        }
+        render('Connection successful. The gateway responded correctly.', 'success');
+    } catch (error) {
+        const detail = window.AcadFlowFeedback?.normalize(error, 'The gateway connection could not be verified right now.') || {
+            message: 'The gateway connection could not be verified right now.', retryable: true
+        };
+        render(detail.message, 'error', detail.retryable);
+    }
 }
 </script>
 @endsection

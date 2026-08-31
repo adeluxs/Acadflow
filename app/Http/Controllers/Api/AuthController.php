@@ -11,6 +11,8 @@ use App\Models\UserOnboardingState;
 use App\Services\FeatureAccessService;
 use App\Services\SettingService;
 use App\Services\TotpService;
+use App\Support\Errors\UserFacingError;
+use App\Support\Security\RetryAfter;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,24 +40,70 @@ class AuthController extends Controller
         $lockoutSeconds = max(60, (int) SettingService::get('lockout_duration_minutes', 15, $scope) * 60);
 
         if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
+            $seconds = RateLimiter::availableIn($key);
+
             return response()->json([
-                'message' => 'Too many sign-in attempts.',
-                'retry_after' => RateLimiter::availableIn($key),
-            ], 429);
+                'status' => false,
+                'success' => false,
+                'message' => RetryAfter::message('Too many sign-in attempts.', $seconds),
+                'code' => 'TOO_MANY_REQUESTS',
+                'retryable' => true,
+                'retry_after' => $seconds,
+                'request_id' => UserFacingError::requestId($request),
+            ], 429, ['Retry-After' => (string) $seconds, 'X-Request-Id' => UserFacingError::requestId($request)]);
         }
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             RateLimiter::hit($key, $lockoutSeconds);
-            return response()->json(['message' => 'The email address or password is incorrect.'], 401);
+            $remaining = RateLimiter::remaining($key, $maxAttempts);
+
+            if ($remaining <= 0) {
+                $seconds = RateLimiter::availableIn($key);
+
+                return response()->json([
+                    'status' => false,
+                    'success' => false,
+                    'message' => RetryAfter::message('Too many sign-in attempts.', $seconds),
+                    'code' => 'TOO_MANY_REQUESTS',
+                    'retryable' => true,
+                    'retry_after' => $seconds,
+                    'request_id' => UserFacingError::requestId($request),
+                ], 429, ['Retry-After' => (string) $seconds, 'X-Request-Id' => UserFacingError::requestId($request)]);
+            }
+
+            return response()->json([
+                'status' => false,
+                'success' => false,
+                'code' => 'INVALID_CREDENTIALS',
+                'message' => 'The email address or password is incorrect.',
+                'retryable' => false,
+                'attempts_remaining' => $remaining,
+                'request_id' => UserFacingError::requestId($request),
+            ], 401, ['X-Request-Id' => UserFacingError::requestId($request)]);
         }
         RateLimiter::clear($key);
 
-        if (! $user->is_active) return response()->json(['message' => 'This account is inactive.'], 403);
+        if (! $user->is_active) return response()->json([
+            'status' => false,
+            'success' => false,
+            'code' => 'ACCOUNT_INACTIVE',
+            'message' => 'This account is inactive.',
+            'retryable' => false,
+            'request_id' => UserFacingError::requestId($request),
+        ], 403, ['X-Request-Id' => UserFacingError::requestId($request)]);
 
         if ($user->two_factor_secret) {
             $code = (string) ($credentials['two_factor_code'] ?? '');
             if ($code === '' || ! $totp->verifyUserCode($user, $code)) {
-                return response()->json(['message' => 'A valid two-factor or recovery code is required.', 'next_action' => 'two_factor'], 422);
+                return response()->json([
+                    'status' => false,
+                    'success' => false,
+                    'code' => 'TWO_FACTOR_REQUIRED',
+                    'message' => 'A valid two-factor or recovery code is required.',
+                    'retryable' => false,
+                    'next_action' => 'two_factor',
+                    'request_id' => UserFacingError::requestId($request),
+                ], 422, ['X-Request-Id' => UserFacingError::requestId($request)]);
             }
         }
 
@@ -72,6 +120,7 @@ class AuthController extends Controller
             'next_action' => ! $user->hasVerifiedEmail() ? 'verify_email' : (! $user->onboarding_completed_at ? 'complete_onboarding' : null),
             'user' => $this->userPayload($user),
             'features' => FeatureAccessService::clientSnapshot($user),
+            'password_policy' => SettingService::getPasswordPolicy($user->university_id),
         ]);
     }
 
@@ -117,6 +166,7 @@ class AuthController extends Controller
             'next_action' => 'verify_email',
             'user' => $this->userPayload($user),
             'features' => FeatureAccessService::clientSnapshot($user),
+            'password_policy' => SettingService::getPasswordPolicy(),
         ], 201);
     }
 
@@ -127,6 +177,7 @@ class AuthController extends Controller
         return response()->json([
             'user' => $this->userPayload($user),
             'features' => FeatureAccessService::clientSnapshot($user),
+            'password_policy' => SettingService::getPasswordPolicy($user->university_id),
             'ready' => $user->is_active && $user->hasVerifiedEmail() && $user->onboarding_completed_at !== null,
             'next_action' => ! $user->is_active
                 ? 'contact_support'
@@ -152,6 +203,7 @@ class AuthController extends Controller
         return response()->json([
             'user' => $this->userPayload($user),
             'features' => FeatureAccessService::clientSnapshot($user),
+            'password_policy' => SettingService::getPasswordPolicy($user->university_id),
         ]);
     }
 
@@ -176,7 +228,7 @@ class AuthController extends Controller
 
     public function changePassword(Request $request): JsonResponse
     {
-        $passwordRules = array_values(array_unique(array_merge(SettingService::getPasswordRules(), ['confirmed'])));
+        $passwordRules = array_values(array_unique(array_merge(SettingService::getPasswordRules($request->user()->university_id), ['confirmed'])));
         $validated = $request->validate(['current_password' => ['required', 'string'], 'password' => $passwordRules]);
         if (! Hash::check($validated['current_password'], $request->user()->password)) {
             throw ValidationException::withMessages(['current_password' => ['The current password is incorrect.']]);

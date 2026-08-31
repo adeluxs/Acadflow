@@ -262,19 +262,18 @@ return [
             'depends_on' => ['notifications'],
             'impact' => 'Push subscription and push-delivery endpoints will be unavailable to normal users.',
         ],
-        'billing_subscriptions' => [
-            'title' => 'Billing & Subscriptions',
+        'monetization_commerce' => [
+            'title' => 'Monetization & Commerce',
             'category' => 'Commerce',
-            'description' => 'Invoices, subscription plans, checkout, upgrades, cancellations and institutional billing views.',
+            'description' => 'Wallet funding, marketplace purchases, refunds, creator earnings, withdrawals, institutional billing and monetization administration.',
             'default_status' => 'enabled',
             'routes' => [
-                'billing.*', 'subscription.show', 'subscription.checkout', 'subscription.initiate-payment',
-                'subscription.payment.callback', 'subscription.process-upgrade', 'subscription.upgrade',
-                'subscription.cancel', 'admin.billing', 'admin.subscriptions', 'admin.subscription-reports.*',
+                'commerce.*', 'billing.*', 'admin.monetization', 'admin.monetization.*',
+                'subscription.payment.callback',
             ],
-            'paths' => ['api/v1/invoices*', 'api/v1/payments*', 'api/v1/subscriptions*'],
+            'paths' => ['api/v1/invoices*', 'api/v1/payments*'],
             'depends_on' => [],
-            'impact' => 'Users cannot access billing/subscription screens or initiate new billing API actions. Existing payment webhooks remain reachable for safe reconciliation.',
+            'impact' => 'Wallet, marketplace, creator payout and institutional billing actions are unavailable to normal users while disabled. Historical payment reconciliation remains preserved.',
         ],
         'knowledge_hub_premium' => [
             'title' => 'Premium Knowledge Resources',

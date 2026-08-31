@@ -2,6 +2,59 @@
 
 All notable product, architecture, security, data and operations changes should be recorded here. AcadFlow currently uses date-based release headings because a formal semantic version has not yet been established.
 
+## [2026-08-28]
+
+### Added
+- Added the Nigeria-first Monetization Center, minor-unit money handling, double-entry ledger journals/postings, idempotency records, versioned pricing rules, independent feature entitlements, B2B commercial accounts, prepaid wallet funding and AI usage charging.
+- Added separate spending, pending earnings, available earnings, lifetime earnings and recovery-debt wallet accounting, including creator settlement holds, withdrawals and refund recovery.
+- Added resumable external-refund processing and Admin reconciliation so uncertain provider outcomes cannot be blindly replayed.
+- Added OpenRouter as a first-class AI provider through the existing central AI provider registry/router/fallback architecture, including model discovery and usage/cost capture.
+- Added dry-run-first `acadflow:monetization-migrate`, scheduled creator-earnings release and monetization regression tests/preflight.
+
+### Changed
+- Retired recurring subscription plans as the normal runtime entitlement mechanism; core academic/API access now uses feature management/independent entitlements while historical subscription records remain available for migration and audit.
+- Converted new commerce, wallet, refund, withdrawal, institutional billing and AI financial operations to server-authoritative minor-unit accounting and auditable ledger entries.
+- Moved institutional commercial limits/fees to commercial-account configuration and centralized monetization settings.
+- Updated Knowledge Hub purchase UX to support prepaid wallet or payment-gateway funding with transparent balance/earning states.
+
+### Fixed
+- Prevented duplicated wallet funding, purchases, refunds, AI debits and other financial operations through idempotency and provider-reference checks.
+- Fixed refund-after-withdrawal accounting by creating a recovery receivable repaid from future creator earnings instead of allowing silent financial loss.
+- Fixed cross-tenant commerce/refund/withdrawal administrative visibility and callback authorization gaps.
+- Fixed institutional invoice/payment currency persistence and exact provider amount/currency verification.
+
+
+## [2026-08-20]
+
+### Added
+- Added live password-policy guidance on account registration and password reset, driven by the existing centralized Security Settings rather than hardcoded frontend rules.
+- Added centralized Admin-controlled request limits for login, registration, password reset, email verification and two-factor challenge attempts, plus production-safe default setting migration.
+- Added friendly web/API 429 handling with the actual `Retry-After` value, structured API `TOO_MANY_REQUESTS` responses and live wait countdowns.
+- Added `scripts/check-security-policy.php` / `composer security-policy-check` regression checks for password-policy and authentication-throttle consistency.
+- Integrated Grok (xAI) as a first-class provider through the existing `AiProviderName` → `AiProviderRegistry` → `AiRouter` → `AiManager` architecture, using the shared `ExternalProvider` HTTP transport rather than a separate provider stack.
+- Added production-safe Grok AI settings/migration and `XAI_*` environment bootstrap variables, with `grok-4.5` as the bootstrap model and no invented default cost pricing.
+- Added `ai_fast_failover` so interactive AI requests can advance through the configured fallback chain without repeatedly waiting on the same failed upstream provider.
+- Added global interaction-performance helpers for conservative page prefetch, first-click navigation feedback and duplicate write-form submission protection.
+- Added `scripts/check-grok-performance.php` / `composer performance-check` regression checks.
+
+### Changed
+- Unified registration, password reset and API password-change validation through `SettingService::getPasswordPolicy()` / `getPasswordRules()`, removing the reset flow's conflicting hardcoded mixed-case/number/uncompromised rule.
+- Existing named Laravel auth rate limiters now read their limits from centralized Security Settings; existing failed-login lockout settings remain a separate credential-failure protection and now provide remaining-attempt feedback.
+- Exposed the effective password policy through the existing public/API settings payload so mobile/API clients can render the same requirements enforced by the backend.
+- Lazy-load Vue and Vue components only on pages that actually render a Vue mount point; normal Blade pages no longer eagerly include the Vue application bundle.
+- Reduced the bootstrap AI connect timeout to 6 seconds while keeping it environment-configurable.
+- Reworked the PWA service worker to use Navigation Preload, cache static assets only, and avoid caching authenticated HTML pages/private API reads.
+- Deferred the sync-manager script, reduced local queue idle sleep to one second, and added `REDIS_QUEUE_BLOCK_FOR=2` for responsive Redis workers.
+- Reduced unnecessary data hydration on common course/attendance pages and calculate the unread-notification count once per layout render.
+
+### Fixed
+- Prevented technical Laravel 429/ThrottleRequestsException pages from becoming the primary user experience on existing rate-limited authentication/security actions.
+- Fixed password-rule drift where registration/Admin settings and the password-reset controller could enforce different requirements.
+- Fixed login lockout messaging so users receive the real remaining wait time and, on failed credentials before lockout, the remaining-attempt count.
+- Removed avoidable sources of “click twice / wait before anything happens” perception by keeping native one-click navigation authoritative and providing immediate loading feedback instead of interception.
+- Prevented stale personalized pages/API data from being returned from the PWA cache during normal authenticated navigation.
+- Prevented repeatable upstream AI failures from consuming multiple full provider timeouts before centralized fallback when Fast Interactive Failover is enabled.
+
 ## [Unreleased]
 
 ### Added

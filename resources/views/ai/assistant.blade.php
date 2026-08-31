@@ -105,6 +105,7 @@
     const esc = (value) => String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[ch]));
     const textToHtml = (value) => esc(value).replace(/\n/g, '<br>');
     const modeLabel = (value) => String(value || '').replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+    const feedback = () => window.AcadFlowFeedback;
     const updateTool = () => {
         styleWrap.classList.toggle('hidden', tool.value !== 'citation');
         const route = toolRoutes[tool.value] || toolRoutes.ask;
@@ -113,6 +114,7 @@
         providerBadge.textContent = route.provider || 'Unavailable';
         modelBadge.textContent = route.model || 'Provider default';
     };
+
     tool.addEventListener('change', updateTool);
     updateTool();
 
@@ -123,15 +125,53 @@
         message.focus();
     }));
 
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const text = message.value.trim();
-        if (!text) return;
+    const appendFailure = (detail, text) => {
+        const card = document.createElement('div');
+        card.className = 'max-w-2xl rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800';
 
-        thread.insertAdjacentHTML('beforeend', `<div class="ml-auto max-w-2xl rounded-2xl bg-slate-950 p-4 text-sm leading-6 text-white"><div class="mb-1 text-xs font-bold text-slate-300">You</div>${textToHtml(text)}</div>`);
+        const title = document.createElement('div');
+        title.className = 'font-bold text-rose-900';
+        title.textContent = 'AI request not completed';
+        card.appendChild(title);
+
+        const body = document.createElement('p');
+        body.className = 'mt-1 leading-6';
+        body.textContent = detail.message;
+        card.appendChild(body);
+
+        if (detail.requestId) {
+            const ref = document.createElement('p');
+            ref.className = 'mt-2 text-[11px] text-rose-500';
+            ref.textContent = `Request ID: ${detail.requestId}`;
+            card.appendChild(ref);
+        }
+
+        if (detail.retryable) {
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.className = 'mt-3 rounded-xl bg-rose-700 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60';
+            retry.textContent = 'Try Again';
+            retry.addEventListener('click', async () => {
+                if (retry.disabled) return;
+                retry.disabled = true;
+                retry.textContent = 'Trying…';
+                card.remove();
+                await sendRequest(text, true);
+            });
+            card.appendChild(retry);
+        }
+
+        thread.appendChild(card);
+    };
+
+    async function sendRequest(text, isRetry = false) {
+        if (!isRetry) {
+            thread.insertAdjacentHTML('beforeend', `<div class="ml-auto max-w-2xl rounded-2xl bg-slate-950 p-4 text-sm leading-6 text-white"><div class="mb-1 text-xs font-bold text-slate-300">You</div>${textToHtml(text)}</div>`);
+        }
+
         message.value = '';
         submit.disabled = true;
-        submit.textContent = 'Working…';
+        submit.textContent = isRetry ? 'Retrying…' : 'Working…';
         thread.scrollTop = thread.scrollHeight;
 
         try {
@@ -141,7 +181,12 @@
                 body: JSON.stringify({tool: tool.value, message: text, course_id: course.value || null, style: style.value})
             });
             const data = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(data.message || 'The assistant request could not be completed.');
+            if (!response.ok || data.success === false) {
+                const requestError = new Error(data.message || data.answer || 'AI assistance is currently unavailable.');
+                requestError.data = data;
+                requestError.status = response.status;
+                throw requestError;
+            }
 
             const sourceList = Array.isArray(data.sources) && data.sources.length
                 ? `<div class="mt-3 border-t border-indigo-100 pt-3 text-[11px] text-slate-500"><strong>Sources:</strong> ${data.sources.map(s => `${esc(s.label)} ${esc(s.title)}${s.locator ? ` (${esc(s.locator)})` : ''}`).join(' · ')}</div>`
@@ -149,12 +194,23 @@
             const meta = `<div class="mt-2 text-[10px] uppercase tracking-wide text-slate-400">${esc(data.provider || 'AcadFlow AI')}${data.model ? ` · ${esc(data.model)}` : ''}${data.fallback_used ? ' · fallback used' : ''}${data.cached ? ' · cached' : ''}</div>`;
             thread.insertAdjacentHTML('beforeend', `<div class="max-w-2xl rounded-2xl bg-indigo-50 p-4 text-sm leading-6 text-slate-700"><div class="mb-1 font-bold text-slate-950">AcadFlow Assistant</div>${textToHtml(data.answer || 'No response was returned.')}${sourceList}${meta}</div>`);
         } catch (error) {
-            thread.insertAdjacentHTML('beforeend', `<div class="max-w-2xl rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>Assistant error:</strong> ${esc(error.message)}</div>`);
+            const detail = feedback()?.normalize(error, 'AI assistance is currently unavailable. Please try again.') || {
+                message: 'AI assistance is currently unavailable. Please try again.', retryable: true, requestId: null
+            };
+            if (!message.value.trim()) message.value = text;
+            appendFailure(detail, text);
         } finally {
             submit.disabled = false;
             submit.textContent = 'Ask AI Assistant →';
             thread.scrollTop = thread.scrollHeight;
         }
+    }
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const text = message.value.trim();
+        if (!text || submit.disabled) return;
+        await sendRequest(text, false);
     });
 })();
 </script>

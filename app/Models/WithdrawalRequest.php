@@ -13,7 +13,9 @@ class WithdrawalRequest extends Model
         'payout_account_id',
         'processed_by',
         'amount',
+        'amount_minor',
         'fee',
+        'fee_minor',
         'status',
         'provider_reference',
         'note',
@@ -24,6 +26,8 @@ class WithdrawalRequest extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'amount_minor' => 'integer',
+            'fee_minor' => 'integer',
             'fee' => 'decimal:2',
             'processed_at' => 'datetime',
         ];

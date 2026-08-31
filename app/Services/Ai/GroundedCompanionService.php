@@ -235,7 +235,7 @@ class GroundedCompanionService
                 'status' => 'failed',
                 'answer' => 'The grounded assistant could not complete this request.',
                 'human_review_required' => true,
-                'metadata' => ['error' => $exception->getMessage(), 'open_web_used' => false],
+                'metadata' => ['error_type' => class_basename($exception), 'open_web_used' => false],
                 'completed_at' => now(),
             ]);
         }

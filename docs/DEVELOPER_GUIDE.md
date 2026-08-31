@@ -1,7 +1,7 @@
 # AcadFlow Developer Guide
 
 **Canonical technical guide**  
-**Source snapshot:** 2026-08-15  
+**Source snapshot:** 2026-08-20  
 **Framework:** Laravel ^12.40 / PHP ^8.2
 
 This document is the primary orientation for any developer, maintainer, DevOps engineer, reviewer, or coding agent working on AcadFlow. It describes the current implementation rather than an aspirational architecture. Dated audit documents remain useful for history, but this guide and the current source code take precedence.
@@ -252,7 +252,7 @@ Current registered feature keys:
 | `ai_assistant` | AI Assistant |
 | `notifications` | Notifications |
 | `push_notifications` | Push Notifications |
-| `billing_subscriptions` | Billing & Subscriptions |
+| `monetization_commerce` | Monetization & Commerce |
 | `knowledge_hub_premium` | Premium Knowledge Resources |
 | `commerce_marketplace` | Marketplace, Wallet & Payouts |
 | `documents_exports` | Documents & Academic Exports |
@@ -312,6 +312,7 @@ Supported provider identifiers currently include:
 - `claude`
 - `gemini`
 - `deepseek`
+- `grok` (xAI)
 - `azure_openai`
 - `ollama`
 
@@ -1001,3 +1002,131 @@ The dedicated `storage/logs/ai-provider.log` channel may record only safe payloa
 When automatic address selection fails with a retryable cURL/DNS/connect error, the transport adds at most one IPv4-only fallback attempt. This does not change the selected provider/model or central routing decision. Installations may still force IPv4 for all provider traffic with `AI_HTTP_FORCE_IPV4=true`.
 
 Google shut down Gemini 1.5 models in 2025 and Gemini 2.0 Flash models in 2026. `config/ai.php` therefore contains a narrow `retired_model_replacements` map. `AiRuntimeConfigService` normalizes only exact known retired IDs, and migration `2026_08_18_220000_replace_retired_gemini_models.php` updates matching persisted global/tenant model values without overwriting unrelated/custom administrator selections.
+
+
+## 42. Grok (xAI) provider and interaction-performance architecture — 2026-08-20
+
+Grok is integrated as a normal AcadFlow external provider, not as a parallel AI subsystem.
+
+Runtime path:
+
+```text
+AI feature
+  -> AiManager
+  -> AiRuntimeConfigService
+  -> AiRouter
+  -> AiProviderRegistry
+  -> GrokProvider
+  -> ExternalProvider shared HTTP transport
+  -> https://api.x.ai/v1/chat/completions
+```
+
+The provider key is `grok`; the user-facing label is **Grok (xAI)**. Bootstrap secrets and endpoint defaults use `XAI_*` environment variables. Runtime routing/model choices remain database/admin driven like every other provider. Provider credentials can be saved through the existing encrypted AI Settings flow and are never returned to the browser.
+
+Do not instantiate `GrokProvider` directly from features/controllers. New Grok calls must continue through `AiManager` and the central router. Test Connection and real requests share `ExternalProvider`, so TLS/proxy/timeouts/logging/error classification remain identical.
+
+### Fast AI failover
+
+`ai_fast_failover` defaults to enabled. When enabled, a retryable network/429/5xx failure returns control to `AiManager` immediately so the configured fallback provider can be attempted rather than consuming another complete provider timeout on the same upstream service. The slower same-provider retry/automatic IPv4 retry path remains available by disabling Fast Interactive Failover or explicitly setting `AI_HTTP_FORCE_IPV4=true` where the deployment requires IPv4.
+
+### Browser/navigation performance
+
+`resources/js/performance.js` provides conservative same-origin document prefetching, immediate navigation progress feedback and duplicate native write-form protection. It never prevents a normal anchor navigation and it is not a client-side router.
+
+Vue is dynamically imported only when a page has a `#app` mount point. Most Blade pages therefore no longer pay the Vue/component bundle cost.
+
+The PWA service worker uses navigation preload and no longer stores authenticated HTML navigation responses or private API reads in Cache Storage. Only static assets are cached. This prevents stale account pages and removes service-worker cache work from normal online navigation.
+
+High-volume server-rendered pages should prefer counts/selects over hydrating unused relationships. Current examples include attendance session cards using `withCount('records')` and the course workspace no longer loading every enrolled user when only the enrollment count is rendered.
+
+For Redis queues, `REDIS_QUEUE_BLOCK_FOR` defaults to `2` seconds so workers can block efficiently while waking promptly when background jobs arrive.
+
+Run the performance/Grok regression check after relevant changes:
+
+```bash
+php scripts/check-grok-performance.php
+# or
+composer performance-check
+```
+
+
+## 43. Central password policy and authentication rate-limit UX — 2026-08-20
+
+Password/security behavior must continue to use the existing **Security Settings** group and `SettingService`; do not introduce a second password-policy service, a second security settings page, or controller-local copies of the same limits.
+
+### Password policy source of truth
+
+The canonical runtime APIs are:
+
+```php
+SettingService::getPasswordPolicy(?int $universityId = null);
+SettingService::getPasswordRules(?int $universityId = null);
+```
+
+The current configurable rules are:
+
+- `password_min_length`
+- `password_require_uppercase`
+- `password_require_numbers`
+- `password_require_special`
+
+The current backend does **not** require a lowercase letter as a separate configurable condition, so the registration/reset UI must not claim that it does. The allowed special-character set used by the existing policy is `@$!%*#?&`. If the policy is expanded in the future, update `SettingService`, Admin Security Settings, server validation, the reusable password-policy UI, API policy payloads, tests and documentation together.
+
+Registration and password reset include `resources/views/auth/partials/password-policy.blade.php`. `resources/js/password-policy.js` reads the server-rendered policy data and updates each completed/not-completed condition as the user types. It is dynamically loaded only on pages containing `[data-password-policy]`. Do not hardcode a second copy of the rules in JavaScript.
+
+The API/public integration point for clients that render their own registration UI is:
+
+```text
+GET /api/v1/settings/public
+→ password_policy
+```
+
+Authenticated account bootstrap responses also expose the effective scoped policy where useful. A separate mobile application is not contained in this Laravel repository; mobile clients should consume the API policy rather than embedding independent password requirements.
+
+### Existing authentication throttles
+
+The named Laravel rate limiters remain registered in `AppServiceProvider` and now resolve values through `SettingService::getSecurityRateLimits()`:
+
+| Limiter | Security setting | Scope/key behavior |
+|---|---|---|
+| `login` | `login_requests_per_minute` | email + IP |
+| `register` | `registration_requests_per_hour` | IP |
+| `password-reset` | `password_reset_requests_per_minute` | email + IP |
+| `verification` | `verification_requests_per_minute` | authenticated user or IP |
+| `two-factor` | `two_factor_attempts_per_minute` | authenticated user or IP |
+
+Do not confuse the `login` request throttle with the existing failed-credential lockout. The latter continues to use `max_login_attempts` and `lockout_duration_minutes`, and is intentionally separate because it counts failed credentials rather than every HTTP request.
+
+Public unauthenticated throttle settings that cannot reliably resolve a university before authentication are platform/global controls. Tenant-resolvable verification/two-factor and login lockout behavior may use the current university scope where the existing tenancy model permits it.
+
+There is no separate OTP-resend subsystem in this codebase. Two-factor challenge codes are TOTP/recovery-code based. Do not add fictitious OTP resend settings merely to mirror another product; use the existing email-verification and two-factor limiters unless a real resendable OTP workflow is implemented later.
+
+### Friendly 429 contract
+
+`bootstrap/app.php` centrally renders `ThrottleRequestsException`. The retry duration comes from the real `Retry-After` response header via `App\Support\Security\RetryAfter`; do not hardcode “wait 1 minute” in a controller or view.
+
+API/JSON clients receive HTTP 429 in the existing simple JSON style:
+
+```json
+{
+  "message": "Too many attempts. Please try again in 2 minutes.",
+  "code": "TOO_MANY_REQUESTS",
+  "retry_after": 120
+}
+```
+
+Web requests are redirected back safely with the same friendly message and `retry_after` session value. Passwords, confirmation values, 2FA codes and tokens are excluded from flashed input. `resources/js/rate-limit-feedback.js` renders the live countdown only when such a value exists.
+
+When the wait is below 60 seconds, show seconds; at 60 seconds or above, display the remaining time in minutes using the central formatter. Keep the HTTP status and `Retry-After` header intact so browsers/API clients can still behave correctly.
+
+### Admin setting safety
+
+New authentication-rate defaults are added by migration `2026_08_20_150000_add_security_rate_limit_settings.php` using `insertOrIgnore`. It must not overwrite existing administrator choices, and rollback intentionally does not delete potentially customized values. `SettingsSeeder` remains idempotent.
+
+Run the scoped regression check after changing password/security/rate-limit behavior:
+
+```bash
+php scripts/check-security-policy.php
+# or
+composer security-policy-check
+```

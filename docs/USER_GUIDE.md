@@ -1,7 +1,7 @@
 # AcadFlow User Guide
 
 **Audience:** students, lecturers, platform members, department administrators, university administrators, super administrators, supervisors, group leaders, creators and support staff  
-**Product snapshot:** 2026-08-15
+**Product snapshot:** 2026-08-20
 
 AcadFlow brings academic coursework, submissions, attendance, research, publishing, communities, AI assistance and university administration together in one platform. What you can see depends on your role, university/department/course membership, subscription/entitlement, and whether an administrator has enabled the feature.
 
@@ -637,7 +637,7 @@ Do not share passwords, recovery codes, API keys or payment secrets in support m
 - **Feature Management** — central Enabled/Maintenance/Disabled control for modules.
 - **Tenant** — an institution/university boundary used to isolate data/settings.
 - **Grounding** — limiting an AI answer to supplied authorized sources.
-- **Provider** — external/local AI engine such as OpenAI, Gemini, Claude, DeepSeek, Azure OpenAI or Ollama.
+- **Provider** — external/local AI engine such as OpenAI, Gemini, Claude, DeepSeek, Grok (xAI), Azure OpenAI or Ollama.
 - **Rule Engine** — deterministic non-LLM logic used explicitly in Rule-Based/Hybrid paths.
 - **SIWES** — specialized industrial work-experience workspace in Research Studio.
 - **Entitlement** — permission to access purchased/premium content.
@@ -674,3 +674,67 @@ Super Admins managing provider configuration can use **AI Settings → Test Conn
 ## AI provider connection diagnostics (updated 2026-08-18)
 
 When an administrator uses **AI Settings → Providers → Test Connection**, AcadFlow now records a safe request ID and diagnostic in `storage/logs/ai-provider.log`. Network failures, TLS problems, provider authentication/model errors and rate limits are shown separately. Provider request payloads are sent as explicit JSON. If an installation still contains a Gemini 1.5/2.0 model ID that Google has already retired, AcadFlow maps that retired ID to a supported replacement while leaving other administrator model choices unchanged.
+
+
+## 38. Grok (xAI) and faster interaction behavior — 2026-08-20
+
+Platform administrators can configure **Grok (xAI)** from **Admin → AI Settings → Providers** in the same way as the other supported providers. Configure or preserve the xAI API credential, choose an allowed Grok model, enable the provider, then use **Test Connection** before selecting it as Default Provider, Fallback Provider or a feature-specific provider.
+
+Grok does not create a separate assistant. Existing AcadFlow assistants continue to decide the academic feature/context first; the central AI router then selects Grok when the saved routing says to use it.
+
+AcadFlow now also gives faster feedback during ordinary navigation. A normal link should start loading on the first click, likely same-site pages may be prefetched conservatively, and accidental double submission of write forms is blocked. AI Fast Interactive Failover can move to the configured fallback provider sooner when an upstream provider is temporarily unreachable instead of repeatedly waiting on the same provider.
+
+Actual AI generation time still depends on the selected external provider, model, network quality and size of the authorized academic context. The interface optimization reduces avoidable local delays; it does not fake an instant provider response.
+
+
+## 39. Password creation and security request limits — 2026-08-20
+
+### Creating or resetting a password
+
+On registration and password-reset pages, AcadFlow now shows the password conditions that are **actually configured by the administrator**. The list updates immediately as you type, so you can see which conditions are complete and whether the confirmation matches.
+
+A typical policy may look like:
+
+```text
+Password requirements
+✓ At least 8 characters
+✓ One uppercase letter
+○ One number
+○ One special character
+○ Password confirmation matches
+```
+
+Only rules that are genuinely enabled are shown. For example, if special characters are not required, AcadFlow does not tell you that they are required. The current platform does not separately require a lowercase letter unless the underlying policy is extended in a future release.
+
+### Login feedback
+
+A normal failed login still behaves normally, but when temporary failed-attempt protection is approaching its limit, AcadFlow can tell you how many attempts remain before lockout. When the account/email-and-IP combination is temporarily locked, the message tells you the real remaining wait time rather than displaying a generic error.
+
+### Too many requests
+
+Existing security-sensitive actions such as login, registration, password-reset requests, email-verification requests and two-factor challenges are protected by request limits. If a limit is reached, you should see a message such as:
+
+```text
+Too many sign-in attempts. Please try again in 45 seconds.
+```
+
+or:
+
+```text
+Too many registration attempts. Please try again in 2 minutes.
+```
+
+The countdown uses the server's actual retry time. Web pages may show a live countdown. API/mobile clients receive the same wait value as `retry_after` so they can show an equivalent message instead of a technical 429 page.
+
+### For administrators
+
+Use the existing **Admin → Settings → Security Settings** area. It now clearly groups:
+
+- Password policy
+- Login protection
+- Security request limits
+- Sessions & account security
+
+Existing password settings control minimum length, uppercase, number and special-character requirements. Existing login protection controls failed-login attempts and lockout duration. Request-limit controls cover the currently implemented login, registration, password-reset, email-verification and two-factor request throttles.
+
+These are runtime controls, not decorative settings: saved values are read by backend validation/rate-limiters. Platform-level unauthenticated request limits may be available only to the Super Admin because a user has no institution context before authentication.

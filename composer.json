@@ -59,7 +59,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:work --queue=default,ai,indexing,analytics --sleep=2 --tries=3\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:work --queue=default,ai,indexing,analytics --sleep=1 --tries=3\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite"
         ],
         "schema-lint": [
             "@php scripts/check-mysql-identifiers.php"
@@ -69,6 +69,15 @@
         ],
         "ai-provider-check": [
             "@php scripts/check-ai-provider-transport.php"
+        ],
+        "performance-check": [
+            "@php scripts/check-grok-performance.php"
+        ],
+        "security-policy-check": [
+            "@php scripts/check-security-policy.php"
+        ],
+        "safe-error-check": [
+            "@php scripts/check-safe-error-experience.php"
         ]
     },
     "extra": {

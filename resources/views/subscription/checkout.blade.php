@@ -101,12 +101,6 @@
             <div class="bg-white rounded-lg shadow p-6">
                 <h2 class="text-xl font-bold text-gray-900 mb-6">Complete Your Purchase</h2>
 
-                @if(session('error'))
-                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
-                        {{ session('error') }}
-                    </div>
-                @endif
-
                 <form method="POST" action="{{ route('subscription.initiate-payment', $plan->id) }}">
                     @csrf
 

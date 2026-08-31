@@ -4,6 +4,7 @@ namespace App\Ai\Providers;
 
 use App\Ai\Contracts\AiProviderInterface;
 use App\Ai\Contracts\AiResponse;
+use App\Support\Money;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -68,6 +69,7 @@ abstract class ExternalProvider implements AiProviderInterface
         $start = microtime(true);
         $attempts = max(1, ((int) ($this->config['retry_count'] ?? 1)) + 1);
         $delayMs = max(0, (int) ($this->config['retry_delay_ms'] ?? 300));
+        $fastFailover = (bool) filter_var($this->config['fast_failover'] ?? true, FILTER_VALIDATE_BOOL);
         $last = null;
         $requestId = (string) Str::uuid();
         $configuredForceIpv4 = (bool) filter_var($this->config['force_ipv4'] ?? false, FILTER_VALIDATE_BOOL);
@@ -98,7 +100,11 @@ abstract class ExternalProvider implements AiProviderInterface
                 if ($response->successful()) {
                     $raw = (array) $response->json();
                     $elapsed = round(microtime(true) - $start, 4);
-                    $parsed = $this->parseResponse($feature, $raw, $elapsed, $this->estimateCost($raw));
+                    $providerCostMicroUsd = $this->estimateCostMicroUsd($raw);
+                    // AiResponse keeps a legacy float cost for non-financial analytics/UI.
+                    // The authoritative monetization path receives the integer micro-USD
+                    // amount below and never calculates money from this float.
+                    $parsed = $this->parseResponse($feature, $raw, $elapsed, $providerCostMicroUsd / 1_000_000);
                     $providerRequestId = $this->providerRequestId($response);
 
                     $this->providerLog('info', 'AI provider request succeeded.', [
@@ -119,6 +125,7 @@ abstract class ExternalProvider implements AiProviderInterface
                         'metadata' => array_filter([
                             'provider_attempts' => $attempt,
                             'provider_request_id' => $providerRequestId,
+                            'provider_cost_micro_usd' => $providerCostMicroUsd,
                         ]),
                     ]);
                 }
@@ -135,7 +142,11 @@ abstract class ExternalProvider implements AiProviderInterface
                     'provider_request_id' => $this->providerRequestId($response),
                 ]);
 
-                if (! $this->retryableStatus($response->status()) || $attempt >= $attempts) {
+                if ($fastFailover || ! $this->retryableStatus($response->status()) || $attempt >= $attempts) {
+                    // Interactive AcadFlow requests should reach the centrally
+                    // configured fallback provider quickly. When Fast Failover
+                    // is enabled, do not spend another full provider timeout on
+                    // the same upstream provider before AiManager advances.
                     break;
                 }
             } catch (ConnectionException $e) {
@@ -154,7 +165,7 @@ abstract class ExternalProvider implements AiProviderInterface
                 // actually reach particular AI providers. On the first retryable
                 // network failure, add one IPv4-only transport attempt without
                 // changing the administrator's configured provider or model.
-                if (! $adaptiveIpv4 && ! $ipv4FallbackAdded && $this->shouldTryIpv4Fallback($code, $diagnostic)) {
+                if (! $fastFailover && ! $adaptiveIpv4 && ! $ipv4FallbackAdded && $this->shouldTryIpv4Fallback($code, $diagnostic)) {
                     $adaptiveIpv4 = true;
                     $ipv4FallbackAdded = true;
                     $attempts++;
@@ -167,7 +178,7 @@ abstract class ExternalProvider implements AiProviderInterface
                     continue;
                 }
 
-                if ($attempt >= $attempts || ! $this->retryableConnectionCode($code)) break;
+                if ($fastFailover || $attempt >= $attempts || ! $this->retryableConnectionCode($code)) break;
             } catch (\Throwable $e) {
                 $last = ['AI_PROVIDER_UNAVAILABLE', 'Provider request failed.', $this->safeThrowableMessage($e)];
                 $this->providerLog('error', 'Unexpected AI provider adapter failure.', [
@@ -413,9 +424,19 @@ abstract class ExternalProvider implements AiProviderInterface
 
     protected function estimateCost(array $raw): float
     {
-        $inputRate = (float) ($this->config['input_cost_per_million'] ?? 0);
-        $outputRate = (float) ($this->config['output_cost_per_million'] ?? 0);
-        return round((($this->inputTokens($raw) * $inputRate) + ($this->outputTokens($raw) * $outputRate)) / 1_000_000, 8);
+        // Legacy analytics representation only. Financial code consumes
+        // estimateCostMicroUsd()/metadata.provider_cost_micro_usd instead.
+        return $this->estimateCostMicroUsd($raw) / 1_000_000;
+    }
+
+    protected function estimateCostMicroUsd(array $raw): int
+    {
+        $inputRateMicroUsdPerMillion = Money::toMinorRounded((string) ($this->config['input_cost_per_million'] ?? '0'), 6);
+        $outputRateMicroUsdPerMillion = Money::toMinorRounded((string) ($this->config['output_cost_per_million'] ?? '0'), 6);
+        $weighted = ($this->inputTokens($raw) * $inputRateMicroUsdPerMillion)
+            + ($this->outputTokens($raw) * $outputRateMicroUsdPerMillion);
+
+        return max(0, intdiv($weighted + 500_000, 1_000_000));
     }
 
     protected function inputTokens(array $raw): int

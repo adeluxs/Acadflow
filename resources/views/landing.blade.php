@@ -125,7 +125,7 @@
                 <h2 class="text-center text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Built for the Entire <span class="hero-title-accent">Academic Community</span></h2>
                 <div class="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     @foreach([
-                        ['Super Admin','Manage institutions, users, subscriptions, policies, and system settings.','shield'],
+                        ['Super Admin','Manage institutions, users, monetization, policies, and system settings.','shield'],
                         ['Lecturers','Create courses, manage assignments, grade, enroll students, and teach.','user'],
                         ['Students','Access courses, submit assignments, track progress, and collaborate.','cap'],
                         ['Members','Research, publish knowledge, join communities, events, and groups.','building'],

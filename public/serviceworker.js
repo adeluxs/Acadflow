@@ -1,246 +1,123 @@
 /**
- * UniFlow PWA Service Worker
- * Handles caching, offline support, and background sync
+ * AcadFlow PWA Service Worker
+ *
+ * Performance/correctness rules:
+ * - never cache authenticated HTML navigations;
+ * - never cache private API responses unless explicitly marked public;
+ * - use navigation preload so the service worker does not add a network round trip;
+ * - cache immutable/static assets only;
+ * - preserve offline write queue/background sync support.
  */
 
-const CACHE_NAME = 'uniflow-v1.0.0';
-const STATIC_CACHE = 'uniflow-static-v1.0.0';
-const DYNAMIC_CACHE = 'uniflow-dynamic-v1.0.0';
-const API_CACHE = 'uniflow-api-v1.0.0';
+const CACHE_NAME = 'acadflow-pwa-v2';
+const STATIC_CACHE = 'acadflow-static-v2';
+const API_CACHE = 'acadflow-api-v2';
 
-// Assets to cache on install
+// Only stable public files belong in the install cache. Vite assets are hashed
+// and are cached lazily when requested; /css/app.css and /js/app.js are not
+// stable paths in a Vite production build.
 const STATIC_ASSETS = [
-    '/',
-    '/dashboard',
     '/manifest.webmanifest',
-    '/css/app.css',
-    '/js/app.js',
     '/icons/icon-192x192.png',
     '/icons/icon-512x512.png',
     '/offline.html',
 ];
 
-// API endpoints to cache
-const CACHEABLE_API_PATTERNS = [
-    /\/api\/courses/,
-    /\/api\/submissions/,
-    /\/api\/materials/,
-    /\/api\/notifications/,
-    /\/api\/dashboard/,
-];
-
-// Install event - cache static assets
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker...');
-    
     event.waitUntil(
-        Promise.all([
-            caches.open(STATIC_CACHE).then((cache) => {
-                console.log('[SW] Caching static assets');
-                return cache.addAll(STATIC_ASSETS);
-            }),
-            caches.open(DYNAMIC_CACHE),
-            caches.open(API_CACHE),
-        ]).then(() => {
-            console.log('[SW] Installation complete');
-            return self.skipWaiting();
-        })
+        caches.open(STATIC_CACHE)
+            .then((cache) => Promise.all(STATIC_ASSETS.map(async (asset) => {
+                try { await cache.add(asset); } catch (_) { /* optional asset */ }
+            })))
+            .then(() => self.skipWaiting())
     );
 });
 
-// Activate event - clean old caches
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activating service worker...');
-    
-    const validCaches = [STATIC_CACHE, DYNAMIC_CACHE, API_CACHE];
-    
-    event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (!validCaches.includes(cacheName)) {
-                        console.log('[SW] Deleting old cache:', cacheName);
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        }).then(() => {
-            console.log('[SW] Activation complete');
-            return self.clients.claim();
-        })
-    );
+    const validCaches = [CACHE_NAME, STATIC_CACHE, API_CACHE];
+    event.waitUntil((async () => {
+        const names = await caches.keys();
+        await Promise.all(names.map((name) => validCaches.includes(name) ? null : caches.delete(name)));
+        if (self.registration.navigationPreload) {
+            try { await self.registration.navigationPreload.enable(); } catch (_) {}
+        }
+        await self.clients.claim();
+    })());
 });
 
-// Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
-    const { request } = event;
+    const request = event.request;
     const url = new URL(request.url);
-    
-    // Skip non-GET requests for caching
+
+    if (url.origin !== self.location.origin) return;
+
+    // Let online writes go directly to Laravel. If the browser is offline, the
+    // existing sync queue can accept the write for later replay.
     if (request.method !== 'GET') {
-        // For POST/PUT/DELETE, try network first, queue if offline
-        if (!navigator.onLine) {
+        if (self.navigator?.onLine === false) {
             event.respondWith(
-                queueOfflineAction(request).then(() => {
-                    return new Response(JSON.stringify({
-                        success: false,
-                        message: 'Action queued for sync when online',
-                        queued: true
-                    }), {
-                        status: 202,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                })
+                queueOfflineAction(request).then(() => new Response(JSON.stringify({
+                    success: false,
+                    message: 'Action queued for sync when online',
+                    queued: true,
+                }), { status: 202, headers: { 'Content-Type': 'application/json' } }))
             );
         }
         return;
     }
-    
-    // Handle API requests
-    if (url.pathname.startsWith('/api/')) {
-        event.respondWith(handleApiRequest(request));
-        return;
-    }
-    
-    // Handle navigation requests
+
     if (request.mode === 'navigate') {
-        event.respondWith(handleNavigationRequest(request));
+        event.respondWith(handleNavigationRequest(event));
         return;
     }
-    
-    // Handle static assets
-    event.respondWith(handleStaticAsset(request));
+
+    if (url.pathname.startsWith('/api/')) {
+        // Dynamic/private API reads should not be served stale from a service
+        // worker. Network is the source of truth; the API may opt into public
+        // caching later with an explicit response contract.
+        event.respondWith(fetch(request).catch(() => new Response(JSON.stringify({
+            error: 'You are offline. Please check your connection.',
+            offline: true,
+        }), { status: 503, headers: { 'Content-Type': 'application/json' } })));
+        return;
+    }
+
+    if (['script', 'style', 'image', 'font'].includes(request.destination)) {
+        event.respondWith(handleStaticAsset(request));
+    }
 });
 
-// Handle API requests with cache-first for GET
-async function handleApiRequest(request) {
-    const url = new URL(request.url);
-    const shouldCache = CACHEABLE_API_PATTERNS.some(pattern => pattern.test(url.pathname));
-    
-    if (shouldCache) {
-        // Cache-first strategy for cachable APIs
-        const cachedResponse = await caches.match(request);
-        
-        if (cachedResponse) {
-            // Update cache in background
-            fetchAndCache(request).catch(() => {});
-            return cachedResponse;
-        }
-    }
-    
-    // Network-first for all API requests
+async function handleNavigationRequest(event) {
     try {
-        const response = await fetch(request);
-        
-        if (response.ok && shouldCache) {
-            const clonedResponse = response.clone();
-            const cache = await caches.open(API_CACHE);
-            await cache.put(request, clonedResponse);
-        }
-        
-        return response;
-    } catch (error) {
-        // Try cache as fallback
-        const cachedResponse = await caches.match(request);
-        if (cachedResponse) {
-            return cachedResponse;
-        }
-        
-        // Return offline error for API requests
-        return new Response(JSON.stringify({
-            error: 'You are offline. Please check your connection.',
-            offline: true
-        }), {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        // Navigation preload starts the request in parallel with service-worker
+        // startup, removing the worker startup delay from normal page changes.
+        const preloaded = await event.preloadResponse;
+        if (preloaded) return preloaded;
+        return await fetch(event.request);
+    } catch (_) {
+        return (await caches.match('/offline.html')) || new Response(
+            'You are offline. Please check your connection.',
+            { status: 503, headers: { 'Content-Type': 'text/plain' } }
+        );
     }
 }
 
-// Handle navigation requests
-async function handleNavigationRequest(request) {
-    try {
-        const response = await fetch(request);
-        
-        // Cache successful HTML responses
-        if (response.ok && response.headers.get('content-type')?.includes('text/html')) {
-            const clonedResponse = response.clone();
-            const cache = await caches.open(DYNAMIC_CACHE);
-            await cache.put(request, clonedResponse);
-        }
-        
-        return response;
-    } catch (error) {
-        // Try cache
-        const cachedResponse = await caches.match(request);
-        if (cachedResponse) {
-            return cachedResponse;
-        }
-        
-        // Fallback to offline page
-        const offlineResponse = await caches.match('/offline.html');
-        if (offlineResponse) {
-            return offlineResponse;
-        }
-        
-        // Ultimate fallback
-        return new Response('You are offline. Please check your connection.', {
-            status: 503,
-            headers: { 'Content-Type': 'text/plain' }
-        });
-    }
-}
-
-// Handle static assets
 async function handleStaticAsset(request) {
-    // Cache-first strategy for static assets
-    const cachedResponse = await caches.match(request);
-    
-    if (cachedResponse) {
-        // Update cache in background
-        fetchAndCache(request).catch(() => {});
-        return cachedResponse;
-    }
-    
-    // Not in cache, fetch from network
-    try {
-        const response = await fetch(request);
-        
-        if (response.ok) {
-            const clonedResponse = response.clone();
-            const cache = await caches.open(STATIC_CACHE);
-            await cache.put(request, clonedResponse);
-        }
-        
-        return response;
-    } catch (error) {
-        // For images, return a placeholder
-        if (request.destination === 'image') {
-            return caches.match('/icons/icon-192x192.png');
-        }
-        
-        return new Response('Asset not available offline', {
-            status: 503,
-            headers: { 'Content-Type': 'text/plain' }
-        });
-    }
-}
+    const cached = await caches.match(request);
+    if (cached) return cached;
 
-// Fetch and cache helper
-async function fetchAndCache(request) {
     try {
         const response = await fetch(request);
-        
         if (response.ok) {
-            const clonedResponse = response.clone();
             const cache = await caches.open(STATIC_CACHE);
-            await cache.put(request, clonedResponse);
+            cache.put(request, response.clone()).catch(() => {});
         }
-        
         return response;
-    } catch (error) {
-        console.log('[SW] Fetch failed for:', request.url);
-        throw error;
+    } catch (_) {
+        if (request.destination === 'image') {
+            return (await caches.match('/icons/icon-192x192.png')) || new Response('', { status: 503 });
+        }
+        return new Response('Asset not available offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
     }
 }
 

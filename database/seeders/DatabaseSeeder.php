@@ -14,8 +14,6 @@ class DatabaseSeeder extends Seeder
             AcadFlowEcosystemSeeder::class,
             SettingsSeeder::class,
             FeatureFlagSeeder::class,
-            SubscriptionSeeder::class,
-            CouponSeeder::class,
         ]);
     }
 }

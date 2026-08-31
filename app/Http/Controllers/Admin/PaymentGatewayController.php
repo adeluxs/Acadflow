@@ -7,6 +7,8 @@ use App\Models\PaymentGateway;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use App\Support\Errors\UserFacingError;
+use Illuminate\Support\Facades\Log;
 
 class PaymentGatewayController extends Controller
 {
@@ -175,7 +177,7 @@ class PaymentGatewayController extends Controller
     /**
      * Test gateway connection
      */
-    public function testConnection(PaymentGateway $paymentGateway)
+    public function testConnection(Request $request, PaymentGateway $paymentGateway)
     {
         $gateway = $this->gatewayManager->gateway($paymentGateway->code);
         
@@ -191,25 +193,70 @@ class PaymentGatewayController extends Controller
             // For Paystack, we can check account details
             if ($paymentGateway->code === 'paystack') {
                 $response = \Illuminate\Support\Facades\Http::withToken($gateway->getSecretKey())
+                    ->acceptJson()
+                    ->connectTimeout((int) config('services.paystack.connect_timeout', 8))
+                    ->timeout((int) config('services.paystack.timeout', 20))
                     ->get('https://api.paystack.co/integration/payment_session_timeout');
-                
+
                 if ($response->successful()) {
                     return response()->json([
                         'status' => 'success',
-                        'message' => 'Gateway connection successful!',
+                        'success' => true,
+                        'message' => 'Gateway connection successful.',
+                        'request_id' => UserFacingError::requestId($request),
                     ]);
                 }
+
+                Log::warning('Payment gateway connection test was rejected by provider.', [
+                    'request_id' => UserFacingError::requestId($request),
+                    'gateway_id' => $paymentGateway->id,
+                    'gateway_code' => $paymentGateway->code,
+                    'http_status' => $response->status(),
+                    'provider_response' => $response->json(),
+                ]);
+
+                $retryable = $response->status() === 429 || $response->serverError();
+                $message = match (true) {
+                    in_array($response->status(), [401, 403], true) => 'The gateway rejected the configured credentials. Please review the gateway settings.',
+                    $response->status() === 429 => 'The gateway is temporarily busy. Please try the connection test again shortly.',
+                    $response->serverError() => 'The gateway is temporarily unavailable. Please try the connection test again.',
+                    default => 'The gateway connection test was not accepted. Please review the gateway configuration.',
+                };
+
+                return response()->json([
+                    'status' => 'error',
+                    'success' => false,
+                    'code' => 'PAYMENT_GATEWAY_TEST_FAILED',
+                    'message' => $message,
+                    'retryable' => $retryable,
+                    'request_id' => UserFacingError::requestId($request),
+                ], $retryable ? 503 : 422);
             }
 
             return response()->json([
                 'status' => 'success',
+                'success' => true,
                 'message' => 'Gateway configured successfully.',
+                'request_id' => UserFacingError::requestId($request),
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $safe = UserFacingError::fromThrowable($e, $request);
+            Log::warning('Payment gateway connection test failed.', [
+                'request_id' => $safe->requestId,
+                'gateway_id' => $paymentGateway->id,
+                'gateway_code' => $paymentGateway->code,
+                'exception_class' => $e::class,
+                'internal_message' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'status' => 'error',
-                'message' => 'Connection test failed: ' . $e->getMessage(),
-            ], 500);
+                'success' => false,
+                'code' => $safe->code,
+                'message' => 'The gateway connection could not be verified right now. Please try again.',
+                'retryable' => true,
+                'request_id' => $safe->requestId,
+            ], 503);
         }
     }
 }

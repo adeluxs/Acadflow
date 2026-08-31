@@ -10,6 +10,7 @@ use App\Models\Course;
 use App\Models\Semester;
 use App\Services\AcademicContextService;
 use App\Services\AttendanceService;
+use App\Support\Errors\UserFacingError;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
 
@@ -48,7 +49,7 @@ class AttendanceController extends Controller
         abort_unless($semester->academicSession?->university_id === $course->department?->faculty?->university_id, 422, 'The active semester belongs to another institution.');
         try {
             $session = $this->attendance->startSession($user, $course, $semester, isset($data['latitude']) ? (float) $data['latitude'] : null, isset($data['longitude']) ? (float) $data['longitude'] : null, $data['geofence_radius'] ?? null, $data['check_in_window'] ?? null, $data['late_threshold'] ?? null);
-        } catch (InvalidArgumentException $exception) { return response()->json(['message' => $exception->getMessage()], 422); }
+        } catch (InvalidArgumentException $exception) { return $this->attendanceError($request, $exception); }
         return response()->json($session, 201);
     }
 
@@ -70,7 +71,7 @@ class AttendanceController extends Controller
     public function closeSession(Request $request, AttendanceSession $session)
     {
         $this->assertSessionManager($request, $session);
-        try { $closed = $this->attendance->closeSession($session); } catch (InvalidArgumentException $exception) { return response()->json(['message' => $exception->getMessage()], 422); }
+        try { $closed = $this->attendance->closeSession($session); } catch (InvalidArgumentException $exception) { return $this->attendanceError($request, $exception); }
         return response()->json(['message' => 'Session closed', 'session' => $closed]);
     }
 
@@ -97,7 +98,7 @@ class AttendanceController extends Controller
         $this->assertCourseTenant($request->user(), $session->course);
         try {
             $record = $this->attendance->checkIn($session, $request->user(), $data['qr_code'], isset($data['latitude']) ? (float) $data['latitude'] : null, isset($data['longitude']) ? (float) $data['longitude'] : null, $data['device_fingerprint'] ?? null, $request->ip());
-        } catch (InvalidArgumentException $exception) { return response()->json(['message' => $exception->getMessage()], 422); }
+        } catch (InvalidArgumentException $exception) { return $this->attendanceError($request, $exception); }
         return response()->json($record, 201);
     }
 
@@ -147,4 +148,16 @@ class AttendanceController extends Controller
         $session->loadMissing('course.department.faculty'); $this->assertCourseTenant($request->user(), $session->course);
         abort_unless($request->user()->isAdmin() || $session->lecturer_id === $request->user()->id, 403);
     }
+    private function attendanceError(Request $request, InvalidArgumentException $exception)
+    {
+        return response()->json([
+            'status' => false,
+            'success' => false,
+            'code' => 'ATTENDANCE_ACTION_REJECTED',
+            'message' => UserFacingError::safeMessage($exception->getMessage(), 'The attendance action could not be completed.'),
+            'retryable' => false,
+            'request_id' => UserFacingError::requestId($request),
+        ], 422);
+    }
+
 }

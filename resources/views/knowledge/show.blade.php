@@ -4,6 +4,7 @@
 @section('page-subtitle', ucwords(str_replace('_', ' ', $publication->content_type)).' · '.($publication->creator?->full_name ?: 'Academic contributor'))
 
 @section('content')
+@php($commerceCurrency = strtoupper((string) \App\Services\SettingService::get('currency', 'NGN', auth()->user()?->university_id)))
 @include('knowledge._nav')
 
 <div class="mx-auto max-w-7xl space-y-6">
@@ -16,7 +17,7 @@
                     <span class="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600">#{{ $tag->name }}</span>
                 @endforeach
                 @if($publication->access_type === 'premium')
-                    <span class="rounded-full bg-amber-50 px-3 py-1.5 font-bold text-amber-800">Premium · NGN {{ number_format((float) $publication->price, 2) }}</span>
+                    <span class="rounded-full bg-amber-50 px-3 py-1.5 font-bold text-amber-800">Premium · {{ $commerceCurrency }} {{ \App\Support\Money::fromMinor(\App\Support\Money::toMinor((string) $publication->price)) }}</span>
                 @elseif($publication->access_type === 'institution')
                     <span class="rounded-full bg-emerald-50 px-3 py-1.5 font-bold text-emerald-700">Institution access</span>
                 @endif
@@ -101,12 +102,12 @@
                         <p class="mt-2 max-w-2xl text-sm leading-6 text-amber-900">Purchase entitlement is required to read the full content and download protected files.</p>
                         @auth
                             @if($publication->access_type === 'premium' && $gateways->isNotEmpty())
-                                <form method="POST" action="{{ route('commerce.purchase', $publication) }}" class="mt-5 flex flex-col gap-2 sm:flex-row">
+                                <form method="POST" action="{{ route('commerce.purchase', $publication) }}" class="mt-5 grid gap-2 sm:grid-cols-[auto_1fr_auto]">
                                     @csrf
+                                    <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+                                    <select name="payment_method" class="rounded-xl border-amber-300 bg-white"><option value="wallet">Wallet balance</option><option value="gateway">Payment gateway</option></select>
                                     <select name="gateway" class="rounded-xl border-amber-300 bg-white">
-                                        @foreach($gateways as $gateway)
-                                            <option value="{{ $gateway->code }}">{{ $gateway->name }}</option>
-                                        @endforeach
+                                        @foreach($gateways as $gateway)<option value="{{ $gateway->code }}">{{ $gateway->name }}</option>@endforeach
                                     </select>
                                     <button class="rounded-xl bg-amber-700 px-4 py-2.5 font-bold text-white">Purchase securely</button>
                                 </form>
@@ -323,9 +324,15 @@ document.querySelectorAll('.secure-download').forEach((button) => {
                 window.location.href = data.url;
                 return;
             }
-            alert(data.message || 'Download could not be authorized.');
+            const requestError = new Error(data.message || 'The download could not be authorized.');
+            requestError.data = data;
+            requestError.status = response.status;
+            throw requestError;
         } catch (error) {
-            alert('The download could not be prepared. Please try again.');
+            window.AcadFlowFeedback?.error(error, {
+                title: 'Download not prepared',
+                fallback: 'The download could not be prepared. Please try again.'
+            });
         } finally {
             button.disabled = false;
             button.textContent = originalText;

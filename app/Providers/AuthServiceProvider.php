@@ -17,7 +17,6 @@ use App\Models\KnowledgePublication;
 use App\Models\ResearchProject;
 use App\Models\Submission;
 use App\Models\SubmissionTask;
-use App\Models\SubscriptionPlan;
 use App\Models\University;
 use App\Models\User;
 use App\Policies\AttendancePolicy;
@@ -35,7 +34,6 @@ use App\Policies\KnowledgePublicationPolicy;
 use App\Policies\ResearchProjectPolicy;
 use App\Policies\SubmissionPolicy;
 use App\Policies\SubmissionTaskPolicy;
-use App\Policies\SubscriptionPlanPolicy;
 use App\Policies\UniversityPolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
@@ -56,7 +54,6 @@ class AuthServiceProvider extends ServiceProvider
         ResearchProject::class => ResearchProjectPolicy::class,
         KnowledgePublication::class => KnowledgePublicationPolicy::class,
         University::class => UniversityPolicy::class,
-        SubscriptionPlan::class => SubscriptionPlanPolicy::class,
         Faculty::class => FacultyPolicy::class,
         AcademicEvent::class => AcademicEventPolicy::class,
         AcademicChallenge::class => AcademicChallengePolicy::class,

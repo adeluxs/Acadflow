@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\NotificationManagementController;
+use App\Http\Controllers\Admin\MonetizationController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\AttendanceController;
@@ -19,7 +20,6 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SubmissionController;
 use App\Http\Controllers\SubmissionTaskController;
 use App\Http\Controllers\SubscriptionController;
-use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\WebAuthController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\LecturerAssignmentController;
@@ -34,7 +34,6 @@ use App\Http\Controllers\ResearchSectionController;
 use App\Http\Controllers\ResearchWorkspaceController;
 use App\Http\Controllers\ResearchSpecializedController;
 use App\Http\Controllers\Admin\PaymentGatewayController;
-use App\Http\Controllers\Admin\SubscriptionReportController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
@@ -74,7 +73,9 @@ Route::middleware('feature.flag:knowledge_hub')->group(function () {
 });
 Route::get('/media/{asset}/preview', [MediaController::class, 'preview'])->middleware('throttle:secure-downloads')->name('media.preview');
 Route::get('/media/download/{token}', [MediaController::class, 'download'])->middleware('throttle:secure-downloads')->name('media.download');
-Route::post('/commerce/webhook/{gateway}', [CommerceController::class, 'webhook'])->name('commerce.webhook');
+Route::post('/commerce/webhook/{gateway}', [CommerceController::class, 'webhook'])
+    ->middleware(['throttle:commerce-webhooks','webhook.verify'])
+    ->name('commerce.webhook');
 Route::middleware('guest')->group(function () {
     Route::get('/login', [WebAuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [WebAuthController::class, 'login'])->middleware('throttle:login')->name('login.store');
@@ -110,12 +111,13 @@ Route::middleware(['auth', 'verified'])->prefix('onboarding')->name('onboarding.
 
 // Payment gateway webhooks must be reachable without a signed-in browser session.
 Route::post('/webhook/payment/{gateway}', [SubscriptionController::class, 'webhook'])
-    ->middleware('webhook.verify')
+    ->middleware(['throttle:commerce-webhooks','webhook.verify'])
     ->name('webhook.payment');
 
 // Protected application routes require verified identity and completed onboarding.
 Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.complete'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/subscription', fn () => redirect()->route('commerce.wallet')->with('info', 'Subscriptions have been retired. AcadFlow now uses wallet, usage and entitlement based access.'))->name('subscription-retired');
     Route::get('/account/security', [AccountSecurityController::class, 'show'])->name('security.show');
     Route::post('/account/security/two-factor', [AccountSecurityController::class, 'begin'])->name('security.two-factor.begin');
     Route::post('/account/security/two-factor/confirm', [AccountSecurityController::class, 'confirm'])->name('security.two-factor.confirm');
@@ -304,12 +306,15 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::post('/commerce/learning-paths/{path}/purchase', [CommerceController::class, 'purchaseLearningPath'])->name('commerce.learning.purchase');
     Route::get('/commerce/payment/callback/{transaction}', [CommerceController::class, 'callback'])->name('commerce.callback');
     Route::get('/commerce/wallet', [CommerceController::class, 'wallet'])->name('commerce.wallet');
+    Route::post('/commerce/wallet/fund', [CommerceController::class, 'fundWallet'])->middleware('throttle:payments')->name('commerce.wallet.fund');
+    Route::get('/commerce/wallet/funding/callback/{transaction}', [CommerceController::class, 'walletFundingCallback'])->name('commerce.wallet.callback');
     Route::post('/commerce/payout-accounts', [CommerceController::class, 'storePayout'])->name('commerce.payout-accounts.store');
     Route::post('/commerce/payout-accounts/{account}/verify', [CommerceController::class, 'verifyPayout'])->name('commerce.payout-accounts.verify');
     Route::post('/commerce/withdrawals', [CommerceController::class, 'requestWithdrawal'])->name('commerce.withdrawals.store');
     Route::post('/commerce/withdrawals/{withdrawal}/process', [CommerceController::class, 'processWithdrawal'])->name('commerce.withdrawals.process');
     Route::post('/commerce/orders/{order}/refunds', [CommerceController::class, 'requestRefund'])->name('commerce.refunds.store');
     Route::post('/commerce/refunds/{refund}/process', [CommerceController::class, 'processRefund'])->name('commerce.refunds.process');
+    Route::post('/commerce/refunds/{refund}/reconcile', [CommerceController::class, 'reconcileRefund'])->name('commerce.refunds.reconcile');
 
     // Admin dashboard (redirects to role-specific admin page)
     Route::get('/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
@@ -345,14 +350,9 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::get('/courses/join/{uuid}', [CourseController::class, 'joinViaLink'])->name('courses.join.link');
         Route::post('/courses/join/{uuid}', [CourseController::class, 'processJoinLink'])->name('courses.join.link.process');
 
-        // Subscription management
-        Route::get('/subscription', [SubscriptionController::class, 'show'])->name('subscription.show');
-        Route::get('/subscription/upgrade', [SubscriptionController::class, 'upgrade'])->name('subscription.upgrade');
-        Route::post('/subscription/checkout/{plan}', [SubscriptionController::class, 'checkout'])->name('subscription.checkout');
-        Route::post('/subscription/initiate-payment/{plan}', [SubscriptionController::class, 'initiatePayment'])->name('subscription.initiate-payment');
+        // Compatibility callback for payments initiated before subscription retirement.
+        // No new subscription checkout/upgrade routes are exposed.
         Route::get('/subscription/payment/callback/{transaction}', [SubscriptionController::class, 'paymentCallback'])->name('subscription.payment.callback');
-        Route::post('/subscription/upgrade', [SubscriptionController::class, 'processUpgrade'])->name('subscription.process-upgrade');
-        Route::post('/subscription/{subscription}/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
 
         // Student institutional billing
         Route::get('/billing/invoices', [BillingController::class, 'myInvoices'])
@@ -476,6 +476,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::get('/admin/ai/settings', [AiController::class, 'settings'])->name('ai.settings');
         Route::post('/admin/ai/settings', [AiController::class, 'updateSettings'])->name('ai.settings.update');
         Route::post('/admin/ai/providers/{provider}/test', [AiController::class, 'testProvider'])->middleware('throttle:10,1')->name('ai.providers.test');
+        Route::post('/admin/ai/providers/{provider}/discover-models', [AiController::class, 'discoverProviderModels'])->middleware('throttle:5,1')->name('ai.providers.discover-models');
         Route::get('/admin/ai/diagnostics', [AiController::class, 'diagnostics'])->name('ai.diagnostics');
         Route::get('/admin/ai/analytics', [AiController::class, 'analytics'])->name('ai.analytics');
         Route::post('/admin/ai/prompts', [AiPromptController::class, 'store'])->name('ai.prompts.store');
@@ -590,8 +591,6 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
             ->name('billing.verify');
         Route::post('/admin/billing/invoices/{invoice}/waive', [BillingController::class, 'waive'])
             ->name('billing.waive');
-        Route::get('/admin/subscriptions', [BillingController::class, 'subscriptions'])
-            ->name('admin.subscriptions');
     });
 
     // Department Admin routes
@@ -619,6 +618,11 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::post('/admin/settings', [SettingsController::class, 'updateMultiple'])->name('admin.settings.update');
         Route::put('/admin/settings/{key}', [SettingsController::class, 'update'])->name('admin.settings.update-key');
 
+        Route::get('/admin/monetization', [MonetizationController::class, 'index'])->name('admin.monetization');
+        Route::put('/admin/monetization', [MonetizationController::class, 'update'])->name('admin.monetization.update');
+        Route::post('/admin/monetization/pricing-rules', [MonetizationController::class, 'storePricingRule'])->name('admin.monetization.pricing-rules.store');
+        Route::post('/admin/monetization/commercial-accounts', [MonetizationController::class, 'storeCommercialAccount'])->name('admin.monetization.commercial-accounts.store');
+
         Route::get('/admin/faculties', [AdminController::class, 'faculties'])->name('admin.faculties');
         Route::post('/admin/faculties', [AdminController::class, 'createFaculty'])->name('admin.faculties.create');
         Route::get('/admin/faculties/{faculty}/edit', [AdminController::class, 'editFaculty'])->name('admin.faculties.edit');
@@ -631,12 +635,6 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 
     // Super Admin routes
     Route::middleware('role:super_admin')->group(function () {
-        Route::get('/admin/subscription-analytics', [SubscriptionReportController::class, 'dashboard'])
-            ->name('admin.subscription-reports.dashboard');
-        Route::get('/admin/subscription-analytics/export/{format?}', [SubscriptionReportController::class, 'export'])
-            ->whereIn('format', ['csv'])
-            ->name('admin.subscription-reports.export');
-
         Route::get('/admin/universities', [AdminController::class, 'universities'])->name('admin.universities');
         Route::post('/admin/universities', [AdminController::class, 'createUniversity'])->name('admin.universities.create');
         Route::get('/admin/universities/{university}/edit', [AdminController::class, 'editUniversity'])->name('admin.universities.edit');
@@ -647,14 +645,6 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::post('/admin/settings/toggle-flag/{featureFlag}', [SettingsController::class, 'toggleFeatureFlag'])->name('admin.settings.toggle-flag');
         Route::get('/admin/settings/permissions', [SettingsController::class, 'permissions'])->name('admin.settings.permissions');
         Route::get('/admin/settings/audit-logs', [SettingsController::class, 'auditLogs'])->name('admin.settings.audit-logs');
-
-        // Subscription Plans Management
-        Route::get('/admin/subscription-plans', [SubscriptionPlanController::class, 'index'])->name('admin.subscription-plans');
-        Route::get('/admin/subscription-plans/create', [SubscriptionPlanController::class, 'create'])->name('admin.subscription-plans.create');
-        Route::post('/admin/subscription-plans', [SubscriptionPlanController::class, 'store'])->name('admin.subscription-plans.store');
-        Route::get('/admin/subscription-plans/{subscriptionPlan}/edit', [SubscriptionPlanController::class, 'edit'])->name('admin.subscription-plans.edit');
-        Route::put('/admin/subscription-plans/{subscriptionPlan}', [SubscriptionPlanController::class, 'update'])->name('admin.subscription-plans.update');
-        Route::delete('/admin/subscription-plans/{subscriptionPlan}', [SubscriptionPlanController::class, 'destroy'])->name('admin.subscription-plans.destroy');
 
         // Student import
         Route::get('/admin/students/import', [StudentImportController::class, 'showImportForm'])->name('admin.students.import');

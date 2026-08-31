@@ -8,7 +8,6 @@ use App\Enums\Permission;
 use App\Models\AuditLog;
 use App\Models\FeatureFlag;
 use App\Models\Setting;
-use App\Models\SubscriptionPlan;
 use App\Services\SettingService;
 use App\Services\FeatureAccessService;
 use Illuminate\Http\Request;
@@ -20,8 +19,11 @@ use Illuminate\Validation\Rule;
 class SettingsController extends Controller
 {
     /** Platform-only settings cannot be overridden by institution admins. */
-    private const GLOBAL_ONLY_GROUPS = ['subscription', 'pwa'];
-    private const GLOBAL_ONLY_KEYS = ['maintenance_mode', 'maintenance_mode_bypass_routes'];
+    private const GLOBAL_ONLY_GROUPS = ['pwa'];
+    private const GLOBAL_ONLY_KEYS = [
+        'maintenance_mode', 'maintenance_mode_bypass_routes',
+        'login_requests_per_minute', 'registration_requests_per_hour', 'password_reset_requests_per_minute',
+    ];
     private const RUNTIME_AVAILABILITY_SETTING_KEYS = ['pwa_enabled', 'knowledge_hub_premium_enabled'];
 
     /**
@@ -51,7 +53,6 @@ class SettingsController extends Controller
         // Global commercial controls are only relevant to the platform owner.
         // Runtime feature availability is managed on the dedicated child page
         // under Settings so there is only one switch per feature.
-        $subscriptionPlans = $user->isSuperAdmin() ? SubscriptionPlan::orderBy('sort_order')->get() : collect();
         $paymentGateways = $user->isSuperAdmin()
             ? \App\Models\PaymentGateway::withCount('transactions')->get()
             : collect();
@@ -61,14 +62,15 @@ class SettingsController extends Controller
             'general' => ['name' => 'General Settings', 'icon' => 'cog', 'description' => 'Platform name, branding, timezone'],
             'academic' => ['name' => 'Academic Settings', 'icon' => 'academic-cap', 'description' => 'Submissions, grading, and course membership rules'],
             'notification' => ['name' => 'Notification Settings', 'icon' => 'bell', 'description' => 'Channels, templates, reminders'],
-            'subscription' => ['name' => 'Subscription Settings', 'icon' => 'credit-card', 'description' => 'Billing, trials, plan rules'],
             'security' => ['name' => 'Security Settings', 'icon' => 'shield-check', 'description' => 'Passwords, sessions, 2FA, audit logs'],
             'pwa' => ['name' => 'PWA Settings', 'icon' => 'device-mobile', 'description' => 'Offline mode, caching, sync'],
             'storage' => ['name' => 'Storage Settings', 'icon' => 'database', 'description' => 'File uploads, retention, archives'],
         ];
         $settingGroups = array_intersect_key($settingGroups, array_fill_keys($settings->keys()->all(), true));
 
-        return view('settings.index', compact('settings', 'subscriptionPlans', 'paymentGateways', 'settingGroups'));
+        $settings->forget('subscription');
+
+        return view('settings.index', compact('settings', 'paymentGateways', 'settingGroups'));
     }
 
     /**
@@ -85,14 +87,9 @@ class SettingsController extends Controller
         $setting = Setting::where('key', $key)->firstOrFail();
         abort_if(! $user->isSuperAdmin() && $this->isGlobalOnlySetting($setting), 403, 'This is a platform-only setting.');
 
-        $rules = ['value' => 'required'];
-        $rules['value'] = match ($setting->type) {
-            'integer' => 'required|integer',
-            'boolean' => 'required|boolean',
-            'json' => 'required|json',
-            default => 'required|string',
-        };
-        $validated = Validator::make($request->all(), $rules)->validate();
+        $validated = Validator::make($request->all(), [
+            'value' => $this->validationRulesForSetting($setting, false),
+        ])->validate();
 
         $scope = $user->isSuperAdmin() ? null : $user->university_id;
         $oldValue = $user->isSuperAdmin()
@@ -126,12 +123,7 @@ class SettingsController extends Controller
             abort_if(! $user->isSuperAdmin() && $this->isGlobalOnlySetting($setting), 403, 'A platform-only setting was included in the request.');
 
             $validator = Validator::make(['value' => $value], [
-                'value' => match ($setting->type) {
-                    'integer' => ['required', 'integer'],
-                    'boolean' => ['required', 'boolean'],
-                    'json' => ['required', 'json'],
-                    default => ['nullable', 'string'],
-                },
+                'value' => $this->validationRulesForSetting($setting, true),
             ]);
             $validated = $validator->validate();
             $newValue = $validated['value'] ?? '';
@@ -245,6 +237,7 @@ class SettingsController extends Controller
             'default_language' => SettingService::get('default_language', 'en'),
             'pwa_enabled' => SettingService::isPwaEnabled(),
             'maintenance_mode' => SettingService::isMaintenanceMode(),
+            'password_policy' => SettingService::getPasswordPolicy(),
             'features' => FeatureAccessService::clientSnapshot(),
         ];
 
@@ -429,6 +422,32 @@ class SettingsController extends Controller
             $request->userAgent(),
             'access_status',
         );
+    }
+
+
+    private function validationRulesForSetting(Setting $setting, bool $allowNullableString): array
+    {
+        $securityIntegerRules = [
+            'password_min_length' => ['required', 'integer', 'min:6', 'max:128'],
+            'max_login_attempts' => ['required', 'integer', 'min:1', 'max:50'],
+            'lockout_duration_minutes' => ['required', 'integer', 'min:1', 'max:1440'],
+            'login_requests_per_minute' => ['required', 'integer', 'min:1', 'max:120'],
+            'registration_requests_per_hour' => ['required', 'integer', 'min:1', 'max:100'],
+            'password_reset_requests_per_minute' => ['required', 'integer', 'min:1', 'max:30'],
+            'verification_requests_per_minute' => ['required', 'integer', 'min:1', 'max:30'],
+            'two_factor_attempts_per_minute' => ['required', 'integer', 'min:1', 'max:30'],
+        ];
+
+        if (isset($securityIntegerRules[$setting->key])) {
+            return $securityIntegerRules[$setting->key];
+        }
+
+        return match ($setting->type) {
+            'integer' => ['required', 'integer'],
+            'boolean' => ['required', 'boolean'],
+            'json' => ['required', 'json'],
+            default => [$allowNullableString ? 'nullable' : 'required', 'string'],
+        };
     }
 
     private function isGlobalOnlySetting(Setting $setting): bool

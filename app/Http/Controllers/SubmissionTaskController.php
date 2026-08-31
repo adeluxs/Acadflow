@@ -190,16 +190,13 @@ class SubmissionTaskController extends Controller
                 'task_uuid' => $task->uuid,
             ]);
 
-            // Check feature limits for group submissions and rubrics
-            $subscription = $user->activeSubscription()->first();
-            if ($subscription && $subscription->plan) {
-                $plan = $subscription->plan;
-                if ($task->allow_group_submissions && ! $plan->allow_group_submissions) {
-                    $task->update(['allow_group_submissions' => false]);
-                }
-                if ($task->rubric_id && ! $plan->allow_rubrics) {
-                    $task->update(['rubric_id' => null]);
-                }
+            // Commercial access is entitlement-based. Features remain free
+            // unless Admin explicitly publishes a pricing rule for them.
+            if ($task->allow_group_submissions && ! $user->hasFeature('allow_group_submissions')) {
+                $task->update(['allow_group_submissions' => false]);
+            }
+            if ($task->rubric_id && ! $user->hasFeature('allow_rubrics')) {
+                $task->update(['rubric_id' => null]);
             }
 
             // Fire event to notify enrolled students (only if published)
@@ -225,7 +222,7 @@ class SubmissionTaskController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return back()->withInput()->withErrors(['error' => 'Failed to create assignment: ' . $e->getMessage()]);
+            return back()->withInput()->withErrors(['error' => 'The assignment could not be created right now. Your entered information has been preserved. Please try again.']);
         }
     }
 

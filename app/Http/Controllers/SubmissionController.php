@@ -21,7 +21,6 @@ use App\Services\Media\MediaSecurityService;
 use App\Services\Media\SafeFileDeliveryService;
 use App\Services\PdfService;
 use App\Services\SettingService;
-use App\Services\SubscriptionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -34,7 +33,6 @@ use Illuminate\Validation\ValidationException;
 class SubmissionController extends Controller
 {
     public function __construct(
-        private SubscriptionService $subscriptionService,
         private MediaSecurityService $mediaSecurityService,
         private AcademicContextService $academicContext,
         private SafeFileDeliveryService $fileDelivery,
@@ -186,10 +184,10 @@ class SubmissionController extends Controller
         }
 
         // Validate optional initial file uploads using the same rules as the
-        // standalone upload endpoint (plan limit + allowed mimes).
-        $maxFileSizeBytes = $this->subscriptionService->getUploadLimitForUser($request->user());
-        $maxFileSizeKb = $maxFileSizeBytes / 1024;
-        $allowedMimes = implode(',', SettingService::getAllowedExtensions());
+        // standalone upload endpoint (institution upload policy + allowed mimes).
+        $maxFileSizeBytes = SettingService::getMaxUploadSize($request->user()->university_id);
+        $maxFileSizeKb = intdiv($maxFileSizeBytes, 1024);
+        $allowedMimes = implode(',', SettingService::getAllowedExtensions($request->user()->university_id));
 
         $request->validate([
             'files' => 'nullable|array|max:10',
@@ -285,9 +283,9 @@ class SubmissionController extends Controller
         $this->authorize('update', $submission);
 
         // Get effective upload limit from user's plan
-        $maxFileSizeBytes = $this->subscriptionService->getUploadLimitForUser($request->user());
-        $maxFileSizeKb = $maxFileSizeBytes / 1024;
-        $allowedMimes = implode(',', SettingService::getAllowedExtensions());
+        $maxFileSizeBytes = SettingService::getMaxUploadSize($request->user()->university_id);
+        $maxFileSizeKb = intdiv($maxFileSizeBytes, 1024);
+        $allowedMimes = implode(',', SettingService::getAllowedExtensions($request->user()->university_id));
 
         $validated = $request->validate([
             'files' => 'required|array|min:1|max:10',
@@ -535,9 +533,9 @@ class SubmissionController extends Controller
         }
 
         // Get effective upload limit from user's plan
-        $maxFileSizeBytes = $this->subscriptionService->getUploadLimitForUser($request->user());
-        $maxFileSizeKb = $maxFileSizeBytes / 1024;
-        $allowedMimes = implode(',', SettingService::getAllowedExtensions());
+        $maxFileSizeBytes = SettingService::getMaxUploadSize($request->user()->university_id);
+        $maxFileSizeKb = intdiv($maxFileSizeBytes, 1024);
+        $allowedMimes = implode(',', SettingService::getAllowedExtensions($request->user()->university_id));
 
         $validated = $request->validate([
             'files' => 'required|array|min:1|max:10',

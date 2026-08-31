@@ -13,6 +13,7 @@ use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use App\Support\Errors\UserFacingError;
 
 class SyncController extends BaseController
 {
@@ -40,10 +41,15 @@ class SyncController extends BaseController
                     'data' => $result,
                 ];
             } catch (\Throwable $e) {
+                report($e);
+                $safe = UserFacingError::fromThrowable($e, $request);
                 $results[] = [
                     'type' => $action['type'],
                     'status' => 'error',
-                    'message' => $e->getMessage(),
+                    'code' => $safe->code,
+                    'message' => $safe->message,
+                    'retryable' => $safe->retryable,
+                    'request_id' => $safe->requestId,
                 ];
             }
         }

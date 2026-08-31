@@ -13,6 +13,9 @@ class WalletLedgerEntry extends Model
         'transaction_id',
         'entry_type',
         'direction',
+        'balance_bucket',
+        'amount_minor',
+        'balance_after_minor',
         'amount',
         'balance_after',
         'reference_type',
@@ -26,6 +29,8 @@ class WalletLedgerEntry extends Model
     protected function casts(): array
     {
         return [
+            'amount_minor' => 'integer',
+            'balance_after_minor' => 'integer',
             'amount' => 'decimal:2',
             'balance_after' => 'decimal:2',
             'metadata' => 'array',

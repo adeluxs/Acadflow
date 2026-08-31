@@ -225,7 +225,7 @@ The current registry contains **30 supported runtime features/modules** derived 
 22. `ai_assistant` — AI Assistant
 23. `notifications` — Notifications
 24. `push_notifications` — Push Notifications
-25. `billing_subscriptions` — Billing & Subscriptions
+25. `monetization_commerce` — Monetization & Commerce
 26. `knowledge_hub_premium` — Premium Knowledge Resources
 27. `commerce_marketplace` — Marketplace, Wallet & Payouts
 28. `documents_exports` — Documents & Academic Exports

@@ -23,6 +23,7 @@ return [
     'request_timeout' => env('AI_REQUEST_TIMEOUT', 30),
     'retry_count' => env('AI_RETRY_COUNT', 1),
     'retry_delay_ms' => env('AI_RETRY_DELAY_MS', 300),
+    'fast_failover' => env('AI_FAST_FAILOVER', true),
     'temperature' => env('AI_GLOBAL_TEMPERATURE', 0.2),
     'max_tokens' => env('AI_MAX_TOKENS', 2048),
     'context_limit' => env('AI_CONTEXT_LIMIT', 16000),
@@ -43,7 +44,7 @@ return [
     // provider-routing settings, so database AI Settings still remain the
     // runtime source of truth for provider/model selection.
     'http' => [
-        'connect_timeout' => env('AI_HTTP_CONNECT_TIMEOUT', 10),
+        'connect_timeout' => env('AI_HTTP_CONNECT_TIMEOUT', 6),
         'ca_bundle' => env('AI_HTTP_CA_BUNDLE', ''),
         'proxy' => env('AI_HTTP_PROXY', ''),
         'force_ipv4' => env('AI_HTTP_FORCE_IPV4', false),
@@ -256,6 +257,27 @@ return [
             'temperature' => env('DEEPSEEK_TEMPERATURE', 0.2),
             'input_cost_per_million' => env('DEEPSEEK_INPUT_COST_PER_MILLION', 0.27),
             'output_cost_per_million' => env('DEEPSEEK_OUTPUT_COST_PER_MILLION', 1.10),
+        ],
+        'grok' => [
+            'api_key' => env('XAI_API_KEY'),
+            'base_url' => env('XAI_BASE_URL', 'https://api.x.ai/v1'),
+            'model' => env('XAI_MODEL', 'grok-4.5'),
+            'temperature' => env('XAI_TEMPERATURE', 0.2),
+            // Keep cost tracking at zero unless the administrator explicitly
+            // configures current xAI prices for the selected model.
+            'input_cost_per_million' => env('XAI_INPUT_COST_PER_MILLION', 0),
+            'output_cost_per_million' => env('XAI_OUTPUT_COST_PER_MILLION', 0),
+        ],
+        'openrouter' => [
+            'api_key' => env('OPENROUTER_API_KEY'),
+            'base_url' => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+            'model' => env('OPENROUTER_MODEL', 'openai/gpt-4o-mini'),
+            'temperature' => env('OPENROUTER_TEMPERATURE', 0.2),
+            'site_url' => env('OPENROUTER_SITE_URL', env('APP_URL')),
+            'app_name' => env('OPENROUTER_APP_NAME', env('APP_NAME', 'AcadFlow')),
+            // OpenRouter can return usage.cost. Static rates are only a fallback.
+            'input_cost_per_million' => env('OPENROUTER_INPUT_COST_PER_MILLION', 0),
+            'output_cost_per_million' => env('OPENROUTER_OUTPUT_COST_PER_MILLION', 0),
         ],
         'azure_openai' => [
             'api_key' => env('AZURE_OPENAI_API_KEY'),

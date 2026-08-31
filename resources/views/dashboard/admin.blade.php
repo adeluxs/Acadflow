@@ -40,7 +40,7 @@
                 ['Manage Users', 'Students, lecturers, admins', 'admin.users'],
                 ['Manage Courses', 'Create and organize courses', 'admin.courses'],
                 ['View Reports', 'Analytics and usage data', 'admin.reports'],
-                ['Billing & Plans', 'Subscriptions and access tiers', 'admin.subscriptions'],
+                ['Monetization', 'Wallets, pricing, commissions and commercial accounts', 'admin.monetization'],
             ];
         @endphp
         <div class="grid sm:grid-cols-2 gap-3">

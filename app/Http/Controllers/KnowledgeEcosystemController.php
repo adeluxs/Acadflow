@@ -266,7 +266,7 @@ class KnowledgeEcosystemController extends Controller
 
     public function storeLearningPath(Request $request, LearningPathService $service): RedirectResponse
     {
-        $data=$request->validate(['title'=>['required','string','max:255'],'description'=>['nullable','string','max:5000'],'visibility'=>['required','in:public,institution,private'],'access_type'=>['required','in:free,premium,institution'],'price'=>['nullable','numeric','min:0'],'status'=>['required','in:draft,published'],'certificate_enabled'=>['nullable','boolean'],'outcomes'=>['nullable','string','max:2000']]);
+        $data=$request->validate(['title'=>['required','string','max:255'],'description'=>['nullable','string','max:5000'],'visibility'=>['required','in:public,institution,private'],'access_type'=>['required','in:free,premium,institution'],'price'=>['nullable','regex:/^\d+(?:\.\d{1,2})?$/'],'status'=>['required','in:draft,published'],'certificate_enabled'=>['nullable','boolean'],'outcomes'=>['nullable','string','max:2000']]);
         $path=$service->create($request->user(),$data);
         return redirect()->route('knowledge.learning.show',$path)->with('success','Learning path created.');
     }

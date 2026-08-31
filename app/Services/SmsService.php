@@ -51,7 +51,9 @@ class SmsService
 
             return [
                 'status' => false,
-                'message' => $response->json('message', 'SMS sending failed'),
+                'message' => 'The SMS could not be sent right now. Please try again later.',
+                'code' => 'SMS_DELIVERY_FAILED',
+                'retryable' => $response->serverError() || $response->status() === 429,
             ];
         } catch (\Throwable $e) {
             Log::error('SMS sending exception', [
@@ -61,7 +63,9 @@ class SmsService
 
             return [
                 'status' => false,
-                'message' => $e->getMessage(),
+                'message' => 'The SMS service is temporarily unavailable. Please try again later.',
+                'code' => 'SMS_SERVICE_UNAVAILABLE',
+                'retryable' => true,
             ];
         }
     }

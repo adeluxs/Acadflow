@@ -8,6 +8,7 @@ use App\Ai\AiAnalytics;
 use App\Ai\AiManager;
 use App\Ai\AiProviderRegistry;
 use App\Ai\AiRouter;
+use App\Ai\Providers\OpenRouterProvider;
 use App\Ai\Features\CitationAssistantModule;
 use App\Ai\Features\PlagiarismModule;
 use App\Ai\Features\SubmissionValidatorModule;
@@ -25,6 +26,7 @@ use App\Models\Submission;
 use App\Services\Ai\AcademicAssistantService;
 use App\Services\Ai\AiRuntimeConfigService;
 use App\Services\SettingService;
+use App\Support\Errors\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -164,9 +166,12 @@ class AiController extends Controller
             })->implode("\n");
         }
         if (! is_string($answer) || trim($answer) === '') $answer = $payload['summary'] ?? null;
+        $success = (bool) ($payload['success'] ?? true);
+        $failure = $success ? null : UserFacingError::fromAiCode($payload['error_code'] ?? null, is_string($answer) ? $answer : null);
+        if ($failure) $answer = $failure['message'];
 
         return [
-            'success' => (bool) ($payload['success'] ?? true),
+            'success' => $success,
             'answer' => (is_string($answer) && trim($answer) !== '') ? $answer : $fallbackTitle.' completed. No additional suggestions were returned.',
             'provider' => $payload['provider'] ?? null,
             'model' => $payload['model'] ?? null,
@@ -176,6 +181,7 @@ class AiController extends Controller
             'sources' => [],
             'request_id' => $payload['request_id'] ?? null,
             'error_code' => $payload['error_code'] ?? null,
+            'retryable' => (bool) ($failure['retryable'] ?? false),
         ];
     }
 
@@ -349,7 +355,7 @@ class AiController extends Controller
             foreach ($types as $key => $type) SettingService::set($key, $data[$key] ?? '', $type, $scope, $actorId);
 
 
-            foreach (['ai_automatic_failover','ai_provider_health_enabled','ai_enable_cache','ai_enable_logging','ai_grounding_enabled','ai_hybrid_escalate_when_clean','ai_grounded_pattern_learning_enabled','ai_editor_suggestions_enabled'] as $toggle) {
+            foreach (['ai_automatic_failover','ai_fast_failover','ai_provider_health_enabled','ai_enable_cache','ai_enable_logging','ai_grounding_enabled','ai_hybrid_escalate_when_clean','ai_grounded_pattern_learning_enabled','ai_editor_suggestions_enabled'] as $toggle) {
                 SettingService::set($toggle, $request->boolean($toggle), 'boolean', $scope, $actorId);
             }
             // No live web-search adapter exists in this source. Keep the runtime
@@ -436,6 +442,41 @@ class AiController extends Controller
 
         $result = $this->providerRegistry->healthWithConfig($provider, $config);
         return back()->withInput()->with('provider_test', $result);
+    }
+
+    public function discoverProviderModels(Request $request, string $provider)
+    {
+        $this->authorizeAi(Permission::MANAGE_AI_SETTINGS);
+        abort_unless($request->user()->isSuperAdmin(), 403);
+        abort_unless($provider === AiProviderName::OPENROUTER->value, 404);
+
+        $config = $this->runtime->providerConfig($provider, null);
+        $baseUrl = trim((string) $request->input("provider_{$provider}_base_url", ''));
+        $secret = trim((string) $request->input("provider_{$provider}_api_key", ''));
+        if ($baseUrl !== '') $config['base_url'] = $baseUrl;
+        if ($secret !== '') $config['api_key'] = $secret;
+        $config['enabled'] = true;
+
+        $adapter = $this->providerRegistry->makeWithConfig($provider, $config);
+        abort_unless($adapter instanceof OpenRouterProvider, 500, 'OpenRouter adapter is unavailable.');
+
+        try {
+            $catalog = $adapter->discoverModels();
+        } catch (\Throwable $e) {
+            report($e);
+            return back()->withInput()->withErrors(['provider_openrouter_models' => 'OpenRouter model discovery failed. Verify the API key, endpoint, and network connection.']);
+        }
+
+        if ($catalog === []) {
+            return back()->withInput()->withErrors(['provider_openrouter_models' => 'OpenRouter returned no models. Verify the API key and endpoint.']);
+        }
+
+        $models = array_values(array_unique(array_map(fn (array $model): string => $model['id'], $catalog)));
+        SettingService::set('ai_provider_openrouter_models', $models, 'json', null, $request->user()->id);
+        SettingService::set('ai_provider_openrouter_model_catalog', $catalog, 'json', null, $request->user()->id);
+        $this->runtime->invalidate();
+
+        return redirect()->route('ai.settings')->with('success', 'OpenRouter model catalog refreshed: '.count($models).' models discovered.');
     }
 
     public function diagnostics()
@@ -542,6 +583,7 @@ class AiController extends Controller
         $fonts = $layout['required_fonts'] ?? [];
         return [
             'ai_automatic_failover' => $this->runtime->automaticFailover($universityId),
+            'ai_fast_failover' => $this->runtime->fastFailover($universityId),
             'ai_provider_health_enabled' => $this->runtime->providerHealthChecking($universityId),
             'ai_enable_cache' => $this->runtime->cacheEnabled($universityId),
             'ai_enable_logging' => $this->runtime->loggingEnabled($universityId),
