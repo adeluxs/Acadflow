@@ -85,11 +85,18 @@ class User extends Authenticatable implements MustVerifyEmailContract
             return true;
         }
 
-        if ($this->isUniversityAdmin() && $this->university_id === $course->department->faculty->university_id) {
+        if ($course->isIndependent() && (int) $course->owner_user_id === (int) $this->id) {
             return true;
         }
 
-        if ($this->isDepartmentAdmin() && $this->department_id === $course->department_id) {
+        if ($this->isUniversityAdmin()) {
+            $course->loadMissing('department.faculty');
+            if (! $course->isIndependent() && $this->university_id === $course->department?->faculty?->university_id) {
+                return true;
+            }
+        }
+
+        if ($this->isDepartmentAdmin() && ! $course->isIndependent() && $this->department_id === $course->department_id) {
             return true;
         }
 
@@ -326,6 +333,29 @@ class User extends Authenticatable implements MustVerifyEmailContract
     public function communityMemberships(): HasMany
     {
         return $this->hasMany(KnowledgeCommunityMember::class);
+    }
+
+
+    public function institutionAffiliations(): HasMany
+    {
+        return $this->hasMany(UserInstitutionAffiliation::class);
+    }
+
+    public function hasVerifiedInstitutionAffiliation(?int $universityId = null): bool
+    {
+        $universityId ??= $this->university_id;
+        if (! $universityId) return false;
+
+        return $this->institutionAffiliations()
+            ->where('university_id', $universityId)
+            ->where('status', 'verified')
+            ->exists();
+    }
+
+    public function currentInstitutionAffiliation(): ?UserInstitutionAffiliation
+    {
+        if (! $this->university_id) return null;
+        return $this->institutionAffiliations()->where('university_id', $this->university_id)->latest('verified_at')->latest('id')->first();
     }
 
     public function verificationRequests(): HasMany

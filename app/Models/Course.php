@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo as BelongsToRelation;
 use Illuminate\Support\Str;
 
 class Course extends Model
@@ -16,6 +17,8 @@ class Course extends Model
     protected $fillable = [
         'uuid',
         'department_id',
+        'access_mode',
+        'owner_user_id',
         'code',
         'name',
         'description',
@@ -49,12 +52,23 @@ class Course extends Model
             'max_capacity' => 'integer',
             'is_active' => 'boolean',
             'is_catalog_template' => 'boolean',
+            'owner_user_id' => 'integer',
         ];
     }
 
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function owner(): BelongsToRelation
+    {
+        return $this->belongsTo(User::class, 'owner_user_id');
+    }
+
+    public function isIndependent(): bool
+    {
+        return $this->access_mode === 'independent';
     }
 
     public function enrollments(): HasMany

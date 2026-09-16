@@ -20,7 +20,12 @@ return [
     'secondary_fallback_provider' => env('AI_SECONDARY_FALLBACK_PROVIDER', ''),
     'secondary_fallback_model' => env('AI_SECONDARY_FALLBACK_MODEL', ''),
 
-    'request_timeout' => env('AI_REQUEST_TIMEOUT', 30),
+    // Provider timeout is bounded by the end-to-end interactive lifecycle budget.
+    // Keep several seconds in reserve for parsing, persistence and serialization
+    // so a provider timeout cannot collide with PHP's common 30-second limit.
+    'request_timeout' => env('AI_REQUEST_TIMEOUT', 18),
+    'lifecycle_budget_seconds' => env('AI_LIFECYCLE_BUDGET_SECONDS', 24),
+    'post_provider_reserve_seconds' => env('AI_POST_PROVIDER_RESERVE_SECONDS', 4),
     'retry_count' => env('AI_RETRY_COUNT', 1),
     'retry_delay_ms' => env('AI_RETRY_DELAY_MS', 300),
     'fast_failover' => env('AI_FAST_FAILOVER', true),

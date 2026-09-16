@@ -212,11 +212,7 @@
                     </li>
                     <li>
                         <p class="text-gray-600">Resubmissions Left</p>
-                        @php
-                            $submission = $task->submissions->where('user_id', auth()->id())->first();
-                            $resubmitsLeft = $task->max_resubmissions ? max(0, $task->max_resubmissions - ($submission?->resubmission_count ?? 0)) : '∞';
-                        @endphp
-                        <p class="font-semibold text-gray-900">{{ $resubmitsLeft }}</p>
+                        <p class="font-semibold text-gray-900">{{ $resubmitsLeft ?? '∞' }}</p>
                     </li>
                 </ul>
             </div>

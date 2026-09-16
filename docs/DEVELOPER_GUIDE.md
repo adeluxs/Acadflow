@@ -237,6 +237,12 @@ Current registered feature keys:
 | `course_discussions` | Course Discussions |
 | `group_collaboration` | Groups & Collaboration |
 | `research_studio` | Research Studio |
+| `research_literature` | Research Literature & Reference Library |
+| `research_institutional_expansion` | Research Institutional Expansion |
+| `research_meetings` | Research Meetings & Action Items |
+| `research_collaboration` | Research Collaboration & Contribution Tracking |
+| `research_archives` | Research Archives & Controlled Amendments |
+| `research_datasets` | Research Dataset Management |
 | `research_to_knowledge_hub` | Research → Knowledge Hub Publishing |
 | `siwes_module` | SIWES Workspace |
 | `seminar_module` | Seminar Workspace |
@@ -252,9 +258,12 @@ Current registered feature keys:
 | `ai_assistant` | AI Assistant |
 | `notifications` | Notifications |
 | `push_notifications` | Push Notifications |
+| `institution_self_service` | Institution Self-Service Onboarding |
 | `monetization_commerce` | Monetization & Commerce |
 | `knowledge_hub_premium` | Premium Knowledge Resources |
-| `commerce_marketplace` | Marketplace, Wallet & Payouts |
+| `wallet_billing` | Wallet & Paid Feature Access |
+| `commerce_marketplace` | Knowledge Marketplace |
+| `creator_payouts` | Creator Payouts & Withdrawals |
 | `documents_exports` | Documents & Academic Exports |
 | `advanced_analytics` | Reports & Advanced Analytics |
 | `pwa_enabled` | Progressive Web App (PWA) |
@@ -272,6 +281,23 @@ When adding a module:
 Do **not** add availability switches to System Settings or `.env`; feature release state belongs here.
 
 ---
+
+
+### Independent-first launch profile
+
+The default launch posture is independent-first: Student, Lecturer/Supervisor and Researcher are public account paths and institutional affiliation is optional. Institutional representatives/staff flows remain in the codebase for enterprise rollout, while public institution self-service is controlled by the `institution_self_service` feature flag.
+
+Independent classrooms and research projects use an internal system-managed academic context for semester/workflow compatibility. The synthetic institution is never written to the user's `university_id`; the user's affiliation remains genuinely optional. Courses are marked with `access_mode=independent` plus `owner_user_id`, and research projects use `workspace_mode=independent`. Do not replace this compatibility layer with nullable semester/enrollment rewrites unless a future migration explicitly redesigns the academic model.
+
+Launch-disabled modules remain installed and are re-enabled only through Admin → Settings → Feature & Module Management. Wallet/paid-feature access is separated from Knowledge Marketplace and Creator Payouts so AI billing can stay live while marketplace/payout surfaces remain unreleased.
+
+### Research Studio release profile
+
+Research Studio uses the same central feature service for progressive release. `research_studio` is the parent feature. The default launch profile keeps `research_literature` enabled and keeps `research_institutional_expansion`, `research_meetings`, `research_collaboration`, `research_archives`, and `research_datasets` disabled until an administrator deliberately enables them.
+
+Institutional research is not inferred merely because a user has an affiliation. When `research_institutional_expansion` is disabled, normal create/API flows reject institutional mode, department selection, and supervisor assignment/invitation payloads. When enabled, a user may opt a project into institutional mode. Supervisors are invited through `research_project_invitations`; `research_projects.supervisor_id` is not populated until the invited active lecturer accepts. This keeps invitation state explicit and auditable.
+
+Literature discovery is provided by `ScholarlyDiscoveryService` over configured scholarly providers (OpenAlex, Crossref, Semantic Scholar, CORE, DOAJ, PubMed and arXiv). Search results are normalized and deduplicated by DOI or normalized title/year. Saving a result creates/reuses an `AcademicReference` with a stable citation key and links it to the project; structured `ResearchLiteratureNote` records store the user's summary, methodology, findings, limitations, contradictions, research gap and keywords. AcadFlow stores metadata/abstracts returned by providers and follows lawful external source/DOI links; it does not bypass publisher access controls.
 
 ## 6. Settings architecture
 

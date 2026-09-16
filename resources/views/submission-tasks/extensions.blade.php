@@ -82,6 +82,9 @@
                     <div class="p-10 text-center text-sm text-gray-500">No enrolled students were found for this course and semester.</div>
                 @endforelse
             </div>
+            @if($enrollments->hasPages())
+                <div class="mt-5">{{ $enrollments->links() }}</div>
+            @endif
         </div>
 
         <aside class="space-y-6">
@@ -90,8 +93,8 @@
                 <dl class="mt-4 space-y-3 text-sm">
                     <div><dt class="text-gray-500">Type</dt><dd class="font-semibold text-gray-900">{{ ucfirst($task->type) }}</dd></div>
                     <div><dt class="text-gray-500">Base deadline</dt><dd class="font-semibold text-gray-900">{{ $baseDeadline?->format('M d, Y H:i') ?? 'Not set' }}</dd></div>
-                    <div><dt class="text-gray-500">Enrolled students</dt><dd class="font-semibold text-gray-900">{{ $enrollments->count() }}</dd></div>
-                    <div><dt class="text-gray-500">Extensions granted</dt><dd class="font-semibold text-gray-900">{{ $extensions->count() }}</dd></div>
+                    <div><dt class="text-gray-500">Enrolled students</dt><dd class="font-semibold text-gray-900">{{ $enrollments->total() }}</dd></div>
+                    <div><dt class="text-gray-500">Extensions granted</dt><dd class="font-semibold text-gray-900">{{ $extensionCount }}</dd></div>
                 </dl>
             </div>
             <div class="rounded-lg border border-blue-200 bg-blue-50 p-6 text-sm text-blue-900">

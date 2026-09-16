@@ -13,6 +13,7 @@ class ResearchLiteratureNote extends Model
         'research_project_id',
         'academic_reference_id',
         'created_by',
+        'reading_status',
         'summary',
         'methodology',
         'findings',
@@ -20,6 +21,8 @@ class ResearchLiteratureNote extends Model
         'contradictions',
         'research_gap',
         'keywords',
+        'collections',
+        'reviewed_at',
         'ai_analysis_id',
     ];
 
@@ -27,6 +30,8 @@ class ResearchLiteratureNote extends Model
     {
         return [
             'keywords' => 'array',
+            'collections' => 'array',
+            'reviewed_at' => 'datetime',
         ];
     }
 

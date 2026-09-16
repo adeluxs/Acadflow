@@ -19,6 +19,7 @@ class OnboardingController extends Controller
         $state = $onboarding->state($request->user());
         $universities = University::query()
             ->where('is_active', true)
+            ->where('code', '!=', 'ACADFIND')
             ->with(['faculties' => fn ($query) => $query->where('is_active', true)->with([
                 'departments' => fn ($departments) => $departments->where('is_active', true),
             ])])
@@ -27,7 +28,7 @@ class OnboardingController extends Controller
 
         return response()->json([
             'steps' => OnboardingService::STEPS,
-            'account_paths' => OnboardingService::ACCOUNT_PATHS,
+            'account_paths' => OnboardingService::PUBLIC_ACCOUNT_PATHS,
             'state' => $state,
             'user' => $request->user()->only(['uuid','first_name','last_name','username','email','email_verified_at','onboarding_completed_at']),
             'universities' => $universities,
@@ -41,7 +42,7 @@ class OnboardingController extends Controller
         $state = $onboarding->state($user);
 
         $validated = match ($step) {
-            'path' => $request->validate(['path' => ['required', Rule::in(array_keys(OnboardingService::ACCOUNT_PATHS))]]),
+            'path' => $request->validate(['path' => ['required', Rule::in(array_keys(OnboardingService::PUBLIC_ACCOUNT_PATHS))]]),
             'profile' => $request->validate([
                 'first_name' => ['required','string','max:100'],
                 'last_name' => ['required','string','max:100'],

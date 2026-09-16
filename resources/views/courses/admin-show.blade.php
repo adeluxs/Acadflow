@@ -81,8 +81,8 @@
 
         <!-- Enrolled Students -->
         <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-bold mb-4">Enrolled Students ({{ $course->enrollments->count() }})</h2>
-            @if($course->enrollments->count() > 0)
+            <h2 class="text-lg font-bold mb-4">Enrolled Students ({{ $course->enrollments_count }})</h2>
+            @if($enrollments->total() > 0)
                 <table class="min-w-full">
                     <thead class="bg-gray-50">
                         <tr>
@@ -91,7 +91,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y">
-                        @forelse($course->enrollments as $enrollment)
+                        @forelse($enrollments as $enrollment)
                             <tr>
                                 <td class="px-4 py-2">{{ $enrollment->user->email }}</td>
                                 <td class="px-4 py-2">{{ $enrollment->status }}</td>
@@ -101,6 +101,9 @@
                         @endforelse
                     </tbody>
                 </table>
+                @if($enrollments->hasPages())
+                    <div class="mt-5">{{ $enrollments->links() }}</div>
+                @endif
             @else
                 <p class="text-gray-500">No enrollments</p>
             @endif

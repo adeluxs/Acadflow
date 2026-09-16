@@ -39,6 +39,8 @@ enum NotificationType: string
     // System
     case SYSTEM_ANNOUNCEMENT = 'system_announcement';
     case ENROLLMENT_CONFIRMED = 'enrollment_confirmed';
+    case RESEARCH_INVITATION = 'research_invitation';
+    case RESEARCH_INVITATION_RESPONSE = 'research_invitation_response';
 
     // AI Academic Assistant
     case AI_ANALYSIS_READY = 'ai_analysis_ready';
@@ -68,6 +70,8 @@ enum NotificationType: string
             self::NEW_DISCUSSION => 'New Discussion',
             self::SYSTEM_ANNOUNCEMENT => 'System Announcement',
             self::ENROLLMENT_CONFIRMED => 'Enrollment Confirmed',
+            self::RESEARCH_INVITATION => 'Research Invitation',
+            self::RESEARCH_INVITATION_RESPONSE => 'Research Invitation Response',
             self::AI_ANALYSIS_READY => 'AI Analysis Ready',
         };
     }

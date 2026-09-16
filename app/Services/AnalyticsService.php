@@ -10,106 +10,133 @@ use App\Models\Department;
 use App\Models\Invoice;
 use App\Models\Submission;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class AnalyticsService
 {
     public function getSubmissionStats($startDate = null, $endDate = null): array
     {
         $base = Submission::query();
-        if ($startDate) {
-            $base->where('created_at', '>=', $startDate);
-        }
-        if ($endDate) {
-            $base->where('created_at', '<=', $endDate);
-        }
+        if ($startDate) $base->where('created_at', '>=', $startDate);
+        if ($endDate) $base->where('created_at', '<=', $endDate);
+
+        $row = $base
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw("SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) AS draft")
+            ->selectRaw("SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) AS submitted")
+            ->selectRaw("SUM(CASE WHEN status = 'under_review' THEN 1 ELSE 0 END) AS under_review")
+            ->selectRaw("SUM(CASE WHEN status = 'correction_requested' THEN 1 ELSE 0 END) AS correction_requested")
+            ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved")
+            ->selectRaw("SUM(CASE WHEN status = 'graded' THEN 1 ELSE 0 END) AS graded")
+            ->first();
 
         return [
-            'total' => (clone $base)->count(),
-            'draft' => (clone $base)->where('status', 'draft')->count(),
-            'submitted' => (clone $base)->where('status', 'submitted')->count(),
-            'under_review' => (clone $base)->where('status', 'under_review')->count(),
-            'correction_requested' => (clone $base)->where('status', 'correction_requested')->count(),
-            'approved' => (clone $base)->where('status', 'approved')->count(),
-            'graded' => (clone $base)->where('status', 'graded')->count(),
+            'total' => (int) ($row?->total ?? 0),
+            'draft' => (int) ($row?->draft ?? 0),
+            'submitted' => (int) ($row?->submitted ?? 0),
+            'under_review' => (int) ($row?->under_review ?? 0),
+            'correction_requested' => (int) ($row?->correction_requested ?? 0),
+            'approved' => (int) ($row?->approved ?? 0),
+            'graded' => (int) ($row?->graded ?? 0),
         ];
     }
 
     public function getAttendanceStats($courseId = null, $startDate = null, $endDate = null): array
     {
         $base = AttendanceRecord::query();
-        if ($courseId) {
-            $base->whereHas('session', fn ($q) => $q->where('course_id', $courseId));
-        }
-        if ($startDate) {
-            $base->where('created_at', '>=', $startDate);
-        }
-        if ($endDate) {
-            $base->where('created_at', '<=', $endDate);
-        }
+        if ($courseId) $base->whereHas('session', fn ($q) => $q->where('course_id', $courseId));
+        if ($startDate) $base->where('created_at', '>=', $startDate);
+        if ($endDate) $base->where('created_at', '<=', $endDate);
 
-        $total = (clone $base)->count();
-        $presentOrLate = (clone $base)->whereIn('status', ['present', 'late'])->count();
+        $row = $base
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw("SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) AS present")
+            ->selectRaw("SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) AS late")
+            ->selectRaw("SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) AS absent")
+            ->selectRaw("SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END) AS invalid")
+            ->first();
+
+        $total = (int) ($row?->total ?? 0);
+        $present = (int) ($row?->present ?? 0);
+        $late = (int) ($row?->late ?? 0);
 
         return [
             'total' => $total,
-            'present' => (clone $base)->where('status', 'present')->count(),
-            'late' => (clone $base)->where('status', 'late')->count(),
-            'absent' => (clone $base)->where('status', 'absent')->count(),
-            'invalid' => (clone $base)->where('status', 'invalid')->count(),
-            'attendance_rate' => $total > 0 ? round(($presentOrLate / $total) * 100, 2) : 0.0,
+            'present' => $present,
+            'late' => $late,
+            'absent' => (int) ($row?->absent ?? 0),
+            'invalid' => (int) ($row?->invalid ?? 0),
+            'attendance_rate' => $total > 0 ? round((($present + $late) / $total) * 100, 2) : 0.0,
         ];
     }
 
     public function getBillingStats($universityId = null, $semesterId = null): array
     {
         $base = Invoice::query();
-        if ($universityId) {
-            $base->whereHas('user', fn ($q) => $q->where('university_id', $universityId));
-        }
-        if ($semesterId) {
-            $base->where('semester_id', $semesterId);
-        }
+        if ($universityId) $base->whereHas('user', fn ($q) => $q->where('university_id', $universityId));
+        if ($semesterId) $base->where('semester_id', $semesterId);
 
-        $total = (clone $base)->count();
-        $paid = (clone $base)->where('status', 'paid')->count();
+        $row = $base
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw('COALESCE(SUM(amount), 0) AS total_amount')
+            ->selectRaw("SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid")
+            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending")
+            ->selectRaw("SUM(CASE WHEN status = 'overdue' THEN 1 ELSE 0 END) AS overdue")
+            ->selectRaw("SUM(CASE WHEN status = 'waived' THEN 1 ELSE 0 END) AS waived")
+            ->first();
+
+        $total = (int) ($row?->total ?? 0);
+        $paid = (int) ($row?->paid ?? 0);
 
         return [
             'total_invoices' => $total,
-            'total_amount' => (clone $base)->sum('amount'),
+            'total_amount' => (float) ($row?->total_amount ?? 0),
             'paid' => $paid,
-            'pending' => (clone $base)->where('status', 'pending')->count(),
-            'overdue' => (clone $base)->where('status', 'overdue')->count(),
-            'waived' => (clone $base)->where('status', 'waived')->count(),
+            'pending' => (int) ($row?->pending ?? 0),
+            'overdue' => (int) ($row?->overdue ?? 0),
+            'waived' => (int) ($row?->waived ?? 0),
             'collection_rate' => $total > 0 ? round(($paid / $total) * 100, 2) : 0.0,
         ];
     }
 
     public function getCoursePerformance($departmentId = null): array
     {
-        $query = Course::query()->withCount(['enrollments', 'submissions']);
-        if ($departmentId) {
-            $query->where('department_id', $departmentId);
-        }
+        $query = Course::query()->withCount([
+            'enrollments',
+            'submissions',
+            'submissions as graded_submissions_count' => fn ($q) => $q->whereIn('status', ['graded', 'approved']),
+        ]);
+        if ($departmentId) $query->where('department_id', $departmentId);
 
-        return $query->get()->map(function (Course $course) {
-            $average = $course->submissions()
-                ->whereHas('grade')
-                ->with('grade:id,submission_id,score')
-                ->get()
-                ->pluck('grade.score')
-                ->filter(fn ($score) => $score !== null)
-                ->avg();
+        $courses = $query->get();
+        if ($courses->isEmpty()) return [];
 
-            return [
-                'id' => $course->id,
-                'code' => $course->code,
-                'name' => $course->name,
-                'enrolled' => $course->enrollments_count,
-                'submissions' => $course->submissions_count,
-                'graded' => $course->submissions()->whereIn('status', ['graded', 'approved'])->count(),
-                'average_score' => round((float) ($average ?? 0), 2),
-            ];
-        })->all();
+        // Submission::grade is a HasOne relation. Match its effective first-row
+        // semantics in one grouped query instead of loading every submission+grade
+        // for every course.
+        $firstGradeIds = DB::table('submission_grades')
+            ->selectRaw('submission_id, MIN(id) AS id')
+            ->groupBy('submission_id');
+        $averages = DB::table('submissions')
+            ->joinSub($firstGradeIds, 'first_grade', fn ($join) => $join->on('first_grade.submission_id', '=', 'submissions.id'))
+            ->join('submission_grades', function ($join): void {
+                $join->on('submission_grades.id', '=', 'first_grade.id')
+                    ->on('submission_grades.submission_id', '=', 'submissions.id');
+            })
+            ->whereIn('submissions.course_id', $courses->pluck('id'))
+            ->groupBy('submissions.course_id')
+            ->selectRaw('submissions.course_id, AVG(submission_grades.score) AS average_score')
+            ->pluck('average_score', 'course_id');
+
+        return $courses->map(fn (Course $course) => [
+            'id' => $course->id,
+            'code' => $course->code,
+            'name' => $course->name,
+            'enrolled' => $course->enrollments_count,
+            'submissions' => $course->submissions_count,
+            'graded' => $course->graded_submissions_count,
+            'average_score' => round((float) ($averages[$course->id] ?? 0), 2),
+        ])->all();
     }
 
     public function getDepartmentSummary($universityId = null): array
@@ -141,21 +168,16 @@ class AnalyticsService
     public function getLateSubmissionRate($startDate = null, $endDate = null): float
     {
         $base = Submission::query()->whereNotNull('due_date');
-        if ($startDate) {
-            $base->where('created_at', '>=', $startDate);
-        }
-        if ($endDate) {
-            $base->where('created_at', '<=', $endDate);
-        }
+        if ($startDate) $base->where('created_at', '>=', $startDate);
+        if ($endDate) $base->where('created_at', '<=', $endDate);
 
-        $total = (clone $base)->count();
-        if ($total === 0) {
-            return 0.0;
-        }
+        $row = $base
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw('SUM(CASE WHEN submitted_at IS NOT NULL AND submitted_at > due_date THEN 1 ELSE 0 END) AS late')
+            ->first();
+        $total = (int) ($row?->total ?? 0);
 
-        $late = (clone $base)->whereNotNull('submitted_at')->whereColumn('submitted_at', '>', 'due_date')->count();
-
-        return round(($late / $total) * 100, 2);
+        return $total > 0 ? round((((int) ($row?->late ?? 0)) / $total) * 100, 2) : 0.0;
     }
 
     public function exportToCsv($data, $filename): string

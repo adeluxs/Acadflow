@@ -175,7 +175,7 @@ class CommerceService
     public function initiateWalletFunding(User $user,string $amount,string $gatewayCode,string $idempotencyKey): array
     {
         $amountMinor=Money::toMinor($amount);
-        $minimum=Money::toMinor((string)SettingService::get('wallet_minimum_funding_amount','500',$user->university_id));
+        $minimum=Money::toMinor((string)SettingService::getGlobal('wallet_minimum_funding_amount','500'));
         $currency=strtoupper((string)SettingService::get('currency','NGN',$user->university_id));
         if($amountMinor<$minimum) throw ValidationException::withMessages(['amount'=>'Minimum wallet funding amount is '.$currency.' '.Money::fromMinor($minimum).'.']);
         $gatewayModel=PaymentGateway::query()->where('code',$gatewayCode)->where('is_active',true)->firstOrFail();
@@ -653,9 +653,9 @@ class CommerceService
         $amountMinor=Money::toMinor($amount); $wallet=$this->wallets->account($user);
         $payout=$user->payoutAccounts()->whereKey($payoutAccountId)->where('is_verified',true)->firstOrFail();
         abort_unless(strtoupper((string)$payout->currency)===strtoupper((string)$wallet->currency),422,'Payout-account currency must match your earnings wallet currency.');
-        $minimum=Money::toMinor((string)SettingService::get('minimum_withdrawal_amount','1000',$user->university_id));
+        $minimum=Money::toMinor((string)SettingService::getGlobal('minimum_withdrawal_amount','1000'));
         abort_unless($amountMinor>=$minimum,422,'Amount is below the configured withdrawal minimum.');
-        $feeBp=Money::clampBasisPoints(Money::toMinor((string)SettingService::get('withdrawal_fee_percentage','0',$user->university_id))); $feeMinor=Money::percentage($amountMinor,$feeBp);
+        $feeBp=Money::clampBasisPoints(Money::toMinor((string)SettingService::getGlobal('withdrawal_fee_percentage','0'))); $feeMinor=Money::percentage($amountMinor,$feeBp);
         $result=$this->idempotency->execute('wallet.withdrawal',$idempotencyKey,['payout_account_id'=>$payoutAccountId,'amount_minor'=>$amountMinor],$user,function() use($wallet,$payout,$amountMinor,$feeMinor,$user){
             return DB::transaction(function() use($wallet,$payout,$amountMinor,$feeMinor,$user){
                 $this->wallets->debitAvailableEarnings($user,$amountMinor,'withdrawal_hold',$payout,'Funds reserved for withdrawal.');
@@ -693,7 +693,7 @@ class CommerceService
 
     public function releaseMatureCreatorEarnings(int $limit=200): int
     {
-        $holdDays=max(0,(int)SettingService::get('creator_earnings_hold_days',3)); $released=0;
+        $holdDays=max(0,(int)SettingService::getGlobal('creator_earnings_hold_days',3)); $released=0;
         CommerceRevenueAllocation::query()->where('allocation_type','creator')->whereIn('status',['pending','partially_reversed'])->where('created_at','<=',now()->subDays($holdDays))->orderBy('id')->limit($limit)->get()->each(function(CommerceRevenueAllocation $allocation) use(&$released){
             DB::transaction(function() use($allocation,&$released){
                 $locked=CommerceRevenueAllocation::query()->whereKey($allocation->id)->lockForUpdate()->with('beneficiaryUser')->firstOrFail();
@@ -711,8 +711,8 @@ class CommerceService
     private function allocate(CommerceOrderItem $item): void
     {
         if($item->revenueAllocations()->exists())return;
-        $platformBp=Money::clampBasisPoints(Money::toMinor((string)SettingService::get('knowledge_platform_commission_percentage','15',$item->order->university_id)));
-        $institutionBp=min(10_000-$platformBp,Money::clampBasisPoints(Money::toMinor((string)SettingService::get('knowledge_institution_revenue_percentage','0',$item->order->university_id))));
+        $platformBp=Money::clampBasisPoints(Money::toMinor((string)SettingService::getGlobal('knowledge_platform_commission_percentage','15')));
+        $institutionBp=min(10_000-$platformBp,Money::clampBasisPoints(Money::toMinor((string)SettingService::getGlobal('knowledge_institution_revenue_percentage','0'))));
         $creatorBp=10_000-$platformBp-$institutionBp; $total=(int)$item->total_price_minor;
         $platform=Money::percentage($total,$platformBp); $institution=Money::percentage($total,$institutionBp); $creator=max(0,$total-$platform-$institution);
         if(!$item->seller_id){ $platform+=$creator; $creator=0; $platformBp=10_000-$institutionBp; $creatorBp=0; }
@@ -723,7 +723,7 @@ class CommerceService
         ];
         foreach($rows as $row){
             if((int)$row['amount_minor']<=0)continue;
-            $meta=['settlement_hold_days'=>(int)SettingService::get('creator_earnings_hold_days',3)];
+            $meta=['settlement_hold_days'=>(int)SettingService::getGlobal('creator_earnings_hold_days',3)];
             if(($row['allocation_type']??null)==='creator')$meta['earning_bucket']='pending';
             $allocation=$item->revenueAllocations()->create($row+['metadata'=>$meta]);
             $amount=(int)$allocation->amount_minor;

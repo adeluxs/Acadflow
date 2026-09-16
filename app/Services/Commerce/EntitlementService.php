@@ -1,33 +1,64 @@
 <?php
 
 declare(strict_types=1);
+
 namespace App\Services\Commerce;
 
+use App\Models\CommercialAccount;
 use App\Models\FeatureEntitlement;
-use App\Models\PricingRule;
 use App\Models\User;
 
 /** Independent feature entitlement engine; payment method is intentionally irrelevant. */
 class EntitlementService
 {
-    public function has(User $user,string $feature): bool
-    {
-        if($user->isAdmin()) return true;
-        $granted=FeatureEntitlement::query()->where('user_id',$user->id)->where('feature',$feature)->where('status','active')
-            ->where(fn($q)=>$q->whereNull('starts_at')->orWhere('starts_at','<=',now()))
-            ->where(fn($q)=>$q->whereNull('expires_at')->orWhere('expires_at','>',now()))->exists();
-        if($granted) return true;
+    public function __construct(
+        private readonly \App\Services\InstitutionAdoptionService $institutionAdoption,
+        private readonly PricingCatalogService $pricing,
+    ) {}
 
-        // Features remain free unless Admin explicitly publishes a commercial
-        // pricing rule for that feature. This prevents subscription removal from
-        // accidentally locking out existing users.
-        return ! PricingRule::query()->where('key','feature.'.$feature)->where('enabled',true)
-            ->where(fn($q)=>$q->whereNull('starts_at')->orWhere('starts_at','<=',now()))
-            ->where(fn($q)=>$q->whereNull('ends_at')->orWhere('ends_at','>',now()))->exists();
+    public function has(User $user, string $feature): bool
+    {
+        if ($user->isAdmin()) return true;
+
+        $rule = $this->pricing->featureRule($feature);
+        if (! $rule) return true;
+
+        // Pay-per-use features do not require a pre-purchased entitlement. The
+        // action boundary performs reserve/settle/refund through FeatureBillingService.
+        if ($this->pricing->pricingType($rule) === 'pay_per_use') return true;
+
+        $granted = FeatureEntitlement::query()
+            ->where('user_id', $user->id)
+            ->where('feature', $feature)
+            ->where('status', 'active')
+            ->where(fn ($query) => $query->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->exists();
+        if ($granted) return true;
+
+        // Institutions can sponsor fixed paid feature access for verified members.
+        if ($user->university_id && $this->institutionAdoption->canReceiveInstitutionBenefits($user)) {
+            $commercial = CommercialAccount::query()
+                ->where('university_id', $user->university_id)
+                ->where('status', 'active')
+                ->first();
+            if ($commercial?->sponsorsFeature($feature)) return true;
+        }
+
+        return false;
     }
 
-    public function grant(User $user,string $feature,string $accessType='granted',?int $units=null,?\DateTimeInterface $expiresAt=null,array $metadata=[]): FeatureEntitlement
+    public function grant(User $user, string $feature, string $accessType = 'granted', ?int $units = null, ?\DateTimeInterface $expiresAt = null, array $metadata = []): FeatureEntitlement
     {
-        return FeatureEntitlement::create(['user_id'=>$user->id,'feature'=>$feature,'access_type'=>$accessType,'remaining_units'=>$units,'status'=>'active','starts_at'=>now(),'expires_at'=>$expiresAt,'metadata'=>$metadata]);
+        return FeatureEntitlement::create([
+            'user_id' => $user->id,
+            'feature' => $feature,
+            'access_type' => $accessType,
+            'remaining_units' => $units,
+            'status' => 'active',
+            'starts_at' => now(),
+            'expires_at' => $expiresAt,
+            'metadata' => $metadata,
+        ]);
     }
 }

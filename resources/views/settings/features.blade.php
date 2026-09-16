@@ -52,6 +52,11 @@
         </div>
     </div>
 
+    <div class="mb-6 rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-blue-950">
+        <p class="font-bold">Independent-first launch profile</p>
+        <p class="mt-1 leading-6 text-blue-900/80">Student, Lecturer / Supervisor and Researcher can start without an institution. Institution-heavy and non-core modules are kept installed but launch disabled. Re-enable any of them here when your rollout is ready; no code deletion or reinstall is required.</p>
+    </div>
+
     <div class="mb-5 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[1fr_220px_220px]">
         <label class="block">
             <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Search</span>

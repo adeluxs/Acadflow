@@ -55,7 +55,7 @@
                     <select name="semester_id" id="semester_id"
                         class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                         <option value="">Select Semester</option>
-                        @foreach(\App\Models\Semester::all() as $semester)
+                        @foreach($semesters as $semester)
                             <option value="{{ $semester->id }}">{{ $semester->name }} - {{ $semester->academicSession->name }}</option>
                         @endforeach
                     </select>

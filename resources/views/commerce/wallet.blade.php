@@ -15,6 +15,8 @@
     </div>
 @endif
 
+<div class="mb-5 flex flex-wrap gap-3"><a href="{{ route('commerce.features') }}" class="inline-flex items-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white">Paid Feature Access</a><span class="inline-flex items-center text-sm text-slate-500">Review fixed access, pay-per-use and AI pricing before using paid tools.</span></div>
+
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Spending balance</p><p class="mt-2 text-3xl font-black text-slate-950">{{ $wallet->currency }} {{ $fmt((int)$wallet->spending_balance_minor) }}</p><p class="mt-2 text-xs text-slate-500">For AI, marketplace and other pay-as-you-use services.</p></div>
     <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Pending earnings</p><p class="mt-2 text-3xl font-black text-slate-950">{{ $wallet->currency }} {{ $fmt((int)$wallet->pending_earnings_minor) }}</p><p class="mt-2 text-xs text-slate-500">Creator revenue still inside the settlement hold.</p></div>

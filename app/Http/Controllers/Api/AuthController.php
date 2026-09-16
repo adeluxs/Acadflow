@@ -9,6 +9,7 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Models\UserOnboardingState;
 use App\Services\FeatureAccessService;
+use App\Services\OnboardingService;
 use App\Services\SettingService;
 use App\Services\TotpService;
 use App\Support\Errors\UserFacingError;
@@ -127,7 +128,7 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'account_type' => ['required', 'in:student,lecturer,researcher,university_representative,department_representative,academic_staff,non_academic_staff,independent_professional,author_publisher,research_discovery,community_events,alumni,organisation,other'],
+            'account_type' => ['required', 'in:'.implode(',', array_keys(OnboardingService::ACCOUNT_PATHS))],
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'username' => ['required', 'alpha_dash', 'min:3', 'max:60', 'unique:users,username'],
@@ -143,7 +144,11 @@ class AuthController extends Controller
             'email' => Str::lower($validated['email']),
             'password' => $validated['password'],
             'account_type' => $validated['account_type'],
-            'role' => $validated['account_type'] === 'student' ? 'student' : 'member',
+            'role' => match ($validated['account_type']) {
+                'student' => 'student',
+                'lecturer' => 'lecturer',
+                default => 'member',
+            },
             'is_active' => true,
         ]);
 

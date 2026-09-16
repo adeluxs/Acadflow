@@ -187,10 +187,10 @@
             <div class="rounded-3xl border border-emerald-200 bg-emerald-50 p-6">
                 <h3 class="font-bold text-gray-900 mb-4">Submissions</h3>
                 <div class="text-3xl font-bold text-green-600">{{ $stats['total_submissions'] ?? 0 }}</div>
-                <p class="text-sm text-gray-600 mt-1">of {{ ($stats['total_submissions'] ?? 0) + ($nonSubmitters->count() ?? 0) }} enrolled students</p>
+                <p class="text-sm text-gray-600 mt-1">of {{ ($stats['total_submissions'] ?? 0) + ($nonSubmitters->total() ?? 0) }} enrolled students</p>
                 <div class="mt-4 w-full bg-gray-200 rounded-full h-2">
                     <div class="bg-green-600 h-2 rounded-full" 
-                         style="width: {{ (($stats['total_submissions'] ?? 0) + ($nonSubmitters->count() ?? 0)) > 0 ? (($stats['total_submissions'] ?? 0) / (($stats['total_submissions'] ?? 0) + ($nonSubmitters->count() ?? 0)) * 100) : 0 }}%">
+                         style="width: {{ (($stats['total_submissions'] ?? 0) + ($nonSubmitters->total() ?? 0)) > 0 ? (($stats['total_submissions'] ?? 0) / (($stats['total_submissions'] ?? 0) + ($nonSubmitters->total() ?? 0)) * 100) : 0 }}%">
                     </div>
                 </div>
             </div>
@@ -294,6 +294,9 @@
                     </tbody>
                 </table>
             </div>
+            @if($nonSubmitters->hasPages())
+                <div class="mt-5">{{ $nonSubmitters->links() }}</div>
+            @endif
         </div>
     @endif
 @endsection

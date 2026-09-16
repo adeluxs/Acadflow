@@ -6,12 +6,32 @@
 
 @section('content')
 <div class="space-y-6">
+
+    <section class="acad-card p-5">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div class="max-w-xl">
+                <p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Independent classroom</p>
+                <h2 class="mt-2 text-lg font-black text-slate-950">Create a class without waiting for institution setup</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-600">Create the course, then share its join link. AcadFlow keeps the normal assignment, material, grading and enrollment workflows while your personal institution affiliation remains optional.</p>
+            </div>
+            <form method="POST" action="{{ route('lecturer.courses.independent.store') }}" class="grid w-full gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 lg:max-w-xl sm:grid-cols-2">
+                @csrf
+                <label class="sm:col-span-2 text-xs font-semibold text-slate-700">Course name<input name="name" value="{{ old('name') }}" required maxlength="255" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="Research Methods"></label>
+                <label class="text-xs font-semibold text-slate-700">Course code<input name="code" value="{{ old('code') }}" required maxlength="20" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="RES101"></label>
+                <label class="text-xs font-semibold text-slate-700">Level<input name="level" value="{{ old('level', 'General') }}" maxlength="20" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="General"></label>
+                <label class="text-xs font-semibold text-slate-700">Credits<input type="number" min="1" max="30" name="credit_hours" value="{{ old('credit_hours', 3) }}" class="mt-1 w-full rounded-xl border-slate-300 bg-white"></label>
+                <label class="text-xs font-semibold text-slate-700">Max students<input type="number" min="1" name="max_capacity" value="{{ old('max_capacity') }}" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="Optional"></label>
+                <label class="sm:col-span-2 text-xs font-semibold text-slate-700">Description<textarea name="description" rows="2" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="What students will learn">{{ old('description') }}</textarea></label>
+                <button class="sm:col-span-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white hover:bg-indigo-700">Create classroom</button>
+            </form>
+        </div>
+    </section>
     @if(session('course_invitation_url'))
         <section class="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="text-sm font-bold text-indigo-950">Student invitation created</p>
-                    <p class="mt-1 text-xs text-indigo-700">Only the invited email address can accept this link, and the normal institution/department restrictions still apply.</p>
+                    <p class="mt-1 text-xs text-indigo-700">Only the invited email address can accept this link. Independent classrooms do not require the student to belong to your institution or department.</p>
                 </div>
                 <button type="button" class="rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700" onclick="navigator.clipboard?.writeText('{{ session('course_invitation_url') }}'); this.textContent='Copied'">Copy invitation link</button>
             </div>
@@ -39,7 +59,7 @@
                                     <span class="text-[10px] font-semibold text-slate-400">{{ $course->level }} level · {{ $course->credit_hours }} credits</span>
                                 </div>
                                 <h3 class="mt-2 truncate text-base font-black text-slate-950">{{ $course->name }}</h3>
-                                <p class="mt-1 text-xs text-slate-500">{{ $course->department?->name }} · {{ $course->department?->faculty?->short_name ?? $course->department?->faculty?->name }}</p>
+                                <p class="mt-1 text-xs text-slate-500">@if($course->isIndependent()) Independent classroom @else {{ $course->department?->name }} · {{ $course->department?->faculty?->short_name ?? $course->department?->faculty?->name }} @endif</p>
                             </div>
                             <div class="grid shrink-0 grid-cols-2 gap-2 text-center">
                                 <div class="rounded-xl bg-slate-50 px-3 py-2"><p class="text-lg font-black text-slate-900">{{ $course->enrolled_students_count ?? 0 }}</p><p class="text-[9px] text-slate-500">Students</p></div>
@@ -59,7 +79,7 @@
                         <form method="POST" action="{{ route('lecturer.courses.students.enroll', $course) }}" class="rounded-xl border border-slate-200 bg-white p-4">
                             @csrf
                             <p class="text-xs font-bold text-slate-900">Enroll existing student</p>
-                            <p class="mt-1 text-[10px] leading-4 text-slate-500">Use email, student ID, or username. Cross-institution and restricted cross-department enrollment is blocked.</p>
+                            <p class="mt-1 text-[10px] leading-4 text-slate-500">Use email, student ID, or username. Institutional restrictions apply only to institutional courses; independent classrooms can enroll any AcadFlow student.</p>
                             <label class="mt-3 block text-[10px] font-semibold uppercase tracking-wide text-slate-500" for="student-{{ $course->id }}">Student</label>
                             <input id="student-{{ $course->id }}" name="student" value="{{ old('student') }}" required autocomplete="off" placeholder="student@example.edu.ng" class="mt-1 w-full rounded-xl px-3 py-2 text-xs">
                             <button class="mt-3 w-full rounded-xl border border-slate-200 bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800">Enroll student</button>

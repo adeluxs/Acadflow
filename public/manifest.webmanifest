@@ -1,26 +1,29 @@
 {
-    "name": "AcadFlow - University Academic Management",
+    "name": "AcadFlow - Academic Workflow Platform",
     "short_name": "AcadFlow",
-    "description": "Complete academic workflow platform for universities",
+    "description": "AI-assisted academic workflow and research platform for students, lecturers, researchers, and institutions",
     "start_url": "/dashboard",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#4f46e5",
     "orientation": "any",
-    "categories": ["education", "productivity"],
+    "categories": [
+        "education",
+        "productivity"
+    ],
     "lang": "en-US",
     "dir": "ltr",
     "icons": [
         {
-            "src": "/icons/icon-192x192.svg",
+            "src": "/branding/acadflow-icon-192.png",
             "sizes": "192x192",
-            "type": "image/svg+xml",
+            "type": "image/png",
             "purpose": "any maskable"
         },
         {
-            "src": "/icons/icon-512x512.svg",
+            "src": "/branding/acadflow-icon-512.png",
             "sizes": "512x512",
-            "type": "image/svg+xml",
+            "type": "image/png",
             "purpose": "any maskable"
         }
     ],
@@ -46,14 +49,24 @@
             "short_name": "Submissions",
             "description": "View your submissions",
             "url": "/submissions",
-            "icons": [{ "src": "/icons/submission-96x96.png", "sizes": "96x96" }]
+            "icons": [
+                {
+                    "src": "/icons/submission-96x96.png",
+                    "sizes": "96x96"
+                }
+            ]
         },
         {
             "name": "Check Attendance",
             "short_name": "Attendance",
             "description": "Check in for class",
             "url": "/attendance/check-in",
-            "icons": [{ "src": "/icons/attendance-96x96.png", "sizes": "96x96" }]
+            "icons": [
+                {
+                    "src": "/icons/attendance-96x96.png",
+                    "sizes": "96x96"
+                }
+            ]
         }
     ],
     "prefer_related_applications": false

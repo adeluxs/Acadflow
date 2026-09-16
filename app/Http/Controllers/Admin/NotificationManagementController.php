@@ -112,13 +112,17 @@ class NotificationManagementController extends Controller
             default => $query,
         };
 
-        $recipients = $query->get();
-        if ($recipients->isEmpty()) return back()->with('error', 'No recipients match the criteria.');
+        $recipientCount = (clone $query)->count();
+        if ($recipientCount === 0) return back()->with('error', 'No recipients match the criteria.');
 
-        event(new SystemAnnouncementBroadcast($validated['title'], $validated['message'], $recipients, $user));
+        // Queue bounded batches instead of serializing every recipient into one giant event/job.
+        $query->select(['id', 'first_name', 'last_name', 'email', 'university_id', 'department_id'])
+            ->chunkById(250, function ($recipients) use ($validated, $user): void {
+                event(new SystemAnnouncementBroadcast($validated['title'], $validated['message'], $recipients, $user));
+            });
 
         return redirect()->route('admin.notifications.index')
-            ->with('success', "System announcement sent to {$recipients->count()} users.");
+            ->with('success', "System announcement queued for {$recipientCount} users.");
     }
 
     public function retryFailed()
@@ -126,26 +130,29 @@ class NotificationManagementController extends Controller
         $user = Auth::user();
         abort_unless($user->isAdmin(), 403);
 
-        $failed = $this->scopeLogs(NotificationLog::query(), $user)
+        $query = $this->scopeLogs(NotificationLog::query(), $user)
             ->where('status', 'failed')
             ->where('channel', 'push')
             ->where('attempt_count', '<', 3)
-            ->with(['notification.user'])
-            ->get();
+            ->with(['notification.user']);
 
         $pushService = app(PushNotificationService::class);
+        $attempted = 0;
         $retried = 0;
-        foreach ($failed as $log) {
-            $notification = $log->notification;
-            if (! $notification?->user) continue;
+        $query->chunkById(100, function ($failed) use ($pushService, &$attempted, &$retried): void {
+            foreach ($failed as $log) {
+                $notification = $log->notification;
+                if (! $notification?->user) continue;
 
-            $success = $pushService->send($notification->user, $notification->title, $notification->message, $notification->data ?? []);
-            $log->increment('attempt_count');
-            $log->update(['status' => $success > 0 ? 'success' : 'failed', 'attempted_at' => now()]);
-            if ($success > 0) $retried++;
-        }
+                $attempted++;
+                $success = $pushService->send($notification->user, $notification->title, $notification->message, $notification->data ?? []);
+                $log->increment('attempt_count');
+                $log->update(['status' => $success > 0 ? 'success' : 'failed', 'attempted_at' => now()]);
+                if ($success > 0) $retried++;
+            }
+        });
 
-        return back()->with('success', "Retried {$failed->count()} failed notifications. {$retried} succeeded.");
+        return back()->with('success', "Retried {$attempted} failed notifications. {$retried} succeeded.");
     }
 
     private function scopeUsers(Builder $query, User $user): Builder

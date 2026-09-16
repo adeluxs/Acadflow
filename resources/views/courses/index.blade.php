@@ -36,7 +36,7 @@
                     </div>
                     <p class="mt-5 text-xs font-black uppercase tracking-[.15em] text-indigo-600">{{ $course->code }}</p>
                     <h2 class="mt-1 line-clamp-2 text-xl font-black leading-7 text-slate-950">{{ $course->name }}</h2>
-                    <p class="mt-2 text-sm text-slate-500">{{ $course->department?->name ?? 'Department' }} @if($enrollment->semester) · {{ $enrollment->semester->name ?? $enrollment->semester->semester ?? 'Current semester' }} @endif</p>
+                    <p class="mt-2 text-sm text-slate-500">{{ $course->isIndependent() ? 'Independent classroom' : ($course->department?->name ?? 'Department') }} @if($enrollment->semester) · {{ $enrollment->semester->name ?? $enrollment->semester->semester ?? 'Current semester' }} @endif</p>
                     <div class="mt-5 grid grid-cols-3 gap-2">
                         <div class="rounded-2xl bg-slate-50 p-3"><p class="text-base font-black text-slate-900">{{ $course->credit_hours }}</p><p class="text-[10px] uppercase tracking-wide text-slate-500">Credits</p></div>
                         <div class="rounded-2xl bg-slate-50 p-3"><p class="text-base font-black text-slate-900">{{ $course->visible_materials_count ?? 0 }}</p><p class="text-[10px] uppercase tracking-wide text-slate-500">Materials</p></div>
@@ -46,7 +46,7 @@
                 </div>
             </a>
         @empty
-            <div class="md:col-span-2 xl:col-span-3 rounded-[2rem] border border-dashed border-slate-300 bg-white px-6 py-16 text-center"><div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-2xl">◫</div><h2 class="mt-4 text-lg font-black text-slate-900">No active courses yet</h2><p class="mt-2 text-sm text-slate-500">Your enrolled courses will appear here when your institution adds you to the active semester.</p></div>
+            <div class="md:col-span-2 xl:col-span-3 rounded-[2rem] border border-dashed border-slate-300 bg-white px-6 py-16 text-center"><div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-2xl">◫</div><h2 class="mt-4 text-lg font-black text-slate-900">No active courses yet</h2><p class="mt-2 text-sm text-slate-500">Your enrolled courses will appear here. You can join an independent classroom from a lecturer's link even if you have not connected a university.</p></div>
         @endforelse
     </div>
 </div>

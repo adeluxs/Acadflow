@@ -397,10 +397,15 @@ class FeatureAccessService
         return $flag->fresh();
     }
 
-    public static function forget(): void
+    public static function flushRequestCache(): void
     {
         self::$requestSnapshots = [];
         self::$effectiveStatusCache = [];
+    }
+
+    public static function forget(): void
+    {
+        self::flushRequestCache();
 
         try {
             $current = (int) Cache::get(self::CACHE_VERSION_KEY, 1);

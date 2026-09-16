@@ -127,9 +127,31 @@ class ResearchSpecializedController extends Controller
                 'scheduled_by' => $request->user()->id, 'title' => $data['title'], 'scheduled_at' => $data['scheduled_at'],
                 'duration_minutes' => $data['duration_minutes'], 'venue' => $data['venue'] ?? null, 'online_url' => $data['online_url'] ?? null, 'status' => 'scheduled',
             ]);
-            foreach (array_unique($data['panel_user_ids'] ?? []) as $userId) {
-                abort_unless($research->university->users()->whereKey($userId)->whereIn('role', ['lecturer','department_admin','university_admin'])->exists(), 422, 'Panel members must belong to the research institution.');
-                $seminar->panelMembers()->firstOrCreate(['user_id' => $userId], ['role' => 'panelist']);
+            $panelUserIds = collect($data['panel_user_ids'] ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($panelUserIds->isNotEmpty()) {
+                $eligibleCount = $research->university->users()
+                    ->whereKey($panelUserIds)
+                    ->whereIn('role', ['lecturer', 'department_admin', 'university_admin'])
+                    ->count();
+                abort_unless($eligibleCount === $panelUserIds->count(), 422, 'Panel members must belong to the research institution.');
+
+                $now = now();
+                DB::table('seminar_panel_members')->upsert(
+                    $panelUserIds->map(fn (int $userId) => [
+                        'seminar_session_id' => $seminar->id,
+                        'user_id' => $userId,
+                        'role' => 'panelist',
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])->all(),
+                    ['seminar_session_id', 'user_id'],
+                    ['role', 'updated_at'],
+                );
             }
             if ($request->hasFile('slides')) {
                 $asset = $media->store($request->file('slides'), $request->user(), $seminar, 'private', ['purpose' => 'seminar_slides', 'research_project_uuid' => $research->uuid]);

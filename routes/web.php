@@ -13,6 +13,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DiscussionController;
 use App\Http\Controllers\EngagementModerationController;
 use App\Http\Controllers\ExportController;
+use App\Http\Controllers\FeatureAccessController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PublicPageController;
@@ -24,6 +25,9 @@ use App\Http\Controllers\WebAuthController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\LecturerAssignmentController;
 use App\Http\Controllers\KnowledgeHubController;
+use App\Http\Controllers\InstitutionCommercialAccountController;
+use App\Http\Controllers\InstitutionOnboardingController;
+use App\Http\Controllers\InstitutionAccessController;
 use App\Http\Controllers\KnowledgePublicationController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\CommerceController;
@@ -51,7 +55,7 @@ Route::get('/manifest.webmanifest', [SettingsController::class, 'pwaManifest'])-
 
 // Public routes
 Route::get('/information/{page}', [PublicPageController::class, 'show'])->whereIn('page', ['help','documentation','status','about','careers','api','source','changelog','security','terms','privacy','cookies','licenses'])->name('public.page');
-Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : view('landing'))->name('home');
+Route::get('/', [PublicPageController::class, 'home'])->name('home');
 Route::get('/knowledge-hub', [KnowledgeHubController::class, 'index'])
     ->middleware('feature.flag:knowledge_hub')
     ->name('knowledge.index');
@@ -117,7 +121,20 @@ Route::post('/webhook/payment/{gateway}', [SubscriptionController::class, 'webho
 // Protected application routes require verified identity and completed onboarding.
 Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.complete'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/subscription', fn () => redirect()->route('commerce.wallet')->with('info', 'Subscriptions have been retired. AcadFlow now uses wallet, usage and entitlement based access.'))->name('subscription-retired');
+    Route::get('/institution/onboarding', [InstitutionOnboardingController::class, 'requestForm'])
+        ->middleware('throttle:commercial-account-requests')
+        ->name('institution.onboarding.request');
+    Route::post('/institution/onboarding', [InstitutionOnboardingController::class, 'submitRequest'])
+        ->middleware('throttle:commercial-account-requests')
+        ->name('institution.onboarding.request.store');
+
+    Route::get('/institution/onboarding/search', [InstitutionOnboardingController::class, 'search'])->name('institution.onboarding.search');
+    Route::post('/institution/onboarding/department', [InstitutionOnboardingController::class, 'submitDepartmentRequest'])->middleware('throttle:commercial-account-requests')->name('institution.onboarding.department.store');
+    Route::get('/institution/access', [InstitutionAccessController::class, 'show'])->name('institution.access');
+    Route::post('/institution/access', [InstitutionAccessController::class, 'store'])->middleware('throttle:commercial-account-requests')->name('institution.access.store');
+
+
+    Route::get('/subscription', [CommerceController::class, 'subscriptionRetired'])->name('subscription-retired');
     Route::get('/account/security', [AccountSecurityController::class, 'show'])->name('security.show');
     Route::post('/account/security/two-factor', [AccountSecurityController::class, 'begin'])->name('security.two-factor.begin');
     Route::post('/account/security/two-factor/confirm', [AccountSecurityController::class, 'confirm'])->name('security.two-factor.confirm');
@@ -170,8 +187,12 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::patch('/{research}/milestones/{milestone}', [ResearchWorkspaceController::class, 'updateMilestone'])->name('milestones.update');
         Route::post('/{research}/members', [ResearchWorkspaceController::class, 'syncMember'])->name('members.store');
         Route::get('/{research}/literature', [ResearchWorkspaceController::class, 'searchLiterature'])->name('literature.search');
+        Route::post('/{research}/literature/bulk-save', [ResearchWorkspaceController::class, 'saveReferences'])->name('literature.bulk-save');
         Route::post('/{research}/literature/{record}', [ResearchWorkspaceController::class, 'saveReference'])->name('literature.save');
         Route::put('/{research}/references/{reference}/note', [ResearchWorkspaceController::class, 'literatureNote'])->name('literature.note');
+        Route::delete('/{research}/references/{reference}', [ResearchWorkspaceController::class, 'removeReference'])->name('references.destroy');
+        Route::post('/{research}/supervisor-invitations', [ResearchProjectController::class, 'inviteSupervisor'])->name('invitations.store');
+        Route::post('/invitations/{invitation}/respond', [ResearchProjectController::class, 'respondInvitation'])->name('invitations.respond');
         Route::post('/{research}/archives', [ResearchWorkspaceController::class, 'seal'])->name('archives.seal');
         Route::get('/{research}/archives/{archive}', [ResearchWorkspaceController::class, 'downloadArchive'])->name('archives.download');
         Route::post('/{research}/amendments', [ResearchWorkspaceController::class, 'requestAmendment'])->name('amendments.store');
@@ -306,6 +327,8 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::post('/commerce/learning-paths/{path}/purchase', [CommerceController::class, 'purchaseLearningPath'])->name('commerce.learning.purchase');
     Route::get('/commerce/payment/callback/{transaction}', [CommerceController::class, 'callback'])->name('commerce.callback');
     Route::get('/commerce/wallet', [CommerceController::class, 'wallet'])->name('commerce.wallet');
+    Route::get('/commerce/features', [FeatureAccessController::class, 'index'])->name('commerce.features');
+    Route::post('/commerce/features/purchase', [FeatureAccessController::class, 'purchase'])->name('commerce.features.purchase');
     Route::post('/commerce/wallet/fund', [CommerceController::class, 'fundWallet'])->middleware('throttle:payments')->name('commerce.wallet.fund');
     Route::get('/commerce/wallet/funding/callback/{transaction}', [CommerceController::class, 'walletFundingCallback'])->name('commerce.wallet.callback');
     Route::post('/commerce/payout-accounts', [CommerceController::class, 'storePayout'])->name('commerce.payout-accounts.store');
@@ -486,6 +509,8 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     // Lecturer routes
     Route::middleware('role:lecturer')->group(function () {
         Route::get('/lecturer/courses', [CourseController::class, 'myCourses'])->name('lecturer.courses');
+        Route::post('/lecturer/courses/independent', [CourseController::class, 'storeIndependent'])
+            ->middleware('throttle:20,1')->name('lecturer.courses.independent.store');
         Route::post('/lecturer/courses/{course}/self-assign', [CourseMembershipController::class, 'selfAssign'])
             ->middleware('throttle:20,1')->name('lecturer.courses.self-assign');
         Route::post('/lecturer/courses/{course}/students/enroll', [CourseMembershipController::class, 'enrollStudent'])
@@ -611,6 +636,14 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
             ->name('admin.courses.lecturers.coordinator');
     });
 
+    Route::middleware('role:department_admin,university_admin,super_admin')->group(function () {
+        Route::get('/admin/institution-access', [InstitutionAccessController::class, 'adminIndex'])->name('admin.institution-access.index');
+        Route::post('/admin/institution-access/{accessRequest}/approve', [InstitutionAccessController::class, 'approve'])->name('admin.institution-access.approve');
+        Route::post('/admin/institution-access/{accessRequest}/reject', [InstitutionAccessController::class, 'reject'])->name('admin.institution-access.reject');
+        Route::get('/admin/students/import', [StudentImportController::class, 'showImportForm'])->name('admin.students.import');
+        Route::post('/admin/students/import', [StudentImportController::class, 'import'])->name('admin.students.import.post');
+    });
+
     // University Admin routes
     Route::middleware('role:university_admin,super_admin')->group(function () {
         // Institution-aware settings. Platform-only keys remain protected in the controller.
@@ -618,10 +651,16 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::post('/admin/settings', [SettingsController::class, 'updateMultiple'])->name('admin.settings.update');
         Route::put('/admin/settings/{key}', [SettingsController::class, 'update'])->name('admin.settings.update-key');
 
-        Route::get('/admin/monetization', [MonetizationController::class, 'index'])->name('admin.monetization');
-        Route::put('/admin/monetization', [MonetizationController::class, 'update'])->name('admin.monetization.update');
-        Route::post('/admin/monetization/pricing-rules', [MonetizationController::class, 'storePricingRule'])->name('admin.monetization.pricing-rules.store');
-        Route::post('/admin/monetization/commercial-accounts', [MonetizationController::class, 'storeCommercialAccount'])->name('admin.monetization.commercial-accounts.store');
+        Route::get('/institution/setup', [InstitutionOnboardingController::class, 'institutionDashboard'])
+            ->middleware('role:university_admin')
+            ->name('institution.setup');
+        Route::get('/institution/commercial-account', [InstitutionCommercialAccountController::class, 'show'])
+            ->middleware('role:university_admin')
+            ->name('institution.commercial-account');
+        Route::post('/institution/commercial-account/requests', [InstitutionCommercialAccountController::class, 'storeRequest'])
+            ->middleware(['role:university_admin', 'throttle:commercial-account-requests'])
+            ->name('institution.commercial-account.requests.store');
+        Route::post('/institution/{university}/email-domains', [InstitutionOnboardingController::class, 'proposeDomain'])->name('institution.email-domains.store');
 
         Route::get('/admin/faculties', [AdminController::class, 'faculties'])->name('admin.faculties');
         Route::post('/admin/faculties', [AdminController::class, 'createFaculty'])->name('admin.faculties.create');
@@ -646,9 +685,24 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::get('/admin/settings/permissions', [SettingsController::class, 'permissions'])->name('admin.settings.permissions');
         Route::get('/admin/settings/audit-logs', [SettingsController::class, 'auditLogs'])->name('admin.settings.audit-logs');
 
-        // Student import
-        Route::get('/admin/students/import', [StudentImportController::class, 'showImportForm'])->name('admin.students.import');
-        Route::post('/admin/students/import', [StudentImportController::class, 'import'])->name('admin.students.import.post');
+        Route::get('/admin/institution-onboarding', [InstitutionOnboardingController::class, 'adminIndex'])->name('admin.institution-onboarding');
+        Route::post('/admin/institution-onboarding/{onboardingRequest}/approve', [InstitutionOnboardingController::class, 'approve'])->name('admin.institution-onboarding.approve');
+        Route::post('/admin/institution-onboarding/{onboardingRequest}/link-existing', [InstitutionOnboardingController::class, 'linkExisting'])->name('admin.institution-onboarding.link-existing');
+        Route::post('/admin/institution-onboarding/{onboardingRequest}/request-info', [InstitutionOnboardingController::class, 'requestMoreInformation'])->name('admin.institution-onboarding.request-info');
+        Route::post('/admin/institution-onboarding/{onboardingRequest}/reject', [InstitutionOnboardingController::class, 'reject'])->name('admin.institution-onboarding.reject');
+        Route::post('/admin/department-adoption/{departmentRequest}/approve', [InstitutionOnboardingController::class, 'approveDepartment'])->name('admin.department-adoption.approve');
+        Route::post('/admin/department-adoption/{departmentRequest}/reject', [InstitutionOnboardingController::class, 'rejectDepartment'])->name('admin.department-adoption.reject');
+        Route::post('/admin/institution-domains/{domain}/verify', [InstitutionOnboardingController::class, 'verifyDomain'])->name('admin.institution-domains.verify');
+        Route::get('/admin/institution-onboarding/{university}/setup', [InstitutionOnboardingController::class, 'setup'])->name('admin.institution-onboarding.setup');
+        Route::post('/admin/institution-onboarding/{university}/structure', [InstitutionOnboardingController::class, 'addStructure'])->name('admin.institution-onboarding.structure');
+        Route::post('/admin/institution-onboarding/{university}/commercial', [InstitutionOnboardingController::class, 'saveCommercial'])->name('admin.institution-onboarding.commercial');
+        Route::post('/admin/institution-onboarding/{university}/activate', [InstitutionOnboardingController::class, 'activate'])->name('admin.institution-onboarding.activate');
+        Route::get('/admin/monetization', [MonetizationController::class, 'index'])->name('admin.monetization');
+        Route::put('/admin/monetization', [MonetizationController::class, 'update'])->name('admin.monetization.update');
+        Route::post('/admin/monetization/pricing-rules', [MonetizationController::class, 'storePricingRule'])->name('admin.monetization.pricing-rules.store');
+        Route::post('/admin/monetization/commercial-accounts', [MonetizationController::class, 'storeCommercialAccount'])->name('admin.monetization.commercial-accounts.store');
+        Route::post('/admin/monetization/commercial-requests/{commercialRequest}/reject', [MonetizationController::class, 'rejectCommercialAccountRequest'])
+            ->name('admin.monetization.commercial-requests.reject');
 
         // Payment gateway setting route
         Route::prefix('admin')->name('admin.')->group(function () {

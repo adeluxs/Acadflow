@@ -8,7 +8,10 @@ use App\Models\Course;
 use App\Models\GeneratedDocument;
 use App\Models\Semester;
 use App\Models\Submission;
+use App\Models\User;
 use App\Services\PdfService;
+use App\Services\Commerce\FeatureBillingService;
+use App\Support\Errors\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -25,14 +28,11 @@ class ExportController extends Controller
     {
         $user = Auth::user();
 
-        if (! $user->hasFeature('document_generation')) {
-            abort(403, 'Document generation is not currently available for your account.');
-        }
-
-        $pdfContent = $this->pdfService->generateTranscript($user);
-        $filename = 'transcript_'.$user->student_id.'_'.now()->format('Y-m-d').'.pdf';
-
-        return $this->pdfService->downloadResponse($pdfContent, $filename);
+        return $this->withDocumentBilling($user, 'transcript', function () use ($user) {
+            $pdfContent = $this->pdfService->generateTranscript($user);
+            $filename = 'transcript_'.$user->student_id.'_'.now()->format('Y-m-d').'.pdf';
+            return $this->pdfService->downloadResponse($pdfContent, $filename);
+        });
     }
 
     /**
@@ -47,10 +47,11 @@ class ExportController extends Controller
             abort(403);
         }
 
-        $pdfContent = $this->pdfService->generateGradeReport($submission);
-        $filename = 'grade_report_'.$submission->uuid.'.pdf';
-
-        return $this->pdfService->downloadResponse($pdfContent, $filename);
+        return $this->withDocumentBilling($user, 'grade-report:'.$submission->uuid, function () use ($submission) {
+            $pdfContent = $this->pdfService->generateGradeReport($submission);
+            $filename = 'grade_report_'.$submission->uuid.'.pdf';
+            return $this->pdfService->downloadResponse($pdfContent, $filename);
+        });
     }
 
     /**
@@ -72,10 +73,11 @@ class ExportController extends Controller
             ->orderBy('sequence_order')
             ->get();
 
-        $pdfContent = $this->pdfService->generateCourseMaterialsPdf($course, $materials);
-        $filename = 'materials_'.$course->code.'_'.now()->format('Y-m-d').'.pdf';
-
-        return $this->pdfService->downloadResponse($pdfContent, $filename);
+        return $this->withDocumentBilling($user, 'course-materials:'.$course->id, function () use ($course, $materials) {
+            $pdfContent = $this->pdfService->generateCourseMaterialsPdf($course, $materials);
+            $filename = 'materials_'.$course->code.'_'.now()->format('Y-m-d').'.pdf';
+            return $this->pdfService->downloadResponse($pdfContent, $filename);
+        });
     }
 
     /**
@@ -129,29 +131,32 @@ class ExportController extends Controller
 
         $course = \App\Models\Course::findOrFail($request->course_id);
         $semester = \App\Models\Semester::findOrFail($request->semester_id);
-        $students = $course->enrollments()
+        $enrollments = $course->enrollments()
+            ->select(['id', 'user_id'])
             ->where('semester_id', $semester->id)
-            ->with('user')
-            ->get()
-            ->pluck('user');
+            ->with('user');
 
-        $zipFileName = 'transcripts_'.$course->code.'_'.$semester->name.'_'.now()->format('Ymd').'.zip';
-        $zipPath = storage_path('app/temp/'.$zipFileName);
+        return $this->withDocumentBilling($user, 'batch-transcripts:'.$course->id.':'.$semester->id, function () use ($course, $semester, $enrollments) {
+            $zipFileName = 'transcripts_'.$course->code.'_'.$semester->name.'_'.now()->format('Ymd').'.zip';
+            $zipPath = storage_path('app/temp/'.$zipFileName);
 
-        if (! file_exists(dirname($zipPath))) {
-            mkdir(dirname($zipPath), 0755, true);
-        }
-
-        $zip = new \ZipArchive();
-        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true) {
-            foreach ($students as $student) {
-                $pdfContent = $this->pdfService->generateTranscript($student);
-                $zip->addFromString('transcript_'.$student->student_id.'.pdf', $pdfContent);
+            if (! file_exists(dirname($zipPath))) {
+                mkdir(dirname($zipPath), 0755, true);
             }
-            $zip->close();
-        }
 
-        return Storage::download('temp/'.$zipFileName, $zipFileName);
+            $zip = new \ZipArchive();
+            if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true) {
+                foreach ($enrollments->lazyById(100) as $enrollment) {
+                    $student = $enrollment->user;
+                    if (! $student) continue;
+                    $pdfContent = $this->pdfService->generateTranscript($student);
+                    $zip->addFromString('transcript_'.$student->student_id.'.pdf', $pdfContent);
+                }
+                $zip->close();
+            }
+
+            return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+        });
     }
 
     /**
@@ -172,28 +177,47 @@ class ExportController extends Controller
 
         $course = \App\Models\Course::findOrFail($request->course_id);
         $semester = \App\Models\Semester::findOrFail($request->semester_id);
-        $submissions = \App\Models\Submission::where('course_id', $course->id)
+        $submissions = \App\Models\Submission::query()
+            ->where('course_id', $course->id)
             ->where('semester_id', $semester->id)
-            ->whereNotNull('grade')
-            ->with('user')
-            ->get();
+            ->whereHas('grade')
+            ->with('user');
 
-        $zipFileName = 'grade_reports_'.$course->code.'_'.$semester->name.'_'.now()->format('Ymd').'.zip';
-        $zipPath = storage_path('app/temp/'.$zipFileName);
+        return $this->withDocumentBilling($user, 'batch-grade-reports:'.$course->id.':'.$semester->id, function () use ($course, $semester, $submissions) {
+            $zipFileName = 'grade_reports_'.$course->code.'_'.$semester->name.'_'.now()->format('Ymd').'.zip';
+            $zipPath = storage_path('app/temp/'.$zipFileName);
 
-        if (! file_exists(dirname($zipPath))) {
-            mkdir(dirname($zipPath), 0755, true);
-        }
-
-        $zip = new \ZipArchive();
-        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true) {
-            foreach ($submissions as $submission) {
-                $pdfContent = $this->pdfService->generateGradeReport($submission);
-                $zip->addFromString('grade_report_'.$submission->user->student_id.'_'.$submission->uuid.'.pdf', $pdfContent);
+            if (! file_exists(dirname($zipPath))) {
+                mkdir(dirname($zipPath), 0755, true);
             }
-            $zip->close();
-        }
 
-        return Storage::download('temp/'.$zipFileName, $zipFileName);
+            $zip = new \ZipArchive();
+            if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true) {
+                foreach ($submissions->lazyById(100) as $submission) {
+                    $pdfContent = $this->pdfService->generateGradeReport($submission);
+                    $zip->addFromString('grade_report_'.$submission->user->student_id.'_'.$submission->uuid.'.pdf', $pdfContent);
+                }
+                $zip->close();
+            }
+
+            return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+        });
     }
+
+    private function withDocumentBilling(User $user, string $operation, callable $callback): mixed
+    {
+        $billing = app(FeatureBillingService::class);
+        $requestId = 'document:'.UserFacingError::requestId(request()).':'.$operation;
+        $reservation = $billing->begin($user, 'document_generation', $requestId);
+
+        try {
+            $result = $callback();
+            $billing->complete($user, $reservation, ['document_operation' => $operation]);
+            return $result;
+        } catch (\Throwable $exception) {
+            $billing->release($user, $reservation, ['reason' => 'document_generation_failed', 'document_operation' => $operation]);
+            throw $exception;
+        }
+    }
+
 }

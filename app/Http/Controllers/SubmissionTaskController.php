@@ -13,12 +13,16 @@ use App\Models\SubmissionTask;
 use App\Models\SubmissionTaskAttachment;
 use App\Models\User;
 use App\Services\AcademicContextService;
+use App\Services\Commerce\FeatureBillingService;
+use App\Support\Errors\UserFacingError;
 use App\Services\Media\MediaSecurityService;
 use App\Services\Media\SafeFileDeliveryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class SubmissionTaskController extends Controller
@@ -166,6 +170,9 @@ class SubmissionTaskController extends Controller
             $validated['allowed_file_types'] = [];
         }
 
+        $billing = app(FeatureBillingService::class);
+        $billingReservations = [];
+
         try {
             // Ensure min_group_size <= max_group_size
             if ($validated['allow_group_submissions'] ?? false) {
@@ -179,6 +186,14 @@ class SubmissionTaskController extends Controller
                 return back()->withInput()->withErrors(['min_file_count' => 'Minimum files must be less than or equal to maximum.']);
             }
 
+            $baseBillingId = 'assignment:'.UserFacingError::requestId($request);
+            if ($validated['allow_group_submissions'] ?? false) {
+                $billingReservations['allow_group_submissions'] = $billing->begin($user, 'allow_group_submissions', $baseBillingId.':group');
+            }
+            if (! empty($validated['rubric_id'])) {
+                $billingReservations['allow_rubrics'] = $billing->begin($user, 'allow_rubrics', $baseBillingId.':rubric');
+            }
+
             $task = SubmissionTask::create([
                 ...$validated,
                 'course_id' => $course->id,
@@ -190,13 +205,8 @@ class SubmissionTaskController extends Controller
                 'task_uuid' => $task->uuid,
             ]);
 
-            // Commercial access is entitlement-based. Features remain free
-            // unless Admin explicitly publishes a pricing rule for them.
-            if ($task->allow_group_submissions && ! $user->hasFeature('allow_group_submissions')) {
-                $task->update(['allow_group_submissions' => false]);
-            }
-            if ($task->rubric_id && ! $user->hasFeature('allow_rubrics')) {
-                $task->update(['rubric_id' => null]);
+            foreach ($billingReservations as $feature => $reservation) {
+                $billing->complete($user, $reservation, ['submission_task_id' => $task->id, 'course_id' => $course->id]);
             }
 
             // Fire event to notify enrolled students (only if published)
@@ -214,7 +224,15 @@ class SubmissionTaskController extends Controller
 
             return redirect()->route('submission-tasks.lecturer.show', [$course, $task])
                 ->with('success', 'Assignment created successfully.');
+        } catch (ValidationException $e) {
+            foreach ($billingReservations as $reservation) {
+                $billing->release($user, $reservation, ['reason' => 'assignment_validation_failed']);
+            }
+            return back()->withInput()->withErrors($e->errors());
         } catch (\Exception $e) {
+            foreach ($billingReservations as $reservation) {
+                $billing->release($user, $reservation, ['reason' => 'assignment_creation_failed']);
+            }
             Log::error('Failed to create submission task', [
                 'course_id' => $course->id,
                 'user_id' => Auth::id(),
@@ -279,17 +297,18 @@ public function showForLecturer(Course $course, SubmissionTask $task)
 
     $stats = $this->getTaskStats($task);
 
-    $enrolledStudentIds = Enrollment::where('course_id', $course->id)
-        ->where('semester_id', $task->semester_id)
-        ->where('status', 'enrolled')
-        ->pluck('user_id')
-        ->toArray();
-
-    $submittedStudentIds = $task->submissions()->pluck('user_id')->toArray();
-
-    $nonSubmitters = User::whereIn('id', $enrolledStudentIds)
-        ->whereNotIn('id', $submittedStudentIds)
-        ->get();
+    $nonSubmitters = User::query()
+        ->select(['id', 'student_id', 'first_name', 'last_name', 'email'])
+        ->whereHas('enrollments', function ($query) use ($course, $task): void {
+            $query->where('course_id', $course->id)
+                ->where('semester_id', $task->semester_id)
+                ->where('status', 'enrolled');
+        })
+        ->whereDoesntHave('submissions', fn ($query) => $query->where('submission_task_id', $task->id))
+        ->orderBy('first_name')
+        ->orderBy('last_name')
+        ->paginate(20, ['*'], 'missing_page')
+        ->withQueryString();
 
     return view('submission-tasks.show', compact(
         'course',
@@ -512,16 +531,23 @@ public function showForLecturer(Course $course, SubmissionTask $task)
         $this->authorize('grantExtension', $task);
 
         $enrollments = Enrollment::query()
-            ->with('user')
+            ->select(['id', 'user_id', 'course_id', 'semester_id', 'status'])
+            ->with('user:id,first_name,last_name,email')
             ->where('course_id', $course->id)
             ->where('semester_id', $task->semester_id)
             ->where('status', 'enrolled')
             ->orderBy('user_id')
-            ->get();
+            ->paginate(25)
+            ->withQueryString();
 
-        $extensions = $task->extensions()->get()->keyBy('student_id');
+        $pageStudentIds = collect($enrollments->items())->pluck('user_id');
+        $extensions = $task->extensions()
+            ->whereIn('student_id', $pageStudentIds)
+            ->get()
+            ->keyBy('student_id');
+        $extensionCount = $task->extensions()->count();
 
-        return view('submission-tasks.extensions', compact('course', 'task', 'enrollments', 'extensions'));
+        return view('submission-tasks.extensions', compact('course', 'task', 'enrollments', 'extensions', 'extensionCount'));
     }
 
     /**
@@ -588,16 +614,30 @@ public function showForLecturer(Course $course, SubmissionTask $task)
      */
     private function getTaskStats(SubmissionTask $task): array
     {
-        $submissions = $task->submissions()->get();
-        $lateSubmissions = $submissions->filter(fn ($s) => $s->is_late)->count();
-        $gradedSubmissions = $submissions->filter(fn ($s) => $s->status === 'graded')->count();
+        $firstGradeIds = DB::table('submission_grades')
+            ->selectRaw('submission_id, MIN(id) AS id')
+            ->groupBy('submission_id');
+
+        $stats = DB::table('submissions')
+            ->leftJoinSub($firstGradeIds, 'first_grade', function ($join): void {
+                $join->on('first_grade.submission_id', '=', 'submissions.id');
+            })
+            ->leftJoin('submission_grades', 'submission_grades.id', '=', 'first_grade.id')
+            ->where('submissions.submission_task_id', $task->id)
+            ->whereNull('submissions.deleted_at')
+            ->selectRaw('COUNT(submissions.id) AS total_submissions')
+            ->selectRaw('SUM(CASE WHEN submissions.is_late = 1 THEN 1 ELSE 0 END) AS late_submissions')
+            ->selectRaw("SUM(CASE WHEN submissions.status = 'graded' THEN 1 ELSE 0 END) AS graded_count")
+            ->selectRaw("SUM(CASE WHEN submissions.status IN ('submitted', 'under_review') THEN 1 ELSE 0 END) AS pending_review")
+            ->selectRaw('AVG(submission_grades.score) AS average_score')
+            ->first();
 
         return [
-            'total_submissions' => $submissions->count(),
-            'late_submissions' => $lateSubmissions,
-            'graded_count' => $gradedSubmissions,
-            'pending_review' => $submissions->filter(fn ($s) => $s->status === 'submitted' || $s->status === 'under_review')->count(),
-            'average_score' => $submissions->average(fn ($s) => $s->grade?->score) ?? 0,
+            'total_submissions' => (int) ($stats->total_submissions ?? 0),
+            'late_submissions' => (int) ($stats->late_submissions ?? 0),
+            'graded_count' => (int) ($stats->graded_count ?? 0),
+            'pending_review' => (int) ($stats->pending_review ?? 0),
+            'average_score' => (float) ($stats->average_score ?? 0),
         ];
     }
 }

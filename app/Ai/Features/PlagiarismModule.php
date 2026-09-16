@@ -78,7 +78,9 @@ class PlagiarismModule
 
         $corpus = [];
         foreach ($others as $other) {
-            $ov = $other->versions()->where('is_current', true)->first();
+            // Versions are already eager-loaded above; do not issue one extra
+            // query per submission just to locate the current version.
+            $ov = $other->versions->firstWhere('is_current', true);
             if ($ov) {
                 $corpus[] = [
                     'submission_uuid' => $other->uuid,

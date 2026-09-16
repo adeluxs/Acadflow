@@ -17,20 +17,48 @@ class ReputationService
 {
     public function recalculate(User $user): ReputationProfile
     {
-        $publications = KnowledgePublication::query()->where('creator_id', $user->id)->where('status', 'published')->get();
-        $publicationIds = $publications->pluck('id');
-        $citations = KnowledgeCitation::query()->whereIn('cited_publication_id', $publicationIds)->whereColumn('citing_publication_id', '!=', 'cited_publication_id')->count();
-        $followers = KnowledgeFollow::query()->where('target_type', 'creator')->where('target_id', $user->id)->count()
-            + KnowledgeFollow::query()->where('target_type', User::class)->where('target_id', $user->id)->count();
-        $engagement = KnowledgeEvent::query()->whereIn('knowledge_publication_id', $publicationIds)->selectRaw('event_type, COUNT(*) as aggregate')->groupBy('event_type')->pluck('aggregate', 'event_type');
+        $publicationStats = KnowledgePublication::query()
+            ->where('creator_id', $user->id)
+            ->where('status', 'published')
+            ->selectRaw('COUNT(*) AS publication_count')
+            ->selectRaw('COALESCE(SUM(bookmark_count), 0) AS bookmarks')
+            ->selectRaw('SUM(CASE WHEN featured_at IS NOT NULL THEN 1 ELSE 0 END) AS featured_count')
+            ->selectRaw("SUM(CASE WHEN content_type = 'research_output' THEN 1 ELSE 0 END) AS research_output_count")
+            ->first();
+
+        $publicationCount = (int) ($publicationStats?->publication_count ?? 0);
+        $bookmarks = (int) ($publicationStats?->bookmarks ?? 0);
+        $featuredCount = (int) ($publicationStats?->featured_count ?? 0);
+        $researchOutputCount = (int) ($publicationStats?->research_output_count ?? 0);
+
+        $citations = KnowledgeCitation::query()
+            ->join('knowledge_publications as cited', 'cited.id', '=', 'knowledge_citations.cited_publication_id')
+            ->where('cited.creator_id', $user->id)
+            ->where('cited.status', 'published')
+            ->whereColumn('knowledge_citations.citing_publication_id', '!=', 'knowledge_citations.cited_publication_id')
+            ->count();
+
+        $followers = KnowledgeFollow::query()
+            ->where('target_id', $user->id)
+            ->whereIn('target_type', ['creator', User::class])
+            ->count();
+
+        $engagement = KnowledgeEvent::query()
+            ->join('knowledge_publications as publication', 'publication.id', '=', 'knowledge_events.knowledge_publication_id')
+            ->where('publication.creator_id', $user->id)
+            ->where('publication.status', 'published')
+            ->selectRaw('knowledge_events.event_type, COUNT(*) as aggregate')
+            ->groupBy('knowledge_events.event_type')
+            ->pluck('aggregate', 'event_type');
+
         $approvedResearch = ResearchProject::query()->where('owner_id', $user->id)->whereNotNull('approved_at')->count();
         $eventPoints = (float) ReputationEvent::where('user_id', $user->id)->sum('points');
 
         $points = config('reputation.points');
         $weights = config('reputation.weights');
-        $knowledgeScore = ($publications->count() * $points['publication']) + ($publications->sum('bookmark_count') * $points['bookmark']) + ((int) ($engagement['view'] ?? 0) * $points['view']);
-        $qualityScore = ($citations * $points['citation']) + ($publications->whereNotNull('featured_at')->count() * $points['featured_publication']) + ($approvedResearch * $points['approved_research_quality']);
-        $researchImpactScore = ($citations * $points['citation_research_impact']) + ($approvedResearch * $points['approved_research_impact']) + ($publications->where('content_type', 'research_output')->count() * $points['research_output']);
+        $knowledgeScore = ($publicationCount * $points['publication']) + ($bookmarks * $points['bookmark']) + ((int) ($engagement['view'] ?? 0) * $points['view']);
+        $qualityScore = ($citations * $points['citation']) + ($featuredCount * $points['featured_publication']) + ($approvedResearch * $points['approved_research_quality']);
+        $researchImpactScore = ($citations * $points['citation_research_impact']) + ($approvedResearch * $points['approved_research_impact']) + ($researchOutputCount * $points['research_output']);
         $communityScore = ($followers * $points['follower']) + ((int) ($engagement['comment'] ?? 0) * $points['comment']) + ((int) ($engagement['reaction'] ?? 0) * $points['reaction']);
         $overall = max(0, round(($knowledgeScore * $weights['knowledge']) + ($qualityScore * $weights['quality']) + ($researchImpactScore * $weights['research_impact']) + ($communityScore * $weights['community']) + $eventPoints, 2));
 
@@ -44,12 +72,12 @@ class ReputationService
                 'community_score' => round($communityScore, 2),
                 'overall_score' => $overall,
                 'level_key' => $this->levelFor($overall),
-                'publication_count' => $publications->count(),
+                'publication_count' => $publicationCount,
                 'citation_count' => $citations,
                 'follower_count' => $followers,
                 'breakdown' => [
                     'views' => (int) ($engagement['view'] ?? 0),
-                    'bookmarks' => $publications->sum('bookmark_count'),
+                    'bookmarks' => $bookmarks,
                     'approved_research' => $approvedResearch,
                     'event_points' => $eventPoints,
                 ],

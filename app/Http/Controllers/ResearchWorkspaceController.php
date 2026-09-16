@@ -8,6 +8,9 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Services\Media\MediaSecurityService;
 use App\Services\Media\SafeFileDeliveryService;
 use App\Services\ContentWorkspaceService;
+use App\Services\AcademicReferenceService;
+use App\Services\LiteratureSynthesisService;
+use App\Services\FeatureAccessService;
 use App\Models\Submission;
 use App\Models\ResearchSection;
 use App\Models\ResearchDataset;
@@ -32,6 +35,7 @@ use App\Services\Scholarly\ScholarlyDiscoveryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
@@ -40,10 +44,75 @@ class ResearchWorkspaceController extends Controller
     public function controlCenter(Request $request, ResearchProject $research, ResearchCollaborationService $collaboration): View
     {
         $this->authorize('view', $research);
-        $research->load(['meetings.attendees.user', 'meetings.actionItemRecords.assignee', 'milestones', 'tasks', 'memberRecords.user', 'referenceLinks.reference', 'literatureNotes.reference', 'archives', 'amendments', 'datasets', 'specializedLinks', 'templateVersion']);
-        $members = User::query()->where('university_id', $research->university_id)->where('is_active', true)->orderBy('first_name')->get();
-        $contributions = $collaboration->contributionReport($research);
-        return view('research.workspace', compact('research', 'members', 'contributions'));
+        $user = $request->user();
+        $isEnabled = fn (string $feature): bool => FeatureAccessService::effectiveStatus($feature, $user->university_id) === FeatureAccessService::STATUS_ENABLED;
+        $modules = [
+            'literature' => $isEnabled('research_literature'),
+            'institutional' => $isEnabled('research_institutional_expansion'),
+            'meetings' => $isEnabled('research_meetings'),
+            'collaboration' => $isEnabled('research_collaboration'),
+            'archives' => $isEnabled('research_archives'),
+            'datasets' => $isEnabled('research_datasets'),
+            'siwes' => $isEnabled('siwes_module'),
+            'seminar' => $isEnabled('seminar_module'),
+        ];
+
+        $relations = ['owner', 'milestones', 'tasks', 'templateVersion'];
+        if ($modules['institutional']) {
+            $relations[] = 'supervisor';
+            $relations[] = 'coSupervisor';
+        }
+        if ($modules['literature']) {
+            $relations[] = 'referenceLinks.reference';
+        }
+        if ($modules['meetings']) {
+            $relations[] = 'meetings.attendees.user';
+            $relations[] = 'meetings.actionItemRecords.assignee';
+        }
+        if ($modules['collaboration']) {
+            $relations[] = 'memberRecords.user';
+            $relations[] = 'sections.authorships';
+        }
+        if ($modules['archives']) {
+            $relations[] = 'archives';
+            $relations[] = 'amendments';
+        }
+        if ($modules['datasets']) {
+            $relations[] = 'datasets';
+        }
+        if ($modules['siwes'] || $modules['seminar']) {
+            $relations[] = 'specializedLinks';
+        }
+
+        $research->load($relations);
+
+        $participants = collect([$research->owner])
+            ->when($modules['institutional'], fn ($items) => $items->concat([$research->supervisor, $research->coSupervisor]))
+            ->filter()
+            ->when($modules['collaboration'], fn ($items) => $items->concat($research->memberRecords->pluck('user')))
+            ->unique('id')
+            ->values();
+
+        $candidateMembers = collect();
+        if ($modules['collaboration'] && $modules['institutional'] && $research->workspace_mode === 'institutional') {
+            $candidateMembers = User::query()
+                ->where('university_id', $research->university_id)
+                ->where('is_active', true)
+                ->where('id', '!=', $research->owner_id)
+                ->orderBy('first_name')
+                ->orderBy('last_name')
+                ->limit(200)
+                ->get();
+        }
+
+        $contributions = $modules['collaboration'] ? $collaboration->contributionReport($research) : [];
+        $workspaceStats = [
+            'open_tasks' => $research->tasks->whereNotIn('status', ['completed', 'cancelled'])->count(),
+            'references' => $modules['literature'] ? $research->referenceLinks->count() : null,
+            'next_milestone' => $research->milestones->whereNotIn('status', ['completed'])->sortBy('due_at')->first(),
+        ];
+
+        return view('research.workspace', compact('research', 'participants', 'candidateMembers', 'contributions', 'modules', 'workspaceStats'));
     }
 
     public function templates(Request $request): View
@@ -136,28 +205,255 @@ class ResearchWorkspaceController extends Controller
         return back()->with('success', 'Research collaborator and granular permissions updated.');
     }
 
-    public function searchLiterature(Request $request, ResearchProject $research, ScholarlyDiscoveryService $scholarly): View
-    {
+    public function searchLiterature(
+        Request $request,
+        ResearchProject $research,
+        ScholarlyDiscoveryService $scholarly,
+        AcademicReferenceService $referenceService,
+        LiteratureSynthesisService $synthesisService,
+    ): View {
         $this->authorize('view', $research);
-        $data = $request->validate(['q' => ['nullable','string','max:500']]);
-        $records = filled($data['q'] ?? null) ? $scholarly->search($data['q'], $request->user(), [], 30) : [];
-        return view('research.literature', compact('research', 'records'));
+        $providerKeys = array_keys((array) config('scholarly.providers', []));
+        $citationStyles = config('ai.citation_styles', ['apa', 'mla', 'chicago', 'harvard', 'ieee', 'vancouver']);
+        $data = $request->validate([
+            'view' => ['nullable', Rule::in(['discover', 'saved', 'reading', 'synthesis', 'compare'])],
+            'q' => ['nullable', 'string', 'max:500'],
+            'providers' => ['nullable', 'array'],
+            'providers.*' => ['string', Rule::in($providerKeys)],
+            'year_from' => ['nullable', 'integer', 'min:1800', 'max:'.(now()->year + 1)],
+            'year_to' => ['nullable', 'integer', 'min:1800', 'max:'.(now()->year + 1), 'gte:year_from'],
+            'limit' => ['nullable', 'integer', Rule::in([20, 30, 50])],
+            'library_q' => ['nullable', 'string', 'max:255'],
+            'reading_status' => ['nullable', Rule::in(['saved', 'reading', 'reviewed'])],
+            'collection' => ['nullable', 'string', 'max:100'],
+            'compare' => ['nullable', 'array', 'max:5'],
+            'compare.*' => ['uuid'],
+            'style' => ['nullable', Rule::in($citationStyles)],
+        ]);
+
+        $activeView = $data['view'] ?? 'discover';
+        $filters = [
+            'providers' => $data['providers'] ?? [],
+            'year_from' => $data['year_from'] ?? null,
+            'year_to' => $data['year_to'] ?? null,
+        ];
+        $limit = (int) ($data['limit'] ?? 30);
+        $records = filled($data['q'] ?? null) ? $scholarly->search($data['q'], $request->user(), $filters, $limit) : [];
+        $records = collect($records)->map(function (array $record): array {
+            $normalizedDoi = strtolower(trim((string) ($record['doi'] ?? '')));
+            $record['citation_key'] = $normalizedDoi !== ''
+                ? 'doi:'.$normalizedDoi
+                : 'scholarly:'.($record['provider'] ?? 'unknown').':'.sha1((string) ($record['external_identifier'] ?? $record['title'] ?? ''));
+            $record['author_text'] = collect((array) ($record['authors'] ?? []))
+                ->map(function ($author): ?string {
+                    if (is_string($author)) {
+                        return trim($author) ?: null;
+                    }
+                    if (! is_array($author)) {
+                        return null;
+                    }
+
+                    $name = data_get($author, 'author.display_name')
+                        ?? ($author['display_name'] ?? null)
+                        ?? ($author['name'] ?? null)
+                        ?? trim((string) (($author['given'] ?? '').' '.($author['family'] ?? '')));
+
+                    return filled($name) ? trim((string) $name) : null;
+                })
+                ->filter()
+                ->take(6)
+                ->implode(', ');
+            $candidateUrl = filled($record['url'] ?? null)
+                ? (string) $record['url']
+                : ($normalizedDoi !== '' ? 'https://doi.org/'.$normalizedDoi : null);
+            $scheme = $candidateUrl ? strtolower((string) parse_url($candidateUrl, PHP_URL_SCHEME)) : '';
+            $record['open_url'] = in_array($scheme, ['http', 'https'], true) ? $candidateUrl : null;
+
+            return $record;
+        })->values()->all();
+
+        $research->loadMissing(['templateVersion', 'sections']);
+        $referenceLinks = $research->referenceLinks()->with('reference')->latest()->get();
+        $notesByReference = $research->literatureNotes()->where('created_by', $request->user()->id)->get()->keyBy('academic_reference_id');
+        $savedCitationKeys = $referenceLinks->pluck('reference.citation_key')->filter()->flip();
+        $providers = collect(config('scholarly.providers', []))->keys()->values();
+        $citationStyle = strtolower((string) ($data['style'] ?? $research->templateVersion?->citation_style ?? data_get($research->metadata, 'citation_style', 'apa')));
+        if (! in_array($citationStyle, $citationStyles, true)) {
+            $citationStyle = 'apa';
+        }
+
+        $libraryRows = $referenceLinks
+            ->filter(fn ($link): bool => (bool) $link->reference)
+            ->values()
+            ->map(function ($link, int $index) use ($notesByReference, $referenceService, $citationStyle): array {
+                $reference = $link->reference;
+                $note = $notesByReference->get($reference->id);
+                $readingStatus = $note?->reading_status ?: 'saved';
+                $reviewFields = collect([$note?->summary, $note?->methodology, $note?->findings, $note?->limitations, $note?->contradictions, $note?->research_gap]);
+                $completedFields = $reviewFields->filter(fn ($value) => filled($value))->count();
+
+                return [
+                    'link' => $link,
+                    'reference' => $reference,
+                    'reference_uuid' => $reference->uuid,
+                    'title' => $reference->title,
+                    'year' => $reference->publication_year,
+                    'doi' => $reference->doi,
+                    'url' => $reference->url ?: ($reference->doi ? 'https://doi.org/'.$reference->doi : null),
+                    'authors' => $this->referenceAuthorText($reference->authors ?? []),
+                    'note' => $note,
+                    'reading_status' => $readingStatus,
+                    'review_completion' => (int) round(($completedFields / 6) * 100),
+                    'collections' => array_values(array_filter((array) ($note?->collections ?? []))),
+                    'keywords' => array_values(array_filter((array) ($note?->keywords ?? []))),
+                    'summary' => $note?->summary,
+                    'methodology' => $note?->methodology,
+                    'findings' => $note?->findings,
+                    'limitations' => $note?->limitations,
+                    'contradictions' => $note?->contradictions,
+                    'research_gap' => $note?->research_gap,
+                    'in_text_citation' => $referenceService->inText($reference, $citationStyle, $index + 1),
+                    'bibliography' => $referenceService->format($reference, $citationStyle, $index + 1),
+                ];
+            });
+
+        $libraryStats = [
+            'total' => $libraryRows->count(),
+            'saved' => $libraryRows->where('reading_status', 'saved')->count(),
+            'reading' => $libraryRows->where('reading_status', 'reading')->count(),
+            'reviewed' => $libraryRows->where('reading_status', 'reviewed')->count(),
+        ];
+        $collections = $libraryRows->flatMap(fn (array $row) => $row['collections'])->filter()->unique()->sort()->values();
+
+        $filteredLibraryRows = $libraryRows
+            ->when(filled($data['library_q'] ?? null), function ($rows) use ($data) {
+                $needle = str((string) $data['library_q'])->lower()->toString();
+                return $rows->filter(fn (array $row): bool => str_contains(strtolower($row['title'].' '.$row['authors'].' '.implode(' ', $row['keywords'])), $needle));
+            })
+            ->when(filled($data['reading_status'] ?? null), fn ($rows) => $rows->where('reading_status', $data['reading_status']))
+            ->when(filled($data['collection'] ?? null), fn ($rows) => $rows->filter(fn (array $row): bool => in_array($data['collection'], $row['collections'], true)))
+            ->values();
+
+        $readingQueue = $libraryRows->whereIn('reading_status', ['saved', 'reading'])->values();
+        $synthesis = $synthesisService->build($libraryRows);
+        $compareUuids = array_values(array_unique((array) ($data['compare'] ?? [])));
+        $compareRows = $libraryRows->filter(fn (array $row): bool => in_array($row['reference_uuid'], $compareUuids, true))->take(5)->values();
+        $chapterTwoSection = $research->sections->first(fn ($section) => in_array($section->key, ['chapter_2', 'literature_review'], true));
+
+        return view('research.literature', compact(
+            'research', 'records', 'referenceLinks', 'notesByReference', 'savedCitationKeys', 'providers',
+            'activeView', 'libraryRows', 'filteredLibraryRows', 'readingQueue', 'libraryStats', 'collections',
+            'synthesis', 'compareRows', 'citationStyle', 'citationStyles', 'chapterTwoSection'
+        ));
     }
 
     public function saveReference(Request $request, ResearchProject $research, ScholarlyRecord $record): RedirectResponse
     {
         $this->authorize('update', $research);
-        $reference = AcademicReference::firstOrCreate(['owner_id' => $request->user()->id, 'doi' => $record->doi], ['university_id' => $research->university_id, 'title' => $record->title, 'authors' => $record->authors, 'publication_year' => $record->publication_year, 'source_type' => 'scholarly_work', 'url' => $record->url, 'abstract' => $record->abstract, 'metadata' => ['scholarly_record_uuid' => $record->uuid, 'provider' => $record->provider]]);
-        $research->referenceLinks()->firstOrCreate(['academic_reference_id' => $reference->id], ['purpose' => 'research_library']);
-        return back()->with('success', 'Scholarly record saved to the project reference library.');
+        $this->saveScholarlyReference($research, $request->user(), $record);
+
+        return back()->with('success', 'Paper saved to the project reference library.');
+    }
+
+    public function saveReferences(Request $request, ResearchProject $research): RedirectResponse
+    {
+        $this->authorize('update', $research);
+        $data = $request->validate([
+            'record_ids' => ['required', 'array', 'min:1', 'max:50'],
+            'record_ids.*' => ['required', 'uuid', 'exists:scholarly_records,uuid'],
+        ]);
+
+        $records = ScholarlyRecord::query()->whereIn('uuid', array_values(array_unique($data['record_ids'])))->get();
+        foreach ($records as $record) {
+            $this->saveScholarlyReference($research, $request->user(), $record);
+        }
+
+        return back()->with('success', $records->count().' paper'.($records->count() === 1 ? '' : 's').' saved to the project reference library.');
     }
 
     public function literatureNote(Request $request, ResearchProject $research, AcademicReference $reference): RedirectResponse
     {
-        $this->authorize('update', $research); abort_unless($research->referenceLinks()->where('academic_reference_id', $reference->id)->exists(), 404);
-        $data = $request->validate(['summary' => ['nullable','string'], 'methodology' => ['nullable','string'], 'findings' => ['nullable','string'], 'limitations' => ['nullable','string'], 'contradictions' => ['nullable','string'], 'research_gap' => ['nullable','string'], 'keywords' => ['nullable','string']]);
-        $research->literatureNotes()->updateOrCreate(['academic_reference_id' => $reference->id, 'created_by' => $request->user()->id], $data + ['keywords' => array_values(array_filter(array_map('trim', explode(',', $data['keywords'] ?? ''))))]);
-        return back()->with('success', 'Structured literature review note saved.');
+        $this->authorize('update', $research);
+        abort_unless($research->referenceLinks()->where('academic_reference_id', $reference->id)->exists(), 404);
+        $data = $request->validate([
+            'reading_status' => ['nullable', Rule::in(['saved', 'reading', 'reviewed'])],
+            'summary' => ['nullable','string'],
+            'methodology' => ['nullable','string'],
+            'findings' => ['nullable','string'],
+            'limitations' => ['nullable','string'],
+            'contradictions' => ['nullable','string'],
+            'research_gap' => ['nullable','string'],
+            'keywords' => ['nullable','string'],
+            'collections' => ['nullable','string'],
+        ]);
+
+        $status = $data['reading_status'] ?? null;
+        $payload = collect($data)->except(['keywords', 'collections'])->all();
+        if (array_key_exists('keywords', $data)) {
+            $payload['keywords'] = $this->commaSeparatedValues($data['keywords'] ?? '');
+        }
+        if (array_key_exists('collections', $data)) {
+            $payload['collections'] = $this->commaSeparatedValues($data['collections'] ?? '');
+        }
+        if ($status !== null) {
+            $payload['reviewed_at'] = $status === 'reviewed' ? now() : null;
+        }
+
+        $research->literatureNotes()->updateOrCreate(
+            ['academic_reference_id' => $reference->id, 'created_by' => $request->user()->id],
+            $payload
+        );
+
+        return back()->with('success', $status === 'reviewed' ? 'Literature review saved and marked as reviewed.' : 'Structured literature review note saved.');
+    }
+
+    public function removeReference(Request $request, ResearchProject $research, AcademicReference $reference): RedirectResponse
+    {
+        $this->authorize('update', $research);
+        $link = $research->referenceLinks()->where('academic_reference_id', $reference->id)->firstOrFail();
+        $research->literatureNotes()->where('academic_reference_id', $reference->id)->delete();
+        $link->delete();
+
+        return back()->with('success', 'Reference removed from this project library.');
+    }
+
+    private function saveScholarlyReference(ResearchProject $research, User $user, ScholarlyRecord $record): AcademicReference
+    {
+        $normalizedDoi = strtolower(trim((string) $record->doi));
+        $citationKey = $normalizedDoi !== ''
+            ? 'doi:'.$normalizedDoi
+            : 'scholarly:'.$record->provider.':'.sha1((string) $record->external_identifier);
+
+        $reference = AcademicReference::query()->updateOrCreate(
+            ['owner_id' => $user->id, 'citation_key' => $citationKey],
+            [
+                'university_id' => $research->workspace_mode === 'institutional' ? $research->university_id : null,
+                'title' => $record->title,
+                'authors' => $record->authors,
+                'publication_year' => $record->publication_year,
+                'source_type' => 'scholarly_work',
+                'doi' => $record->doi,
+                'url' => in_array(strtolower((string) parse_url((string) $record->url, PHP_URL_SCHEME)), ['http', 'https'], true) ? $record->url : null,
+                'abstract' => $record->abstract,
+                'external_ids' => array_filter([
+                    'provider' => $record->provider,
+                    'external_identifier' => $record->external_identifier,
+                    'doi' => $record->doi,
+                ]),
+                'metadata' => [
+                    'scholarly_record_uuid' => $record->uuid,
+                    'provider' => $record->provider,
+                    'fetched_at' => $record->fetched_at?->toIso8601String(),
+                ],
+            ]
+        );
+
+        $research->referenceLinks()->firstOrCreate(
+            ['academic_reference_id' => $reference->id],
+            ['purpose' => 'research_library']
+        );
+
+        return $reference;
     }
 
     public function seal(Request $request, ResearchProject $research, ResearchArchiveService $archives): RedirectResponse
@@ -272,4 +568,40 @@ class ResearchWorkspaceController extends Controller
         $body = view('research.export', compact('research'))->render();
         return response($body, 200, ['Content-Type' => 'text/html; charset=utf-8', 'Content-Disposition' => 'attachment; filename="'.str($research->title)->slug().'.html"']);
     }
+
+    /** @param array<int,mixed> $authors */
+    private function referenceAuthorText(array $authors): string
+    {
+        return collect($authors)
+            ->map(function ($author): ?string {
+                if (is_string($author)) {
+                    return trim($author) ?: null;
+                }
+                if (! is_array($author)) {
+                    return null;
+                }
+
+                $name = data_get($author, 'author.display_name')
+                    ?? ($author['display_name'] ?? null)
+                    ?? ($author['name'] ?? null)
+                    ?? trim((string) (($author['given'] ?? '').' '.($author['family'] ?? '')));
+
+                return filled($name) ? trim((string) $name) : null;
+            })
+            ->filter()
+            ->take(8)
+            ->implode(', ');
+    }
+
+    /** @return array<int,string> */
+    private function commaSeparatedValues(string $value): array
+    {
+        return collect(explode(',', $value))
+            ->map(fn (string $item): string => trim($item))
+            ->filter()
+            ->unique(fn (string $item): string => strtolower($item))
+            ->values()
+            ->all();
+    }
+
 }

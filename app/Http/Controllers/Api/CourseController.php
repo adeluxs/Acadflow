@@ -6,10 +6,13 @@ use App\Http\Controllers\Concerns\ScopesTenantData;
 use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\Department;
+use App\Models\LecturerCourseAssignment;
 use App\Models\Semester;
 use App\Services\AcademicContextService;
+use App\Services\IndependentAcademicContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class CourseController extends Controller
@@ -41,28 +44,68 @@ class CourseController extends Controller
         return $course->load(['department', 'enrollments.user', 'lecturerAssignments.user']);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, IndependentAcademicContextService $independent)
     {
         $this->authorize('create', Course::class);
+        $user = $request->user();
         $validated = $request->validate([
-            'department_id' => 'required|exists:departments,id',
-            'code' => 'required|string|unique:courses,code',
-            'name' => 'required|string', 'description' => 'nullable|string',
-            'credit_hours' => 'required|integer|min:1|max:12', 'level' => 'required|string',
-            'semester' => 'required|string', 'type' => 'required|in:compulsory,elective',
+            'access_mode' => 'nullable|in:independent,institutional',
+            'department_id' => 'nullable|required_if:access_mode,institutional|exists:departments,id',
+            'code' => 'required|string|max:20|unique:courses,code',
+            'name' => 'required|string|max:255', 'description' => 'nullable|string|max:5000',
+            'credit_hours' => 'nullable|integer|min:1|max:30', 'level' => 'nullable|string|max:20',
+            'semester' => 'nullable|string|max:20', 'type' => 'nullable|in:compulsory,elective',
             'max_capacity' => 'nullable|integer|min:1', 'pass_mark' => 'nullable|integer|min:0|max:100',
             'submission_types' => 'nullable|array', 'submission_types.*' => 'in:assignment,project,siwes,group,seminar',
         ]);
+
+        $mode = $validated['access_mode'] ?? ($user->isLecturer() && ! $user->university_id ? 'independent' : 'institutional');
+        if ($mode === 'independent') {
+            abort_unless($user->isLecturer(), 403, 'Only lecturer accounts can create independent classrooms.');
+            $context = $independent->context();
+            $course = DB::transaction(function () use ($validated, $user, $context): Course {
+                $course = Course::query()->create([
+                    'uuid' => (string) Str::uuid(),
+                    'department_id' => $context['department']->id,
+                    'access_mode' => 'independent',
+                    'owner_user_id' => $user->id,
+                    'code' => strtoupper(trim($validated['code'])),
+                    'name' => trim($validated['name']),
+                    'description' => $validated['description'] ?? null,
+                    'credit_hours' => $validated['credit_hours'] ?? 3,
+                    'level' => $validated['level'] ?? 'General',
+                    'semester' => $validated['semester'] ?? 'Independent',
+                    'type' => $validated['type'] ?? 'elective',
+                    'max_capacity' => $validated['max_capacity'] ?? null,
+                    'pass_mark' => $validated['pass_mark'] ?? 40,
+                    'submission_types' => $validated['submission_types'] ?? ['assignment', 'project'],
+                    'is_active' => true,
+                    'catalog_source' => 'independent_user',
+                    'is_catalog_template' => false,
+                ]);
+                LecturerCourseAssignment::query()->create([
+                    'course_id' => $course->id,
+                    'user_id' => $user->id,
+                    'semester_id' => $context['semester']->id,
+                    'is_coordinator' => true,
+                ]);
+                return $course;
+            });
+
+            return response()->json($course->load('department'), 201);
+        }
+
+        abort_unless(! empty($validated['department_id']), 422, 'Department is required for institutional courses.');
         $department = Department::with('faculty')->findOrFail($validated['department_id']);
-        $user = $request->user();
-        abort_unless($user->isSuperAdmin() || $department->faculty?->university_id === $user->university_id, 403);
+        abort_unless($user->isSuperAdmin() || ($user->university_id && $department->faculty?->university_id === $user->university_id), 403);
         if ($user->isDepartmentAdmin()) abort_unless($department->id === $user->department_id, 403);
 
         $course = Course::create([
             'uuid' => (string) Str::uuid(), 'department_id' => $department->id,
-            'code' => $validated['code'], 'name' => $validated['name'], 'description' => $validated['description'] ?? null,
-            'credit_hours' => $validated['credit_hours'], 'level' => $validated['level'], 'semester' => $validated['semester'],
-            'type' => $validated['type'], 'max_capacity' => $validated['max_capacity'] ?? null,
+            'access_mode' => 'institutional', 'owner_user_id' => null,
+            'code' => strtoupper(trim($validated['code'])), 'name' => trim($validated['name']), 'description' => $validated['description'] ?? null,
+            'credit_hours' => $validated['credit_hours'] ?? 3, 'level' => $validated['level'] ?? 'General', 'semester' => $validated['semester'] ?? '1',
+            'type' => $validated['type'] ?? 'elective', 'max_capacity' => $validated['max_capacity'] ?? null,
             'pass_mark' => $validated['pass_mark'] ?? 40,
             'submission_types' => $validated['submission_types'] ?? ['assignment', 'project', 'siwes'], 'is_active' => true,
         ]);
@@ -94,7 +137,9 @@ class CourseController extends Controller
 
     public function enroll(Request $request, Course $course, AcademicContextService $academicContext)
     {
-        $this->assertCourseTenant($request->user(), $course);
+        if (! $course->isIndependent()) {
+            $this->assertCourseTenant($request->user(), $course);
+        }
         $this->authorize('enroll', $course);
         $user = Auth::user();
         $semester = $academicContext->activeSemesterForCourse($course);

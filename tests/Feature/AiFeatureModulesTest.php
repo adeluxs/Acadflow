@@ -13,6 +13,8 @@ use App\Models\Semester;
 use App\Models\Submission;
 use App\Models\SubmissionVersion;
 use App\Models\User;
+use App\Services\Ai\AiRuntimeConfigService;
+use App\Services\SettingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -25,6 +27,18 @@ class AiFeatureModulesTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+
+        // These module tests verify deterministic feature behaviour, not live
+        // provider transport. Keep them on the central runtime path while using
+        // rule-based mode so missing API credentials cannot turn them into
+        // integration tests. Provider transport/fallback has dedicated tests.
+        SettingService::set('ai_mode', 'rule_based');
+        SettingService::set('ai_enable_cache', false, 'boolean');
+        foreach (['submission_validator', 'plagiarism', 'writing_assistant', 'citation_assistant'] as $feature) {
+            SettingService::set('ai_feature_'.$feature, true, 'boolean');
+        }
+        app(AiRuntimeConfigService::class)->invalidate();
+        app(\App\Ai\AiManager::class)->invalidateAll();
     }
 
     private function makeSubmission(string $type, string $text): Submission
@@ -72,10 +86,7 @@ class AiFeatureModulesTest extends TestCase
     {
         $submission = $this->makeSubmission('project', 'short text only');
 
-        $module = new SubmissionValidatorModule(
-            app(\App\Ai\AiManager::class),
-            app(\App\Ai\Support\TextExtractor::class)
-        );
+        $module = app(SubmissionValidatorModule::class);
 
         $response = $module->validate($submission);
 
@@ -88,7 +99,7 @@ class AiFeatureModulesTest extends TestCase
     {
         $submission = $this->makeSubmission('assignment', 'Introduction with proper analysis. Conclusion wraps up. References listed.');
 
-        $module = new PlagiarismModule(app(\App\Ai\AiManager::class));
+        $module = app(PlagiarismModule::class);
 
         $response = $module->analyze($submission);
 
@@ -98,10 +109,7 @@ class AiFeatureModulesTest extends TestCase
 
     public function test_writing_assistant_returns_suggestions(): void
     {
-        $module = new WritingAssistantModule(
-            app(\App\Ai\AiManager::class),
-            app(\App\Ai\Support\TextExtractor::class)
-        );
+        $module = app(WritingAssistantModule::class);
 
         $response = $module->analyze('The thing is really very bad and stuff.', 'assignment');
 
@@ -111,7 +119,7 @@ class AiFeatureModulesTest extends TestCase
 
     public function test_citation_assistant_detects_missing_reference_list(): void
     {
-        $module = new CitationAssistantModule(app(\App\Ai\AiManager::class));
+        $module = app(CitationAssistantModule::class);
 
         $response = $module->analyze('An essay about topics without any citation support.', 'apa');
 

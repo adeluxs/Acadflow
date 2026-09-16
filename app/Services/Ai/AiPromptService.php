@@ -196,7 +196,12 @@ class AiPromptService
         unset($payload['_prompt']);
         // Routing identifiers are useful to the runtime but not useful model
         // context and should not inflate prompts.
-        unset($payload['_ai_routing_fingerprint'], $payload['_ai_request_id'], $payload['_tenant_university_id']);
+        unset(
+            $payload['_ai_routing_fingerprint'],
+            $payload['_ai_request_id'],
+            $payload['_ai_deadline_at'],
+            $payload['_tenant_university_id']
+        );
         return $payload;
     }
 }

@@ -36,12 +36,17 @@
         </div>
 
         @php
-            $adminActions = [
+            $commercialAction = auth()->user()?->isSuperAdmin()
+                ? ['Monetization', 'Platform pricing, wallets, commissions and institutional contracts', 'admin.monetization']
+                : (auth()->user()?->isUniversityAdmin()
+                    ? ['Commercial Account', 'View institution terms, budget and request changes', 'institution.commercial-account']
+                    : null);
+            $adminActions = array_values(array_filter([
                 ['Manage Users', 'Students, lecturers, admins', 'admin.users'],
                 ['Manage Courses', 'Create and organize courses', 'admin.courses'],
                 ['View Reports', 'Analytics and usage data', 'admin.reports'],
-                ['Monetization', 'Wallets, pricing, commissions and commercial accounts', 'admin.monetization'],
-            ];
+                $commercialAction,
+            ]));
         @endphp
         <div class="grid sm:grid-cols-2 gap-3">
             @foreach($adminActions as [$label, $description, $routeName])

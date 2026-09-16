@@ -52,14 +52,48 @@ class GeminiProvider extends ExternalProvider
 
     protected function parseResponse(string $feature, array $raw, float $time, float $cost): AiResponse
     {
-        $content = (string) data_get($raw, 'candidates.0.content.parts.0.text', '');
+        $blockReason = trim((string) data_get($raw, 'promptFeedback.blockReason', ''));
+        $finishReason = strtoupper(trim((string) data_get($raw, 'candidates.0.finishReason', '')));
+        if ($blockReason !== '' || in_array($finishReason, ['SAFETY', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'RECITATION'], true)) {
+            return new AiResponse(
+                source: $this->name(), feature: $feature, success: false,
+                summary: 'The AI provider could not return an answer for this request.',
+                processingTime: $time, cost: $cost, provider: $this->name(), model: $this->model(),
+                errorCode: 'AI_RESPONSE_BLOCKED', confidence: 0.0,
+            );
+        }
+
+        $parts = (array) data_get($raw, 'candidates.0.content.parts', []);
+        $content = trim(implode("
+", array_values(array_filter(array_map(
+            static fn ($part) => is_array($part) && is_string($part['text'] ?? null) ? trim($part['text']) : '',
+            $parts
+        ), static fn (string $text) => $text !== ''))));
+
+        if ($content === '') {
+            return new AiResponse(
+                source: $this->name(), feature: $feature, success: false,
+                summary: 'The AI provider returned an empty response.',
+                processingTime: $time, cost: $cost, provider: $this->name(), model: $this->model(),
+                errorCode: 'AI_EMPTY_RESPONSE', confidence: 0.0,
+            );
+        }
+
         $data = json_decode($content, true);
-        if (! is_array($data)) $data = ['raw' => $content];
+        if (! is_array($data)) {
+            return new AiResponse(
+                source: $this->name(), feature: $feature, success: false,
+                summary: 'The AI provider response could not be interpreted safely.',
+                processingTime: $time, cost: $cost, provider: $this->name(), model: $this->model(),
+                errorCode: 'AI_RESPONSE_PARSE_FAILED', confidence: 0.0,
+            );
+        }
 
         return new AiResponse(
             source: $this->name(), feature: $feature, success: true,
-            data: $data['data'] ?? $data, summary: $data['summary'] ?? null,
-            score: isset($data['score']) ? (float) $data['score'] : null,
+            data: is_array($data['data'] ?? null) ? $data['data'] : $data,
+            summary: isset($data['summary']) && is_string($data['summary']) ? $data['summary'] : null,
+            score: isset($data['score']) && is_numeric($data['score']) ? (float) $data['score'] : null,
             issues: is_array($data['issues'] ?? null) ? $data['issues'] : [],
             processingTime: $time, cost: $cost, provider: $this->name(), model: $this->model(),
         );

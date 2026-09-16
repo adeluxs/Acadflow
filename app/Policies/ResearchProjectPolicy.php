@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\ResearchProject;
 use App\Models\User;
+use App\Services\FeatureAccessService;
 
 class ResearchProjectPolicy
 {
@@ -27,7 +28,10 @@ class ResearchProjectPolicy
 
     public function create(User $user): bool
     {
-        return $user->is_active && in_array($user->role, ['student', 'lecturer', 'department_admin', 'university_admin', 'super_admin'], true);
+        return $user->is_active && (
+            in_array($user->role, ['student', 'lecturer', 'department_admin', 'university_admin', 'super_admin'], true)
+            || $user->account_type === 'researcher'
+        );
     }
 
     public function update(User $user, ResearchProject $project): bool
@@ -71,7 +75,20 @@ class ResearchProjectPolicy
             return true;
         }
 
-        if ($user->university_id !== $project->university_id) {
+        // Independent workspaces are scoped by explicit project participation,
+        // not by the synthetic internal academic context used behind the scenes.
+        if ($project->isIndependent()) {
+            return $project->owner_id === $user->id
+                || $project->supervisor_id === $user->id
+                || $project->co_supervisor_id === $user->id
+                || $project->memberRecords()->where('user_id', $user->id)->exists();
+        }
+
+        if (! $user->isAdmin() && FeatureAccessService::effectiveStatus('research_institutional_expansion', $user->university_id) !== FeatureAccessService::STATUS_ENABLED) {
+            return false;
+        }
+
+        if (! $user->university_id || $user->university_id !== $project->university_id) {
             return false;
         }
 

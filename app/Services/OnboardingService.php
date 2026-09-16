@@ -41,12 +41,24 @@ class OnboardingService
         'other' => 'Other',
     ];
 
-    public const INSTITUTIONAL_PATHS = [
-        'student', 'lecturer', 'researcher', 'university_representative',
-        'department_representative', 'academic_staff', 'non_academic_staff',
+    public const PUBLIC_ACCOUNT_PATHS = [
+        'student' => 'Student',
+        'lecturer' => 'Lecturer or supervisor',
+        'researcher' => 'Researcher',
     ];
 
-    public function __construct(private readonly SocialNotificationService $notifications) {}
+    // These paths represent an institution itself and therefore require an
+    // institutional affiliation. Students, lecturers and researchers may use
+    // AcadFlow independently and can attach an institution later.
+    public const INSTITUTIONAL_PATHS = [
+        'university_representative', 'department_representative',
+        'academic_staff', 'non_academic_staff',
+    ];
+
+    public function __construct(
+        private readonly SocialNotificationService $notifications,
+        private readonly InstitutionAdoptionService $institutionAdoption,
+    ) {}
 
     public function state(User $user): UserOnboardingState
     {
@@ -141,8 +153,12 @@ class OnboardingService
                 'last_name' => $data['last_name'],
                 'username' => strtolower($data['username']),
                 'account_type' => $state->path,
-                'role' => in_array($user->role, ['member', 'student'], true)
-                    ? ($state->path === 'student' ? 'student' : 'member')
+                'role' => in_array($user->role, ['member', 'student', 'lecturer'], true)
+                    ? match ($state->path) {
+                        'student' => 'student',
+                        'lecturer' => 'lecturer',
+                        default => 'member',
+                    }
                     : $user->role,
                 'phone' => $data['phone'] ?? $user->phone,
                 'country_code' => isset($data['country_code']) ? strtoupper($data['country_code']) : null,
@@ -187,9 +203,14 @@ class OnboardingService
             ])->save();
         });
 
-        $this->notifications->send($user, 'onboarding_completed', 'Welcome to AcadFlow', 'Your profile and workspace setup are complete.', ['account_type' => $user->account_type]);
+        $fresh = $user->fresh();
+        if ($fresh->university_id) {
+            $this->institutionAdoption->recordSelfDeclared($fresh, 'onboarding');
+        }
 
-        return $user->fresh();
+        $this->notifications->send($fresh, 'onboarding_completed', 'Welcome to AcadFlow', 'Your profile and workspace setup are complete.', ['account_type' => $user->account_type]);
+
+        return $fresh;
     }
 
     public function normalizeStepData(string $step, array $validated): array

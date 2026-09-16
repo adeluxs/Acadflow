@@ -39,9 +39,27 @@ class LearningPathService
         if ($path->visibility !== 'public' && ! $user->isSuperAdmin() && $path->university_id !== $user->university_id) abort(403);
         if ($path->access_type === 'premium' && ! $user->hasEntitlement($path)) throw ValidationException::withMessages(['path' => 'Purchase entitlement is required for this premium learning path.']);
         return DB::transaction(function () use ($path, $user) {
-            $enrollment = $path->enrollments()->firstOrCreate(['user_id' => $user->id], ['status' => 'active', 'progress' => 0, 'current_item_id' => $path->items()->orderBy('position')->value('id'), 'started_at' => now()]);
-            foreach ($path->items as $item) $enrollment->progressRecords()->firstOrCreate(['learning_path_item_id' => $item->id], ['status' => 'not_started']);
-            return $enrollment->fresh(['path.items','progressRecords']);
+            $itemIds = $path->items()->orderBy('position')->pluck('id');
+            $enrollment = $path->enrollments()->firstOrCreate(
+                ['user_id' => $user->id],
+                ['status' => 'active', 'progress' => 0, 'current_item_id' => $itemIds->first(), 'started_at' => now()]
+            );
+
+            if ($itemIds->isNotEmpty()) {
+                $now = now();
+                DB::table('learning_progress')->insertOrIgnore(
+                    $itemIds->map(fn ($itemId) => [
+                        'learning_enrollment_id' => $enrollment->id,
+                        'learning_path_item_id' => $itemId,
+                        'status' => 'not_started',
+                        'time_spent_seconds' => 0,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])->all()
+                );
+            }
+
+            return $enrollment->fresh(['path.items', 'progressRecords']);
         });
     }
 

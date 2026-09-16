@@ -8,13 +8,17 @@ use App\Models\Course;
 use App\Models\Department;
 use App\Models\Discussion;
 use App\Models\Enrollment;
+use App\Models\LecturerCourseAssignment;
 use App\Models\Semester;
 use App\Models\User;
 use App\Services\AcademicContextService;
+use App\Services\IndependentAcademicContextService;
+use App\Services\FeatureAccessService;
 use App\Services\SettingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Illuminate\Validation\Rule;
 
@@ -27,7 +31,12 @@ class CourseController extends Controller
         $enrollments = Enrollment::query()
             ->where('user_id', $user->id)
             ->where('status', 'enrolled')
-            ->whereHas('course.department.faculty', fn ($query) => $query->where('university_id', $user->university_id))
+            ->whereHas('course', function ($query) use ($user): void {
+                $query->where('access_mode', 'independent');
+                if ($user->university_id) {
+                    $query->orWhereHas('department.faculty', fn ($faculty) => $faculty->where('university_id', $user->university_id));
+                }
+            })
             ->with([
                 'semester',
                 'course' => fn ($query) => $query
@@ -72,15 +81,18 @@ class CourseController extends Controller
             ->orderByRaw('due_date IS NULL, due_date ASC')
             ->limit(4)
             ->get();
-        $recentDiscussions = Discussion::query()
-            ->where('course_id', $course->id)
-            ->when($user->isStudent(), fn ($q) => $q->whereIn('status', ['open', 'resolved']))
-            ->with('user')
-            ->latest()
-            ->limit(4)
-            ->get();
+        $discussionsEnabled = FeatureAccessService::canAccessFeature('course_discussions', $user);
+        $recentDiscussions = $discussionsEnabled
+            ? Discussion::query()
+                ->where('course_id', $course->id)
+                ->when($user->isStudent(), fn ($q) => $q->whereIn('status', ['open', 'resolved']))
+                ->with('user')
+                ->latest()
+                ->limit(4)
+                ->get()
+            : collect();
 
-        return view('courses.show', compact('course', 'isEnrolled', 'isLecturer', 'recentMaterials', 'recentTasks', 'recentDiscussions'));
+        return view('courses.show', compact('course', 'isEnrolled', 'isLecturer', 'recentMaterials', 'recentTasks', 'recentDiscussions', 'discussionsEnabled'));
     }
 
     public function enroll(Request $request, Course $course): RedirectResponse
@@ -129,7 +141,6 @@ class CourseController extends Controller
 
         $courses = Course::query()
             ->whereHas('lecturerAssignments', fn ($query) => $query->where('user_id', $user->id))
-            ->whereHas('department.faculty', fn ($query) => $query->where('university_id', $user->university_id))
             ->with(['department.faculty', 'lecturerAssignments.user'])
             ->withCount([
                 'enrollments as enrolled_students_count' => fn ($query) => $query->where('status', 'enrolled'),
@@ -152,6 +163,58 @@ class CourseController extends Controller
         return view('courses.lecturer', compact('courses', 'availableCourses'));
     }
 
+
+    public function storeIndependent(Request $request, IndependentAcademicContextService $independent): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user?->isLecturer(), 403, 'Only lecturer accounts can create independent classrooms.');
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'code' => ['required', 'string', 'max:20', Rule::unique('courses', 'code')],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'credit_hours' => ['nullable', 'integer', 'min:1', 'max:30'],
+            'level' => ['nullable', 'string', 'max:20'],
+            'semester' => ['nullable', 'string', 'max:20'],
+            'type' => ['nullable', Rule::in(['compulsory', 'elective'])],
+            'max_capacity' => ['nullable', 'integer', 'min:1'],
+            'pass_mark' => ['nullable', 'integer', 'min:0', 'max:100'],
+        ]);
+
+        $context = $independent->context();
+        $course = DB::transaction(function () use ($data, $user, $context): Course {
+            $course = Course::query()->create([
+                'department_id' => $context['department']->id,
+                'access_mode' => 'independent',
+                'owner_user_id' => $user->id,
+                'name' => trim($data['name']),
+                'code' => strtoupper(trim($data['code'])),
+                'description' => $data['description'] ?? null,
+                'credit_hours' => $data['credit_hours'] ?? 3,
+                'level' => $data['level'] ?? 'General',
+                'semester' => $data['semester'] ?? 'Independent',
+                'type' => $data['type'] ?? 'elective',
+                'max_capacity' => $data['max_capacity'] ?? null,
+                'pass_mark' => $data['pass_mark'] ?? 40,
+                'is_active' => true,
+                'catalog_source' => 'independent_user',
+                'is_catalog_template' => false,
+            ]);
+
+            LecturerCourseAssignment::query()->create([
+                'course_id' => $course->id,
+                'user_id' => $user->id,
+                'semester_id' => $context['semester']->id,
+                'is_coordinator' => true,
+            ]);
+
+            return $course;
+        });
+
+        return redirect()->route('courses.show', $course)
+            ->with('success', 'Independent classroom created. Share the join link with your students.');
+    }
+
     public function adminIndex(): View
     {
         $user = Auth::user();
@@ -163,7 +226,7 @@ class CourseController extends Controller
             $query->whereHas('department.faculty', fn ($q) => $q->where('university_id', $user->university_id));
         }
 
-        $courses = $query->orderBy('code')->get();
+        $courses = $query->orderBy('code')->paginate(25)->withQueryString();
 
         return view('courses.admin', compact('courses'));
     }
@@ -184,14 +247,20 @@ class CourseController extends Controller
     {
         $this->assertDepartmentScope(Auth::user(), $course->department()->with('faculty')->firstOrFail());
 
-        $course->load('department.faculty', 'enrollments.user', 'lecturerAssignments.user');
+        $course->load('department.faculty', 'lecturerAssignments.user')->loadCount('enrollments');
+        $enrollments = $course->enrollments()
+            ->select(['id', 'course_id', 'user_id', 'status'])
+            ->with('user:id,email')
+            ->orderBy('user_id')
+            ->paginate(25, ['*'], 'students_page')
+            ->withQueryString();
         $lecturers = User::query()
             ->where('role', 'lecturer')
             ->where('department_id', $course->department_id)
             ->orderBy('first_name')
             ->get();
 
-        return view('courses.admin-show', compact('course', 'lecturers'));
+        return view('courses.admin-show', compact('course', 'lecturers', 'enrollments'));
     }
 
     public function update(Request $request, Course $course): RedirectResponse
@@ -281,11 +350,15 @@ class CourseController extends Controller
     }
     protected function assertStudentCourseScope(Course $course, User $user): void
     {
+        if ($course->isIndependent()) {
+            return;
+        }
+
         $course->loadMissing('department.faculty');
         abort_unless(
-            $course->department?->faculty?->university_id === $user->university_id,
+            $user->university_id && $course->department?->faculty?->university_id === $user->university_id,
             403,
-            'You can only join courses from your institution.'
+            'You can only join institutional courses from your institution.'
         );
 
         if ((bool) SettingService::get('restrict_course_membership_to_department', true, $user->university_id)) {

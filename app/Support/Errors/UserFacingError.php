@@ -145,12 +145,20 @@ final class UserFacingError
         $code = strtoupper(trim((string) $code));
 
         return match ($code) {
-            'AI_PROVIDER_TIMEOUT' => ['message' => 'The AI request took longer than expected. You can try again.', 'retryable' => true],
+            'AI_PROVIDER_TIMEOUT', 'AI_REQUEST_TIMEOUT' => ['message' => 'The AI request took longer than expected. Your question has been preserved; you can try again.', 'retryable' => true],
             'AI_PROVIDER_RATE_LIMITED' => ['message' => 'This AI service is temporarily busy. Please try again shortly.', 'retryable' => true],
+            'AI_EMPTY_RESPONSE' => ['message' => 'The AI service completed the request but returned no usable answer. Please try again.', 'retryable' => true],
+            'AI_RESPONSE_BLOCKED' => ['message' => 'The AI service could not provide an answer for this request.', 'retryable' => false],
+            'AI_RESPONSE_PARSE_FAILED' => ['message' => 'The AI response could not be interpreted safely. Please try again.', 'retryable' => true],
+            'AI_CONTEXT_BUILD_FAILED' => ['message' => 'AcadFlow could not prepare the academic context for this request. Please try again.', 'retryable' => true],
+            'AI_PERSISTENCE_FAILED' => ['message' => 'The answer was generated, but AcadFlow could not save all related activity. Your answer can still be used.', 'retryable' => false],
             'AI_NETWORK_ERROR', 'AI_DNS_ERROR', 'AI_CONNECTION_REFUSED', 'AI_TLS_ERROR' => ['message' => 'AI is temporarily unavailable. Your work has not been lost. Please try again.', 'retryable' => true],
             'AI_PROVIDER_UNAVAILABLE', 'AI_ALL_PROVIDERS_FAILED' => ['message' => 'AI is temporarily unavailable. Your work has not been lost. Please try again shortly.', 'retryable' => true],
             'AI_PROVIDER_AUTH_FAILED', 'AI_MODEL_NOT_FOUND', 'AI_INVALID_CONFIGURATION', 'AI_PROVIDER_INCOMPATIBLE' => ['message' => 'This AI service is currently unavailable.', 'retryable' => false],
             'AI_USAGE_LIMIT_REACHED' => ['message' => 'The configured AI usage limit has been reached.', 'retryable' => false],
+            'AI_REQUEST_IN_PROGRESS' => ['message' => 'This AI request is already in progress.', 'retryable' => true],
+            'AI_DUPLICATE_REQUEST' => ['message' => 'This AI request has already been processed. Submit a new request.', 'retryable' => false],
+            'AI_BILLING_BLOCKED' => ['message' => self::safeMessage((string) $fallback, 'AI billing could not authorize this request. Please review your billing status and try again.'), 'retryable' => false],
             'AI_FEATURE_DISABLED', 'AI_DISABLED' => ['message' => 'AI assistance is currently unavailable.', 'retryable' => false],
             default => ['message' => self::safeMessage((string) $fallback, 'AI is temporarily unavailable. Please try again.'), 'retryable' => true],
         };

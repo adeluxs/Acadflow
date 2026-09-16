@@ -9,6 +9,9 @@ use App\Models\ResearchSection;
 use App\Models\ResearchType;
 use App\Models\User;
 use App\Services\ContentWorkspaceService;
+use App\Services\FeatureAccessService;
+use App\Services\IndependentAcademicContextService;
+use App\Services\ResearchInvitationService;
 use App\Services\ResearchProjectService;
 use App\Services\ResearchPublicationService;
 use App\Services\ResearchValidationService;
@@ -21,52 +24,184 @@ class ResearchController extends Controller
     {
         $this->authorize('viewAny', ResearchProject::class);
         $user = $request->user();
-        $query = ResearchProject::query()->with(['researchType', 'owner', 'supervisor', 'workflowInstance.currentStage']);
-        if (! $user->isSuperAdmin()) $query->where('university_id', $user->university_id);
-        if ($user->isDepartmentAdmin()) $query->where('department_id', $user->department_id);
-        if ($user->isStudent()) $query->where(fn ($scope) => $scope->where('owner_id', $user->id)->orWhereHas('memberRecords', fn ($members) => $members->where('user_id', $user->id)));
-        if ($user->isLecturer()) $query->where(fn ($scope) => $scope->where('supervisor_id', $user->id)->orWhere('co_supervisor_id', $user->id)->orWhereHas('memberRecords', fn ($members) => $members->where('user_id', $user->id)));
+        $institutionExpansionEnabled = FeatureAccessService::effectiveStatus('research_institutional_expansion', $user->university_id) === FeatureAccessService::STATUS_ENABLED;
+        $institutionPreview = $institutionExpansionEnabled || $user->isAdmin();
+        $relations = ['researchType', 'owner', 'workflowInstance.currentStage'];
+        if ($institutionPreview) {
+            $relations[] = 'supervisor';
+        }
+        $query = ResearchProject::query()->with($relations);
+
+        if (! $user->isSuperAdmin()) {
+            $query->where(function ($scope) use ($user, $institutionPreview): void {
+                if ($institutionPreview && $user->university_id) {
+                    $scope->where(function ($institutional) use ($user): void {
+                        $institutional->where('workspace_mode', 'institutional')
+                            ->where('university_id', $user->university_id);
+                        if ($user->isDepartmentAdmin()) {
+                            $institutional->where('department_id', $user->department_id);
+                        }
+                    });
+                } else {
+                    $scope->whereRaw('1 = 0');
+                }
+
+                $scope->orWhere(function ($independent) use ($user): void {
+                    $independent->where('workspace_mode', 'independent')
+                        ->where(function ($participant) use ($user): void {
+                            $participant->where('owner_id', $user->id)
+                                ->orWhere('supervisor_id', $user->id)
+                                ->orWhere('co_supervisor_id', $user->id)
+                                ->orWhereHas('memberRecords', fn ($members) => $members->where('user_id', $user->id));
+                        });
+                });
+            });
+        }
+
         $query->when($request->filled('status'), fn ($scope) => $scope->where('status', $request->string('status')->toString()));
 
         return $query->latest('updated_at')->paginate(20);
     }
 
-    public function store(Request $request, ResearchProjectService $projects)
-    {
+    public function store(
+        Request $request,
+        ResearchProjectService $projects,
+        IndependentAcademicContextService $independent,
+        ResearchInvitationService $invitations
+    ) {
         $this->authorize('create', ResearchProject::class);
         $user = $request->user();
         $data = $request->validate([
-            'research_type_id' => 'required|integer|exists:research_types,id', 'department_id' => 'required|integer|exists:departments,id',
-            'title' => 'required|string|max:255', 'research_area' => 'nullable|string|max:255', 'keywords' => 'nullable', 'abstract' => 'nullable|string',
-            'supervisor_id' => 'nullable|integer|exists:users,id', 'co_supervisor_id' => 'nullable|integer|different:supervisor_id|exists:users,id',
+            'research_type_id' => 'nullable|integer|exists:research_types,id',
+            'workspace_mode' => 'nullable|in:independent,institutional',
+            'institutional_project' => 'nullable|boolean',
+            'department_id' => 'nullable|integer|exists:departments,id',
+            'title' => 'required|string|max:255',
+            'research_area' => 'nullable|string|max:255',
+            'keywords' => 'nullable',
+            'abstract' => 'nullable|string',
+            // supervisor_id remains accepted for backwards-compatible clients, but is converted to an invitation.
+            'supervisor_id' => 'nullable|integer|exists:users,id',
+            'supervisor_invitee_id' => 'nullable|integer|exists:users,id',
+            'supervisor_message' => 'nullable|string|max:1000',
+            'co_supervisor_id' => 'nullable|integer|exists:users,id',
             'expected_completion_date' => 'nullable|date|after_or_equal:today',
         ]);
+
+        $institutionExpansionEnabled = FeatureAccessService::effectiveStatus(
+            'research_institutional_expansion',
+            $user->university_id
+        ) === FeatureAccessService::STATUS_ENABLED;
+        $requestedInstitutional = $request->boolean('institutional_project')
+            || (($data['workspace_mode'] ?? null) === 'institutional');
+
+        if (! $institutionExpansionEnabled) {
+            abort_if(
+                $requestedInstitutional
+                || ! empty($data['department_id'])
+                || ! empty($data['supervisor_invitee_id'])
+                || ! empty($data['supervisor_id'])
+                || ! empty($data['co_supervisor_id']),
+                403,
+                'Institution-linked research is currently disabled by the platform administrator.'
+            );
+            $workspaceMode = 'independent';
+        } else {
+            $workspaceMode = ($requestedInstitutional && $user->university_id) ? 'institutional' : 'independent';
+        }
+        $data['workspace_mode'] = $workspaceMode;
+
+        $supervisorInviteeId = $data['supervisor_invitee_id'] ?? $data['supervisor_id'] ?? null;
+        $supervisorMessage = $data['supervisor_message'] ?? null;
+        unset($data['institutional_project'], $data['supervisor_invitee_id'], $data['supervisor_message'], $data['supervisor_id'], $data['co_supervisor_id']);
+
+        if (empty($data['research_type_id']) && $workspaceMode === 'independent') {
+            $data['research_type_id'] = $independent->ensureResearchType()->id;
+        }
+        abort_unless(! empty($data['research_type_id']), 422, 'Research type is required for institutional research workspaces.');
+
         $type = ResearchType::findOrFail($data['research_type_id']);
         abort_unless($type->university_id === null || $user->isSuperAdmin() || $type->university_id === $user->university_id, 403);
-        if (! $user->isAdmin() && $user->department_id) {
-            $data['department_id'] = $user->department_id;
-        }
-        $department = Department::with('faculty')->findOrFail($data['department_id']);
-        abort_unless($user->isSuperAdmin() || $department->faculty?->university_id === $user->university_id, 403);
-        $data['university_id'] = $department->faculty?->university_id;
-        foreach (['supervisor_id', 'co_supervisor_id'] as $field) {
-            if (! empty($data[$field])) {
-                $supervisor = User::findOrFail($data[$field]);
-                abort_unless($supervisor->isLecturer() && ($user->isSuperAdmin() || $supervisor->university_id === $data['university_id']), 422);
+
+        if ($workspaceMode === 'independent') {
+            $context = $independent->context();
+            $data['university_id'] = $context['university']->id;
+            $data['department_id'] = $context['department']->id;
+            $data['academic_session_id'] = $context['session']->id;
+            $data['semester_id'] = $context['semester']->id;
+        } else {
+            abort_unless($user->university_id, 422, 'Connect an institution before creating an institutional research workspace.');
+            abort_unless(! empty($data['department_id']), 422, 'Department is required for an institutional research workspace.');
+            if (! $user->isAdmin() && $user->department_id) {
+                $data['department_id'] = $user->department_id;
             }
+            $department = Department::with('faculty')->findOrFail($data['department_id']);
+            abort_unless($user->isSuperAdmin() || $department->faculty?->university_id === $user->university_id, 403);
+            $data['university_id'] = $department->faculty?->university_id;
         }
 
-        return response()->json($projects->create($data, $user), 201);
+        $supervisorInvitee = null;
+        if ($supervisorInviteeId) {
+            abort_unless($institutionExpansionEnabled && $workspaceMode === 'institutional', 422, 'Supervisor invitations require institutional research mode.');
+            $supervisorInvitee = User::findOrFail($supervisorInviteeId);
+            abort_unless(
+                $supervisorInvitee->is_active && $supervisorInvitee->isLecturer() && $supervisorInvitee->university_id === $data['university_id'],
+                422,
+                'Choose an active lecturer from the same institution as this project.'
+            );
+        }
+
+        $project = $projects->create($data, $user);
+        $invitation = $supervisorInvitee
+            ? $invitations->inviteSupervisor($project, $user, $supervisorInvitee, $supervisorMessage)
+            : null;
+
+        $payload = $project->fresh(['researchType', 'owner']);
+        if ($invitation) {
+            $payload->setRelation('invitations', collect([$invitation->load('invitee')]));
+        }
+
+        return response()->json($payload, 201);
     }
 
     public function show(Request $request, ResearchProject $research)
     {
         $this->authorize('view', $research);
-        return $research->load([
-            'researchType', 'templateVersion', 'owner', 'supervisor', 'coSupervisor', 'department', 'memberRecords.user',
-            'sections.document.versions.author', 'sections.document.comments.user', 'workflowInstance.currentStage', 'workflowInstance.definition.stages',
-            'workflowInstance.transitions.actor', 'latestValidationReport', 'corrections', 'meetings.attendees', 'milestones', 'tasks', 'archives', 'publications',
-        ]);
+        $user = $request->user();
+        $enabled = fn (string $feature): bool => FeatureAccessService::effectiveStatus($feature, $user->university_id) === FeatureAccessService::STATUS_ENABLED;
+        $institutional = $enabled('research_institutional_expansion');
+
+        $relations = [
+            'researchType', 'templateVersion', 'owner',
+            'sections.document.versions.author', 'sections.document.comments.user',
+            'workflowInstance.currentStage', 'workflowInstance.definition.stages',
+            'workflowInstance.transitions.actor', 'latestValidationReport', 'corrections', 'milestones', 'tasks',
+        ];
+        if ($institutional) {
+            array_push($relations, 'supervisor', 'coSupervisor', 'department');
+        }
+        if ($enabled('research_collaboration')) {
+            $relations[] = 'memberRecords.user';
+        }
+        if ($enabled('research_meetings')) {
+            $relations[] = 'meetings.attendees';
+        }
+        if ($enabled('research_archives')) {
+            $relations[] = 'archives';
+        }
+        if ($enabled('research_datasets')) {
+            $relations[] = 'datasets';
+        }
+        if ($enabled('research_to_knowledge_hub')) {
+            $relations[] = 'publications';
+        }
+
+        $research->load($relations);
+        if (! $institutional && ! $user->isAdmin()) {
+            $research->makeHidden(['university_id', 'department_id', 'supervisor_id', 'co_supervisor_id']);
+        }
+
+        return response()->json($research);
     }
 
     public function update(Request $request, ResearchProject $research)

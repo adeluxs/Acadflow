@@ -49,6 +49,7 @@ class OnboardingController extends Controller
 
         $universities = University::query()
             ->where('is_active', true)
+            ->where('code', '!=', 'ACADFIND')
             ->with(['faculties' => fn ($query) => $query->where('is_active', true)->with([
                 'departments' => fn ($departmentQuery) => $departmentQuery->where('is_active', true),
             ])])
@@ -271,14 +272,12 @@ class OnboardingController extends Controller
             ->paginate(30)
             ->withQueryString();
 
-        return view('admin.onboarding.index', ['users' => $users, 'accountPaths' => $this->accountPaths()]);
+        return view('admin.onboarding.index', ['users' => $users, 'accountPaths' => OnboardingService::ACCOUNT_PATHS]);
     }
 
     private function validateAffiliation(Request $request, UserOnboardingState $state): array
     {
         $path = $state->path ?: (string) Arr::get($state->data ?? [], 'path');
-        $institutional = in_array($path, ['student', 'lecturer', 'researcher', 'university_representative', 'department_representative', 'academic_staff', 'non_academic_staff'], true);
-
         $validated = $request->validate([
             'university_id' => [
                 Rule::requiredIf(in_array($path, $this->institutionalPaths(), true)),
@@ -372,29 +371,11 @@ class OnboardingController extends Controller
 
     private function institutionalPaths(): array
     {
-        return [
-            'student', 'lecturer', 'researcher', 'university_representative',
-            'department_representative', 'academic_staff', 'non_academic_staff',
-        ];
+        return OnboardingService::INSTITUTIONAL_PATHS;
     }
 
     private function accountPaths(): array
     {
-        return [
-            'student' => 'Student',
-            'lecturer' => 'Lecturer or educator',
-            'researcher' => 'Researcher',
-            'university_representative' => 'University representative',
-            'department_representative' => 'Faculty or department representative',
-            'academic_staff' => 'Academic staff',
-            'non_academic_staff' => 'Non-academic staff',
-            'independent_professional' => 'Independent professional',
-            'author_publisher' => 'Author or publisher',
-            'research_discovery' => 'Research and publication reader',
-            'community_events' => 'Community and event participant',
-            'alumni' => 'Alumni',
-            'organisation' => 'Organisation or research group',
-            'other' => 'Other',
-        ];
+        return OnboardingService::PUBLIC_ACCOUNT_PATHS;
     }
 }

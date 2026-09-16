@@ -229,25 +229,61 @@ A group leader can manage the group according to group policy, membership rules 
 
 ## 11. Research Studio
 
-Research Studio is the structured workspace for research projects and supervision.
+Research Studio is AcadFlow's focused workspace for planning, writing and managing a research project. It is designed to work for an independent student/researcher first; institution-specific controls appear only when an administrator enables **Research Institutional Expansion** and the user has an institution affiliation.
 
-A project can include:
+### Core workspace
 
-- research type/workflow;
-- structured sections;
-- writing/version history;
-- comments, approval and correction requests;
-- meetings and reminders;
-- tasks/action items;
-- milestones;
-- members/collaborators;
-- literature search/references/notes;
-- datasets;
-- archives;
-- amendments;
-- export to HTML/PDF;
-- specialized SIWES, seminar and project-defense workspaces;
-- publication to Knowledge Hub when approved and enabled.
+The default Research Studio keeps the essentials visible:
+
+- structured research sections and version history;
+- comments/corrections;
+- milestones and project tasks;
+- Research Assistant;
+- literature discovery and the Project Reference Library;
+- validation/similarity tools where enabled;
+- research export.
+
+The **Project Control Center** is the operational view of the project. Milestones show major research stages, tasks turn the work into actionable items, and the summary cards show progress, outstanding work, saved references and the next milestone. Optional operational modules such as meetings, collaboration/contribution tracking, datasets, archive/amendment controls, SIWES and seminar workflows appear only when the administrator enables them.
+
+### Independent vs institutional research
+
+Independent projects do not require a university, department or supervisor. When **Research Institutional Expansion** is enabled, an affiliated user can explicitly mark a new project as institutional and select a department.
+
+Supervision uses an invitation workflow rather than direct assignment:
+
+```text
+Create institutional project
+→ invite eligible lecturer
+→ invitation is Pending
+→ lecturer accepts or declines
+→ only an accepted invitation becomes the project supervisor
+```
+
+If institutional expansion is disabled, normal users do not see the institutional checkbox, department selector or supervisor invitation controls.
+
+### Literature discovery and Project Reference Library
+
+Open **Literature & references** from the research project. Enter a topic, research question or keywords, optionally filter by year and choose scholarly sources. AcadFlow can search configured scholarly indexes including OpenAlex, Crossref, Semantic Scholar, CORE, DOAJ, PubMed and arXiv.
+
+Search results are scholarly metadata/abstract results. You can compare multiple papers, select several results and choose **Save selected papers**, or save one paper at a time. Duplicate results are reduced using DOI or normalized title/year matching.
+
+A saved paper appears in the **Project Library**. For every saved reference you can record:
+
+- your summary;
+- methodology;
+- key findings;
+- limitations;
+- contradictions/comparisons;
+- research gap/relevance;
+- review keywords.
+
+These notes reopen with the previously saved content so the Project Library becomes a working literature-review evidence base rather than a bookmark list.
+
+**Open paper** follows the scholarly source or DOI link. AcadFlow does not bypass publisher subscriptions/paywalls and does not claim to store the full paper unless a lawful file has separately been added through an authorized workflow.
+
+### Research Assistant and sources
+
+The Research Assistant can use authorized project context and research evidence/notes available to AcadFlow. A search result or abstract is not the same as the full paper. Users should read the actual source when available, record evidence accurately, and avoid treating AI-generated explanations as a substitute for the publication.
 
 ### Researcher/student/member
 
@@ -255,11 +291,7 @@ Create or join authorized research, write sections, respond to corrections, mana
 
 ### Supervisor/lecturer
 
-A supervisor can review authorized projects, comment, request corrections, approve sections, schedule meetings, manage milestones and support specialized workflows. Supervisor is normally a contextual lecturer responsibility.
-
-### Research Assistant
-
-The assistant can help with research planning, methodology reasoning, evidence interpretation, revision and source-aware writing guidance using authorized project context. It must not invent sources, experiments, data or findings.
+When institutional expansion is enabled, an eligible lecturer can receive and accept a supervision invitation. Once accepted, the supervisor can use the project review permissions provided by the research policy. Supervisor is a contextual lecturer responsibility, not a separate account type.
 
 ### Research Validator
 
@@ -552,7 +584,7 @@ Typical responsibilities include:
 - payment gateways and connection tests;
 - student import tools;
 - platform settings;
-- **Feature & Module Management** for all 30 feature keys;
+- **Feature & Module Management** for all registered feature keys;
 - permissions/audit-log views;
 - central AI Settings, providers, routing, feature configuration and diagnostics;
 - system-wide troubleshooting and maintenance.

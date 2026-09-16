@@ -21,8 +21,15 @@ class ResearchConfigurationController extends Controller
         $tenant = $request->user()->isSuperAdmin() ? null : $request->user()->university_id;
         $scope = fn ($query) => $query->when($tenant, fn ($q) => $q->where(fn ($s) => $s->whereNull('university_id')->orWhere('university_id', $tenant)));
 
-        $workflows = $scope(WorkflowDefinition::query())->with(['stages', 'instances'])->orderBy('name')->get();
-        $types = $scope(ResearchType::query())->with(['workflowDefinition.stages', 'templateVersions'])->orderBy('name')->get();
+        $workflows = $scope(WorkflowDefinition::query())
+            ->with('stages')
+            ->withCount('instances')
+            ->orderBy('name')
+            ->get();
+        $types = $scope(ResearchType::query())
+            ->withCount(['projects', 'templateVersions'])
+            ->orderBy('name')
+            ->get();
 
         return view('research.configuration', compact('workflows', 'types'));
     }

@@ -113,12 +113,6 @@
         </div>
         @endif
 
-        @php
-            $aiAnalyses = \App\Models\AiAnalysis::where('submission_id', $submission->id)
-                ->where('status', 'completed')
-                ->orderByDesc('created_at')
-                ->get();
-        @endphp
         @if($aiAnalyses->isNotEmpty())
         <div class="bg-white p-6 rounded-lg shadow mt-4">
             <div class="flex items-center justify-between mb-3">

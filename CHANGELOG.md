@@ -1,4 +1,149 @@
+## 2026-09-16 — Chapter Two reviewed-literature insertion fix
+
+- Fixed Research Studio literature actions reporting "Inserted" without placing the selected citation/evidence into the visible Chapter Two Quill editor.
+- Unified Quill and fallback editors behind one insertion registry and synchronization contract.
+- Added a pre-initialization insertion queue so clicks made while the dynamically loaded editor is still booting are not lost.
+- Added a dedicated regression preflight for Chapter Two literature insertion.
+
+## 2026-09-16 — Literature Review Workspace and Chapter Two integration
+
+## 2026-09-16 — Scholarly timeout fix + AcadFlow global branding/loading
+
+- Replaced sequential Research Studio scholarly-provider calls with bounded Laravel HTTP pooling and partial-provider resilience.
+- Added 5s request / 2s connect defaults and removed retry chains from interactive literature discovery.
+- Added short query/filter caching without caching total provider outages.
+- Replaced per-result scholarly `updateOrCreate()` persistence with stable-UUID batch upserts.
+- Added generated AcadFlow brand assets, favicon/PWA icons, and shared logo treatment across app/auth/onboarding/landing/public layouts.
+- Added global branded loader for page navigation, form submissions, foreground fetch/Axios mutations, AI actions, and Research Studio operations while excluding background sync/polling.
+- Added `scripts/check-scholarly-timeout-and-branding.php`.
+
+- Implemented the approved five-tab Literature & References UI: Discover, Saved References, Reading Queue, Synthesis and Compare.
+- Added Saved → Reading → Reviewed lifecycle, researcher-defined collections, review-completion indicators and migration backfill for existing structured notes.
+- Added deterministic literature synthesis from reviewed researcher notes only, including themes, methodology signals, findings, limitations, research gaps and contrasting evidence.
+- Added side-by-side comparison for 2–5 project references without fabricating missing review fields.
+- Connected reviewed references to the existing Chapter 2 / Literature Review rich editor with explicit citation/evidence/methodology/gap insertion at the cursor; insertions remain unsaved until the researcher saves a section version.
+- Added reviewed bibliography insertion to the existing References section using the project citation style.
+- Hardened citation formatting for nested author metadata from scholarly providers.
+- Added `LiteratureSynthesisService`, workflow migration, feature tests and `check-literature-review-workflow.php`.
+
+## 2026-09-16 — Professional Research Studio and literature workflow
+
+- Fixed the Research Studio literature navigation label to render a valid HTML entity (`Literature &amp; references`), matching Laravel feature-test escaping while preserving the visible text.
+- Split Research Studio into a focused default workspace plus Admin-controlled institutional, meeting, collaboration, archive and dataset modules without deleting existing enterprise functionality.
+- Hid all institutional project/department/supervisor UI from normal users while Research Institutional Expansion is disabled and enforced the same rule in web/API authorization.
+- Replaced direct supervisor assignment with expiring, auditable lecturer invitations; supervisor access activates only after acceptance and invitations can also be sent later from the project page.
+- Rebuilt the Project Control Center around core milestones/tasks with optional relations loaded only for enabled modules.
+- Redesigned Literature & References with provider/year filters, multi-select saving, lawful source links, saved-state indicators and structured researcher notes that reopen populated.
+- Fixed DOI-less reference collisions and improved scholarly-result deduplication across OpenAlex, Crossref, Semantic Scholar, CORE, DOAJ, PubMed and arXiv.
+- Added `ResearchStudioProfessionalizationTest` and a dedicated preflight check for the new release profile.
+
+## 2026-09-16 — Course view and independent identity regression fix
+
+- Reworked `resources/views/courses/show.blade.php` into compiler-safe multiline Blade directives, removing adjacent/compressed control directives that produced an unexpected `@endif` in compiled views.
+- Restored web/API backend validation for all existing `OnboardingService::ACCOUNT_PATHS` while keeping the public registration UI limited to Student, Lecturer/Supervisor and Researcher.
+- Updated enterprise identity regression coverage to match the independent-first product model: students may skip affiliation, institutional representative paths may not.
+- Added a dedicated course-view/identity regression preflight.
+
+
+## 2026-09-16 — PHPUnit Vite asset isolation
+
+- Fixed feature-test HTTP 500s caused by a missing `public/build/manifest.json` in source-only/test checkouts.
+- `Tests\TestCase::setUp()` now uses Laravel's `withoutVite()` helper for all application tests.
+- Production/development `@vite` usage is unchanged; real deployments still require `npm run build` (or the Vite dev server).
+- Added `scripts/check-test-vite-isolation.php` regression protection.
+
+
+## 2026-09-15 — Independent-first launch profile
+
+- Made Student, Lecturer / Supervisor and Researcher the public self-service personas with optional institution affiliation.
+- Fixed public lecturer accounts to receive the existing non-admin `lecturer` role; release migration repairs legacy lecturer/member accounts.
+- Added independent classrooms with explicit ownership and join-link enrollment while preserving the existing course/semester/assignment architecture.
+- Added independent Research Studio workspaces with participant-based authorization for web and API clients.
+- Added a hidden system-managed academic context for legacy semester/department foreign-key compatibility without attaching users to a fake institution.
+- Split wallet/billing runtime availability from marketplace and creator-payout feature controls.
+- Applied an Admin-controlled launch profile that disables non-core/institution-heavy modules without removing them.
+- Made classroom adoption features free by default for launch while preserving AI/document monetization.
+- Added independent-first static and Laravel regression tests and hid the system compatibility institution from public affiliation/search flows.
+
+## 2026-09-14 - PHPUnit route-cache memory isolation
+
+- Isolated PHPUnit from production route/config/event caches via `tests/bootstrap.php` and explicit testing cache paths in `phpunit.xml`.
+- Prevented a generated production `bootstrap/cache/routes-v7.php` from being loaded during every Laravel test application boot, avoiding 128 MB memory exhaustion on Windows test environments.
+- Added `RESET_LOCAL_LARAVEL_CACHES.bat` for one-time recovery from pre-existing generated bootstrap caches without requiring Laravel to boot first.
+- Clarified that route caching is an optional production optimization and should only be enabled where PHP memory headroom has been verified.
+
 # AcadFlow Changelog
+
+## 2026-09-12 — Codebase-wide performance optimization
+
+- Replaced the wildcard Blade view composer with targeted layout composers so shared feature/platform data is no longer rebuilt for every partial/component.
+- Added batched settings retrieval plus request-local caches with explicit HTTP/queue-worker flush hooks while preserving the existing one-hour shared cache and invalidation behavior.
+- Collapsed submission, attendance, billing, AI and admin dashboard scalar metrics into SQL conditional aggregates; removed per-course grade query loops.
+- Removed multiple N+1/query-in-loop patterns across citations, mentions, conflicts, submission grading, research configuration, student imports, plagiarism checks and learning-path progress.
+- Converted large CSV/document exports, invoice generation, notification dispatch/retries and scheduled scans to lazy/chunked processing to bound memory use.
+- Moved slow notification delivery outside research-meeting database transactions and kept billing/financial correctness protections intact.
+- Added audited composite indexes for notification unread/recent lookups, invoice user/status and user/semester access, and attendance session/status aggregation.
+- Removed closure-based web routes so Laravel route caching is safe, and dynamically loads the rich editor only on pages that need it.
+- Added `scripts/check-performance-optimization.php` and `PERFORMANCE_OPTIMIZATION_REPORT_2026-09-12.md`. Final source validation: 24/24 preflight checks and 812/812 PHP/Blade parse checks passed.
+
+## 2026-09-12 — Complete runtime monetization, AI deductions and three pricing modes
+
+- Fixed Admin **Runtime pricing & wallet controls** so global values saved by Platform Admin are the same values enforced by runtime billing services.
+- Rebuilt provider-AI charging around durable `reserved → completed / released / reconciliation_required` lifecycle records with user-wallet and verified institution sponsorship funding.
+- Added assistant-specific AI pricing/free allowances for all 16 currently registered AI features, while retaining global AI pricing as fallback.
+- Closed cached-response, duplicate-request and concurrent free-allowance billing loopholes; cached provider answers are billable interactions with zero new provider cost.
+- Added generic `feature_usage_charges` ledger/audit records and complete **fixed access**, **pay per use**, and **AI usage** pricing modes.
+- Connected pay-per-use billing to group submissions, rubric-enabled assignments, attendance sessions, and document/PDF generation; Knowledge Hub Premium uses fixed-access entitlements.
+- Added **Paid Feature Access** user page with activation, pricing, sponsorship eligibility and recent usage/billing history.
+- Corrected feature/AI clearing-account routing so paid-feature purchases are not mixed into marketplace settlement accounts.
+- Hardened post-success settlement and refund/release failures with reconciliation states so successful delivered work is not accidentally refunded and failed work is not falsely finalized.
+- Added duplicate/in-flight request replay protection, per-user billing serialization and fixed-access double-purchase protection.
+- Added `MonetizationRuntimeBillingTest` and expanded monetization regression preflights. Final artifact validation: 23/23 preflight scripts and 810/810 PHP syntax checks passed.
+
+## 2026-09-11 — Monetization Blade compiler regression fix
+
+- Removed the inline `@php($errors = ...)` fallback that caused Laravel Blade to emit an unmatched compiled `endif` in the Admin Monetization page.
+- Replaced direct `$errors`/`@error` usage with `isset($errors)`-guarded validation rendering so the page works both with normal middleware and with `withoutMiddleware()` regression tests.
+- Kept the known-good Monetization template structure intact; only the three validation-error access points differ from the previously compiling version.
+- Strengthened `scripts/check-monetization-blade-regression.php` and `scripts/check-pasted-test-regressions.php` to reject the broken inline error-bag fallback and require middleware-safe guards.
+- Re-ran every repository `scripts/check-*.php` preflight and a full PHP/Blade source syntax sweep before packaging.
+
+## 2026-09-10 — Institution search, AI lifecycle, monetization and Blade reliability
+
+- Fixed a remaining AI response-cache miss caused by volatile `_ai_deadline_at` metadata being rendered into the prompt context; identical requests can now reuse deterministic cached results.
+- Restored backwards-compatible `AiManager::analyze(..., requestId: ...)` support while preserving one logical request ID through the AI lifecycle.
+- Restored the full five-argument `AcademicAssistantService::ask()` controller contract so course context, request correlation ID and lifecycle start time match the endpoint regression contract.
+- Hardened the Admin Monetization view for middleware-free/regression rendering by guarding validation error access when Laravel has not shared `$errors`.
+- Added `scripts/check-pasted-test-regressions.php` to guard the four supplied PHPUnit regressions without requiring a booted Laravel runtime.
+- Replaced the institution-onboarding Alpine-only search UI with a dependency-free vanilla browser implementation including partial/case-insensitive search, debounce, abortable stale requests, loading/empty/error/retry states and correct claim/access continuation.
+- Made institution catalogue search portable across MySQL/PostgreSQL/SQLite using normalized `LOWER(... LIKE ...)` matching for names, short names, codes, states and regulators.
+- Added an end-to-end AI lifecycle budget and post-provider reserve so a provider attempt/retry cannot consume the entire PHP execution window before AcadFlow can parse and return the answer.
+- Preserved one logical AI request ID through assistant context building, AiManager, provider transport, parser and response lifecycle logging.
+- Hardened Gemini HTTP-200 parsing with explicit empty, blocked and malformed-response categories.
+- Made AI cache writes, usage counters, analytics and post-provider billing settlement failure-tolerant so non-critical bookkeeping cannot discard a valid generated answer.
+- Moved Monetization `$setupCurrency` resolution into the controller using commercial-account currency, institution settings and platform fallback in that order; removed obsolete Blade-local currency dependency.
+- Simplified the Monetization metric-card Blade loop and added source-level Blade directive regression checks; compiled views remain deployment artifacts and must be cleared rather than edited.
+- Added institution search, AI response lifecycle/post-success resilience and Monetization page regression tests plus `scripts/check-four-critical-fixes.php`.
+## 2026-08-31 — Institution Commercial Account UX
+
+- Split commercial account responsibilities into a safer two-sided workflow: Institution Admins can view approved terms and submit requests; only Platform/Super Admin can create, approve or financially modify commercial accounts.
+- Added a dedicated Institution Commercial Account dashboard with prepaid budget, account status, institution-funded AI usage, member count, sponsored features, administrator limits, semester fee/grace terms and request history.
+- Added guided requests for account setup, additional prepaid budget, commercial-term changes and sponsored AI/feature access, with duplicate-pending-request protection and throttling.
+- Added Platform Admin request review queue, guided three-step commercial-account setup, safe institution locking during review, prefilled requested changes, rejection notes and approval notifications.
+- Added `commercial_account_requests` audit records so institution requests remain separate from actual financial mutations.
+- Added institution-sponsored paid feature access to the central entitlement engine; sponsorship works only while the approved commercial account is active.
+- Updated University Admin navigation/settings to use **Commercial Account** instead of exposing the Platform Monetization control center.
+- Added `scripts/check-commercial-account-ux.php` and architecture/feature regression coverage.
+
+## 2026-08-31 — Pricing Rule Admin UX
+
+- Replaced developer-only Pricing Rule inputs with a plain-language **Feature to charge for** dropdown.
+- Added a centralized allowlist of runtime entitlement features in `config/monetization.php`.
+- Pricing-rule keys, display names and currency are now derived server-side instead of accepted from browser input.
+- Removed the confusing percentage field from paid-feature pricing; marketplace/institution percentages remain in their dedicated commission settings.
+- Added feature descriptions, inline validation, activation guidance and improved immutable pricing-history presentation.
+- Added `scripts/check-pricing-rule-ux.php` to prevent regressions between runtime entitlement checks and the Admin dropdown.
+
 
 All notable product, architecture, security, data and operations changes should be recorded here. AcadFlow currently uses date-based release headings because a formal semantic version has not yet been established.
 
@@ -150,3 +295,51 @@ All notable product, architecture, security, data and operations changes should 
 ## Earlier implementation history
 
 Earlier planning, implementation and audit detail remains available under `docs/` (PRD, architecture, submission-system reviews, PWA phases and other dated notes). New releases must continue from this changelog rather than creating disconnected history files only.
+
+## 2026-09-02 - Test-suite compatibility and release packaging fix
+
+- Updated AI rule-engine tests to resolve the current container-managed `AiManager`/runtime configuration instead of constructing obsolete `AiRouter`/`AiCache` signatures.
+- Updated specialized AI module tests to resolve modules through Laravel's container so `AiRuntimeConfigService` dependencies are supplied consistently.
+- Corrected enterprise identity fixtures to obey the production `alpha_dash` username policy rather than weakening registration validation.
+- Updated Grounded Companion provider-switch coverage to exercise institution-scoped runtime routing explicitly.
+- Rebuilt submission flow fixtures around the current tenant/onboarding/active-semester requirements, including a real submission version before submit and a real lecturer assignment for grading.
+- Restored the root `.env.example` that was omitted from the prior packaged release.
+- Removed a stale nested previous-release directory from the application package.
+
+## 2026-09-02 — Remaining PHPUnit regression fixes
+- Fixed AI cache fingerprints so per-request correlation IDs no longer prevent cache hits.
+- Fixed tenant-context capture in RuleEngine feature-pack selection.
+- Updated AI module/unit tests to use the centralized runtime configuration deterministically.
+- Aligned Hybrid-mode regression expectations with the explicit `rule_engine_fallback` contract.
+- Fixed Submission create-page `$resubmitsLeft` view data by calculating and passing it from the controller.
+
+## 2026-09-03 — Progressive institution adoption
+- Added search-first catalogue institution claims and backend duplicate prevention.
+- Added department-first adoption and in-place transition to institution-managed departments.
+- Added self-declared/pending/verified institutional affiliations for existing accounts.
+- Added later institution verification without duplicate users or loss of academic/commerce history.
+- Restricted institution-funded AI and sponsored features to verified members of officially active institutions.
+- Added affiliation/access review UX, API endpoints, verified institution email domains, audit events and migration tooling.
+- Enhanced student CSV import to reconcile and verify existing accounts instead of recreating them.
+
+### 2026-09-10 — PHPUnit regression second-pass fix
+- Restored the five-argument `AcademicAssistantService::ask()` endpoint contract used by the existing regression suite.
+- Preserve valid provider answers when billing settlement fails and mark `billing_settlement_pending` for reconciliation.
+- Removed the monetization Blade `$metricCards` render-path dependency and corrected regression preflight coverage.
+
+### 2026-09-11 — Monetization Blade parser regression
+- Repaired `resources/views/admin/monetization/index.blade.php` after Laravel compiled the multiline inline-array `@foreach` into invalid PHP ending in an unexpected `endif`.
+- Restored the parser-safe inline metric-card loop while preserving the middleware-free `ViewErrorBag` fallback.
+- Updated the four-critical-fixes preflight to validate the safe loop instead of an implementation-specific formatting assumption.
+- Added `scripts/check-monetization-blade-regression.php` to prevent the same Blade compilation regression from returning.
+
+### 2026-09-11 — Monetization view-data contract hardening
+- Fixed `Undefined variable $suggestedTargetMinor` on the admin Monetization page.
+- Moved commercial-account setup/display calculations from Blade-local `@php` state into `MonetizationController::index()` and passed them explicitly to the view.
+- Removed all `@php` directives from the Monetization page and added a controller/view data-contract preflight.
+- Preserved existing commercial-account currency as authoritative for both setup rendering and saving.
+
+### 2026-09-12 — AI post-provider resilience compatibility
+- Restored the required reservation release call when a valid provider/cached AI answer survives a settlement failure.
+- Reconciliation records now retain whether the reservation was released, keeping duplicate-request protection and auditability intact.
+- Added a runtime monetization preflight assertion for this regression.

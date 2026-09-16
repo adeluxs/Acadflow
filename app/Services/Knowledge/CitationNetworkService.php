@@ -40,9 +40,61 @@ class CitationNetworkService
 
     public function graph(KnowledgePublication $publication, int $depth = 2): array
     {
-        $seen=[];$nodes=[];$edges=[];$queue=[[$publication,0]];
-        while($queue!==[]){[$current,$level]=array_shift($queue);if(isset($seen[$current->id])||$level>$depth)continue;$seen[$current->id]=true;$nodes[]=['id'=>$current->uuid,'title'=>$current->title,'creator'=>$current->creator?->full_name,'citations'=>$current->citationsReceived()->count()];foreach($current->citationsMade()->with('citedPublication.creator')->whereNotNull('cited_publication_id')->get() as $citation){$target=$citation->citedPublication;if(!$target)continue;$edges[]=['source'=>$current->uuid,'target'=>$target->uuid,'type'=>'internal'];$queue[]=[$target,$level+1];}}
-        return ['nodes'=>$nodes,'edges'=>$edges];
+        $depth = max(0, min(5, $depth));
+        $seen = [];
+        $nodes = [];
+        $edges = [];
+        $frontier = [$publication->id];
+        $level = 0;
+
+        // Traverse breadth-first in batches. The previous implementation issued a
+        // citation count query and an outgoing-citations query for every node.
+        while ($frontier !== [] && $level <= $depth) {
+            $ids = array_values(array_unique(array_filter($frontier, fn ($id) => ! isset($seen[$id]))));
+            if ($ids === []) break;
+
+            $publications = KnowledgePublication::query()
+                ->select(['id', 'uuid', 'title', 'creator_id'])
+                ->whereIn('id', $ids)
+                ->with('creator:id,first_name,last_name')
+                ->withCount('citationsReceived')
+                ->get()
+                ->keyBy('id');
+
+            foreach ($publications as $current) {
+                $seen[$current->id] = true;
+                $nodes[] = [
+                    'id' => $current->uuid,
+                    'title' => $current->title,
+                    'creator' => $current->creator?->full_name,
+                    'citations' => (int) $current->citations_received_count,
+                ];
+            }
+
+            if ($level >= $depth || $publications->isEmpty()) break;
+
+            $citations = KnowledgeCitation::query()
+                ->select(['id', 'citing_publication_id', 'cited_publication_id'])
+                ->whereIn('citing_publication_id', $publications->keys())
+                ->whereNotNull('cited_publication_id')
+                ->with('citedPublication:id,uuid,title,creator_id')
+                ->get();
+
+            $next = [];
+            foreach ($citations as $citation) {
+                $source = $publications->get($citation->citing_publication_id);
+                $target = $citation->citedPublication;
+                if (! $source || ! $target) continue;
+
+                $edges[] = ['source' => $source->uuid, 'target' => $target->uuid, 'type' => 'internal'];
+                if (! isset($seen[$target->id])) $next[] = $target->id;
+            }
+
+            $frontier = $next;
+            $level++;
+        }
+
+        return ['nodes' => $nodes, 'edges' => $edges];
     }
 
     public function syncExternal(KnowledgePublication $publication): int

@@ -116,23 +116,41 @@ class SettingsController extends Controller
         abort_unless(is_array($incoming), 422, 'Invalid settings payload.');
         $scope = $user->isSuperAdmin() ? null : $user->university_id;
 
+        $canonicalIncoming = [];
         foreach ($incoming as $rawKey => $value) {
-            $key = SettingService::canonicalKey((string) $rawKey);
-            $setting = Setting::where('key', $key)->first();
+            $canonicalIncoming[SettingService::canonicalKey((string) $rawKey)] = $value;
+        }
+
+        $settings = Setting::query()
+            ->whereIn('key', array_keys($canonicalIncoming))
+            ->get()
+            ->keyBy('key');
+
+        $validatedValues = [];
+        $defaults = [];
+        foreach ($canonicalIncoming as $key => $value) {
+            /** @var Setting|null $setting */
+            $setting = $settings->get($key);
             if (! $setting) continue;
+
             abort_if(! $user->isSuperAdmin() && $this->isGlobalOnlySetting($setting), 403, 'A platform-only setting was included in the request.');
-
-            $validator = Validator::make(['value' => $value], [
+            $validated = Validator::make(['value' => $value], [
                 'value' => $this->validationRulesForSetting($setting, true),
-            ]);
-            $validated = $validator->validate();
-            $newValue = $validated['value'] ?? '';
-            $oldValue = $user->isSuperAdmin()
-                ? SettingService::getGlobal($key, $setting->value)
-                : SettingService::get($key, $setting->value, $scope);
+            ])->validate();
 
-            SettingService::set($key, $newValue, $setting->type ?: 'string', $scope, $user->id);
-            $this->auditSettingChange($request, $setting, $oldValue, $newValue);
+            $validatedValues[$key] = $validated['value'] ?? '';
+            $defaults[$key] = $setting->value;
+        }
+
+        if ($validatedValues !== []) {
+            $oldValues = SettingService::getMany($defaults, $scope);
+            SettingService::updateMultiple($validatedValues, $scope, $user->id);
+
+            foreach ($validatedValues as $key => $newValue) {
+                /** @var Setting $setting */
+                $setting = $settings->get($key);
+                $this->auditSettingChange($request, $setting, $oldValues[$key] ?? $setting->value, $newValue);
+            }
         }
 
         return back()->with('success', 'Settings updated successfully.');

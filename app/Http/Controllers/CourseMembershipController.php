@@ -26,7 +26,11 @@ class CourseMembershipController extends Controller
         abort_unless($user?->isLecturer(), 403);
         abort_unless((bool) SettingService::get('lecturer_self_assignment_enabled', true, $user->university_id), 403, 'Lecturer self-assignment is disabled.');
 
-        $this->assertSameAcademicScope($user, $course, requireDepartment: true);
+        if ($course->isIndependent()) {
+            abort_unless((int) $course->owner_user_id === (int) $user->id, 403, 'Only the independent classroom owner can manage its teaching team.');
+        } else {
+            $this->assertSameAcademicScope($user, $course, requireDepartment: true);
+        }
         abort_unless($course->is_active, 422, 'This course is not active.');
 
         $semester = $academicContext->requireActiveSemesterForCourse($course);
@@ -98,7 +102,7 @@ class CourseMembershipController extends Controller
                 return back()->withErrors(['email' => 'That email belongs to a non-student account.']);
             }
 
-            $this->assertSameAcademicScope($existing, $course, requireDepartment: $this->restrictStudentsToDepartment($existing));
+            $this->assertSameAcademicScope($existing, $course, requireDepartment: ! $course->isIndependent() && $this->restrictStudentsToDepartment($existing));
         }
 
         $rawToken = Str::random(64);
@@ -158,7 +162,7 @@ class CourseMembershipController extends Controller
         }
 
         $course = $invitation->course;
-        $this->assertSameAcademicScope($user, $course, requireDepartment: $this->restrictStudentsToDepartment($user));
+        $this->assertSameAcademicScope($user, $course, requireDepartment: ! $course->isIndependent() && $this->restrictStudentsToDepartment($user));
         $this->assertCapacity($course, $invitation->semester_id);
 
         DB::transaction(function () use ($invitation, $user, $course): void {
@@ -197,6 +201,10 @@ class CourseMembershipController extends Controller
 
     private function assertSameAcademicScope(User $user, Course $course, bool $requireDepartment): void
     {
+        if ($course->isIndependent()) {
+            return;
+        }
+
         $course->loadMissing('department.faculty');
         $courseUniversityId = $course->department?->faculty?->university_id;
 

@@ -44,7 +44,7 @@
         <div class="page-break"></div>
 
         <h2>Main Content</h2>
-        @foreach($submission->versions()->where('is_current', true)->get() as $version)
+        @foreach($submission->versions as $version)
             <p>File: {{ $version->file_name }} ({{ round($version->file_size / 1024, 2) }} KB)</p>
         @endforeach
     </div>

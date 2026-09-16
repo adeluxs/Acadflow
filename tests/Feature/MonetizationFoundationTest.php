@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\CommercialAccount;
 use App\Models\FeatureEntitlement;
+use App\Models\University;
 use App\Models\LedgerPosting;
 use App\Models\PricingRule;
 use App\Models\User;
+use App\Models\UserInstitutionAffiliation;
 use App\Services\Commerce\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -86,4 +89,51 @@ class MonetizationFoundationTest extends TestCase
         ]);
         $this->assertTrue($user->fresh()->hasFeature('advanced_export'));
     }
+    public function test_active_institution_commercial_account_can_sponsor_a_paid_feature_for_verified_member(): void
+    {
+        $university = University::factory()->create([
+            'adoption_status' => 'active',
+            'adopted_at' => now(),
+        ]);
+        $user = User::factory()->create([
+            'university_id' => $university->id,
+            'role' => 'student',
+        ]);
+
+        PricingRule::query()->create([
+            'key' => 'feature.attendance_tracking',
+            'name' => 'Attendance Tracking',
+            'scope_type' => 'global',
+            'currency' => 'NGN',
+            'unit_amount_minor' => 5000,
+            'enabled' => true,
+        ]);
+        $this->assertFalse($user->fresh()->hasFeature('attendance_tracking'));
+
+        CommercialAccount::query()->create([
+            'university_id' => $university->id,
+            'name' => $university->name.' Commercial Account',
+            'currency' => 'NGN',
+            'prepaid_balance_minor' => 100000,
+            'status' => 'active',
+            'metadata' => ['sponsored_features' => ['attendance_tracking']],
+        ]);
+
+        // Merely selecting an institution must not unlock institution-paid
+        // benefits. The affiliation must be institution-verified first.
+        $this->assertFalse($user->fresh()->hasFeature('attendance_tracking'));
+
+        UserInstitutionAffiliation::query()->create([
+            'user_id' => $user->id,
+            'university_id' => $university->id,
+            'affiliation_type' => 'student',
+            'status' => 'verified',
+            'verification_method' => 'admin_review',
+            'source' => 'test_fixture',
+            'verified_at' => now(),
+        ]);
+
+        $this->assertTrue($user->fresh()->hasFeature('attendance_tracking'));
+    }
+
 }

@@ -41,12 +41,16 @@ class AdminController extends Controller
     // Department Admin: Dashboard
     public function department()
     {
+        $departmentId = Auth::user()->department_id;
+        $userCounts = User::query()->where('department_id', $departmentId)
+            ->selectRaw("SUM(CASE WHEN role = 'student' THEN 1 ELSE 0 END) AS students")
+            ->selectRaw("SUM(CASE WHEN role = 'lecturer' THEN 1 ELSE 0 END) AS lecturers")
+            ->first();
+
         $stats = [
-            'total_students' => User::where('department_id', Auth::user()->department_id)
-                ->where('role', 'student')->count(),
-            'total_lecturers' => User::where('department_id', Auth::user()->department_id)
-                ->where('role', 'lecturer')->count(),
-            'total_courses' => Department::find(Auth::user()->department_id)->courses()->count(),
+            'total_students' => (int) ($userCounts?->students ?? 0),
+            'total_lecturers' => (int) ($userCounts?->lecturers ?? 0),
+            'total_courses' => Department::findOrFail($departmentId)->courses()->count(),
         ];
 
         return view('admin.department', compact('stats'));
@@ -222,9 +226,7 @@ class AdminController extends Controller
     public function reports(Request $request)
     {
         $user = Auth::user();
-        $reports = [];
 
-        // Build scope query based on role
         $userScope = fn ($query) => $query;
         $courseScope = fn ($query) => $query;
 
@@ -237,24 +239,46 @@ class AdminController extends Controller
             $courseScope = fn ($query) => $query->whereIn('department_id', $departmentIds);
         }
 
-        // Submission stats (scoped)
-        $reports['submissions'] = [
-            'total' => Submission::whereHas('course', $courseScope)->count(),
-            'pending' => Submission::whereHas('course', $courseScope)->whereIn('status', ['submitted', 'under_review'])->count(),
-            'graded' => Submission::whereHas('course', $courseScope)->where('status', 'graded')->count(),
-        ];
+        // Use one conditional aggregate per dataset instead of issuing a separate COUNT query
+        // for every dashboard card. This keeps the same report contract with fewer round trips.
+        $submissionStats = Submission::query()
+            ->whereHas('course', $courseScope)
+            ->selectRaw("COUNT(*) AS total")
+            ->selectRaw("SUM(CASE WHEN status IN ('submitted', 'under_review') THEN 1 ELSE 0 END) AS pending")
+            ->selectRaw("SUM(CASE WHEN status = 'graded' THEN 1 ELSE 0 END) AS graded")
+            ->first();
 
-        // Attendance stats (scoped)
-        $reports['attendance'] = [
-            'total_sessions' => AttendanceSession::whereHas('course', $courseScope)->count(),
-            'present_rate' => $this->calculateAttendanceRate($courseScope),
-        ];
+        $attendanceStats = AttendanceRecord::query()
+            ->whereHas('session', fn ($session) => $session->whereHas('course', $courseScope))
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw("SUM(CASE WHEN status IN ('present', 'late') THEN 1 ELSE 0 END) AS present")
+            ->first();
 
-        // Billing stats (scoped)
-        $reports['billing'] = [
-            'total_invoices' => Invoice::whereHas('user', $userScope)->count(),
-            'paid' => Invoice::whereHas('user', $userScope)->where('status', 'paid')->count(),
-            'pending' => Invoice::whereHas('user', $userScope)->where('status', 'pending')->count(),
+        $invoiceStats = Invoice::query()
+            ->whereHas('user', $userScope)
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw("SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid")
+            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending")
+            ->first();
+
+        $attendanceTotal = (int) ($attendanceStats?->total ?? 0);
+        $reports = [
+            'submissions' => [
+                'total' => (int) ($submissionStats?->total ?? 0),
+                'pending' => (int) ($submissionStats?->pending ?? 0),
+                'graded' => (int) ($submissionStats?->graded ?? 0),
+            ],
+            'attendance' => [
+                'total_sessions' => AttendanceSession::whereHas('course', $courseScope)->count(),
+                'present_rate' => $attendanceTotal > 0
+                    ? round((((int) ($attendanceStats?->present ?? 0)) / $attendanceTotal) * 100, 1)
+                    : 0,
+            ],
+            'billing' => [
+                'total_invoices' => (int) ($invoiceStats?->total ?? 0),
+                'paid' => (int) ($invoiceStats?->paid ?? 0),
+                'pending' => (int) ($invoiceStats?->pending ?? 0),
+            ],
         ];
 
         return view('admin.reports', compact('reports'));
@@ -280,91 +304,86 @@ class AdminController extends Controller
             $courseScope = fn ($query) => $query->whereIn('department_id', $departmentIds);
         }
 
-        [$headers, $rows] = match ($type) {
+        [$headers, $query, $rowMapper] = match ($type) {
             'submissions' => [
                 ['Submission ID', 'Student', 'Email', 'Course', 'Title', 'Status', 'Submitted At', 'Score'],
                 Submission::query()
+                    ->select(['id', 'uuid', 'user_id', 'course_id', 'title', 'status', 'submitted_at'])
                     ->whereHas('course', $courseScope)
-                    ->with(['user', 'course', 'grade'])
-                    ->latest('id')
-                    ->get()
-                    ->map(fn (Submission $submission) => [
-                        $submission->uuid,
-                        $submission->user?->full_name,
-                        $submission->user?->email,
-                        $submission->course?->code,
-                        $submission->title,
-                        $submission->status,
-                        $submission->submitted_at?->toDateTimeString(),
-                        $submission->grade?->score,
+                    ->with([
+                        'user:id,first_name,last_name,email',
+                        'course:id,code',
+                        'grade:id,submission_id,score',
                     ]),
+                fn (Submission $submission) => [
+                    $submission->uuid,
+                    $submission->user?->full_name,
+                    $submission->user?->email,
+                    $submission->course?->code,
+                    $submission->title,
+                    $submission->status,
+                    $submission->submitted_at?->toDateTimeString(),
+                    $submission->grade?->score,
+                ],
             ],
             'attendance' => [
                 ['Session ID', 'Course', 'Student', 'Email', 'Status', 'Check-in At', 'Verified', 'Notes'],
                 AttendanceRecord::query()
+                    ->select(['id', 'session_id', 'user_id', 'status', 'check_in_at', 'is_verified', 'verification_notes'])
                     ->whereHas('session', function ($session) use ($courseScope, $request): void {
                         $session->whereHas('course', $courseScope);
                         if ($request->filled('session_id')) {
                             $session->whereKey($request->integer('session_id'));
                         }
                     })
-                    ->with(['user', 'session.course'])
-                    ->latest('id')
-                    ->get()
-                    ->map(fn (AttendanceRecord $record) => [
-                        $record->session?->uuid,
-                        $record->session?->course?->code,
-                        $record->user?->full_name,
-                        $record->user?->email,
-                        $record->status,
-                        $record->check_in_at?->toDateTimeString(),
-                        $record->is_verified ? 'Yes' : 'No',
-                        $record->verification_notes,
+                    ->with([
+                        'user:id,first_name,last_name,email',
+                        'session:id,uuid,course_id',
+                        'session.course:id,code',
                     ]),
+                fn (AttendanceRecord $record) => [
+                    $record->session?->uuid,
+                    $record->session?->course?->code,
+                    $record->user?->full_name,
+                    $record->user?->email,
+                    $record->status,
+                    $record->check_in_at?->toDateTimeString(),
+                    $record->is_verified ? 'Yes' : 'No',
+                    $record->verification_notes,
+                ],
             ],
             'billing' => [
                 ['Invoice ID', 'Student', 'Email', 'Amount', 'Status', 'Due Date', 'Paid At', 'Transaction Reference'],
                 Invoice::query()
+                    ->select(['id', 'uuid', 'user_id', 'amount', 'status', 'due_date', 'paid_at', 'transaction_ref'])
                     ->whereHas('user', $userScope)
-                    ->with('user')
-                    ->latest('id')
-                    ->get()
-                    ->map(fn (Invoice $invoice) => [
-                        $invoice->uuid,
-                        $invoice->user?->full_name,
-                        $invoice->user?->email,
-                        $invoice->amount,
-                        $invoice->status,
-                        $invoice->due_date?->toDateString(),
-                        $invoice->paid_at?->toDateTimeString(),
-                        $invoice->transaction_ref,
-                    ]),
+                    ->with('user:id,first_name,last_name,email'),
+                fn (Invoice $invoice) => [
+                    $invoice->uuid,
+                    $invoice->user?->full_name,
+                    $invoice->user?->email,
+                    $invoice->amount,
+                    $invoice->status,
+                    $invoice->due_date?->toDateString(),
+                    $invoice->paid_at?->toDateTimeString(),
+                    $invoice->transaction_ref,
+                ],
             ],
         };
 
         $filename = sprintf('acadflow-%s-%s.csv', $type, now()->format('Ymd-His'));
 
-        return response()->streamDownload(function () use ($headers, $rows): void {
+        return response()->streamDownload(function () use ($headers, $query, $rowMapper): void {
             $stream = fopen('php://output', 'wb');
             fputcsv($stream, $headers);
-            foreach ($rows as $row) {
-                fputcsv($stream, $row);
+
+            // lazyByIdDesc keeps memory bounded while preserving newest-first exports.
+            foreach ($query->lazyByIdDesc(500) as $model) {
+                fputcsv($stream, $rowMapper($model));
             }
+
             fclose($stream);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
-    }
-
-    private function calculateAttendanceRate($courseScope)
-    {
-        $total = AttendanceRecord::whereHas('session', fn ($q) => $q->whereHas('course', $courseScope))->count();
-        if ($total === 0) {
-            return 0;
-        }
-
-        $present = AttendanceRecord::whereHas('session', fn ($q) => $q->whereHas('course', $courseScope))
-            ->whereIn('status', ['present', 'late'])->count();
-
-        return round(($present / $total) * 100, 1);
     }
 
     // University Admin: Manage faculties

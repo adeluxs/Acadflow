@@ -180,8 +180,19 @@ class SubmissionController extends Controller
 
     public function analytics(Request $request)
     {
-        $query = $this->authorizedReportingQuery($request);
-        return ['total' => (clone $query)->count(), 'pending' => (clone $query)->whereIn('status', ['submitted','resubmitted','under_review'])->count(), 'graded' => (clone $query)->where('status', 'graded')->count(), 'approved' => (clone $query)->where('status', 'approved')->count()];
+        $row = $this->authorizedReportingQuery($request)
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw("SUM(CASE WHEN status IN ('submitted', 'resubmitted', 'under_review') THEN 1 ELSE 0 END) AS pending")
+            ->selectRaw("SUM(CASE WHEN status = 'graded' THEN 1 ELSE 0 END) AS graded")
+            ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved")
+            ->first();
+
+        return [
+            'total' => (int) ($row?->total ?? 0),
+            'pending' => (int) ($row?->pending ?? 0),
+            'graded' => (int) ($row?->graded ?? 0),
+            'approved' => (int) ($row?->approved ?? 0),
+        ];
     }
 
     private function authorizedReportingQuery(Request $request)

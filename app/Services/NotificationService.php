@@ -62,7 +62,7 @@ class NotificationService
 
         // Email: send if enabled, OR as fallback if push failed
         if ($globalEmailEnabled && ($settings?->email_enabled ?? true)) {
-            if ($this->shouldSendEmail($user, $type) || !$pushSent) {
+            if ($this->shouldSendEmail($type, $settings) || !$pushSent) {
                 $this->sendEmailNotification($user, $type, $title, $message, $data, $notification);
             }
         }
@@ -169,10 +169,8 @@ class NotificationService
     /**
      * Check if should send email for this notification type
      */
-    protected function shouldSendEmail(User $user, NotificationType $type): bool
+    protected function shouldSendEmail(NotificationType $type, ?NotificationSetting $settings): bool
     {
-        $settings = $this->getSettings($user);
-
         return match($type) {
             NotificationType::MATERIAL_UPLOADED => $settings?->notify_on_material_upload ?? true,
             NotificationType::ASSIGNMENT_CREATED => $settings?->notify_on_assignment ?? true,

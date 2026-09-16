@@ -71,7 +71,7 @@ class AcademicReferenceService
             return $style === 'ieee' ? '['.max(1, $number).']' : (string) max(1, $number);
         }
 
-        $authors = $reference->authors ?? [];
+        $authors = $this->authorNames($reference);
         $lead = trim((string) ($authors[0] ?? 'Unknown'));
         if (count($authors) > 1) {
             $lead .= $style === 'mla' ? ' et al.' : ' et al.';
@@ -99,7 +99,7 @@ class AcademicReferenceService
 
     private function authors(AcademicReference $reference): string
     {
-        $authors = array_values(array_filter(array_map('trim', $reference->authors ?? [])));
+        $authors = $this->authorNames($reference);
         if ($authors === []) {
             return 'Unknown author';
         }
@@ -111,6 +111,30 @@ class AcademicReferenceService
         }
 
         return implode(', ', array_slice($authors, 0, -1)).', and '.$authors[array_key_last($authors)];
+    }
+
+    /** @return array<int,string> */
+    private function authorNames(AcademicReference $reference): array
+    {
+        return collect($reference->authors ?? [])
+            ->map(function ($author): ?string {
+                if (is_string($author)) {
+                    return trim($author) ?: null;
+                }
+                if (! is_array($author)) {
+                    return null;
+                }
+
+                $name = data_get($author, 'author.display_name')
+                    ?? ($author['display_name'] ?? null)
+                    ?? ($author['name'] ?? null)
+                    ?? trim((string) (($author['given'] ?? '').' '.($author['family'] ?? '')));
+
+                return filled($name) ? trim((string) $name) : null;
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
 
 }

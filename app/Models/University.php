@@ -29,6 +29,9 @@ class University extends Model
         'website',
         'timezone',
         'is_active',
+        'adoption_status',
+        'claimed_at',
+        'adopted_at',
         'settings',
     ];
 
@@ -45,6 +48,8 @@ class University extends Model
             'is_active' => 'boolean',
             'settings' => 'array',
             'catalog_verified_at' => 'datetime',
+            'claimed_at' => 'datetime',
+            'adopted_at' => 'datetime',
         ];
     }
 
@@ -66,6 +71,22 @@ class University extends Model
     public function currentSession(): HasMany
     {
         return $this->hasMany(AcademicSession::class)->where('is_current', true);
+    }
+
+
+    public function affiliations(): HasMany
+    {
+        return $this->hasMany(UserInstitutionAffiliation::class);
+    }
+
+    public function emailDomains(): HasMany
+    {
+        return $this->hasMany(InstitutionEmailDomain::class);
+    }
+
+    public function isOfficiallyAdopted(): bool
+    {
+        return $this->adoption_status === 'active';
     }
 
     public function subscriptions(): HasMany

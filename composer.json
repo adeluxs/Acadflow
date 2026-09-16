@@ -78,6 +78,15 @@
         ],
         "safe-error-check": [
             "@php scripts/check-safe-error-experience.php"
+        ],
+        "monetization-check": [
+            "@php scripts/check-monetization-rebuild.php"
+        ],
+        "pricing-rule-ux-check": [
+            "@php scripts/check-pricing-rule-ux.php"
+        ],
+        "commercial-account-ux-check": [
+            "@php scripts/check-commercial-account-ux.php"
         ]
     },
     "extra": {

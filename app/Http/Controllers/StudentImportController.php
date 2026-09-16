@@ -10,6 +10,7 @@ use App\Models\Department;
 use App\Models\Enrollment;
 use App\Models\Semester;
 use App\Models\User;
+use App\Services\InstitutionAdoptionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,10 +30,20 @@ class StudentImportController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('students.import', compact('departments'));
+        $semesters = Semester::query()
+            ->select(['id', 'name', 'academic_session_id'])
+            ->with('academicSession:id,name')
+            ->when(! $user->isSuperAdmin(), fn (Builder $query) => $query->whereHas(
+                'academicSession',
+                fn (Builder $session) => $session->where('university_id', $user->university_id)
+            ))
+            ->orderByDesc('id')
+            ->get();
+
+        return view('students.import', compact('departments', 'semesters'));
     }
 
-    public function import(Request $request)
+    public function import(Request $request, InstitutionAdoptionService $adoption)
     {
         $actor = $request->user();
         abort_unless($actor && $actor->isAdmin(), 403);
@@ -111,8 +122,8 @@ class StudentImportController extends Controller
 
             try {
                 $existing = User::query()->where('email', $email)->first();
-                if ($existing && (int) $existing->university_id !== $targetUniversityId) {
-                    throw new \RuntimeException('Email already belongs to another institution.');
+                if ($existing && $existing->university_id && (int) $existing->university_id !== $targetUniversityId && $existing->hasVerifiedInstitutionAffiliation()) {
+                    throw new \RuntimeException('Email is already verified with another institution.');
                 }
 
                 $user = User::query()->updateOrCreate(
@@ -122,7 +133,7 @@ class StudentImportController extends Controller
                         'last_name' => trim((string) ($data['last_name'] ?? '')),
                         'student_id' => trim((string) ($data['student_id'] ?? '')) ?: null,
                         'phone' => trim((string) ($data['phone'] ?? '')) ?: null,
-                        'password' => $existing?->password ?? Hash::make((string) ($data['password'] ?: Str::password(16))),
+                        'password' => $existing?->password ?? Hash::make((string) (($data['password'] ?? '') ?: Str::password(16))),
                         'role' => 'student',
                         'university_id' => $targetUniversityId,
                         'department_id' => $request->integer('department_id'),
@@ -130,6 +141,8 @@ class StudentImportController extends Controller
                         'uuid' => $existing?->uuid ?? (string) Str::uuid(),
                     ]
                 );
+
+                $adoption->verifyAffiliation($user, $department->faculty->university, $department, 'student', $actor, 'roster_import', 'Verified through institution student import.');
 
                 if ($semester && ! empty($data['course_id'])) {
                     $course = Course::query()

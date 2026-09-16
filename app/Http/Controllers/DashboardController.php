@@ -12,14 +12,13 @@ use App\Models\AcademicEventRegistration;
 use App\Models\AcademicChallengeEntry;
 use App\Models\Course;
 use App\Models\Enrollment;
-use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\Invoice;
 use App\Models\Submission;
-use App\Models\SubmissionGrade;
 use App\Models\SubmissionTask;
 use App\Models\Notification;
 use App\Services\AcademicPerformanceService;
+use App\Services\FeatureAccessService;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
@@ -33,8 +32,7 @@ class DashboardController extends Controller
         $enrollments = Enrollment::query()
             ->where('user_id', $user->id)
             ->where('status', 'enrolled')
-            ->whereHas('course.department.faculty', fn (Builder $query) => $query->where('university_id', $user->university_id))
-            ->with(['course.department', 'semester'])
+            ->with('course:id,uuid,code,name,access_mode')
             ->latest('enrolled_at')
             ->get();
 
@@ -42,7 +40,8 @@ class DashboardController extends Controller
         $submissions = Submission::query()
             ->where('user_id', $user->id)
             ->whereIn('course_id', $courseIds)
-            ->with(['course', 'task', 'grade'])
+            ->select(['id', 'uuid', 'user_id', 'course_id', 'title', 'status', 'submitted_at', 'created_at'])
+            ->with('course:id,uuid,code,name')
             ->latest()
             ->limit(8)
             ->get();
@@ -57,7 +56,7 @@ class DashboardController extends Controller
                 $query->whereNull('close_at')->orWhere('close_at', '>=', now());
             })
             ->whereDoesntHave('submissions', fn (Builder $query) => $query->where('user_id', $user->id))
-            ->with('course')
+            ->with('course:id,uuid,code,name')
             ->orderByRaw('COALESCE(close_at, due_date) ASC')
             ->limit(8)
             ->get();
@@ -80,15 +79,16 @@ class DashboardController extends Controller
         });
 
         $cgpa = app(AcademicPerformanceService::class)->studentCgpa($user, $courseIds);
-        $pendingInvoices = Invoice::query()->where('user_id', $user->id)->where('status', 'pending')->get();
-        $groups = Group::query()->whereHas('members', fn (Builder $query) => $query->where('user_id', $user->id))
-            ->whereHas('course.department.faculty', fn (Builder $query) => $query->where('university_id', $user->university_id))
-            ->with(['course', 'members'])->get();
-        $announcements = Notification::query()->where('user_id', $user->id)->latest('created_at')->limit(5)->get();
+        $announcements = Notification::query()
+            ->where('user_id', $user->id)
+            ->select(['id', 'user_id', 'title', 'message', 'created_at'])
+            ->latest('created_at')
+            ->limit(5)
+            ->get();
 
         return view('dashboard.student', compact(
             'enrollments', 'submissions', 'submissionCount', 'pendingTasks', 'courseProgress',
-            'cgpa', 'pendingInvoices', 'groups', 'announcements'
+            'cgpa', 'announcements'
         ));
     }
 
@@ -98,7 +98,6 @@ class DashboardController extends Controller
 
         $courses = Course::query()
             ->whereHas('lecturerAssignments', fn (Builder $query) => $query->where('user_id', $user->id))
-            ->whereHas('department.faculty', fn (Builder $query) => $query->where('university_id', $user->university_id))
             ->with(['department'])
             ->withCount([
                 'enrollments as enrolled_students_count' => fn (Builder $query) => $query->where('status', 'enrolled'),
@@ -127,23 +126,22 @@ class DashboardController extends Controller
         ];
         $submissionOverview['total'] = array_sum($submissionOverview);
 
-        $gradeRows = SubmissionGrade::query()->where('is_final', true)
-            ->whereHas('submission', fn (Builder $query) => $query->whereIn('course_id', $courseIds))
-            ->with('submission:id,course_id')->get()->filter(fn ($grade) => (float) $grade->max_score > 0);
-        $coursePerformance = $courses->map(function ($course) use ($gradeRows) {
-            $grades = $gradeRows->filter(fn ($grade) => $grade->submission?->course_id === $course->id);
-            $average = $grades->isEmpty() ? null : round((float) $grades->avg(fn ($grade) => ((float) $grade->score / (float) $grade->max_score) * 100), 1);
-            return ['course' => $course, 'average' => $average];
-        });
-        $averageClass = app(AcademicPerformanceService::class)->averagePercentage($courseIds);
+        $performance = app(AcademicPerformanceService::class)->coursePerformanceSummary($courseIds);
+        $coursePerformance = $courses->map(fn ($course) => [
+            'course' => $course,
+            'average' => $performance['courses'][$course->id] ?? null,
+        ]);
+        $averageClass = $performance['overall'];
 
         $upcomingTasks = SubmissionTask::query()->whereIn('course_id', $courseIds)
             ->whereIn('status', ['published', 'draft'])
             ->where(function (Builder $query): void { $query->where('close_at', '>=', now())->orWhere('due_date', '>=', now()); })
             ->with('course')->orderByRaw('COALESCE(close_at, due_date) ASC')->limit(5)->get();
 
-        $activeSessions = AttendanceSession::query()->where('lecturer_id', $user->id)->whereIn('course_id', $courseIds)
-            ->where('status', 'active')->with(['course'])->get();
+        $activeSessions = FeatureAccessService::canAccessFeature('attendance', $user)
+            ? AttendanceSession::query()->where('lecturer_id', $user->id)->whereIn('course_id', $courseIds)
+                ->where('status', 'active')->with(['course'])->get()
+            : collect();
 
         return view('dashboard.lecturer', compact(
             'courses', 'studentCount', 'pendingReviews', 'recentSubmissions', 'submissionOverview',
@@ -160,9 +158,14 @@ class DashboardController extends Controller
         $submissions = $this->scopeSubmissions(Submission::query(), $user);
         $invoices = $this->scopeInvoices(Invoice::query(), $user);
 
+        $userCounts = (clone $users)
+            ->selectRaw("SUM(CASE WHEN role = 'student' THEN 1 ELSE 0 END) AS students")
+            ->selectRaw("SUM(CASE WHEN role = 'lecturer' THEN 1 ELSE 0 END) AS lecturers")
+            ->first();
+
         $stats = [
-            'total_students' => (clone $users)->where('role', 'student')->count(),
-            'total_lecturers' => (clone $users)->where('role', 'lecturer')->count(),
+            'total_students' => (int) ($userCounts?->students ?? 0),
+            'total_lecturers' => (int) ($userCounts?->lecturers ?? 0),
             'total_courses' => $courses->count(),
             'total_submissions' => $submissions->count(),
             'pending_payments' => $invoices->where('status', 'pending')->count(),
@@ -175,15 +178,25 @@ class DashboardController extends Controller
     public function member()
     {
         $user = Auth::user();
+        $communitiesEnabled = FeatureAccessService::canAccessFeature('knowledge_communities', $user);
+        $groupsEnabled = FeatureAccessService::canAccessFeature('group_collaboration', $user);
+        $eventsEnabled = FeatureAccessService::canAccessFeature('academic_events', $user);
+        $challengesEnabled = FeatureAccessService::canAccessFeature('academic_challenges', $user);
 
         $stats = [
             'publications' => KnowledgePublication::query()->where('creator_id', $user->id)->count(),
             'research_projects' => ResearchProject::query()->where(function (Builder $query) use ($user): void {
                 $query->where('owner_id', $user->id)
+                    ->orWhere('supervisor_id', $user->id)
+                    ->orWhere('co_supervisor_id', $user->id)
                     ->orWhereHas('memberRecords', fn (Builder $memberQuery) => $memberQuery->where('user_id', $user->id));
             })->count(),
-            'communities' => KnowledgeCommunityMember::query()->where('user_id', $user->id)->where('status', 'active')->count(),
-            'groups' => GroupMember::query()->where('user_id', $user->id)->where('status', 'active')->count(),
+            'communities' => $communitiesEnabled
+                ? KnowledgeCommunityMember::query()->where('user_id', $user->id)->where('status', 'active')->count()
+                : 0,
+            'groups' => $groupsEnabled
+                ? GroupMember::query()->where('user_id', $user->id)->where('status', 'active')->count()
+                : 0,
         ];
 
         $publications = KnowledgePublication::query()
@@ -192,20 +205,24 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        $eventRegistrations = AcademicEventRegistration::query()
-            ->where('user_id', $user->id)
-            ->whereIn('status', ['pending', 'registered', 'waitlisted', 'attended'])
-            ->with('event')
-            ->latest('registered_at')
-            ->limit(5)
-            ->get();
+        $eventRegistrations = $eventsEnabled
+            ? AcademicEventRegistration::query()
+                ->where('user_id', $user->id)
+                ->whereIn('status', ['pending', 'registered', 'waitlisted', 'attended'])
+                ->with('event')
+                ->latest('registered_at')
+                ->limit(5)
+                ->get()
+            : collect();
 
-        $challengeEntries = AcademicChallengeEntry::query()
-            ->where('user_id', $user->id)
-            ->with('challenge')
-            ->latest()
-            ->limit(5)
-            ->get();
+        $challengeEntries = $challengesEnabled
+            ? AcademicChallengeEntry::query()
+                ->where('user_id', $user->id)
+                ->with('challenge')
+                ->latest()
+                ->limit(5)
+                ->get()
+            : collect();
 
         return view('dashboard.member', compact('stats', 'publications', 'eventRegistrations', 'challengeEntries'));
     }

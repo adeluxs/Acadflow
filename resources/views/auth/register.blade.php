@@ -5,7 +5,7 @@
     <div class="mb-7">
         <p class="text-sm font-semibold text-blue-700">Join the academic network</p>
         <h2 class="mt-2 text-3xl font-black text-slate-950">Create your AcadFlow account</h2>
-        <p class="mt-2 text-slate-600">Choose the path that best describes you. Institutional membership remains optional until you verify or join an institution.</p>
+        <p class="mt-2 text-slate-600">Start independently as a student, lecturer/supervisor, or researcher. You can connect an institution later if it becomes relevant.</p>
     </div>
 
     <form method="POST" action="{{ route('store-register') }}" class="space-y-5" data-loading-form>
@@ -16,24 +16,14 @@
                 <option value="">Select your path</option>
                 @foreach([
                     'student' => 'Student',
-                    'lecturer' => 'Lecturer or educator',
+                    'lecturer' => 'Lecturer / Supervisor',
                     'researcher' => 'Researcher',
-                    'university_representative' => 'University representative',
-                    'department_representative' => 'Faculty or department representative',
-                    'academic_staff' => 'Academic staff',
-                    'non_academic_staff' => 'Non-academic staff',
-                    'independent_professional' => 'Independent professional',
-                    'author_publisher' => 'Author or publisher',
-                    'research_discovery' => 'Here to discover research and publications',
-                    'community_events' => 'Here for communities, events and challenges',
-                    'alumni' => 'Alumni',
-                    'organisation' => 'Organisation or research group',
-                    'other' => 'Other',
                 ] as $value => $label)
                     <option value="{{ $value }}" @selected(old('account_type') === $value)>{{ $label }}</option>
                 @endforeach
             </select>
             @error('account_type')<p class="mt-2 text-sm text-rose-700">{{ $message }}</p>@enderror
+            <p class="mt-2 text-xs leading-5 text-slate-500">Representing a university, faculty, department or organisation? Institutional onboarding is handled separately so individual users are never blocked from starting.</p>
         </div>
 
         <div class="grid gap-5 sm:grid-cols-2">

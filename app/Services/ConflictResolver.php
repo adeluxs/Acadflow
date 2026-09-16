@@ -89,13 +89,15 @@ class ConflictResolver
         if (isset($localData['files'])) {
             $submission->versions()->where('is_current', true)->update(['is_current' => false]);
 
+            $nextVersion = ((int) $submission->versions()->max('version')) + 1;
+
             foreach ($localData['files'] as $fileData) {
                 $submission->versions()->create([
                     'file_name' => $fileData['name'],
                     'file_path' => $fileData['path'] ?? null,
                     'file_size' => $fileData['size'] ?? null,
                     'is_current' => true,
-                    'version' => $submission->versions()->count() + 1,
+                    'version' => $nextVersion++,
                 ]);
             }
         }

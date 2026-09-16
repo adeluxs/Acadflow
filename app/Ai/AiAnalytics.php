@@ -50,13 +50,22 @@ class AiAnalytics
         if ($universityId) $query->where('university_id', $universityId);
         if ($departmentId) $query->where('department_id', $departmentId);
 
-        $total = (clone $query)->count();
-        $cacheHits = (clone $query)->where('cached', true)->count();
-        $ruleRequests = (clone $query)->whereIn('source', ['rule_engine', 'rule_engine_fallback'])->count();
-        $providerRequests = (clone $query)->whereNotNull('provider')->count();
-        $hybridRequests = (clone $query)->where('mode', 'hybrid')->count();
-        $failures = (clone $query)->where('success', false)->count();
-        $fallbacks = (clone $query)->where('fallback_used', true)->count();
+        $metrics = (clone $query)
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw('SUM(CASE WHEN cached = 1 THEN 1 ELSE 0 END) AS cache_hits')
+            ->selectRaw("SUM(CASE WHEN source IN ('rule_engine', 'rule_engine_fallback') THEN 1 ELSE 0 END) AS rule_requests")
+            ->selectRaw('SUM(CASE WHEN provider IS NOT NULL THEN 1 ELSE 0 END) AS provider_requests')
+            ->selectRaw("SUM(CASE WHEN mode = 'hybrid' THEN 1 ELSE 0 END) AS hybrid_requests")
+            ->selectRaw('SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failures')
+            ->selectRaw('SUM(CASE WHEN fallback_used = 1 THEN 1 ELSE 0 END) AS fallbacks')
+            ->selectRaw('AVG(processing_time) AS avg_processing_time')
+            ->selectRaw('COALESCE(SUM(cost), 0) AS total_cost')
+            ->selectRaw('COALESCE(SUM(estimated_savings), 0) AS estimated_savings')
+            ->first();
+
+        $total = (int) ($metrics?->total ?? 0);
+        $cacheHits = (int) ($metrics?->cache_hits ?? 0);
+        $failures = (int) ($metrics?->failures ?? 0);
 
         $topFeatures = (clone $query)->selectRaw('feature, count(*) as total')
             ->groupBy('feature')->orderByDesc('total')->limit(5)->pluck('total', 'feature')->toArray();
@@ -67,14 +76,14 @@ class AiAnalytics
             'total_requests' => $total,
             'cache_hits' => $cacheHits,
             'cache_misses' => max(0, $total - $cacheHits),
-            'rule_engine_requests' => $ruleRequests,
-            'provider_requests' => $providerRequests,
-            'hybrid_requests' => $hybridRequests,
-            'fallback_requests' => $fallbacks,
+            'rule_engine_requests' => (int) ($metrics?->rule_requests ?? 0),
+            'provider_requests' => (int) ($metrics?->provider_requests ?? 0),
+            'hybrid_requests' => (int) ($metrics?->hybrid_requests ?? 0),
+            'fallback_requests' => (int) ($metrics?->fallbacks ?? 0),
             'failure_rate' => $total > 0 ? round($failures / $total, 4) : 0,
-            'average_processing_time' => round((float) ((clone $query)->average('processing_time') ?? 0), 4),
-            'total_cost' => round((float) ((clone $query)->sum('cost') ?? 0), 4),
-            'estimated_savings' => round((float) ((clone $query)->sum('estimated_savings') ?? 0), 4),
+            'average_processing_time' => round((float) ($metrics?->avg_processing_time ?? 0), 4),
+            'total_cost' => round((float) ($metrics?->total_cost ?? 0), 4),
+            'estimated_savings' => round((float) ($metrics?->estimated_savings ?? 0), 4),
             'top_features' => $topFeatures,
             'top_providers' => $topProviders,
         ];

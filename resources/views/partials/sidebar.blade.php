@@ -56,9 +56,13 @@
             ['Challenges','knowledge.challenges.index','trophy'],
             ['Notifications','notifications.index','bell'],
         ],
+        'university_representative' => [
+            ['Institution onboarding','institution.onboarding.request','building'],
+            ['AI Assistant','ai.assistant','ai'],['Knowledge Hub','knowledge.index','book'],['Notifications','notifications.index','bell'],
+        ],
         'university_admin' => [
             ['Faculties','admin.faculties','building'],['Courses','admin.courses','book'],['Users','admin.users','users'],
-            ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Monetization','admin.monetization','wallet'],
+            ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Institution setup','institution.setup','building'],['Commercial Account','institution.commercial-account','wallet'],
             ['Reports','admin.reports','grade'],['Notifications','admin.notifications.index','bell'],['Settings','admin.settings','settings'],
         ],
         'department_admin' => [
@@ -69,10 +73,18 @@
         'super_admin' => [
             ['Institutions','admin.universities','building'],['Users','admin.users','users'],['System Settings','admin.settings','settings'],
             ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Monetization','admin.monetization','wallet'],
-            ['Reports','admin.reports','grade'],['Notifications','admin.notifications.index','bell'],['Onboarding','admin.onboarding.index','users'],
+            ['Reports','admin.reports','grade'],['Notifications','admin.notifications.index','bell'],['Institution onboarding','admin.institution-onboarding','building'],['User onboarding','admin.onboarding.index','users'],
         ],
         default => [],
     };
+
+    if ($user?->account_type === 'university_representative' && ! $user?->isUniversityAdmin()) {
+        $primary = [
+            ['Institution onboarding','institution.onboarding.request','building'],
+            ['AI Assistant','ai.assistant','ai'],['Knowledge Hub','knowledge.index','book'],
+            ['Research Studio','research.index','research'],['Notifications','notifications.index','bell'],
+        ];
+    }
 
     $secondary = $user?->isAdmin() ? [
         ['Knowledge Hub','knowledge.index','book'],['Research Studio','research.index','research'],['Communities','knowledge.communities.index','community']

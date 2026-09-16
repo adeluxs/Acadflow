@@ -1,0 +1,27 @@
+AcadFlow Institution Commercial Account UX Validation
+Date: 2026-08-31
+
+Implementation scope
+- Institution Admin has dedicated Commercial Account dashboard.
+- Institution Admin can request account setup, prepaid funding, commercial-term changes, and sponsored AI/features.
+- Institution requests never mutate balances or commercial terms directly.
+- Platform/Super Admin remains authoritative for commercial account creation/update and financial changes.
+- Platform Admin has commercial-request review queue and guided prefilled setup/approval flow.
+- Rejections include a reason visible to the institution.
+- Approved sponsored paid features participate in the central EntitlementService.
+- Paused commercial accounts do not sponsor paid features.
+- Request audit history is stored in commercial_account_requests.
+- Institution Admin navigation no longer exposes the Platform Monetization control center.
+
+Validation completed
+- All repository scripts/check-*.php preflights: PASS
+- Institution commercial account UX preflight: PASS
+- Pricing rule UX preflight: PASS
+- Monetization rebuild preflight: PASS
+- Runtime regression preflight: PASS (156 Blade templates checked by repository script)
+- PHP syntax validation: PASS (772 PHP files)
+- Static route -> controller method integrity: PASS (483 targets)
+- composer.json JSON parse: PASS
+
+Environment limitation
+The supplied source does not include vendor/ and Composer dependencies are not installed in this execution environment, so Laravel boot/PHPUnit/database migration execution must still be performed on staging after composer install. Source-level PHPUnit/feature regression tests are included.

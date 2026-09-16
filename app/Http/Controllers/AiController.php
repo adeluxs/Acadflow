@@ -28,6 +28,7 @@ use App\Services\Ai\AiRuntimeConfigService;
 use App\Services\SettingService;
 use App\Support\Errors\UserFacingError;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -128,6 +129,16 @@ class AiController extends Controller
         ]);
 
         $user = $request->user();
+        $requestId = UserFacingError::requestId($request);
+        $startedAt = microtime(true);
+        Log::info('AI request received.', [
+            'request_id' => $requestId,
+            'user_id' => $user?->id,
+            'operation' => 'ai.assistant.ask',
+            'tool' => $data['tool'],
+            'elapsed_ms' => 0,
+        ]);
+
         $courseId = isset($data['course_id']) ? (int) $data['course_id'] : null;
         if ($courseId && ! $user->canAccessCourse(Course::with('department.faculty')->findOrFail($courseId))) {
             abort(403, 'You do not have access to the selected course.');
@@ -151,7 +162,23 @@ class AiController extends Controller
             ));
         }
 
-        return response()->json($this->assistant->ask($user, $data['message'], $courseId));
+        // The public assistant service contract carries the request correlation ID
+        // and lifecycle start time so the same logical request is observable from
+        // controller -> service -> manager -> provider -> response. Keep the nullable
+        // course argument explicit because existing endpoint regression tests and
+        // decorators rely on this five-argument contract.
+        $payload = $this->assistant->ask($user, $data['message'], $courseId, $requestId, $startedAt);
+
+        Log::info('AI response returned to client.', [
+            'request_id' => $requestId,
+            'user_id' => $user?->id,
+            'operation' => 'ai.assistant.ask',
+            'success' => (bool) ($payload['success'] ?? false),
+            'error_code' => $payload['error_code'] ?? null,
+            'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+        ]);
+
+        return response()->json($payload);
     }
 
     private function assistantModulePayload(array $payload, string $fallbackTitle): array

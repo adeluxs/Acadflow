@@ -71,12 +71,24 @@ abstract class ExternalProvider implements AiProviderInterface
         $delayMs = max(0, (int) ($this->config['retry_delay_ms'] ?? 300));
         $fastFailover = (bool) filter_var($this->config['fast_failover'] ?? true, FILTER_VALIDATE_BOOL);
         $last = null;
-        $requestId = (string) Str::uuid();
+        $requestId = trim((string) ($payload['_ai_request_id'] ?? '')) ?: (string) Str::uuid();
         $configuredForceIpv4 = (bool) filter_var($this->config['force_ipv4'] ?? false, FILTER_VALIDATE_BOOL);
         $adaptiveIpv4 = $configuredForceIpv4;
         $ipv4FallbackAdded = false;
 
         for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            $attemptTimeout = $this->effectiveRequestTimeout($payload);
+            if ($attemptTimeout < 1) {
+                $last = ['AI_REQUEST_TIMEOUT', 'The AI request reached its safe processing time budget.', 'Lifecycle budget exhausted before provider attempt.'];
+                $this->providerLog('warning', 'AI provider attempt skipped because lifecycle budget was exhausted.', [
+                    'request_id' => $requestId,
+                    'feature' => $feature,
+                    'attempt' => $attempt,
+                    'error_code' => 'AI_REQUEST_TIMEOUT',
+                ]);
+                break;
+            }
+
             try {
                 $endpoint = (string) $this->endpoint();
                 $body = $this->body($feature, $payload);
@@ -86,37 +98,60 @@ abstract class ExternalProvider implements AiProviderInterface
                     'attempt' => $attempt,
                     'endpoint' => $this->safeEndpoint($endpoint),
                     'ip_mode' => $adaptiveIpv4 ? 'ipv4' : 'automatic',
+                    'timeout_seconds' => $attemptTimeout,
                 ] + $this->safePayloadMetadata($body));
 
                 // Send a raw JSON body instead of relying on implicit request
                 // serialization. This guarantees provider-required fields such
                 // as OpenAI's `model` parameter are present exactly as built.
                 $response = $this->sendJson(
-                    $this->httpClient($requestId, false, $adaptiveIpv4),
+                    $this->httpClient($requestId, false, $adaptiveIpv4, $attemptTimeout),
                     $endpoint,
                     $body
                 );
 
                 if ($response->successful()) {
-                    $raw = (array) $response->json();
-                    $elapsed = round(microtime(true) - $start, 4);
-                    $providerCostMicroUsd = $this->estimateCostMicroUsd($raw);
-                    // AiResponse keeps a legacy float cost for non-financial analytics/UI.
-                    // The authoritative monetization path receives the integer micro-USD
-                    // amount below and never calculates money from this float.
-                    $parsed = $this->parseResponse($feature, $raw, $elapsed, $providerCostMicroUsd / 1_000_000);
                     $providerRequestId = $this->providerRequestId($response);
-
-                    $this->providerLog('info', 'AI provider request succeeded.', [
+                    $httpElapsed = round(microtime(true) - $start, 4);
+                    $this->providerLog('info', 'AI provider HTTP response received.', [
                         'request_id' => $requestId,
                         'provider_request_id' => $providerRequestId,
                         'feature' => $feature,
                         'attempt' => $attempt,
                         'http_status' => $response->status(),
-                        'latency_ms' => (int) round($elapsed * 1000),
+                        'latency_ms' => (int) round($httpElapsed * 1000),
                     ]);
 
-                    return $parsed->withData([
+                    try {
+                        $json = $response->json();
+                        if (! is_array($json)) {
+                            $last = ['AI_RESPONSE_PARSE_FAILED', 'The AI provider returned an unreadable response.', 'Provider response was not a JSON object.'];
+                            $this->providerLog('warning', 'AI provider HTTP response could not be decoded.', [
+                                'request_id' => $requestId,
+                                'feature' => $feature,
+                                'attempt' => $attempt,
+                                'error_code' => 'AI_RESPONSE_PARSE_FAILED',
+                            ]);
+                            break;
+                        }
+                        $raw = $json;
+                        $elapsed = round(microtime(true) - $start, 4);
+                        $providerCostMicroUsd = $this->estimateCostMicroUsd($raw);
+                        // AiResponse keeps a legacy float cost for analytics/UI only.
+                        $parsed = $this->parseResponse($feature, $raw, $elapsed, $providerCostMicroUsd / 1_000_000);
+                    } catch (\Throwable $e) {
+                        $last = ['AI_RESPONSE_PARSE_FAILED', 'The AI provider response could not be parsed.', $this->safeThrowableMessage($e)];
+                        $this->providerLog('warning', 'AI provider response parsing failed.', [
+                            'request_id' => $requestId,
+                            'feature' => $feature,
+                            'attempt' => $attempt,
+                            'error_code' => 'AI_RESPONSE_PARSE_FAILED',
+                            'error_type' => $e::class,
+                        ]);
+                        break;
+                    }
+
+                    $decorated = $parsed->withData([
                         'request_id' => $requestId,
                         'provider' => $this->name(),
                         'model' => $this->model(),
@@ -128,6 +163,28 @@ abstract class ExternalProvider implements AiProviderInterface
                             'provider_cost_micro_usd' => $providerCostMicroUsd,
                         ]),
                     ]);
+
+                    if (! $decorated->success) {
+                        $last = [$decorated->errorCode ?: 'AI_EMPTY_RESPONSE', $decorated->summary ?: 'The AI provider returned no usable answer.', 'HTTP 200 response contained no usable AI output.'];
+                        $this->providerLog('warning', 'AI provider returned HTTP 200 but no usable answer.', [
+                            'request_id' => $requestId,
+                            'provider_request_id' => $providerRequestId,
+                            'feature' => $feature,
+                            'attempt' => $attempt,
+                            'error_code' => $decorated->errorCode ?: 'AI_EMPTY_RESPONSE',
+                        ]);
+                        return $decorated;
+                    }
+
+                    $this->providerLog('info', 'AI provider response parsed successfully.', [
+                        'request_id' => $requestId,
+                        'provider_request_id' => $providerRequestId,
+                        'feature' => $feature,
+                        'attempt' => $attempt,
+                        'http_status' => $response->status(),
+                        'latency_ms' => (int) round($elapsed * 1000),
+                    ]);
+                    return $decorated;
                 }
 
                 $last = $this->httpError($response);
@@ -192,7 +249,10 @@ abstract class ExternalProvider implements AiProviderInterface
                 break;
             }
 
-            if ($delayMs > 0) usleep($delayMs * 1000 * $attempt);
+            if ($delayMs > 0 && $this->effectiveRequestTimeout($payload) > 1) {
+                $sleepMs = min($delayMs * $attempt, max(0, (int) floor(($this->remainingLifecycleSeconds($payload) - $this->postProviderReserveSeconds()) * 1000)));
+                if ($sleepMs > 0) usleep($sleepMs * 1000);
+            }
         }
 
         [$code, $message] = $last ?? ['AI_PROVIDER_UNAVAILABLE', 'Provider is unavailable.'];
@@ -353,13 +413,38 @@ abstract class ExternalProvider implements AiProviderInterface
             || str_contains($diagnostic, 'resolve');
     }
 
+    protected function postProviderReserveSeconds(): int
+    {
+        return max(1, min(15, (int) ($this->config['post_provider_reserve_seconds'] ?? 4)));
+    }
+
+    protected function remainingLifecycleSeconds(array $payload): float
+    {
+        $deadline = (float) ($payload['_ai_deadline_at'] ?? 0);
+        if ($deadline <= 0) return (float) max(1, (int) ($this->config['request_timeout'] ?? 18));
+        return max(0.0, $deadline - microtime(true));
+    }
+
+    protected function effectiveRequestTimeout(array $payload): int
+    {
+        $configured = max(1, (int) ($this->config['request_timeout'] ?? 18));
+        $deadline = (float) ($payload['_ai_deadline_at'] ?? 0);
+        if ($deadline <= 0) return $configured;
+
+        $available = (int) floor($this->remainingLifecycleSeconds($payload) - $this->postProviderReserveSeconds());
+        if ($available < 1) return 0;
+        return max(1, min($configured, $available));
+    }
+
     /**
      * Shared HTTP transport for Test Connection and real requests.
      */
-    protected function httpClient(string $requestId, bool $healthCheck = false, ?bool $forceIpv4Override = null): PendingRequest
+    protected function httpClient(string $requestId, bool $healthCheck = false, ?bool $forceIpv4Override = null, ?int $timeoutOverride = null): PendingRequest
     {
-        $requestTimeout = max(1, (int) ($this->config['request_timeout'] ?? 30));
-        if ($healthCheck) $requestTimeout = min(30, max(5, $requestTimeout));
+        $requestTimeout = $timeoutOverride !== null
+            ? max(1, $timeoutOverride)
+            : max(1, (int) ($this->config['request_timeout'] ?? 18));
+        if ($healthCheck) $requestTimeout = min(15, max(5, $requestTimeout));
         $connectTimeout = max(1, min($requestTimeout, (int) ($this->config['connect_timeout'] ?? 10)));
 
         $options = [];

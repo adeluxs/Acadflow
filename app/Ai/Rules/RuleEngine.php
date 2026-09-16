@@ -47,7 +47,7 @@ class RuleEngine
         $all = $this->packs();
         $type = $context['type'] ?? null;
 
-        return array_values(array_filter($all, function (RulePackInterface $pack) use ($feature) {
+        return array_values(array_filter($all, function (RulePackInterface $pack) use ($feature, $context) {
             if (! (bool) \App\Services\SettingService::get('ai_rulepack_'.$pack->key(), true, (int) ($context['_tenant_university_id'] ?? 0) ?: null)) {
                 return false;
             }

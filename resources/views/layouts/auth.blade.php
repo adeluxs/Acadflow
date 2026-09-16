@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Welcome') · {{ \App\Services\SettingService::get('site_name', 'AcadFlow') }}</title>
+    <title>@yield('title', 'Welcome') · {{ $siteName }}</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('branding/acadflow-icon-192.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('branding/acadflow-icon-180.png') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-900 antialiased">
+@include('partials.global-loader')
 <div class="min-h-screen lg:grid lg:grid-cols-[1.05fr_.95fr]">
     <section class="relative hidden overflow-hidden lg:flex lg:min-h-screen lg:flex-col lg:justify-between bg-gradient-to-br from-blue-700 via-indigo-800 to-slate-950 px-12 py-10 text-white">
         <div class="absolute inset-0 opacity-20" aria-hidden="true">
@@ -16,9 +19,9 @@
         </div>
         <div class="relative">
             <a href="{{ route('home') }}" class="inline-flex items-center gap-3">
-                <span class="grid h-12 w-12 place-items-center rounded-2xl bg-white/15 text-xl font-black ring-1 ring-white/20">A</span>
+                <span class="grid h-12 w-12 place-items-center rounded-2xl bg-white p-1 shadow-lg ring-1 ring-white/20"><img src="{{ asset('branding/acadflow-mark.png') }}" alt="" class="h-full w-full object-contain"></span>
                 <span>
-                    <strong class="block text-2xl">{{ \App\Services\SettingService::get('site_name', 'AcadFlow') }}</strong>
+                    <strong class="block text-2xl">{{ $siteName }}</strong>
                     <span class="text-sm text-blue-100">Learn. Share. Build Reputation. Earn.</span>
                 </span>
             </a>
@@ -50,8 +53,8 @@
     <main class="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 sm:px-8">
         <div class="w-full max-w-xl">
             <a href="{{ route('home') }}" class="mb-8 inline-flex items-center gap-3 lg:hidden">
-                <span class="grid h-11 w-11 place-items-center rounded-2xl bg-blue-700 text-white font-black">A</span>
-                <span class="text-xl font-bold text-slate-950">{{ \App\Services\SettingService::get('site_name', 'AcadFlow') }}</span>
+                <span class="grid h-11 w-11 place-items-center rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-200"><img src="{{ asset('branding/acadflow-mark.png') }}" alt="" class="h-full w-full object-contain"></span>
+                <span class="text-xl font-bold text-slate-950">{{ $siteName }}</span>
             </a>
 
             @include('partials.feedback')

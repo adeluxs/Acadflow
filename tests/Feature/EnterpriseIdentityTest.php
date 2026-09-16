@@ -24,7 +24,7 @@ class EnterpriseIdentityTest extends TestCase
             'account_type' => 'independent_professional',
             'first_name' => 'Ada',
             'last_name' => 'Okafor',
-            'username' => 'ada.okafor',
+            'username' => 'ada-okafor',
             'email' => 'ada@example.test',
             'password' => 'EnterprisePass123!',
             'password_confirmation' => 'EnterprisePass123!',
@@ -51,7 +51,7 @@ class EnterpriseIdentityTest extends TestCase
             'account_type' => 'student',
             'first_name' => 'Tunde',
             'last_name' => 'Bello',
-            'username' => 'tunde.bello',
+            'username' => 'tunde-bello',
             'email' => 'tunde@example.test',
             'password' => 'EnterprisePass123!',
             'password_confirmation' => 'EnterprisePass123!',
@@ -61,7 +61,7 @@ class EnterpriseIdentityTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'tunde@example.test', 'role' => 'student']);
     }
 
-    public function test_institutional_onboarding_cannot_skip_affiliation(): void
+    public function test_independent_student_can_skip_affiliation(): void
     {
         $user = User::factory()->withoutOnboarding()->create(['account_type' => 'student', 'role' => 'student']);
         UserOnboardingState::create([
@@ -69,6 +69,32 @@ class EnterpriseIdentityTest extends TestCase
             'path' => 'student',
             'current_step' => 3,
             'data' => ['path' => 'student', 'first_name' => $user->first_name, 'last_name' => $user->last_name, 'username' => 'student-'.$user->id],
+            'started_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('onboarding.skip', 'affiliation'))
+            ->assertSessionDoesntHaveErrors()
+            ->assertRedirect(route('onboarding.show', ['step' => 4]));
+
+        $this->assertDatabaseHas('user_onboarding_states', [
+            'user_id' => $user->id,
+            'current_step' => 4,
+        ]);
+        $this->assertNull($user->fresh()->university_id);
+    }
+
+    public function test_institution_representative_cannot_skip_affiliation(): void
+    {
+        $user = User::factory()->withoutOnboarding()->create([
+            'account_type' => 'university_representative',
+            'role' => 'member',
+        ]);
+        UserOnboardingState::create([
+            'user_id' => $user->id,
+            'path' => 'university_representative',
+            'current_step' => 3,
+            'data' => ['path' => 'university_representative'],
             'started_at' => now(),
         ]);
 

@@ -27,7 +27,7 @@
 <section><h2 class="mb-4 text-xl font-semibold">Existing workflows</h2><div class="grid gap-5 xl:grid-cols-2">
 @forelse($workflows as $workflow)
 <form method="POST" action="{{ route('research.configuration.workflows.update',$workflow) }}" class="rounded-2xl border bg-white p-5">@csrf @method('PUT')
-<div class="flex items-start justify-between gap-3"><div><h3 class="font-semibold">{{ $workflow->name }}</h3><p class="text-xs text-slate-500">{{ $workflow->key }} · {{ $workflow->instances->count() }} recorded instance(s)</p></div><span class="rounded-full px-2 py-1 text-xs {{ $workflow->is_active?'bg-green-100 text-green-700':'bg-slate-100' }}">{{ $workflow->is_active?'Active':'Retired' }}</span></div>
+<div class="flex items-start justify-between gap-3"><div><h3 class="font-semibold">{{ $workflow->name }}</h3><p class="text-xs text-slate-500">{{ $workflow->key }} · {{ $workflow->instances_count }} recorded instance(s)</p></div><span class="rounded-full px-2 py-1 text-xs {{ $workflow->is_active?'bg-green-100 text-green-700':'bg-slate-100' }}">{{ $workflow->is_active?'Active':'Retired' }}</span></div>
 <div class="mt-4 grid gap-3 sm:grid-cols-2"><label class="text-xs font-medium">Key<input name="key" value="{{ $workflow->key }}" required class="mt-1 w-full rounded-lg border-slate-300"></label><label class="text-xs font-medium">Name<input name="name" value="{{ $workflow->name }}" required class="mt-1 w-full rounded-lg border-slate-300"></label></div>
 <label class="mt-3 block text-xs font-medium">Description<textarea name="description" rows="2" class="mt-1 w-full rounded-lg border-slate-300">{{ $workflow->description }}</textarea></label>
 <label class="mt-3 block text-xs font-medium">Settings JSON<textarea name="settings" rows="5" class="mt-1 w-full rounded-lg border-slate-300 font-mono text-xs">{{ json_encode($workflow->settings ?? new stdClass, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) }}</textarea></label>
@@ -52,7 +52,7 @@
 
 <section><h2 class="mb-4 text-xl font-semibold">Existing research types</h2><div class="grid gap-5 xl:grid-cols-2">
 @foreach($types as $type)<form method="POST" action="{{ route('research.configuration.types.update',$type) }}" class="rounded-2xl border bg-white p-5">@csrf @method('PUT')
-<h3 class="font-semibold">{{ $type->name }}</h3><p class="text-xs text-slate-500">{{ $type->projects()->count() }} project(s) · {{ $type->templateVersions->count() }} immutable template version(s)</p>
+<h3 class="font-semibold">{{ $type->name }}</h3><p class="text-xs text-slate-500">{{ $type->projects_count }} project(s) · {{ $type->template_versions_count }} immutable template version(s)</p>
 <div class="mt-4 grid gap-3 sm:grid-cols-2"><label class="text-xs font-medium">Name<input name="name" value="{{ $type->name }}" required class="mt-1 w-full rounded-lg border-slate-300"></label><label class="text-xs font-medium">Slug<input name="slug" value="{{ $type->slug }}" required class="mt-1 w-full rounded-lg border-slate-300"></label></div>
 <label class="mt-3 block text-xs font-medium">Workflow<select name="workflow_definition_id" class="mt-1 w-full rounded-lg border-slate-300">@foreach($workflows as $workflow)<option value="{{ $workflow->id }}" @selected($type->workflow_definition_id===$workflow->id)>{{ $workflow->name }}</option>@endforeach</select></label>
 <label class="mt-3 block text-xs font-medium">Description<textarea name="description" rows="2" class="mt-1 w-full rounded-lg border-slate-300">{{ $type->description }}</textarea></label>

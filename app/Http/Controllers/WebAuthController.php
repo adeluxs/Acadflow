@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\UserOnboardingState;
+use App\Services\OnboardingService;
 use App\Services\SettingService;
 use App\Support\Security\RetryAfter;
 use Illuminate\Auth\Events\Registered;
@@ -88,7 +89,7 @@ class WebAuthController extends Controller
     public function register(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'account_type' => ['required', 'in:student,lecturer,researcher,university_representative,department_representative,academic_staff,non_academic_staff,independent_professional,author_publisher,research_discovery,community_events,alumni,organisation,other'],
+            'account_type' => ['required', 'in:'.implode(',', array_keys(OnboardingService::ACCOUNT_PATHS))],
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'username' => ['required', 'alpha_dash', 'min:3', 'max:60', 'unique:users,username'],
@@ -107,7 +108,11 @@ class WebAuthController extends Controller
             'account_type' => $validated['account_type'],
             // Public registration never grants privileged institutional roles.
             // Verification/administration may promote the user later.
-            'role' => $validated['account_type'] === 'student' ? 'student' : 'member',
+            'role' => match ($validated['account_type']) {
+                'student' => 'student',
+                'lecturer' => 'lecturer',
+                default => 'member',
+            },
             'is_active' => true,
         ]);
 

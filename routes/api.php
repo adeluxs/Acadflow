@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\ResearchController;
 use App\Http\Controllers\Api\PushNotificationController;
 use App\Http\Controllers\Api\SubmissionController;
+use App\Http\Controllers\Api\InstitutionAdoptionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -43,6 +44,11 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
 
 // Protected API Routes
 Route::prefix('v1')->middleware(['auth:sanctum', 'feature.access', 'api.account.ready'])->group(function () {
+    // Progressive institution adoption and affiliation verification
+    Route::get('/institutions/search', [InstitutionAdoptionController::class, 'search'])->middleware('throttle:api');
+    Route::get('/institution-affiliation', [InstitutionAdoptionController::class, 'status'])->middleware('throttle:api');
+    Route::post('/institution-access', [InstitutionAdoptionController::class, 'requestAccess'])->middleware('throttle:api');
+
     // User
     Route::get('/user', [AuthController::class, 'me']);
     Route::put('/user', [AuthController::class, 'updateProfile']);

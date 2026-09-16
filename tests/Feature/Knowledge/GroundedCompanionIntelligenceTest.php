@@ -98,8 +98,8 @@ class GroundedCompanionIntelligenceTest extends TestCase
         ]);
         SettingService::set('ai_mode', 'provider');
         SettingService::set('ai_enable_cache', false, 'boolean');
-        SettingService::set('ai_default_provider', 'openai');
-        SettingService::set('ai_default_model', 'gpt-4o-mini');
+        SettingService::set('ai_default_provider', 'openai', 'string', $user->university_id);
+        SettingService::set('ai_default_model', 'gpt-4o-mini', 'string', $user->university_id);
         SettingService::set('ai_fallback_provider', 'none');
         SettingService::set('ai_provider_openai_enabled', true, 'boolean');
         SettingService::set('ai_provider_openai_model', 'gpt-4o-mini');
@@ -128,8 +128,8 @@ class GroundedCompanionIntelligenceTest extends TestCase
         $this->assertSame('openai', data_get($openAi->metadata, 'provider'));
         $this->assertSame('openai', $openAi->provider);
 
-        SettingService::set('ai_default_provider', 'gemini');
-        SettingService::set('ai_default_model', 'gemini-1.5-flash');
+        SettingService::set('ai_default_provider', 'gemini', 'string', $user->university_id);
+        SettingService::set('ai_default_model', 'gemini-1.5-flash', 'string', $user->university_id);
         app(AiRuntimeConfigService::class)->invalidate();
         app(AiManager::class)->invalidateAll();
 

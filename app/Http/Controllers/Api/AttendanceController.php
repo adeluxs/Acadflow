@@ -125,7 +125,21 @@ class AttendanceController extends Controller
     {
         $query = $this->authorizedRecordQuery($request);
         $query->when($request->filled('session_id'), fn ($scope) => $scope->where('session_id', $request->integer('session_id')));
-        return ['total' => (clone $query)->count(), 'present' => (clone $query)->where('status', 'present')->count(), 'late' => (clone $query)->where('status', 'late')->count(), 'absent' => (clone $query)->where('status', 'absent')->count(), 'invalid' => (clone $query)->where('status', 'invalid')->count()];
+        $row = $query
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw("SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) AS present")
+            ->selectRaw("SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) AS late")
+            ->selectRaw("SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) AS absent")
+            ->selectRaw("SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END) AS invalid")
+            ->first();
+
+        return [
+            'total' => (int) ($row?->total ?? 0),
+            'present' => (int) ($row?->present ?? 0),
+            'late' => (int) ($row?->late ?? 0),
+            'absent' => (int) ($row?->absent ?? 0),
+            'invalid' => (int) ($row?->invalid ?? 0),
+        ];
     }
 
     private function authorizedRecordQuery(Request $request)

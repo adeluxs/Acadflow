@@ -10,7 +10,7 @@
     <h1 class="text-2xl font-bold text-slate-900 mt-1">{{ $course->name }}</h1>
     <p class="text-slate-600 mt-3">{{ $course->description ?: 'No course description has been provided.' }}</p>
     <dl class="grid grid-cols-2 gap-4 mt-6 text-sm">
-        <div><dt class="text-slate-500">Department</dt><dd class="font-medium">{{ $course->department->name }}</dd></div>
+        <div><dt class="text-slate-500">Workspace</dt><dd class="font-medium">{{ $course->isIndependent() ? 'Independent classroom' : $course->department?->name }}</dd></div>
         <div><dt class="text-slate-500">Credit hours</dt><dd class="font-medium">{{ $course->credit_hours }}</dd></div>
     </dl>
 

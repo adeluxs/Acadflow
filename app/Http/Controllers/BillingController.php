@@ -113,12 +113,18 @@ class BillingController extends Controller
             return back()->with('error', 'No student semester fee is configured in this institution’s commercial account.');
         }
 
-        $students = User::query()->where('university_id', $universityId)->where('role', 'student')->where('is_active', true)->get();
         $created = 0;
-        foreach ($students as $student) {
-            $invoice = $payments->generateInvoice($student, $semester, $account);
-            if ($invoice->wasRecentlyCreated) $created++;
-        }
+        User::query()
+            ->select('id')
+            ->where('university_id', $universityId)
+            ->where('role', 'student')
+            ->where('is_active', true)
+            ->chunkById(250, function ($students) use ($payments, $semester, $account, &$created): void {
+                foreach ($students as $student) {
+                    $invoice = $payments->generateInvoice($student, $semester, $account);
+                    if ($invoice->wasRecentlyCreated) $created++;
+                }
+            });
         return back()->with('success', "{$created} new invoice(s) generated; existing semester invoices were preserved.");
     }
 

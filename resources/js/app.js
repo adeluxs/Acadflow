@@ -1,6 +1,6 @@
-import { initRichEditors } from './rich-editor';
 import { initPerformanceUX } from './performance';
 import { initErrorFeedback } from './error-feedback';
+import { initGlobalLoader } from './global-loader';
 import './bootstrap';
 
 /**
@@ -25,9 +25,14 @@ async function initVueRoot() {
 }
 
 function boot() {
+    initGlobalLoader();
     initErrorFeedback();
     initPerformanceUX();
-    initRichEditors();
+    if (document.querySelector('[data-rich-editor]')) {
+        import('./rich-editor')
+            .then(({ initRichEditors }) => initRichEditors())
+            .catch((error) => console.error('AcadFlow rich editor failed to initialize:', error));
+    }
 
     if (document.querySelector('[data-password-policy]')) {
         import('./password-policy')

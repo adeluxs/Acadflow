@@ -181,14 +181,44 @@ class EngagementService
     private function processMentions(EngagementComment $comment, User $author): void
     {
         preg_match_all('/@\[user:(\d+)\]|@([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})/', $comment->body, $matches, PREG_SET_ORDER);
+
+        if ($matches === []) return;
+
+        $ids = [];
+        $emails = [];
         foreach ($matches as $match) {
-            $mentionedQuery = User::query()->where('university_id', $author->university_id);
+            if (! empty($match[1])) $ids[] = (int) $match[1];
+            elseif (! empty($match[2])) $emails[] = strtolower((string) $match[2]);
+        }
+
+        $users = User::query()
+            ->where('university_id', $author->university_id)
+            ->where(function ($query) use ($ids, $emails): void {
+                if ($ids !== []) $query->whereIn('id', array_values(array_unique($ids)));
+                if ($emails !== []) {
+                    $method = $ids !== [] ? 'orWhereIn' : 'whereIn';
+                    $query->{$method}('email', array_values(array_unique($emails)));
+                }
+            })
+            ->get(['id', 'email', 'first_name', 'last_name', 'university_id']);
+
+        $mentionedUsers = collect();
+        foreach ($users as $user) {
+            $mentionedUsers->put('id:'.$user->id, $user);
+            $mentionedUsers->put('email:'.strtolower((string) $user->email), $user);
+        }
+
+        $notified = [];
+        foreach ($matches as $match) {
             $mentioned = ! empty($match[1])
-                ? $mentionedQuery->whereKey((int) $match[1])->first()
-                : $mentionedQuery->where('email', $match[2] ?? '')->first();
-            if (! $mentioned || $mentioned->id === $author->id) {
+                ? $mentionedUsers->get('id:'.(int) $match[1])
+                : $mentionedUsers->get('email:'.strtolower((string) ($match[2] ?? '')));
+
+            if (! $mentioned || $mentioned->id === $author->id || isset($notified[$mentioned->id])) {
                 continue;
             }
+
+            $notified[$mentioned->id] = true;
 
             EngagementMention::firstOrCreate([
                 'mentioned_user_id' => $mentioned->id,

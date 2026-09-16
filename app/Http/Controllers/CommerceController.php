@@ -22,6 +22,12 @@ use Illuminate\View\View;
 
 class CommerceController extends Controller
 {
+    public function subscriptionRetired(): RedirectResponse
+    {
+        return redirect()->route('commerce.wallet')
+            ->with('info', 'Subscriptions have been retired. AcadFlow now uses wallet, usage and entitlement based access.');
+    }
+
     public function orders(Request $request): View
     {
         $user=$request->user();
@@ -85,9 +91,11 @@ class CommerceController extends Controller
         $wallet=$wallets->account($request->user()); $wallet->load(['entries'=>fn($q)=>$q->latest()->limit(100),'withdrawals.payoutAccount']); $accounts=$request->user()->payoutAccounts()->latest()->get();
         $allocations=\App\Models\CommerceRevenueAllocation::query()->with('orderItem.order')->where('beneficiary_user_id',$request->user()->id)->latest()->paginate(25);
         $gateways=PaymentGateway::query()->where('is_active',true)->orderBy('sort_order')->get();
-        $walletRules=['minimum_funding'=>Money::fromMinor(Money::toMinor((string)SettingService::get('wallet_minimum_funding_amount','500',$request->user()->university_id))),
-            'minimum_withdrawal'=>Money::fromMinor(Money::toMinor((string)SettingService::get('minimum_withdrawal_amount','1000',$request->user()->university_id))),
-            'withdrawal_fee'=>(string)SettingService::get('withdrawal_fee_percentage','0',$request->user()->university_id)];
+        $walletRules=[
+            'minimum_funding'=>Money::fromMinor(Money::toMinor((string)SettingService::getGlobal('wallet_minimum_funding_amount','500'))),
+            'minimum_withdrawal'=>Money::fromMinor(Money::toMinor((string)SettingService::getGlobal('minimum_withdrawal_amount','1000'))),
+            'withdrawal_fee'=>(string)SettingService::getGlobal('withdrawal_fee_percentage','0'),
+        ];
         return view('commerce.wallet',compact('wallet','accounts','allocations','gateways','walletRules'));
     }
 

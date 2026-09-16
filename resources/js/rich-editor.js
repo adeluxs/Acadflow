@@ -3,6 +3,57 @@ const QUILL_JS = `https://cdn.jsdelivr.net/npm/quill@${QUILL_VERSION}/dist/quill
 const QUILL_CSS = `https://cdn.jsdelivr.net/npm/quill@${QUILL_VERSION}/dist/quill.snow.css`;
 
 let quillPromise;
+const editorRegistry = new Map();
+
+function editorId(source) {
+    return source?.id || '';
+}
+
+function consumePendingInsertions(source, api, sync) {
+    const pending = Array.isArray(source?._acadflowPendingInsertions)
+        ? source._acadflowPendingInsertions.splice(0)
+        : [];
+
+    pending.forEach((text) => {
+        const value = String(text || '').trim();
+        if (!value) return;
+        api.insertText(value);
+    });
+
+    if (pending.length) sync();
+}
+
+function registerEditor(source, api, sync) {
+    const id = editorId(source);
+    if (id) editorRegistry.set(id, { api, sync, source });
+
+    source.addEventListener('acadflow:editor-insert', (event) => {
+        const text = String(event.detail?.text || '').trim();
+        if (!text) return;
+        api.insertText(text);
+        sync();
+    });
+
+    consumePendingInsertions(source, api, sync);
+}
+
+window.AcadFlowRichEditor = window.AcadFlowRichEditor || {};
+window.AcadFlowRichEditor.insert = (target, text) => {
+    const source = typeof target === 'string' ? document.getElementById(target) : target;
+    const value = String(text || '').trim();
+    if (!source || !value) return false;
+
+    const registered = editorRegistry.get(editorId(source));
+    if (registered) {
+        registered.api.insertText(value);
+        registered.sync();
+        return true;
+    }
+
+    source._acadflowPendingInsertions = source._acadflowPendingInsertions || [];
+    source._acadflowPendingInsertions.push(value);
+    return true;
+};
 
 function ensureQuill() {
     if (window.Quill) return Promise.resolve(window.Quill);
@@ -186,6 +237,7 @@ function initFallback(source) {
     };
     surface.addEventListener('input', sync);
     source.form?.addEventListener('submit', sync);
+    registerEditor(source, api, sync);
     sync();
 }
 
@@ -224,7 +276,8 @@ function initQuill(source, Quill) {
     const api = {
         getHtml: () => quill.root.innerHTML,
         insertText: (text) => {
-            const range = quill.getSelection(true) || { index: quill.getLength() - 1, length: 0 };
+            quill.focus();
+            const range = quill.getSelection(true) || { index: Math.max(0, quill.getLength() - 1), length: 0 };
             quill.insertText(range.index, text, 'user');
             quill.setSelection(range.index + text.length, 0, 'silent');
         },
@@ -237,6 +290,7 @@ function initQuill(source, Quill) {
     const syncAndSuggest = debounce(() => { sync(); suggest(); }, 250);
     quill.on('text-change', syncAndSuggest);
     source.form?.addEventListener('submit', sync);
+    registerEditor(source, api, sync);
     sync();
 }
 

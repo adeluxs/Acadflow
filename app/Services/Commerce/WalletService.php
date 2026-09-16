@@ -231,10 +231,11 @@ class WalletService
         };
         $counter = match(true){
             str_contains($entryType,'fund')=>'payment_clearing',
-            str_contains($entryType,'purchase')=>'marketplace_clearing',
+            str_contains($entryType,'ai_')=>'ai_revenue_clearing',
+            str_contains($entryType,'feature_')=>'feature_revenue_clearing',
             str_contains($entryType,'withdraw')=>'payout_clearing',
             str_contains($entryType,'refund')=>'refund_clearing',
-            str_contains($entryType,'ai_')=>'ai_revenue_clearing',
+            str_contains($entryType,'purchase')=>'marketplace_clearing',
             str_contains($entryType,'earning') || str_contains($entryType,'sale')=>'marketplace_clearing',
             default=>'wallet_clearing',
         };

@@ -10,12 +10,14 @@ use App\Models\AttendanceSession;
 use App\Models\Course;
 use App\Services\AcademicContextService;
 use App\Services\AttendanceService;
+use App\Services\Commerce\FeatureBillingService;
 use App\Support\Errors\UserFacingError;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 class AttendanceController extends Controller
@@ -26,7 +28,7 @@ class AttendanceController extends Controller
     ) {
     }
 
-    public function startSession(Request $request): RedirectResponse
+    public function startSession(Request $request, FeatureBillingService $billing): RedirectResponse
     {
         $this->authorize('start', AttendanceSession::class);
 
@@ -40,14 +42,17 @@ class AttendanceController extends Controller
         ]);
 
         $user = $request->user();
-        if (! $user->hasFeature('attendance_tracking')) {
-            return back()->with('error', 'Attendance tracking is not currently available for your account.');
+        try {
+            $reservation = $billing->begin($user, 'attendance_tracking', 'attendance:'.UserFacingError::requestId($request));
+        } catch (ValidationException $exception) {
+            return back()->withInput()->withErrors($exception->errors());
         }
 
         $course = Course::with('department.faculty')->findOrFail($validated['course_id']);
         $semester = $this->academicContext->activeSemesterForCourse($course);
 
         if (! $semester) {
+            $billing->release($user, $reservation, ['reason' => 'no_active_semester']);
             return back()->with('error', 'No active semester is configured. Ask an administrator to activate a semester.');
         }
 
@@ -63,8 +68,14 @@ class AttendanceController extends Controller
                 $validated['late_threshold'] ?? null,
             );
         } catch (InvalidArgumentException $exception) {
+            $billing->release($user, $reservation, ['reason' => 'attendance_start_failed']);
             return back()->withInput()->with('error', UserFacingError::safeMessage($exception->getMessage(), 'The attendance action could not be completed. Please review the session and try again.'));
+        } catch (\Throwable $exception) {
+            $billing->release($user, $reservation, ['reason' => 'attendance_start_exception']);
+            throw $exception;
         }
+
+        $billing->complete($user, $reservation, ['attendance_session_id' => $session->id]);
 
         return redirect()->route('attendance.session', $session)
             ->with('success', 'Attendance session started.');

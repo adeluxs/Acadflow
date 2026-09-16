@@ -2,10 +2,9 @@
 
 namespace Tests\Unit;
 
-use App\Ai\AiAnalytics;
-use App\Ai\AiCache;
 use App\Ai\AiManager;
-use App\Ai\AiRouter;
+use App\Services\Ai\AiRuntimeConfigService;
+use App\Services\SettingService;
 use App\Ai\Rules\RuleEngine;
 use App\Ai\Contracts\AiResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -72,12 +71,10 @@ class AiRuleEngineTest extends TestCase
 
     public function test_disabled_mode_returns_failure(): void
     {
-        config(['ai.default_mode' => 'disabled']);
+        SettingService::set('ai_mode', 'disabled');
+        app(AiRuntimeConfigService::class)->invalidate();
 
-        $router = new AiRouter(new RuleEngine());
-        $manager = new AiManager($router, new RuleEngine(), new AiCache(), new AiAnalytics());
-
-        $response = $manager->analyze('submission_validator', ['type' => 'assignment', 'text' => 'hello']);
+        $response = app(AiManager::class)->analyze('submission_validator', ['type' => 'assignment', 'text' => 'hello']);
 
         $this->assertFalse($response->success);
         $this->assertSame('disabled', $response->source);
@@ -85,27 +82,25 @@ class AiRuleEngineTest extends TestCase
 
     public function test_hybrid_mode_returns_rule_response(): void
     {
-        config(['ai.default_mode' => 'hybrid']);
+        SettingService::set('ai_mode', 'hybrid');
+        app(AiRuntimeConfigService::class)->invalidate();
 
-        $router = new AiRouter(new RuleEngine());
-        $manager = new AiManager($router, new RuleEngine(), new AiCache(), new AiAnalytics());
-
-        $response = $manager->analyze('submission_validator', [
+        $response = app(AiManager::class)->analyze('submission_validator', [
             'type' => 'assignment',
             'text' => 'Introduction and conclusion with references provided here.',
         ]);
 
         $this->assertTrue($response->success);
-        $this->assertSame('rule_engine', $response->source);
+        $this->assertSame('rule_engine_fallback', $response->source);
+        $this->assertTrue($response->fallbackUsed);
     }
 
     public function test_cache_avoids_reprocessing(): void
     {
-        config(['ai.default_mode' => 'rule_based']);
-
-        $cache = new AiCache();
-        $router = new AiRouter(new RuleEngine());
-        $manager = new AiManager($router, new RuleEngine(), $cache, new AiAnalytics());
+        SettingService::set('ai_mode', 'rule_based');
+        SettingService::set('ai_enable_cache', true, 'boolean');
+        app(AiRuntimeConfigService::class)->invalidate();
+        $manager = app(AiManager::class);
 
         $payload = ['type' => 'assignment', 'text' => 'Introduction and conclusion with references.'];
         $first = $manager->analyze('submission_validator', $payload, scope: 'sub-1');

@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
@@ -45,6 +47,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Request-local static caches are intentionally fast, but long-lived queue
+        // workers must not carry them across jobs after settings/feature changes.
+        $flushLocalRuntimeCaches = static function (): void {
+            SettingService::flushRequestCache();
+            FeatureAccessService::flushRequestCache();
+        };
+        $this->app->terminating($flushLocalRuntimeCaches);
+        Event::listen(JobProcessed::class, static fn () => $flushLocalRuntimeCaches());
+        Event::listen(JobExceptionOccurred::class, static fn () => $flushLocalRuntimeCaches());
+
         if ($this->app->runningInConsole()) {
             Event::listen(CommandStarting::class, function (CommandStarting $event): void {
                 $command = (string) ($event->command ?? '');
@@ -78,6 +90,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(120)->by($request->ip());
         });
 
+
+        RateLimiter::for('commercial-account-requests', function (Request $request): Limit {
+            return Limit::perHour(6)->by((string) ($request->user()?->id ?? $request->ip()));
+        });
 
         RateLimiter::for('payments', function (Request $request): Limit {
             $limits = SettingService::getSecurityRateLimits($request->user()?->university_id);
@@ -129,15 +145,39 @@ class AppServiceProvider extends ServiceProvider
             return new SmsChannel(new \App\Services\SmsService);
         });
 
-        // Share platform settings with all views
-        View::composer('*', function ($view) {
-            try {
-                $view->with('platformSettings', SettingService::getPlatformSettings());
-                $view->with('featureStates', FeatureAccessService::clientSnapshot(auth()->user()));
-            } catch (\Throwable $e) {
-                $view->with('platformSettings', []);
-                $view->with('featureStates', []);
+        // Resolve layout data once for the layout that actually consumes it.
+        // A wildcard composer previously ran for every Blade partial/component,
+        // repeatedly rebuilding feature snapshots and platform settings during
+        // a single response even though those shared variables were unused.
+        View::composer('layouts.app', function ($view): void {
+            $user = auth()->user();
+            $platform = SettingService::getPlatformSettings();
+            $primaryColor = (string) ($platform['primary_color'] ?? '#4f46e5');
+            if (! preg_match('/^#[0-9A-Fa-f]{6}$/', $primaryColor)) {
+                $primaryColor = '#4f46e5';
             }
+
+            [$primaryR, $primaryG, $primaryB] = sscanf($primaryColor, '#%02x%02x%02x');
+            $pwaStatus = FeatureAccessService::effectiveStatus('pwa_enabled', $user?->university_id);
+            $notificationStatus = FeatureAccessService::effectiveStatus('notifications', $user?->university_id);
+            $notificationsVisible = (bool) $user?->isAdmin() || $notificationStatus !== FeatureAccessService::STATUS_DISABLED;
+
+            $view->with([
+                'siteName' => (string) ($platform['site_name'] ?? 'AcadFlow'),
+                'siteFavicon' => $platform['site_favicon'] ?? null,
+                'primaryColor' => $primaryColor,
+                'primaryR' => (int) $primaryR,
+                'primaryG' => (int) $primaryG,
+                'primaryB' => (int) $primaryB,
+                'pwaAvailable' => $pwaStatus === FeatureAccessService::STATUS_ENABLED || (bool) $user?->isAdmin(),
+                'notificationsVisible' => $notificationsVisible,
+                'unreadNotificationCount' => ($user && $notificationsVisible) ? $user->unreadNotifications()->count() : 0,
+                'featurePreview' => request()->attributes->get('restricted_feature_preview'),
+            ]);
+        });
+
+        View::composer(['layouts.auth', 'layouts.onboarding'], function ($view): void {
+            $view->with('siteName', (string) SettingService::get('site_name', 'AcadFlow'));
         });
 
         // Dynamically set app name from settings

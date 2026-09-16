@@ -14,6 +14,7 @@ final class RequestCorrelationId
     public function handle(Request $request, Closure $next): Response
     {
         $requestId = UserFacingError::requestId($request);
+        $request->attributes->set('request_started_at', microtime(true));
         $response = $next($request);
         $response->headers->set('X-Request-Id', $requestId);
 

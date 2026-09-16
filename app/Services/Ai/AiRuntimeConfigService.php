@@ -374,6 +374,7 @@ class AiRuntimeConfigService
             'models' => $this->providerModels($provider, $universityId),
             'temperature' => max(0.0, min(2.0, $temperature)),
             'request_timeout' => $this->requestTimeout($universityId),
+            'post_provider_reserve_seconds' => max(1, min(15, (int) config('ai.post_provider_reserve_seconds', 4))),
             'retry_count' => $this->retryCount($universityId),
             'retry_delay_ms' => $this->retryDelayMs($universityId),
             'fast_failover' => $this->fastFailover($universityId),

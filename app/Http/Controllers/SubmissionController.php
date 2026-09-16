@@ -119,7 +119,24 @@ class SubmissionController extends Controller
                 ->with('error', 'That assignment is not available for your active courses.');
         }
 
-        return view('submissions.create', compact('enrollments', 'groups', 'task', 'availableTasks'));
+        // Keep view data explicit. The create template displays the remaining
+        // resubmission allowance whenever a task is selected; calculating it
+        // here avoids an undefined local Blade variable and keeps the rule in
+        // one testable place.
+        $resubmitsLeft = null;
+        if ($task) {
+            $existingSubmission = $task->submissions()
+                ->where('user_id', Auth::id())
+                ->latest('id')
+                ->first();
+            $resubmitsLeft = $task->max_resubmissions
+                ? max(0, (int) $task->max_resubmissions - (int) ($existingSubmission?->resubmission_count ?? 0))
+                : '∞';
+        }
+
+        return view('submissions.create', compact(
+            'enrollments', 'groups', 'task', 'availableTasks', 'resubmitsLeft'
+        ));
     }
 
     public function store(Request $request)
@@ -253,8 +270,13 @@ class SubmissionController extends Controller
         $this->authorize('view', $submission);
 
         $submission->load(['versions', 'comments.user', 'grade', 'course', 'group']);
+        $aiAnalyses = \App\Models\AiAnalysis::query()
+            ->where('submission_id', $submission->id)
+            ->where('status', 'completed')
+            ->orderByDesc('created_at')
+            ->get();
 
-        return view('submissions.show', compact('submission'));
+        return view('submissions.show', compact('submission', 'aiAnalyses'));
     }
 
     public function edit(Submission $submission)

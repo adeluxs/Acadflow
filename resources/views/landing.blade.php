@@ -13,6 +13,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="{{ $primaryColor }}">
     <title>{{ $siteName }} — Academic Workflow Platform</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('branding/acadflow-icon-192.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('branding/acadflow-icon-180.png') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         :root{--acad-primary:{{ $primaryColor }};--acad-primary-rgb:{{ $primaryR }} {{ $primaryG }} {{ $primaryB }};}
@@ -22,11 +24,12 @@
     </style>
 </head>
 <body class="landing-glow min-h-screen text-slate-950 antialiased">
+    @include('partials.global-loader')
     <header class="relative z-20">
         <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 lg:px-8" aria-label="Main navigation">
             <a href="{{ url('/') }}" class="flex items-center gap-3" aria-label="{{ $siteName }} home">
-                <span class="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm" style="background:var(--acad-primary)">
-                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2.5 9L12 4l9.5 5L12 14 2.5 9zM6 11.2V16c3.7 2.5 8.3 2.5 12 0v-4.8M21.5 9v6"/></svg>
+                <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-0.5 shadow-sm ring-1 ring-slate-200">
+                    <img src="{{ asset('branding/acadflow-mark.png') }}" alt="" class="h-full w-full object-contain">
                 </span>
                 <span class="text-2xl font-black tracking-tight">Acad<span class="hero-title-accent">Flow</span></span>
             </a>
@@ -83,7 +86,7 @@
                     <div class="grid min-h-[535px] grid-cols-[158px_1fr] sm:grid-cols-[178px_1fr]">
                         <aside class="border-r border-slate-100 bg-white p-4">
                             <div class="flex items-center gap-2 border-b border-slate-100 pb-5">
-                                <span class="flex h-8 w-8 items-center justify-center rounded-lg text-white" style="background:var(--acad-primary)"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.8" d="M2.5 9L12 4l9.5 5L12 14 2.5 9zM6 11v5c4 2.4 8 2.4 12 0v-5"/></svg></span>
+                                <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-white p-0.5 ring-1 ring-slate-200"><img src="{{ asset('branding/acadflow-mark.png') }}" alt="" class="h-full w-full object-contain"></span>
                                 <span class="text-sm font-black">Acad<span class="hero-title-accent">Flow</span></span>
                             </div>
                             <div class="mt-4 space-y-1 text-[10px] font-semibold text-slate-600">

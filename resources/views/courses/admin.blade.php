@@ -47,5 +47,8 @@
             </tbody>
         </table>
     </div>
+    @if($courses->hasPages())
+        <div class="mt-5">{{ $courses->links() }}</div>
+    @endif
 </div>
 @endsection

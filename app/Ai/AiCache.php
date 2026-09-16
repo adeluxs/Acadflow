@@ -18,6 +18,13 @@ class AiCache
 
     protected function key(string $feature, array $payload, ?string $scope = null): string
     {
+        // Request correlation identifiers must never participate in the cache key.
+        // AiManager generates a fresh _ai_request_id for every invocation; keeping
+        // it in the fingerprint makes two otherwise identical requests impossible
+        // to cache. Routing/provider fingerprints remain in the payload so config
+        // changes still invalidate the effective result.
+        unset($payload['_ai_request_id'], $payload['_ai_deadline_at']);
+
         $fingerprint = hash('sha256', json_encode([
             'feature' => $feature,
             'payload' => $payload,

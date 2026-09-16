@@ -61,12 +61,19 @@ class PaymentService
         $account = CommercialAccount::query()->where('university_id', $universityId)->where('status', 'active')->first();
         if (! $account || (int) data_get($account->metadata, 'student_semester_fee_minor', 0) <= 0) return 0;
 
-        $students = $semester->enrollments()->where('status', 'enrolled')->with('user')->get()->pluck('user')->filter();
         $count = 0;
-        foreach ($students as $student) {
-            $invoice = $this->generateInvoice($student, $semester, $account);
-            if ($invoice->wasRecentlyCreated) $count++;
-        }
+        $semester->enrollments()
+            ->select(['id', 'user_id'])
+            ->where('status', 'enrolled')
+            ->with('user:id')
+            ->chunkById(250, function ($enrollments) use ($semester, $account, &$count): void {
+                foreach ($enrollments as $enrollment) {
+                    if (! $enrollment->user) continue;
+                    $invoice = $this->generateInvoice($enrollment->user, $semester, $account);
+                    if ($invoice->wasRecentlyCreated) $count++;
+                }
+            });
+
         return $count;
     }
 

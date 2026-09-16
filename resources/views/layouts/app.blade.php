@@ -1,21 +1,3 @@
-@php
-    $siteName = \App\Services\SettingService::get('site_name', 'AcadFlow');
-    $primaryColor = (string) \App\Services\SettingService::get('primary_color', '#4f46e5');
-    if (! preg_match('/^#[0-9A-Fa-f]{6}$/', $primaryColor)) {
-        $primaryColor = '#4f46e5';
-    }
-    [$primaryR, $primaryG, $primaryB] = sscanf($primaryColor, '#%02x%02x%02x');
-
-    $featureUser = auth()->user();
-    $pwaFeatureStatus = \App\Services\FeatureAccessService::effectiveStatus('pwa_enabled', $featureUser?->university_id);
-    $pwaAvailable = $pwaFeatureStatus === \App\Services\FeatureAccessService::STATUS_ENABLED || $featureUser?->isAdmin();
-    $notificationFeatureStatus = \App\Services\FeatureAccessService::effectiveStatus('notifications', $featureUser?->university_id);
-    $notificationsVisible = $featureUser?->isAdmin() || $notificationFeatureStatus !== \App\Services\FeatureAccessService::STATUS_DISABLED;
-    $unreadNotificationCount = ($featureUser && $notificationsVisible)
-        ? $featureUser->unreadNotifications()->count()
-        : 0;
-    $featurePreview = request()->attributes->get('restricted_feature_preview');
-@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,10 +15,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="{{ $siteName }}">
-    @if(\App\Services\SettingService::get('site_favicon'))
-        <link rel="icon" type="image/png" sizes="192x192" href="{{ \App\Services\SettingService::get('site_favicon') }}">
+    @if($siteFavicon)
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ $siteFavicon }}">
     @else
-        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('branding/acadflow-icon-192.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('branding/acadflow-icon-180.png') }}">
     @endif
 
     {{-- Styles --}}
@@ -48,6 +31,7 @@
     @stack('styles')
 </head>
 <body class="bg-slate-50 text-slate-900 antialiased">
+    @include('partials.global-loader')
     {{-- Offline Banner --}}
     <div id="offline-banner" class="fixed top-0 left-0 right-0 z-50 hidden bg-amber-500 text-white text-center text-sm py-2 px-4">
         <span class="inline-flex items-center gap-2">
@@ -64,11 +48,11 @@
         <div class="rounded-2xl border border-slate-200 bg-white shadow-2xl p-4">
             <div class="flex items-start justify-between gap-4 mb-4">
                 <div class="flex items-center gap-3">
-                    <div class="h-11 w-11 rounded-2xl flex items-center justify-center text-white font-bold" style="background:var(--acad-primary)">
-                        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2.5 9L12 4l9.5 5L12 14 2.5 9zM6 11.2V16c3.7 2.5 8.3 2.5 12 0v-4.8M21.5 9v6"/></svg>
+                    <div class="h-11 w-11 rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
+                        <img src="{{ asset('branding/acadflow-mark.png') }}" alt="" class="h-full w-full object-contain">
                     </div>
                     <div>
-                        <h3 class="font-semibold text-sm">Install {{ \App\Services\SettingService::get('site_name', 'AcadFlow') }}</h3>
+                        <h3 class="font-semibold text-sm">Install {{ $siteName }}</h3>
                         <p class="text-xs text-slate-500">Add to home screen for quick access</p>
                     </div>
                 </div>
@@ -112,8 +96,8 @@
                 @endauth
 
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-2">
-                    <span class="flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-sm" style="background:var(--acad-primary)">
-                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2.5 9L12 4l9.5 5L12 14 2.5 9zM6 11.2V16c3.7 2.5 8.3 2.5 12 0v-4.8M21.5 9v6"/></svg>
+                    <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-white p-0.5 shadow-sm ring-1 ring-slate-200">
+                        <img src="{{ asset('branding/acadflow-mark.png') }}" alt="" class="h-full w-full object-contain">
                     </span>
                     <span class="font-bold text-lg text-slate-950">{{ $siteName }}</span>
                 </a>
@@ -146,8 +130,8 @@
             <aside id="sidebar" class="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 bg-white border-r border-slate-200">
                 <div class="px-5 py-5 border-b border-slate-100">
                     <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5">
-                        <span class="flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-sm" style="background:var(--acad-primary)">
-                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2.5 9L12 4l9.5 5L12 14 2.5 9zM6 11.2V16c3.7 2.5 8.3 2.5 12 0v-4.8M21.5 9v6"/></svg>
+                        <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-white p-0.5 shadow-sm ring-1 ring-slate-200">
+                            <img src="{{ asset('branding/acadflow-mark.png') }}" alt="" class="h-full w-full object-contain">
                         </span>
                         <h1 class="text-lg font-black tracking-tight text-slate-950">{{ $siteName }}</h1>
                     </a>
@@ -255,6 +239,11 @@
                                     @if(Route::has('commerce.wallet'))
                                         <a href="{{ route('commerce.wallet') }}" class="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">
                                             Wallet &amp; Earnings
+                                        </a>
+                                    @endif
+                                    @if(Route::has('commerce.features'))
+                                        <a href="{{ route('commerce.features') }}" class="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">
+                                            Paid Feature Access
                                         </a>
                                     @endif
 

@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'search' => [
+        // Interactive discovery must remain well below the normal PHP 30s request ceiling.
+        'timeout' => (int) env('SCHOLARLY_SEARCH_TIMEOUT', 5),
+        'connect_timeout' => (int) env('SCHOLARLY_CONNECT_TIMEOUT', 2),
+        'cache_seconds' => (int) env('SCHOLARLY_SEARCH_CACHE_SECONDS', 300),
+    ],
     'orcid' => ['base_url' => env('ORCID_PUBLIC_API_URL', 'https://pub.orcid.org/v3.0')],
     'providers' => [
         'openalex' => ['base_url' => env('OPENALEX_BASE_URL', 'https://api.openalex.org'), 'mailto' => env('SCHOLARLY_CONTACT_EMAIL')],

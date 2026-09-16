@@ -225,3 +225,11 @@ The migration is additive and historical data is retained. If the release must b
 ---
 
 **Implementation status:** Code implementation and standalone release validation completed. Full Laravel/PHPUnit/Vite runtime validation requires installing the project's declared Composer/NPM dependencies in staging or production-like infrastructure.
+
+## Pricing Rule Admin UX
+
+The Admin Monetization page exposes pricing only for runtime entitlement features that AcadFlow actually checks. Super Admins select a human-readable feature from a grouped dropdown and enter a fixed price in the platform currency. The backend derives the immutable pricing key (`feature.<feature>`) and display name from `config/monetization.php`; arbitrary feature keys, names, currencies and percentage fields are not trusted from the browser.
+
+Current admin-selectable entitlement features include group submissions, rubric-based grading, attendance tracking, protected document/PDF generation and Knowledge Hub premium access. New runtime entitlement features should be registered in `config/monetization.php`, and `scripts/check-pricing-rule-ux.php` verifies that runtime `hasFeature()` checks are represented in the dropdown.
+
+Percentage marketplace/institution fees are intentionally configured in their dedicated Monetization commission settings rather than in the paid-feature price form.

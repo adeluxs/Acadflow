@@ -17,7 +17,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::call(function (): void {
-    KnowledgePublication::query()->where('status','scheduled')->whereNotNull('scheduled_at')->where('scheduled_at','<=',now())->pluck('id')->each(fn(int $id)=>PublishScheduledKnowledgePublication::dispatch($id)->onQueue('default'));
+    KnowledgePublication::query()->select('id')->where('status','scheduled')->whereNotNull('scheduled_at')->where('scheduled_at','<=',now())->chunkById(250, function ($publications): void { foreach ($publications as $publication) PublishScheduledKnowledgePublication::dispatch($publication->id)->onQueue('default'); });
 })->everyMinute()->name('publish-scheduled-knowledge')->withoutOverlapping();
 
 Schedule::call(function (): void {
@@ -25,7 +25,7 @@ Schedule::call(function (): void {
 })->everyMinute()->name('research-meeting-reminders')->withoutOverlapping();
 
 Schedule::call(function (): void {
-    User::query()->where('is_active',true)->whereHas('knowledgePublications',fn($q)=>$q->where('status','published'))->pluck('id')->each(fn(int $id)=>RecalculateReputation::dispatch($id)->onQueue('analytics'));
+    User::query()->select('id')->where('is_active',true)->whereHas('knowledgePublications',fn($q)=>$q->where('status','published'))->chunkById(250, function ($users): void { foreach ($users as $user) RecalculateReputation::dispatch($user->id)->onQueue('analytics'); });
 })->dailyAt('02:30')->name('recalculate-creator-reputation')->withoutOverlapping();
 
 

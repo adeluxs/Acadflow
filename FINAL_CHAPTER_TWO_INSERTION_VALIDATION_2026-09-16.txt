@@ -1,0 +1,27 @@
+AcadFlow Chapter Two literature insertion validation — 2026-09-16
+
+Root cause fixed:
+- Literature buttons dispatched acadflow:editor-insert to the textarea.
+- The fallback editor listened for the event, but the normal Quill editor did not.
+- Therefore the UI could report "Inserted" while the visible Quill editor remained unchanged.
+
+Implemented:
+- Shared editor registry for Quill and fallback editors.
+- Single centralized acadflow:editor-insert listener.
+- window.AcadFlowRichEditor.insert(target, text) API.
+- Pre-initialization pending insertion queue for dynamic editor loading.
+- Immediate hidden-textarea synchronization after insertion, preserving Save version behavior.
+- Duplicate fallback insertion listener removed.
+
+Validation:
+- 32/32 scripts/check-*.php preflight/regression checks passed.
+- 830/830 PHP/Blade source files passed php -l.
+- 8/8 resources/js/*.js files passed node --check.
+- Generated Laravel route/config/event cache artifacts: 0.
+- .env files packaged: 0.
+- vendor packaged: NO.
+- node_modules packaged: NO.
+
+Runtime note:
+- Full Laravel PHPUnit cannot be executed in this source-only environment because vendor/ is intentionally not packaged.
+- Rebuild Vite assets after deployment because resources/js/rich-editor.js changed.

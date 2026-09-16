@@ -5,9 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 
 class PublicPageController extends Controller
 {
+    public function home(): View|RedirectResponse
+    {
+        return auth()->check() ? redirect()->route('dashboard') : view('landing');
+    }
+
     public function show(string $page): View
     {
         $pages = [

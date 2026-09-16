@@ -13,8 +13,10 @@
             @if(auth()->user()->hasPermission(\App\Enums\Permission::MANAGE_AI_SETTINGS))
                 <a href="{{ route('ai.settings') }}" class="acad-primary-button inline-flex items-center rounded-lg px-3 py-2 text-xs font-semibold">AI Settings</a>
             @endif
-            @if(Route::has('admin.monetization'))
+            @if(auth()->user()->isSuperAdmin() && Route::has('admin.monetization'))
                 <a href="{{ route('admin.monetization') }}" class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Monetization</a>
+            @elseif(auth()->user()->isUniversityAdmin() && Route::has('institution.commercial-account'))
+                <a href="{{ route('institution.commercial-account') }}" class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Commercial Account</a>
             @endif
             @if(auth()->user()->isSuperAdmin())
                 <a href="{{ route('admin.settings.features') }}" class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Feature & Module Management</a>
@@ -350,9 +352,13 @@
             <div>
                 <p class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Commercial controls</p>
                 <h2 class="mt-1 text-lg font-bold text-slate-950">Subscriptions have been retired</h2>
-                <p class="mt-1 max-w-3xl text-sm text-slate-600">Pricing, wallets, commissions, AI usage, withdrawals and institutional commercial accounts are managed from the centralized Monetization Center.</p>
+                <p class="mt-1 max-w-3xl text-sm text-slate-600">{{ auth()->user()->isSuperAdmin() ? 'Pricing, wallets, commissions, AI usage, withdrawals and institutional commercial accounts are managed from the centralized Monetization Center.' : 'Commercial pricing is controlled by Platform Admin. You can view your institution’s approved budget, sponsored access and commercial terms, then request changes when needed.' }}</p>
             </div>
-            <a href="{{ route('admin.monetization') }}" class="acad-primary-button inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold">Open Monetization →</a>
+            @if(auth()->user()->isSuperAdmin())
+                <a href="{{ route('admin.monetization') }}" class="acad-primary-button inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold">Open Monetization →</a>
+            @elseif(auth()->user()->isUniversityAdmin())
+                <a href="{{ route('institution.commercial-account') }}" class="acad-primary-button inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold">View Commercial Account →</a>
+            @endif
         </div>
     </div>
     @endif

@@ -33,9 +33,11 @@ class EnrollmentController extends Controller
         $semester = $academicContext->requireActiveSemesterForCourse($course);
         $course->loadMissing('department.faculty');
 
-        abort_unless($course->department?->faculty?->university_id === $user->university_id, 403);
-        if ((bool) SettingService::get('restrict_course_membership_to_department', true, $user->university_id)) {
-            abort_unless($user->department_id && $course->department_id === $user->department_id, 403, 'You can only join courses in your department.');
+        if (! $course->isIndependent()) {
+            abort_unless($user->university_id && $course->department?->faculty?->university_id === $user->university_id, 403);
+            if ((bool) SettingService::get('restrict_course_membership_to_department', true, $user->university_id)) {
+                abort_unless($user->department_id && $course->department_id === $user->department_id, 403, 'You can only join courses in your department.');
+            }
         }
 
         $existing = Enrollment::where('user_id', Auth::id())
@@ -47,20 +49,20 @@ class EnrollmentController extends Controller
             return back()->with('error', 'Already enrolled in this course.');
         }
 
-        // Check if user has paid for semester
-        $invoice = Invoice::where('user_id', Auth::id())
-            ->where('semester_id', $semester->id)
-            ->where('status', 'paid')
-            ->first();
+        if (! $course->isIndependent()) {
+            // Institutional semester-fee rules do not apply to independent classrooms.
+            $invoice = Invoice::where('user_id', Auth::id())
+                ->where('semester_id', $semester->id)
+                ->where('status', 'paid')
+                ->first();
 
-        // Institutional semester-fee grace is an academic policy, not a
-        // subscription entitlement. Admin controls it independently.
-        $graceDays = max(0, (int) SettingService::get('enrollment_payment_grace_days', 7, $user->university_id));
-        $withinGrace = now()->lessThanOrEqualTo($semester->start_date->addDays($graceDays));
+            $graceDays = max(0, (int) SettingService::get('enrollment_payment_grace_days', 7, $user->university_id));
+            $withinGrace = now()->lessThanOrEqualTo($semester->start_date->addDays($graceDays));
 
-        if (! $invoice && ! $withinGrace) {
-            return redirect()->route('billing.my')
-                ->with('error', 'Please pay your semester fees to enroll in courses.');
+            if (! $invoice && ! $withinGrace) {
+                return redirect()->route('billing.my')
+                    ->with('error', 'Please pay your semester fees to enroll in courses.');
+            }
         }
 
         // Check capacity
@@ -116,10 +118,14 @@ class EnrollmentController extends Controller
             abort(403, 'Access denied.');
         }
 
-        $enrollments = Enrollment::where('course_id', $course->id)
+        $enrollments = Enrollment::query()
+            ->select(['id', 'course_id', 'user_id', 'status'])
+            ->where('course_id', $course->id)
             ->where('status', 'enrolled')
-            ->with('user')
-            ->get();
+            ->with('user:id,email')
+            ->orderBy('user_id')
+            ->paginate(30)
+            ->withQueryString();
 
         return view('enrollments.course', compact('enrollments', 'course'));
     }

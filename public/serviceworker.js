@@ -9,17 +9,18 @@
  * - preserve offline write queue/background sync support.
  */
 
-const CACHE_NAME = 'acadflow-pwa-v2';
-const STATIC_CACHE = 'acadflow-static-v2';
-const API_CACHE = 'acadflow-api-v2';
+const CACHE_NAME = 'acadflow-pwa-v3';
+const STATIC_CACHE = 'acadflow-static-v3';
+const API_CACHE = 'acadflow-api-v3';
 
 // Only stable public files belong in the install cache. Vite assets are hashed
 // and are cached lazily when requested; /css/app.css and /js/app.js are not
 // stable paths in a Vite production build.
 const STATIC_ASSETS = [
     '/manifest.webmanifest',
-    '/icons/icon-192x192.png',
-    '/icons/icon-512x512.png',
+    '/branding/acadflow-icon-192.png',
+    '/branding/acadflow-icon-512.png',
+    '/branding/acadflow-mark.png',
     '/offline.html',
 ];
 
@@ -115,7 +116,7 @@ async function handleStaticAsset(request) {
         return response;
     } catch (_) {
         if (request.destination === 'image') {
-            return (await caches.match('/icons/icon-192x192.png')) || new Response('', { status: 503 });
+            return (await caches.match('/branding/acadflow-icon-192.png')) || new Response('', { status: 503 });
         }
         return new Response('Asset not available offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
     }

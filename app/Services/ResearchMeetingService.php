@@ -16,10 +16,17 @@ class ResearchMeetingService
 
     public function schedule(ResearchProject $project, User $actor, array $data): ResearchMeeting
     {
-        return DB::transaction(function () use ($project, $actor, $data) {
+        $attendeeIds = collect($data['attendee_ids'] ?? [$project->owner_id, $project->supervisor_id, $project->co_supervisor_id])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+        $scheduledAt = Carbon::parse($data['scheduled_at']);
+
+        $meeting = DB::transaction(function () use ($project, $actor, $data, $attendeeIds, $scheduledAt) {
             $meeting = $project->meetings()->create([
                 'scheduled_by' => $actor->id,
-                'scheduled_at' => $data['scheduled_at'],
+                'scheduled_at' => $scheduledAt,
                 'duration_minutes' => $data['duration_minutes'] ?? 60,
                 'location' => $data['location'] ?? null,
                 'online_url' => $data['online_url'] ?? null,
@@ -28,28 +35,66 @@ class ResearchMeetingService
                 'status' => 'scheduled',
                 'calendar_uid' => (string) Str::uuid(),
             ]);
-            $attendees = collect($data['attendee_ids'] ?? [$project->owner_id, $project->supervisor_id, $project->co_supervisor_id])->filter()->unique();
-            foreach ($attendees as $userId) {
-                $meeting->attendees()->create(['user_id' => $userId, 'response' => $userId === $actor->id ? 'accepted' : 'pending']);
-                $meeting->reminders()->create(['user_id' => $userId, 'remind_at' => Carbon::parse($data['scheduled_at'])->subDay(), 'channel' => 'in_app', 'status' => 'pending']);
-                if ($user = User::find($userId)) {
-                    $this->notifications->send($user, NotificationType::SYSTEM_ANNOUNCEMENT, 'Research meeting scheduled', $project->title.' meeting is scheduled for '.Carbon::parse($data['scheduled_at'])->toDayDateTimeString(), ['research_project_uuid' => $project->uuid, 'meeting_uuid' => $meeting->uuid]);
-                }
+
+            if ($attendeeIds->isNotEmpty()) {
+                $now = now();
+                DB::table('research_meeting_attendees')->insert(
+                    $attendeeIds->map(fn (int $userId) => [
+                        'research_meeting_id' => $meeting->id,
+                        'user_id' => $userId,
+                        'response' => $userId === $actor->id ? 'accepted' : 'pending',
+                        'attended' => false,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])->all()
+                );
+                DB::table('research_meeting_reminders')->insert(
+                    $attendeeIds->map(fn (int $userId) => [
+                        'research_meeting_id' => $meeting->id,
+                        'user_id' => $userId,
+                        'remind_at' => $scheduledAt->copy()->subDay(),
+                        'channel' => 'in_app',
+                        'status' => 'pending',
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])->all()
+                );
             }
+
             foreach ($data['action_items'] ?? [] as $item) {
                 if (blank($item['title'] ?? null)) continue;
                 $meeting->actionItemRecords()->create(['assigned_to' => $item['assigned_to'] ?? null, 'title' => $item['title'], 'description' => $item['description'] ?? null, 'due_at' => $item['due_at'] ?? null]);
             }
-            return $meeting->fresh(['attendees.user', 'actionItemRecords.assignee', 'reminders']);
+
+            return $meeting;
         });
+
+        // Notifications may send email/push traffic. Keep all external/network work
+        // outside the database transaction so a slow provider cannot hold locks.
+        User::query()->whereKey($attendeeIds)->get()->each(function (User $user) use ($meeting, $project, $scheduledAt): void {
+            $this->notifications->send(
+                $user,
+                NotificationType::SYSTEM_ANNOUNCEMENT,
+                'Research meeting scheduled',
+                $project->title.' meeting is scheduled for '.$scheduledAt->toDayDateTimeString(),
+                ['research_project_uuid' => $project->uuid, 'meeting_uuid' => $meeting->uuid]
+            );
+        });
+
+        return $meeting->fresh(['attendees.user', 'actionItemRecords.assignee', 'reminders']);
     }
 
     public function complete(ResearchMeeting $meeting, array $data): ResearchMeeting
     {
         return DB::transaction(function () use ($meeting, $data) {
             $meeting->update(['notes' => $data['notes'] ?? $meeting->notes, 'status' => 'completed', 'completed_at' => now()]);
-            foreach ($data['attendance'] ?? [] as $userId => $attended) {
-                $meeting->attendees()->where('user_id', $userId)->update(['attended' => (bool) $attended]);
+            $attendance = collect($data['attendance'] ?? [])
+                ->mapWithKeys(fn ($attended, $userId) => [(int) $userId => (bool) $attended]);
+            foreach ([true, false] as $attended) {
+                $userIds = $attendance->filter(fn (bool $value) => $value === $attended)->keys();
+                if ($userIds->isNotEmpty()) {
+                    $meeting->attendees()->whereIn('user_id', $userIds)->update(['attended' => $attended]);
+                }
             }
             foreach ($data['action_items'] ?? [] as $item) {
                 if (blank($item['title'] ?? null)) continue;
