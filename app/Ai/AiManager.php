@@ -15,6 +15,7 @@ use App\Support\Errors\UserFacingError;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use function Illuminate\Support\defer;
 
 /**
  * The single runtime gateway for AcadFlow AI operations.
@@ -385,15 +386,23 @@ class AiManager
 
             if ($providerResponse->success) {
                 $schema = (array) data_get($payload, '_prompt.response_schema', []);
-                $schemaErrors = $this->responseValidator->errors($providerResponse, $schema);
-                if ($schemaErrors !== []) {
-                    $attempts[array_key_last($attempts)]['status'] = 'invalid_response_schema';
-                    $attempts[array_key_last($attempts)]['schema_errors'] = $schemaErrors;
-                    $last = new AiResponse(
-                        source: $providerName, feature: $feature, success: false,
-                        summary: 'The provider returned an invalid structured response.', requestId: $requestId,
-                        provider: $providerName, model: $model, errorCode: 'AI_INVALID_PROVIDER_RESPONSE', confidence: 0.0,
-                    );
+                    $schemaErrors = $this->responseValidator->errors($providerResponse, $schema);
+                    if ($schemaErrors !== []) {
+                        $attempts[array_key_last($attempts)]['status'] = 'invalid_response_schema';
+                        $attempts[array_key_last($attempts)]['schema_errors'] = $schemaErrors;
+                        Log::channel('ai_provider')->warning('AI provider response failed schema validation.', [
+                            'request_id' => $requestId,
+                            'feature' => $feature,
+                            'provider' => $providerName,
+                            'model' => $model,
+                            'schema_errors' => $schemaErrors,
+                            'data_keys' => array_keys($providerResponse->data),
+                        ]);
+                        $last = new AiResponse(
+                            source: $providerName, feature: $feature, success: false,
+                            summary: 'The provider returned an invalid structured response.', requestId: $requestId,
+                            provider: $providerName, model: $model, errorCode: 'AI_INVALID_PROVIDER_RESPONSE', confidence: 0.0,
+                        );
                     continue;
                 }
 
@@ -445,12 +454,15 @@ class AiManager
 
         $this->safeReleaseReservation($user, $reservation, $requestId, $feature);
 
+        $summary = $last?->summary ?: 'All configured AI providers are currently unavailable.';
+        $errorCode = $last?->errorCode ?: 'AI_ALL_PROVIDERS_FAILED';
+
         return new AiResponse(
             source: 'unavailable', feature: $feature, success: false,
-            summary: 'All configured AI providers are currently unavailable.', requestId: $requestId,
+            summary: $summary, requestId: $requestId,
             provider: $last?->provider, model: $last?->model,
             fallbackUsed: count($attempts) > 1, fallbackProvider: $last?->provider,
-            errorCode: $last?->errorCode ?: 'AI_ALL_PROVIDERS_FAILED', confidence: 0.0,
+            errorCode: $errorCode, confidence: 0.0,
             metadata: ['routing' => $route, 'provider_attempts' => $attempts],
         );
     }
@@ -619,17 +631,37 @@ class AiManager
         if ($account) {
             try { $this->accountRequest($user, $response); } catch (\Throwable) {}
         }
-        try {
-            $this->analytics->record($this->analyticsContext($feature, $mode, $response, $user, $cached));
-        } catch (\Throwable $e) {
+
+        $analytics = $this->analyticsContext($feature, $mode, $response, $user, $cached);
+        $record = function () use ($analytics, $response, $feature): void {
             try {
-                Log::channel('ai_provider')->warning('AI analytics failed after response; answer preserved.', [
-                    'request_id' => $response->requestId,
-                    'feature' => $feature,
-                    'error_type' => $e::class,
-                ]);
-            } catch (\Throwable) {}
+                $this->analytics->record($analytics);
+            } catch (\Throwable $e) {
+                try {
+                    Log::channel('ai_provider')->warning('AI analytics failed after response; answer preserved.', [
+                        'request_id' => $response->requestId,
+                        'feature' => $feature,
+                        'error_type' => $e::class,
+                    ]);
+                } catch (\Throwable) {}
+            }
+        };
+
+        // Analytics is observability, not part of the answer contract. During a
+        // real HTTP request defer the database write until after Laravel has sent
+        // the response so a locked/slow analytics table can never leave the AI
+        // interface spinning after the provider already returned successfully.
+        // Unit tests and non-HTTP/CLI calls remain synchronous and deterministic.
+        $deferAnalytics = (bool) config('ai.defer_analytics_after_response', true)
+            && app()->bound('request')
+            && ! app()->runningUnitTests();
+
+        if ($deferAnalytics) {
+            defer($record);
+        } else {
+            $record();
         }
+
         return $response;
     }
 }

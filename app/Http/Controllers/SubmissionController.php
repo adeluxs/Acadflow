@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\NotificationType;
+use App\Events\CorrectionRequested;
+use App\Events\SubmissionApproved;
 use App\Events\SubmissionConfirmation;
 use App\Events\SubmissionSubmitted;
+use App\Models\AuditLog;
 use App\Models\Course;
 use App\Models\Defense;
 use App\Models\DocumentTemplate;
@@ -14,11 +18,14 @@ use App\Models\Enrollment;
 use App\Models\Group;
 use App\Models\Semester;
 use App\Models\Submission;
+use App\Models\SubmissionRubric;
 use App\Models\SubmissionTask;
 use App\Models\SubmissionVersion;
 use App\Services\AcademicContextService;
+use App\Services\Assignments\AssignmentTypeProfile;
 use App\Services\Media\MediaSecurityService;
 use App\Services\Media\SafeFileDeliveryService;
+use App\Services\NotificationService;
 use App\Services\PdfService;
 use App\Services\SettingService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -26,6 +33,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -36,6 +44,7 @@ class SubmissionController extends Controller
         private MediaSecurityService $mediaSecurityService,
         private AcademicContextService $academicContext,
         private SafeFileDeliveryService $fileDelivery,
+        private NotificationService $notifications,
     ) {
     }
 
@@ -67,15 +76,47 @@ class SubmissionController extends Controller
             ->latest()
             ->paginate(20);
 
-        // Calculate stats
+        // Calculate stats from the current page of results.
+        $page = $submissions->getCollection();
         $stats = [
-            'submitted' => $submissions->whereIn('status', ['submitted', 'resubmitted', 'under_review'])->count(),
-            'graded' => $submissions->where('status', 'graded')->count(),
-            'correction_requested' => $submissions->where('status', 'correction_requested')->count(),
-            'approved' => $submissions->where('status', 'approved')->count(),
+            'submitted' => $page->whereIn('status', ['submitted', 'resubmitted', 'under_review'])->count(),
+            'graded' => $page->where('status', 'graded')->count(),
+            'correction_requested' => $page->where('status', 'correction_requested')->count(),
+            'approved' => $page->where('status', 'approved')->count(),
         ];
 
-        return view('submissions.student-dashboard', compact('submissions', 'stats'));
+        // Upcoming and overdue published assignments the student has not yet
+        // started, so the dashboard surfaces what needs attention next.
+        $enrolledCourseIds = Enrollment::query()
+            ->where('user_id', Auth::id())
+            ->where('status', 'enrolled')
+            ->pluck('course_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $startedTaskIds = Submission::query()
+            ->where('user_id', Auth::id())
+            ->whereNotNull('submission_task_id')
+            ->pluck('submission_task_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $dueSoon = SubmissionTask::query()
+            ->whereIn('course_id', $enrolledCourseIds ?: [-1])
+            ->where('status', 'published')
+            ->where('is_visible_to_students', true)
+            ->whereNotIn('id', $startedTaskIds ?: [-1])
+            ->where(function ($query) {
+                $query->whereNotNull('due_date')->orWhereNotNull('close_at');
+            })
+            // `uuid` is required: Course uses uuid as its route key, so omitting it
+            // makes route() treat the course parameter as missing.
+            ->with(['course:id,uuid,code,name'])
+            ->orderByRaw('COALESCE(close_at, due_date) ASC')
+            ->limit(8)
+            ->get();
+
+        return view('submissions.student-dashboard', compact('submissions', 'stats', 'dueSoon'));
     }
 
     public function create(Request $request)
@@ -84,13 +125,15 @@ class SubmissionController extends Controller
             abort(403);
         }
 
-        $universityId = Auth::user()->university_id;
-        $enrollments = Enrollment::where('user_id', Auth::id())
+        // Availability is determined by the student's own enrollments
+        // (course + semester), exactly like SubmissionTaskPolicy::view. A
+        // university filter must not be applied here: it wrongly excluded
+        // independent students (no university) and courses without a
+        // department/faculty chain.
+        $enrollments = Enrollment::query()
+            ->where('user_id', Auth::id())
             ->where('status', 'enrolled')
-            ->whereHas('semester', fn ($query) => $query->where('is_active', true)
-                ->whereHas('academicSession', fn ($session) => $session->where('university_id', $universityId)))
-            ->whereHas('course.department.faculty', fn ($query) => $query->where('university_id', $universityId))
-            ->with(['course.department.faculty', 'semester'])
+            ->with(['course.department.faculty', 'semester.academicSession'])
             ->get();
 
         $groups = Group::whereHas('members', function ($query) {
@@ -99,14 +142,24 @@ class SubmissionController extends Controller
             ->with('course')
             ->get();
 
-        $courseIds = $enrollments->pluck('course_id')->map(fn ($id) => (int) $id)->all();
-        $semesterIds = $enrollments->pluck('semester_id')->map(fn ($id) => (int) $id)->all();
-
         $availableTasks = SubmissionTask::query()
-            ->whereIn('course_id', $courseIds ?: [-1])
-            ->whereIn('semester_id', $semesterIds ?: [-1])
             ->where('status', 'published')
             ->where('is_visible_to_students', true)
+            // Disabled assignment types (e.g. SIWES) must not be selectable.
+            ->whereIn('type', AssignmentTypeProfile::enabledTypes())
+            ->where(function ($query) use ($enrollments): void {
+                if ($enrollments->isEmpty()) {
+                    $query->whereRaw('1 = 0');
+
+                    return;
+                }
+                foreach ($enrollments as $enrollment) {
+                    $query->orWhere(function ($inner) use ($enrollment): void {
+                        $inner->where('course_id', $enrollment->course_id)
+                            ->where('semester_id', $enrollment->semester_id);
+                    });
+                }
+            })
             ->with('course')
             ->orderBy('due_date')
             ->get();
@@ -147,8 +200,11 @@ class SubmissionController extends Controller
             'type' => 'required|in:assignment,project,siwes,group,seminar',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'content' => 'nullable|string|max:100000',
             'group_id' => 'nullable|exists:groups,id',
         ]);
+
+        $task = null;
 
         $course = Course::with('department.faculty')->findOrFail($validated['course_id']);
         $activeSemester = $this->academicContext->activeSemesterForCourse($course);
@@ -165,8 +221,21 @@ class SubmissionController extends Controller
             return back()->withInput()->with('error', 'You must be actively enrolled in this course before creating a submission.');
         }
 
-        if ($course->department?->faculty?->university_id !== Auth::user()->university_id) {
-            abort(403, 'The selected course is outside your institution.');
+        // Active enrollment (verified above) is the authorization boundary for
+        // creating a submission, exactly as in create(). Applying the student's
+        // own university here contradicted create() and produced a spurious
+        // "Access Denied" page for legitimately enrolled independent students
+        // (no university on their profile) and for students whose profile
+        // university differs from the course's institution. Cross-institution
+        // enrollments are recorded for auditing but must not block the student.
+        $courseUniversityId = $course->department?->faculty?->university_id;
+        if ($courseUniversityId !== null && (int) $courseUniversityId !== (int) Auth::user()->university_id) {
+            Log::warning('Cross-institution submission enrollment detected', [
+                'user_id' => Auth::id(),
+                'course_id' => $course->id,
+                'course_university_id' => (int) $courseUniversityId,
+                'user_university_id' => Auth::user()->university_id,
+            ]);
         }
 
         // If submission_task_id is provided, verify it belongs to the course and active semester.
@@ -177,6 +246,9 @@ class SubmissionController extends Controller
             }
             if ($task->status !== 'published' || ! $task->is_visible_to_students || $task->semester_id !== $enrollment->semester_id) {
                 return back()->withInput()->with('error', 'This assignment is not available in your active semester.');
+            }
+            if (! AssignmentTypeProfile::isEnabled($task->type)) {
+                return back()->withInput()->with('error', 'This assignment type is currently unavailable.');
             }
         }
 
@@ -211,7 +283,26 @@ class SubmissionController extends Controller
             'files.*' => 'file|mimes:'.$allowedMimes.'|max:'.$maxFileSizeKb,
         ]);
 
+        // Written submissions are stored (sanitized) on the submission's
+        // description. The required input depends on the assignment's format.
+        $format = $task?->submission_format ?? 'file';
         $files = $request->file('files', []);
+        $content = null;
+        if (in_array($format, ['text', 'both'], true) || $request->filled('content')) {
+            $content = \App\Support\HtmlSanitizer::clean($request->input('content'));
+        }
+
+        $plainContent = trim(\App\Support\HtmlSanitizer::toPlainText($content));
+        $hasContent = $plainContent !== '';
+        $hasFiles = is_array($files) && count($files) > 0;
+
+        if ($format === 'text' && ! $hasContent) {
+            throw ValidationException::withMessages(['content' => 'Please write your submission before saving.']);
+        }
+        if ($format === 'both' && ! $hasContent && ! $hasFiles) {
+            throw ValidationException::withMessages(['content' => 'Add a written answer or attach at least one file before saving.']);
+        }
+
         if (count($files) > 10) {
             return back()->withInput()->with('error', 'You can attach at most 10 files per submission.');
         }
@@ -227,7 +318,7 @@ class SubmissionController extends Controller
             'course_id' => $validated['course_id'],
             'type' => $validated['type'],
             'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
+            'description' => $content ?? ($validated['description'] ?? null),
         ];
 
         if (! empty($validated['group_id'])) {
@@ -262,14 +353,36 @@ class SubmissionController extends Controller
             return $submission;
         });
 
-        return redirect()->route('submissions.show', $submission);
+        // The create form's primary action ("Submit Assignment") posts with
+        // intent=submit so the student completes the submission in a single
+        // step. A plain store (no intent) keeps the draft lifecycle unchanged:
+        // the submission stays a draft until the student explicitly submits.
+        if ($request->input('intent') === 'submit') {
+            $error = $this->completeSubmission($submission->fresh());
+
+            if ($error !== null) {
+                // The draft is preserved so no work is lost when the lifecycle
+                // guards (window, file policy, security scan) reject the submit.
+                return redirect()->route('submissions.show', $submission)->with('error', $error);
+            }
+
+            return redirect()->route('submissions.show', $submission)
+                ->with('success', $submission->is_late
+                    ? 'Submission received after the deadline — it has been flagged as late.'
+                    : 'Submission submitted successfully. AI analysis is running in the background.');
+        }
+
+        return redirect()->route('submissions.show', $submission)
+            ->with('success', 'Draft saved. Review it and submit when you are ready.');
     }
 
     public function show(Submission $submission)
     {
         $this->authorize('view', $submission);
 
-        $submission->load(['versions', 'comments.user', 'grade', 'course', 'group']);
+        // `task` is eager-loaded so the detail page can render the assignment
+        // context (task title, max score, format) without extra queries.
+        $submission->load(['versions', 'comments.user', 'grade', 'course', 'group', 'task']);
         $aiAnalyses = \App\Models\AiAnalysis::query()
             ->where('submission_id', $submission->id)
             ->where('status', 'completed')
@@ -283,6 +396,10 @@ class SubmissionController extends Controller
     {
         $this->authorize('update', $submission);
 
+        // The draft editor renders the written answer and needs the assignment
+        // format (task) plus the uploaded files for context.
+        $submission->loadMissing(['task', 'versions', 'course']);
+
         return view('submissions.edit', compact('submission'));
     }
 
@@ -292,12 +409,23 @@ class SubmissionController extends Controller
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:100000',
         ]);
+
+        if ($request->has('description')) {
+            // Store the written answer sanitized, exactly like the create flow,
+            // so a draft edit can never introduce unsafe markup.
+            $validated['description'] = \App\Support\HtmlSanitizer::clean($request->input('description'));
+        } else {
+            // File-only drafts never render the written-answer field; leave the
+            // stored value untouched instead of wiping it.
+            unset($validated['description']);
+        }
 
         $submission->update($validated);
 
-        return redirect()->route('submissions.show', $submission);
+        return redirect()->route('submissions.show', $submission)
+            ->with('success', 'Draft updated.');
     }
 
     public function upload(Request $request, Submission $submission)
@@ -338,22 +466,131 @@ class SubmissionController extends Controller
     {
         $this->authorize('submit', $submission);
 
-        if (! $submission->versions()->exists()) {
-            return back()->with('error', 'Upload at least one file before submitting.');
+        $error = $this->completeSubmission($submission);
+
+        if ($error !== null) {
+            return back()->with('error', $error);
         }
-        if ($submission->versions()->whereHas('mediaAsset', fn ($query) => $query->whereNotIn('scan_status', ['clean', 'skipped']))->exists()) {
-            return back()->with('error', 'A submission file has not passed security processing.');
+
+        return redirect()->route('submissions.show', $submission)
+            ->with('success', $submission->is_late
+                ? 'Submission received after the deadline — it has been flagged as late.'
+                : 'Submission submitted successfully. AI analysis is running in the background.');
+    }
+
+    /**
+     * Apply the submission lifecycle transition: eligibility, window, format and
+     * file-policy guards, late handling, confirmation/notification events and
+     * deferred AI analysis. Shared by the explicit submit action and by the
+     * create form's single-step "Submit Assignment" flow so there is exactly one
+     * source of truth for what "submitted" means.
+     *
+     * Returns null on success, or a user-facing error message otherwise. When an
+     * error is returned the submission is left untouched (still a draft) so no
+     * work is lost.
+     */
+    private function completeSubmission(Submission $submission): ?string
+    {
+        $task = $submission->task;
+
+        if ($task && ! AssignmentTypeProfile::isEnabled($task->type)) {
+            return 'This assignment type is currently unavailable.';
         }
-        if ($submission->task && ($submission->task->status !== 'published' || ! $submission->task->is_visible_to_students)) {
-            return back()->with('error', 'This submission task is no longer accepting work.');
+
+        if ($task && ($task->status !== 'published' || ! $task->is_visible_to_students)) {
+            return 'This submission task is no longer accepting work.';
+        }
+        if ($task) {
+            // The window is evaluated against the student's acceptance deadline,
+            // which honours the late window and any approved extension.
+            $acceptance = $task->acceptanceDeadline($submission->user);
+            if (($task->open_at && now()->isBefore($task->open_at))
+                || ($acceptance && now()->isAfter($acceptance))) {
+                return 'This assignment is not currently accepting submissions.';
+            }
+        }
+
+        // The required submission content depends on the assignment's format:
+        // text uses the written answer, file uses uploads, both accept either.
+        $format = $task?->submission_format ?? 'file';
+        $hasFiles = $submission->versions()->exists();
+        $hasText = trim(\App\Support\HtmlSanitizer::toPlainText($submission->description)) !== '';
+
+        if ($format === 'text' && ! $hasText) {
+            return 'Write your submission before submitting.';
+        }
+        if ($format === 'file' && ! $hasFiles) {
+            return 'Upload at least one file before submitting.';
+        }
+        if ($format === 'both' && ! $hasFiles && ! $hasText) {
+            return 'Add your written answer or upload at least one file before submitting.';
+        }
+
+        if ($hasFiles && $submission->versions()->whereHas('mediaAsset', fn ($query) => $query->whereNotIn('scan_status', ['clean', 'skipped']))->exists()) {
+            return 'A submission file has not passed security processing.';
+        }
+
+        // Enforce the assignment's file policy before accepting the submission.
+        if ($task && $hasFiles) {
+            $fileCount = $submission->versions()->count();
+            if ($task->acceptsFiles()) {
+                $minFiles = max(1, (int) ($task->min_file_count ?? 1));
+                if ($fileCount < $minFiles) {
+                    return "This assignment requires at least {$minFiles} file(s).";
+                }
+            }
+            if ($task->max_file_count && $fileCount > (int) $task->max_file_count) {
+                return "This assignment allows at most {$task->max_file_count} file(s).";
+            }
+            $allowed = array_values(array_filter(array_map('strtolower', (array) ($task->allowed_file_types ?? []))));
+            if ($allowed !== []) {
+                $extensions = $submission->versions()->pluck('file_name')
+                    ->map(fn ($name) => strtolower(pathinfo((string) $name, PATHINFO_EXTENSION)));
+                $blocked = $extensions->unique()->diff($allowed)->values();
+                if ($blocked->isNotEmpty()) {
+                    return 'This assignment does not accept file type(s): '.$blocked->implode(', ').'.';
+                }
+            }
+        }
+
+        // Late handling: compare against the effective deadline, which honours an
+        // approved per-student extension before falling back to the task deadline.
+        $submittedAt = now();
+        $isLate = false;
+        $deadline = null;
+        if ($task) {
+            $deadline = $task->getEffectiveDeadline($submission->user);
+        } elseif ($submission->close_at) {
+            $deadline = $submission->close_at;
+        }
+        if ($deadline) {
+            $deadline = \Illuminate\Support\Carbon::parse($deadline);
+            $isLate = $submittedAt->greaterThan($deadline);
         }
 
         $status = $submission->status === 'correction_requested' ? 'resubmitted' : 'submitted';
+        $isResubmission = $status === 'resubmitted';
 
         $submission->update([
             'status' => $status,
-            'submitted_at' => now(),
+            'submitted_at' => $submittedAt,
+            'is_late' => $isLate,
+            'resubmission_count' => $isResubmission ? ((int) $submission->resubmission_count) + 1 : $submission->resubmission_count,
+            'last_resubmitted_at' => $isResubmission ? $submittedAt : $submission->last_resubmitted_at,
         ]);
+
+        if ($isLate && $task && $deadline) {
+            \App\Models\LateSubmission::updateOrCreate(
+                ['submission_id' => $submission->id],
+                [
+                    'submission_task_id' => $task->id,
+                    'submitted_at' => $submittedAt,
+                    'deadline_at' => $deadline,
+                    'minutes_late' => (int) max(0, $deadline->diffInMinutes($submittedAt)),
+                    'penalty_applied_percent' => (float) ($task->late_submission_penalty_percent ?? 0),
+                ]
+            );
+        }
 
         // Fire submission confirmation to student
         event(new SubmissionConfirmation($submission, $submission->user));
@@ -367,8 +604,7 @@ class SubmissionController extends Controller
         // Trigger asynchronous AI analysis (validator + plagiarism) without blocking.
         event(new \App\Events\SubmissionAiAnalysisRequested($submission, $submission->user));
 
-        return redirect()->route('submissions.show', $submission)
-            ->with('success', 'Submission submitted successfully. AI analysis is running in the background.');
+        return null;
     }
 
     public function download(SubmissionVersion $version)
@@ -576,21 +812,93 @@ class SubmissionController extends Controller
         return back()->with('success', 'Files updated successfully.');
     }
 
-    public function lecturerIndex()
+    public function lecturerIndex(Request $request)
     {
         $user = Auth::user();
         if (! $user->isLecturer()) {
             abort(403);
         }
 
-        // Get submissions for courses taught by this lecturer
-        $submissions = Submission::whereHas('course.lecturerAssignments', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
-        })->with(['user', 'course', 'grade'])
-            ->latest()
-            ->paginate(20);
+        $filters = $request->validate([
+            'course_id' => 'nullable|integer|exists:courses,id',
+            'task_id' => 'nullable|integer|exists:submission_tasks,id',
+            'status' => 'nullable|in:draft,submitted,resubmitted,under_review,graded,correction_requested,approved',
+            'q' => 'nullable|string|max:100',
+        ]);
 
-        return view('submissions.lecturer-index', compact('submissions'));
+        $courseIds = Course::query()
+            ->whereHas('lecturerAssignments', fn ($query) => $query->where('user_id', $user->id))
+            ->pluck('id');
+
+        $submissions = Submission::query()
+            ->whereIn('course_id', $courseIds)
+            ->with(['user', 'course', 'grade'])
+            ->when($filters['course_id'] ?? null, fn ($query, $courseId) => $query->where('course_id', $courseId))
+            ->when($filters['task_id'] ?? null, fn ($query, $taskId) => $query->where('submission_task_id', $taskId))
+            ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($filters['q'] ?? null, function ($query, $term) {
+                $query->where(function ($inner) use ($term) {
+                    $inner->where('title', 'like', '%'.$term.'%')
+                        ->orWhereHas('user', function ($userQuery) use ($term) {
+                            $userQuery->where('first_name', 'like', '%'.$term.'%')
+                                ->orWhere('last_name', 'like', '%'.$term.'%')
+                                ->orWhere('email', 'like', '%'.$term.'%');
+                        });
+                });
+            })
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        $courses = Course::query()->whereIn('id', $courseIds)->orderBy('code')->get(['id', 'code', 'name']);
+        $tasks = SubmissionTask::query()->whereIn('course_id', $courseIds)->orderByDesc('id')->get(['id', 'title', 'course_id']);
+
+        return view('submissions.lecturer-index', compact('submissions', 'courses', 'tasks'));
+    }
+
+    /**
+     * Apply the same review decision to many submissions at once. Each item is
+     * authorised individually so a lecturer can never act outside their courses.
+     */
+    public function bulk(Request $request)
+    {
+        $user = Auth::user();
+        if (! $user->isLecturer()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'action' => 'required|in:approve,request_correction',
+            'submission_ids' => 'required|array|min:1|max:100',
+            'submission_ids.*' => 'integer|exists:submissions,id',
+        ]);
+
+        $submissions = Submission::query()->whereIn('id', $validated['submission_ids'])->get();
+        $affected = 0;
+
+        foreach ($submissions as $submission) {
+            try {
+                if ($validated['action'] === 'approve') {
+                    $this->authorize('approve', $submission);
+                    $submission->update(['status' => 'approved']);
+                    event(new SubmissionApproved($submission, $submission->user));
+                } else {
+                    $this->authorize('requestCorrection', $submission);
+                    $submission->update(['status' => 'correction_requested']);
+                    event(new CorrectionRequested($submission, $submission->user));
+                }
+                $affected++;
+            } catch (\Illuminate\Auth\Access\AuthorizationException) {
+                // Skip submissions this lecturer is not responsible for.
+            }
+        }
+
+        AuditLog::log('submission_bulk_action', $user->id, Submission::class, null, null, [
+            'action' => $validated['action'],
+            'count' => $affected,
+        ], request()->ip(), request()->userAgent());
+
+        return back()->with('success', $affected.' submission(s) updated.');
     }
 
     public function review(Submission $submission)
@@ -610,77 +918,213 @@ class SubmissionController extends Controller
     {
         $this->authorize('grade', $submission);
 
+        $task = $submission->task;
+        $rubric = $task?->rubric;
+        $maxScore = ($task && $task->max_score !== null) ? (float) $task->max_score : 100.0;
+
         $validated = $request->validate([
-            'score' => 'required|numeric|min:0|max:100',
-            'feedback' => 'nullable|string|max:1000',
+            'score' => 'nullable|numeric|min:0|max:'.$maxScore,
+            'feedback' => 'nullable|string|max:5000',
+            'criteria' => 'nullable|array',
+            'criteria.*' => 'nullable|numeric|min:0',
+            'criteria_feedback' => 'nullable|array',
+            'criteria_feedback.*' => 'nullable|string|max:1000',
         ]);
 
-        $submission->update(['status' => 'graded']);
+        // Rubric-based grading: when the task has a rubric and criterion scores
+        // are supplied, clamp each to its maximum and derive the total if the
+        // lecturer did not type an overall score.
+        $criteriaScores = null;
+        if ($rubric && ! empty($validated['criteria'])) {
+            $criteriaScores = $this->normalizeCriteriaScores($rubric, $validated['criteria']);
+            if (! isset($validated['score'])) {
+                $validated['score'] = array_sum($criteriaScores);
+            }
+        }
+
+        $criteriaFeedback = null;
+        if (! empty($validated['criteria_feedback'])) {
+            $criteriaFeedback = [];
+            foreach ($validated['criteria_feedback'] as $criterion => $note) {
+                $note = trim((string) $note);
+                if ($note !== '') {
+                    $criteriaFeedback[(string) $criterion] = $note;
+                }
+            }
+            if ($criteriaFeedback === []) {
+                $criteriaFeedback = null;
+            }
+        }
+
+        if (! isset($validated['score'])) {
+            throw ValidationException::withMessages(['score' => 'Enter a score, or complete the rubric, before saving the grade.']);
+        }
+
+        $rawScore = min((float) $validated['score'], $maxScore);
+
+        // Apply the assignment's late penalty at grade time, honouring the
+        // task's configured percentage, and record the before/after values.
+        $penaltyPercent = $submission->is_late ? (float) $submission->getLatePenalty() : 0.0;
+        $score = $penaltyPercent > 0
+            ? round(max(0.0, $rawScore - ($rawScore * $penaltyPercent / 100)), 2)
+            : $rawScore;
+
+        $submission->update(['status' => 'graded', 'graded_at' => now()]);
+
         $submission->grade()->updateOrCreate(
             ['submission_id' => $submission->id],
-            ['user_id' => Auth::id(), 'score' => $validated['score'], 'feedback' => $validated['feedback'] ?? null]
+            [
+                'user_id' => Auth::id(),
+                'score' => $score,
+                'max_score' => $maxScore,
+                'rubric_id' => $rubric?->id,
+                'feedback' => $validated['feedback'] ?? null,
+                'criteria_scores' => $criteriaScores,
+                'criteria_feedback' => $criteriaFeedback,
+                'is_final' => true,
+            ]
+        );
+
+        // Immutable history of every grade recorded for this submission.
+        \App\Models\SubmissionGradeHistory::create([
+            'submission_id' => $submission->id,
+            'graded_by' => Auth::id(),
+            'score' => $score,
+            'max_score' => $maxScore,
+            'criteria_scores' => $criteriaScores,
+            'feedback' => $validated['feedback'] ?? null,
+        ]);
+
+        if ($penaltyPercent > 0) {
+            \App\Models\LateSubmission::where('submission_id', $submission->id)->update([
+                'score_before_penalty' => $rawScore,
+                'score_after_penalty' => $score,
+                'penalty_applied_percent' => $penaltyPercent,
+            ]);
+        }
+
+        // Grading is a high-accountability action (and may apply an AI
+        // suggestion), so record an explicit audit entry.
+        AuditLog::log(
+            'submission_graded',
+            Auth::id(),
+            Submission::class,
+            $submission->id,
+            null,
+            ['score' => $score, 'max_score' => $maxScore, 'rubric_id' => $rubric?->id, 'late_penalty_percent' => $penaltyPercent],
+            request()->ip(),
+            request()->userAgent(),
+        );
+
+        // Let the student know the grade and feedback are available.
+        $this->notifications->send(
+            $submission->user,
+            NotificationType::GRADE_POSTED,
+            'Grade posted',
+            "Your submission '{$submission->title}' has been graded.",
+            [
+                'submission_id' => $submission->uuid,
+                'score' => $score,
+                'max_score' => $maxScore,
+                'url' => route('submissions.show', $submission),
+            ]
         );
 
         return back()->with('success', 'Grade submitted.');
     }
 
-    public function comment(Request $request, Submission $submission)
+    /**
+     * Clamp rubric criterion scores to the rubric's defined maxima.
+     *
+     * @param  array<int|string,mixed>  $submitted
+     * @return array<string,float>
+     */
+    private function normalizeCriteriaScores(SubmissionRubric $rubric, array $submitted): array
     {
-        $user = Auth::user();
-        if (! $user->isLecturer()) {
-            abort(403);
+        $criteria = is_array($rubric->criteria) ? $rubric->criteria : [];
+        $normalized = [];
+
+        foreach ($criteria as $index => $criterion) {
+            $key = is_array($criterion)
+                ? (string) ($criterion['key'] ?? $criterion['name'] ?? $index)
+                : (string) $index;
+
+            if (! array_key_exists($key, $submitted) && ! array_key_exists($index, $submitted)) {
+                continue;
+            }
+
+            $value = (float) ($submitted[$key] ?? $submitted[$index]);
+            $max = is_array($criterion)
+                ? (float) ($criterion['points'] ?? $criterion['max_points'] ?? $criterion['weight'] ?? 0)
+                : 0.0;
+
+            $normalized[$key] = round(max(0.0, $max > 0 ? min($value, $max) : $value), 2);
         }
 
-        $canComment = $submission->course->lecturerAssignments()->where('user_id', $user->id)->exists();
-        if (! $canComment) {
+        return $normalized;
+    }
+
+    public function comment(Request $request, Submission $submission)
+    {
+        $this->authorize('comment', $submission);
+
+        $user = Auth::user();
+        // The commenting endpoint is reviewer-only: a student cannot leave
+        // feedback on their own submission through this route.
+        if ($user->id === $submission->user_id || ! $user->canViewCourseSubmissions($submission->course)) {
             abort(403);
         }
 
         $validated = $request->validate([
-            'comment' => 'required|string|max:1000',
+            'comment' => 'required|string|max:5000',
         ]);
 
         $submission->comments()->create([
             'user_id' => $user->id,
-            'comment' => $validated['comment'],
-            'type' => 'feedback',
+            'content' => $validated['comment'],
+            'type' => 'general',
+            'status' => 'pending',
         ]);
+
+        // Notify the student that new feedback is available.
+        $this->notifications->send(
+            $submission->user,
+            NotificationType::FEEDBACK_POSTED,
+            'New feedback',
+            "New feedback was added to '{$submission->title}'.",
+            [
+                'submission_id' => $submission->uuid,
+                'url' => route('submissions.show', $submission),
+            ]
+        );
 
         return back()->with('success', 'Comment added.');
     }
 
     public function approve(Request $request, Submission $submission)
     {
-        $user = Auth::user();
-        if (! $user->isLecturer()) {
-            abort(403);
-        }
-
-        $canApprove = $submission->course->lecturerAssignments()->where('user_id', $user->id)->exists();
-        if (! $canApprove) {
-            abort(403);
-        }
+        $this->authorize('approve', $submission);
 
         $submission->update(['status' => 'approved']);
 
-        return back()->with('success', 'Submission approved.');
+        AuditLog::log('submission_approved', Auth::id(), Submission::class, $submission->id, null, null, request()->ip(), request()->userAgent());
+
+        event(new SubmissionApproved($submission, $submission->user));
+
+        return back()->with('success', 'Submission approved and the student has been notified.');
     }
 
     public function reject(Request $request, Submission $submission)
     {
-        $user = Auth::user();
-        if (! $user->isLecturer()) {
-            abort(403);
-        }
-
-        $canApprove = $submission->course->lecturerAssignments()->where('user_id', $user->id)->exists();
-        if (! $canApprove) {
-            abort(403);
-        }
+        $this->authorize('reject', $submission);
 
         $submission->update(['status' => 'correction_requested']);
 
-        return back()->with('success', 'Major corrections requested.');
+        AuditLog::log('submission_rejected', Auth::id(), Submission::class, $submission->id, null, null, request()->ip(), request()->userAgent());
+
+        event(new CorrectionRequested($submission, $submission->user));
+
+        return back()->with('success', 'Major corrections requested and the student has been notified.');
     }
 
     public function compare(Request $request, Submission $submission)
@@ -705,19 +1149,15 @@ class SubmissionController extends Controller
 
     public function requestCorrection(Submission $submission)
     {
-        $user = Auth::user();
-        if (! $user->isLecturer()) {
-            abort(403);
-        }
-
-        $canRequest = $submission->course->lecturerAssignments()->where('user_id', $user->id)->exists();
-        if (! $canRequest) {
-            abort(403);
-        }
+        $this->authorize('requestCorrection', $submission);
 
         $submission->update(['status' => 'correction_requested']);
 
-        return back()->with('success', 'Student notified to correct submission.');
+        AuditLog::log('submission_correction_requested', Auth::id(), Submission::class, $submission->id, null, null, request()->ip(), request()->userAgent());
+
+        event(new CorrectionRequested($submission, $submission->user));
+
+        return back()->with('success', 'Correction requested and the student has been notified.');
     }
 
     public function exportGrades(Request $request)
@@ -734,6 +1174,14 @@ class SubmissionController extends Controller
         ]);
 
         $course_id = $validated['course_id'];
+
+        // Scope the export to courses the actor is actually responsible for, so
+        // admins cannot pull grades for other institutions/departments.
+        $course = Course::with('department.faculty')->findOrFail($course_id);
+        if (! $user->canViewCourseSubmissions($course)) {
+            abort(403, 'You cannot export grades for this course.');
+        }
+
         $format = $validated['format'] ?? 'csv';
 
         $submissions = Submission::where('course_id', $course_id)

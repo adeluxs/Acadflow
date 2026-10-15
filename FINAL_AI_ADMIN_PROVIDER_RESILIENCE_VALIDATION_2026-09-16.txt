@@ -1,0 +1,24 @@
+AcadFlow AI Admin Provider Resilience Validation — 2026-09-16
+
+Issues fixed:
+- Gemini/provider Admin Test Connection could exceed PHP 30-second execution time inside Guzzle/cURL.
+- OpenRouter full model catalog could exceed MySQL settings.value TEXT capacity (SQLSTATE 22001 / 1406).
+
+Implementation:
+- Health-check total budget: 12 seconds default.
+- Health-check per-attempt timeout: 6 seconds default.
+- Health-check connect timeout: 3 seconds default.
+- IPv4 fallback only uses remaining health-check budget.
+- Admin Test Connection disables generation retries and uses health-check limits.
+- OpenRouter discovery uses short bounded HTTP timeouts.
+- Only OpenRouter model IDs are persisted in settings.
+- Full OpenRouter catalog is six-hour cache-only diagnostic data.
+- Cleanup migration removes obsolete ai_provider_openrouter_model_catalog setting.
+
+Validation:
+- Preflight/regression checks: 34/34 PASS
+- PHP/Blade lexical checks: 835/835 PASS
+- JavaScript syntax checks: 11/11 PASS
+- .env packaged: NO
+- vendor packaged: NO
+- node_modules packaged: NO

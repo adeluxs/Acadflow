@@ -13,6 +13,7 @@ use App\Services\AcademicReferenceService;
 use App\Services\IndependentAcademicContextService;
 use App\Services\ResearchInvitationService;
 use App\Services\ResearchProjectService;
+use App\Services\ResearchWritingExperienceService;
 use App\Services\ResearchPublicationService;
 use App\Services\ResearchValidationService;
 use App\Services\WorkflowService;
@@ -202,12 +203,13 @@ class ResearchProjectController extends Controller
         return redirect()->route('research.show', $project)->with('success', $message);
     }
 
-    public function show(ResearchProject $research, AcademicReferenceService $referenceService): View
+    public function show(Request $request, ResearchProject $research, AcademicReferenceService $referenceService, ResearchWritingExperienceService $writing): View
     {
         $this->authorize('view', $research);
         $institutionExpansionEnabled = FeatureAccessService::effectiveStatus('research_institutional_expansion', auth()->user()?->university_id) === FeatureAccessService::STATUS_ENABLED;
         $publishingEnabled = FeatureAccessService::effectiveStatus('research_to_knowledge_hub', auth()->user()?->university_id) === FeatureAccessService::STATUS_ENABLED;
         $literatureEnabled = FeatureAccessService::effectiveStatus('research_literature', auth()->user()?->university_id) === FeatureAccessService::STATUS_ENABLED;
+        $datasetsEnabled = FeatureAccessService::effectiveStatus('research_datasets', auth()->user()?->university_id) === FeatureAccessService::STATUS_ENABLED;
 
         $relations = [
             'researchType', 'owner',
@@ -225,6 +227,9 @@ class ResearchProjectController extends Controller
             $relations[] = 'referenceLinks.reference';
             $relations[] = 'literatureNotes.reference';
             $relations[] = 'templateVersion';
+        }
+        if ($datasetsEnabled) {
+            $relations[] = 'datasets';
         }
         $research->load($relations);
 
@@ -259,6 +264,11 @@ class ResearchProjectController extends Controller
                 ->get()
             : collect();
 
+        $sectionJourney = $writing->journey($research);
+        $activeSection = $writing->activeSection($research, $request->query('section'));
+        $writingGuidance = $writing->guidance($activeSection);
+        $nextWritingAction = $writing->nextAction($research);
+
         $citationStyle = strtolower((string) ($research->templateVersion?->citation_style ?? data_get($research->metadata, 'citation_style', 'apa')));
         $chapterTwoLiterature = collect();
         if ($literatureEnabled) {
@@ -279,8 +289,9 @@ class ResearchProjectController extends Controller
         }
 
         return view('research.show', compact(
-            'research', 'categories', 'institutionExpansionEnabled', 'publishingEnabled', 'literatureEnabled',
-            'pendingSupervisorInvitation', 'supervisorCandidates', 'chapterTwoLiterature', 'citationStyle'
+            'research', 'categories', 'institutionExpansionEnabled', 'publishingEnabled', 'literatureEnabled', 'datasetsEnabled',
+            'pendingSupervisorInvitation', 'supervisorCandidates', 'chapterTwoLiterature', 'citationStyle',
+            'sectionJourney', 'activeSection', 'writingGuidance', 'nextWritingAction'
         ));
     }
 

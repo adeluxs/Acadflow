@@ -140,6 +140,21 @@ function initializeDuplicateSubmitProtection() {
             if (method === 'get') return;
             if (form.dataset.submitting === '1') return;
 
+            // Preserve the clicked submit button's name/value before disabling
+            // controls below. Many forms carry a meaningful field on the submit
+            // button itself (e.g. a flashcard rating or an approval decision);
+            // disabling the button would otherwise drop that field from the
+            // submitted data and trigger a "field is required" validation error.
+            const submitter = 'submitter' in event && event.submitter instanceof HTMLElement ? event.submitter : null;
+            if (submitter && submitter.name && form.querySelector(`input[type="hidden"][data-submitter-mirror="${submitter.name}"]`) === null) {
+                const mirror = document.createElement('input');
+                mirror.type = 'hidden';
+                mirror.name = submitter.name;
+                mirror.value = submitter.value ?? '';
+                mirror.setAttribute('data-submitter-mirror', submitter.name);
+                form.appendChild(mirror);
+            }
+
             form.dataset.submitting = '1';
             form.setAttribute('aria-busy', 'true');
             form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((control) => {

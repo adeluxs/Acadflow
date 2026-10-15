@@ -26,6 +26,12 @@ return [
     'request_timeout' => env('AI_REQUEST_TIMEOUT', 18),
     'lifecycle_budget_seconds' => env('AI_LIFECYCLE_BUDGET_SECONDS', 24),
     'post_provider_reserve_seconds' => env('AI_POST_PROVIDER_RESERVE_SECONDS', 4),
+    // Test Connection / scheduled health checks must finish well below PHP's
+    // common 30-second max_execution_time. Keep these independent from the
+    // longer real generation timeout so a broken network cannot fatal the UI.
+    'health_check_budget_seconds' => env('AI_HEALTH_CHECK_BUDGET_SECONDS', 12),
+    'health_check_timeout' => env('AI_HEALTH_CHECK_TIMEOUT', 6),
+    'health_check_connect_timeout' => env('AI_HEALTH_CHECK_CONNECT_TIMEOUT', 3),
     'retry_count' => env('AI_RETRY_COUNT', 1),
     'retry_delay_ms' => env('AI_RETRY_DELAY_MS', 300),
     'fast_failover' => env('AI_FAST_FAILOVER', true),
@@ -42,6 +48,9 @@ return [
     'cache_ttl' => env('AI_CACHE_TTL', 86400),
     'enable_cache' => env('AI_ENABLE_CACHE', true),
     'enable_logging' => env('AI_ENABLE_LOGGING', true),
+    // Request observability must never delay a valid AI answer reaching the UI.
+    'defer_analytics_after_response' => env('AI_DEFER_ANALYTICS_AFTER_RESPONSE', true),
+    'contextual_ui_timeout_ms' => env('AI_CONTEXTUAL_UI_TIMEOUT_MS', 28000),
     'hybrid_escalate_when_clean' => env('AI_HYBRID_ESCALATE_WHEN_CLEAN', false),
     'queue_connection' => env('AI_QUEUE_CONNECTION', null),
 
@@ -77,6 +86,12 @@ return [
         'knowledge_publication_validator',
         'knowledge_moderation',
         'knowledge_companion',
+        // Student study tools
+        'study_planner',
+        'practice_generator',
+        'flashcard_generator',
+        'reflection_coach',
+        'annotation_summary',
     ],
 
     // In Hybrid mode these features are genuinely provider-backed when a valid
@@ -97,6 +112,12 @@ return [
         'knowledge_publication_validator',
         'knowledge_moderation',
         'knowledge_companion',
+        // Student study tools
+        'study_planner',
+        'practice_generator',
+        'flashcard_generator',
+        'reflection_coach',
+        'annotation_summary',
     ],
 
 
@@ -119,6 +140,11 @@ return [
         'knowledge_publication_validator' => ['chat', 'structured_output'],
         'knowledge_moderation' => ['chat', 'structured_output'],
         'knowledge_companion' => ['chat', 'structured_output'],
+        'study_planner' => ['chat', 'structured_output'],
+        'practice_generator' => ['chat', 'structured_output'],
+        'flashcard_generator' => ['chat', 'structured_output'],
+        'reflection_coach' => ['chat', 'structured_output'],
+        'annotation_summary' => ['chat', 'structured_output'],
     ],
 
 
@@ -186,6 +212,8 @@ return [
                 'Summarize the main viewpoints in this discussion.',
                 'What questions are still unresolved in this thread?',
                 'Help me draft a constructive reply without inventing facts.',
+                'Create a short study-group summary with the key points and agreed next steps.',
+                'List the action items this group should complete before the next session.',
             ],
         ],
     ],
@@ -225,6 +253,16 @@ return [
             'gemini-2.0-flash-lite' => 'gemini-3.5-flash-lite',
             'gemini-2.0-flash-lite-001' => 'gemini-3.5-flash-lite',
         ],
+        'openrouter' => [
+            // OpenRouter model identifiers are provider-prefixed. Keep known
+            // retired/unsupported defaults here so runtime settings can safely
+            // normalize old admin selections without hard-coding model swaps in
+            // request code or provider adapters.
+            'google/gemini-3.5-flash' => 'google/gemini-2.5-flash',
+            'google/gemini-3.5-flash-latest' => 'google/gemini-2.5-flash',
+            'google/gemini-3.8-flash' => 'google/gemini-2.5-flash',
+            'google/gemini-3.8-flash-latest' => 'google/gemini-2.5-flash',
+        ],
     ],
 
     'providers' => [
@@ -234,6 +272,7 @@ return [
             'organization' => env('OPENAI_ORGANIZATION'),
             'project' => env('OPENAI_PROJECT'),
             'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+            'models' => ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1', 'o4-mini', 'o3-mini'],
             'temperature' => env('OPENAI_TEMPERATURE', 0.2),
             'input_cost_per_million' => env('OPENAI_INPUT_COST_PER_MILLION', 0.15),
             'output_cost_per_million' => env('OPENAI_OUTPUT_COST_PER_MILLION', 0.60),
@@ -243,6 +282,7 @@ return [
             'base_url' => env('ANTHROPIC_BASE_URL', 'https://api.anthropic.com/v1'),
             'api_version' => env('ANTHROPIC_API_VERSION', '2023-06-01'),
             'model' => env('CLAUDE_MODEL', 'claude-sonnet-5'),
+            'models' => ['claude-sonnet-5', 'claude-3-7-sonnet-latest', 'claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest', 'claude-3-opus-latest'],
             'temperature' => env('CLAUDE_TEMPERATURE', 0.2),
             'input_cost_per_million' => env('CLAUDE_INPUT_COST_PER_MILLION', 3.00),
             'output_cost_per_million' => env('CLAUDE_OUTPUT_COST_PER_MILLION', 15.00),
@@ -251,6 +291,7 @@ return [
             'api_key' => env('GEMINI_API_KEY'),
             'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
             'model' => env('GEMINI_MODEL', 'gemini-3.6-flash'),
+            'models' => ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-2.5-pro'],
             'temperature' => env('GEMINI_TEMPERATURE', 0.2),
             'input_cost_per_million' => env('GEMINI_INPUT_COST_PER_MILLION', 0.10),
             'output_cost_per_million' => env('GEMINI_OUTPUT_COST_PER_MILLION', 0.40),
@@ -259,6 +300,7 @@ return [
             'api_key' => env('DEEPSEEK_API_KEY'),
             'base_url' => env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'),
             'model' => env('DEEPSEEK_MODEL', 'deepseek-v4-flash'),
+            'models' => ['deepseek-v4-flash', 'deepseek-chat', 'deepseek-reasoner'],
             'temperature' => env('DEEPSEEK_TEMPERATURE', 0.2),
             'input_cost_per_million' => env('DEEPSEEK_INPUT_COST_PER_MILLION', 0.27),
             'output_cost_per_million' => env('DEEPSEEK_OUTPUT_COST_PER_MILLION', 1.10),
@@ -267,6 +309,7 @@ return [
             'api_key' => env('XAI_API_KEY'),
             'base_url' => env('XAI_BASE_URL', 'https://api.x.ai/v1'),
             'model' => env('XAI_MODEL', 'grok-4.5'),
+            'models' => ['grok-4.5', 'grok-4', 'grok-3', 'grok-3-mini'],
             'temperature' => env('XAI_TEMPERATURE', 0.2),
             // Keep cost tracking at zero unless the administrator explicitly
             // configures current xAI prices for the selected model.
@@ -277,6 +320,7 @@ return [
             'api_key' => env('OPENROUTER_API_KEY'),
             'base_url' => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
             'model' => env('OPENROUTER_MODEL', 'openai/gpt-4o-mini'),
+            'models' => ['openai/gpt-4o-mini', 'openai/gpt-4o', 'anthropic/claude-sonnet-5', 'anthropic/claude-3.7-sonnet', 'google/gemini-2.5-flash', 'deepseek/deepseek-chat', 'x-ai/grok-4'],
             'temperature' => env('OPENROUTER_TEMPERATURE', 0.2),
             'site_url' => env('OPENROUTER_SITE_URL', env('APP_URL')),
             'app_name' => env('OPENROUTER_APP_NAME', env('APP_NAME', 'AcadFlow')),
@@ -289,6 +333,7 @@ return [
             'endpoint' => env('AZURE_OPENAI_ENDPOINT'),
             'api_version' => env('AZURE_OPENAI_API_VERSION', '2024-10-21'),
             'model' => env('AZURE_OPENAI_MODEL', 'gpt-4o-mini'),
+            'models' => ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1', 'o4-mini'],
             'temperature' => env('AZURE_OPENAI_TEMPERATURE', 0.2),
             'input_cost_per_million' => env('AZURE_OPENAI_INPUT_COST_PER_MILLION', 0.15),
             'output_cost_per_million' => env('AZURE_OPENAI_OUTPUT_COST_PER_MILLION', 0.60),
@@ -297,6 +342,7 @@ return [
             'endpoint' => env('OLLAMA_ENDPOINT', 'http://localhost:11434'),
             'api_key' => env('OLLAMA_API_KEY'),
             'model' => env('OLLAMA_MODEL', 'llama3'),
+            'models' => ['llama3', 'llama3.1', 'llama3.2', 'mistral', 'mixtral', 'qwen2.5', 'phi3'],
             'temperature' => env('OLLAMA_TEMPERATURE', 0.2),
             'input_cost_per_million' => env('OLLAMA_INPUT_COST_PER_MILLION', 0),
             'output_cost_per_million' => env('OLLAMA_OUTPUT_COST_PER_MILLION', 0),

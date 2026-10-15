@@ -28,10 +28,26 @@ function boot() {
     initGlobalLoader();
     initErrorFeedback();
     initPerformanceUX();
+
+    if (document.querySelector('[data-contextual-ai]')) {
+        import('./contextual-assistant')
+            .then(({ initContextualAssistants }) => initContextualAssistants())
+            .catch((error) => console.error('AcadFlow contextual assistant failed to initialize:', error));
+    }
+
     if (document.querySelector('[data-rich-editor]')) {
         import('./rich-editor')
             .then(({ initRichEditors }) => initRichEditors())
             .catch((error) => console.error('AcadFlow rich editor failed to initialize:', error));
+    }
+
+    if (document.querySelector('[data-lecturer-ai]')) {
+        // Load the rich editor first so window.AcadFlowRichEditor.insert exists
+        // before the Lecturer AI Studio tries to insert a draft into the editor.
+        import('./rich-editor')
+            .then(() => import('./lecturer-ai'))
+            .then(({ initLecturerAi }) => initLecturerAi())
+            .catch((error) => console.error('AcadFlow Lecturer AI Studio failed to initialize:', error));
     }
 
     if (document.querySelector('[data-password-policy]')) {

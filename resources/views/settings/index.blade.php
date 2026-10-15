@@ -42,6 +42,31 @@
         </div>
     @endif
 
+    @if(auth()->user()->isSuperAdmin())
+    <!-- Assignment type availability (platform-owner controlled) -->
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h2 class="text-sm font-black text-slate-900">Assignment types</h2>
+                <p class="mt-1 text-xs text-slate-500">Optional assignment types can be enabled or disabled. Disabling a type hides it from assignment creation and blocks new assignments of that type; existing records are kept.</p>
+            </div>
+            <span class="rounded-full px-2.5 py-1 text-[11px] font-bold {{ $siwesAssignmentEnabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600' }}">
+                SIWES {{ $siwesAssignmentEnabled ? 'enabled' : 'disabled' }}
+            </span>
+        </div>
+        <form method="POST" action="{{ route('admin.settings.assignment-types.siwes') }}" class="mt-4 flex flex-wrap items-center gap-3">
+            @csrf
+            @method('PUT')
+            <input type="hidden" name="enabled" value="0">
+            <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" name="enabled" value="1" @checked($siwesAssignmentEnabled) class="rounded border-slate-300">
+                Enable the SIWES assignment type
+            </label>
+            <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700">Save</button>
+        </form>
+    </div>
+    @endif
+
     <!-- Settings Navigation Tabs -->
     <div class="mb-6">
         <div class="flex flex-wrap gap-2">

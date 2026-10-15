@@ -1,8 +1,6 @@
-const QUILL_VERSION = '2.0.3';
-const QUILL_JS = `https://cdn.jsdelivr.net/npm/quill@${QUILL_VERSION}/dist/quill.js`;
-const QUILL_CSS = `https://cdn.jsdelivr.net/npm/quill@${QUILL_VERSION}/dist/quill.snow.css`;
+import Quill from 'quill';
+import 'quill/dist/quill.snow.css';
 
-let quillPromise;
 const editorRegistry = new Map();
 
 function editorId(source) {
@@ -54,27 +52,6 @@ window.AcadFlowRichEditor.insert = (target, text) => {
     source._acadflowPendingInsertions.push(value);
     return true;
 };
-
-function ensureQuill() {
-    if (window.Quill) return Promise.resolve(window.Quill);
-    if (quillPromise) return quillPromise;
-
-    quillPromise = new Promise((resolve, reject) => {
-        if (!document.querySelector(`link[href="${QUILL_CSS}"]`)) {
-            const css = document.createElement('link');
-            css.rel = 'stylesheet';
-            css.href = QUILL_CSS;
-            document.head.appendChild(css);
-        }
-        const script = document.createElement('script');
-        script.src = QUILL_JS;
-        script.async = true;
-        script.onload = () => resolve(window.Quill);
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-    return quillPromise;
-}
 
 function plainText(html) {
     const div = document.createElement('div');
@@ -299,7 +276,26 @@ export function initRichEditors() {
     if (!sources.length) return;
     sources.forEach((source) => { source.dataset.editorInitialized = '1'; });
 
-    ensureQuill()
-        .then((Quill) => sources.forEach((source) => initQuill(source, Quill)))
-        .catch(() => sources.forEach(initFallback));
+    // Quill is bundled locally (no CDN dependency) so the editor works offline.
+    // If a specific browser cannot initialize Quill, fall back to the built-in
+    // contenteditable editor rather than leaving the field unusable.
+    let EditorCtor = null;
+    try {
+        EditorCtor = Quill;
+    } catch (_) {
+        EditorCtor = null;
+    }
+
+    if (!EditorCtor) {
+        sources.forEach(initFallback);
+        return;
+    }
+
+    sources.forEach((source) => {
+        try {
+            initQuill(source, EditorCtor);
+        } catch (_) {
+            initFallback(source);
+        }
+    });
 }

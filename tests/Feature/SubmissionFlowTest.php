@@ -80,15 +80,17 @@ class SubmissionFlowTest extends TestCase
             'title' => 'Test Submission',
             'status' => 'draft',
         ]);
-        $path = 'submissions/'.$submission->uuid.'/answer.txt';
+        // The task only accepts pdf/doc/docx, so the fixture must use an
+        // allowed extension for a successful submission.
+        $path = 'submissions/'.$submission->uuid.'/answer.pdf';
         Storage::disk('local')->put($path, 'Test answer');
         SubmissionVersion::create([
             'submission_id' => $submission->id,
             'version_number' => 1,
-            'file_name' => 'answer.txt',
+            'file_name' => 'answer.pdf',
             'file_path' => $path,
             'file_size' => 11,
-            'mime_type' => 'text/plain',
+            'mime_type' => 'application/pdf',
             'uploaded_by' => $ctx['student']->id,
             'is_current' => true,
         ]);
@@ -100,6 +102,44 @@ class SubmissionFlowTest extends TestCase
         $this->assertDatabaseHas('submissions', [
             'id' => $submission->id,
             'status' => 'submitted',
+        ]);
+    }
+
+    public function test_submit_rejects_a_disallowed_file_type(): void
+    {
+        Storage::fake('local');
+        $ctx = $this->studentCourseContext();
+
+        $submission = Submission::create([
+            'uuid' => (string) Str::uuid(),
+            'user_id' => $ctx['student']->id,
+            'course_id' => $ctx['course']->id,
+            'semester_id' => $ctx['semester']->id,
+            'submission_task_id' => $ctx['task']->id,
+            'type' => 'assignment',
+            'title' => 'Wrong type',
+            'status' => 'draft',
+        ]);
+        $path = 'submissions/'.$submission->uuid.'/answer.txt';
+        Storage::disk('local')->put($path, 'answer');
+        SubmissionVersion::create([
+            'submission_id' => $submission->id,
+            'version_number' => 1,
+            'file_name' => 'answer.txt',
+            'file_path' => $path,
+            'file_size' => 6,
+            'mime_type' => 'text/plain',
+            'uploaded_by' => $ctx['student']->id,
+            'is_current' => true,
+        ]);
+
+        $this->actingAs($ctx['student'])
+            ->post(route('submissions.submit', $submission))
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('submissions', [
+            'id' => $submission->id,
+            'status' => 'draft',
         ]);
     }
 

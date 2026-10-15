@@ -11,19 +11,31 @@ class AiResponseSchemaValidator
         if (! $response->success) return ['Provider marked the response as unsuccessful.'];
         if ($schema === []) return [];
 
-        $data = $response->toArray();
+        $data = $this->flattenResponseData($response);
         $errors = [];
         foreach ((array) ($schema['required'] ?? []) as $field) {
-            if (! array_key_exists($field, $data) && ! array_key_exists($field, $response->data)) $errors[] = "Missing required field {$field}.";
+            if (! array_key_exists($field, $data)) $errors[] = "Missing required field {$field}.";
         }
         foreach ((array) ($schema['properties'] ?? []) as $field => $rules) {
-            $exists = array_key_exists($field, $data) || array_key_exists($field, $response->data);
-            if (! $exists) continue;
-            $value = array_key_exists($field, $data) ? $data[$field] : $response->data[$field];
+            if (! array_key_exists($field, $data)) continue;
+            $value = $data[$field];
             $expected = $rules['type'] ?? null;
             if ($expected && ! $this->matches($value, $expected)) $errors[] = "Field {$field} must be {$expected}.";
         }
         return $errors;
+    }
+
+    /** @return array<string,mixed> */
+    private function flattenResponseData(AiResponse $response): array
+    {
+        $data = $response->toArray();
+        foreach ($response->data as $key => $value) {
+            if (is_string($key)) {
+                $data[$key] = $value;
+            }
+        }
+
+        return $data;
     }
 
     private function matches(mixed $value, string $type): bool

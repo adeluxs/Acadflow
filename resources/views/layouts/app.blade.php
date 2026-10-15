@@ -230,8 +230,8 @@
                                     </a>
                                     @endif
 
-                                    @if(Route::has('knowledge.creator.edit'))
-                                        <a href="{{ route('knowledge.creator.edit') }}" class="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">
+                                    @if(Route::has('profile.show'))
+                                        <a href="{{ route('profile.show') }}" class="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">
                                             My Profile
                                         </a>
                                     @endif

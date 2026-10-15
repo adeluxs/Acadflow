@@ -28,19 +28,22 @@
         @forelse($tasks as $task)
             @php
                 $mySubmission = $task->submissions->where('user_id', auth()->id())->first();
-                $effectiveClose = $task->allow_late_submissions ? $task->late_deadline : ($task->due_date ?? $task->close_at);
+                $baseClose = $task->allow_late_submissions ? $task->late_deadline : ($task->due_date ?? $task->close_at);
+                $effectiveClose = $task->acceptanceDeadline(auth()->user());
+                $hasExtension = $effectiveClose && $baseClose && $effectiveClose->gt($baseClose);
                 $isOpen = (!$task->open_at || now()->gte($task->open_at)) && (!$effectiveClose || now()->lte($effectiveClose));
-                $canSubmit = $isOpen && (!$mySubmission || $task->max_resubmissions===null || $mySubmission->resubmission_count < $task->max_resubmissions);
+                $typeAvailable = \App\Services\Assignments\AssignmentTypeProfile::isEnabled($task->type);
+                $canSubmit = $isOpen && $typeAvailable && (!$mySubmission || $task->max_resubmissions===null || $mySubmission->resubmission_count < $task->max_resubmissions);
             @endphp
             <article class="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
                 <div class="p-6">
                     <div class="flex items-start justify-between gap-4">
                         <div><p class="text-xs font-black uppercase tracking-[.18em] text-indigo-600">{{ str($task->type)->headline() }}</p><h2 class="mt-1 text-xl font-black text-slate-900 group-hover:text-indigo-700">{{ $task->title }}</h2></div>
-                        <span class="rounded-full px-3 py-1 text-xs font-bold {{ $isOpen ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600' }}">{{ $isOpen ? 'Open' : 'Closed' }}</span>
+                        <span class="rounded-full px-3 py-1 text-xs font-bold {{ !$typeAvailable ? 'bg-rose-50 text-rose-700' : ($isOpen ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600') }}">{{ !$typeAvailable ? 'Unavailable' : ($isOpen ? 'Open' : 'Closed') }}</span>
                     </div>
                     @if($task->description)<p class="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{{ $task->description }}</p>@endif
                     <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        <div class="rounded-2xl bg-slate-50 p-3"><p class="text-[10px] font-black uppercase tracking-wide text-slate-400">Due</p><p class="mt-1 text-sm font-bold text-slate-800">{{ $task->due_date?->format('M j') ?? '—' }}</p></div>
+                        <div class="rounded-2xl bg-slate-50 p-3"><p class="text-[10px] font-black uppercase tracking-wide text-slate-400">Due</p><p class="mt-1 text-sm font-bold {{ $hasExtension ? 'text-indigo-700' : 'text-slate-800' }}">{{ $effectiveClose?->format('M j') ?? '—' }}</p>@if($hasExtension)<p class="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-600">Extended</p>@endif</div>
                         <div class="rounded-2xl bg-slate-50 p-3"><p class="text-[10px] font-black uppercase tracking-wide text-slate-400">Points</p><p class="mt-1 text-sm font-bold text-slate-800">{{ $task->max_score ?? '—' }}</p></div>
                         <div class="rounded-2xl bg-slate-50 p-3"><p class="text-[10px] font-black uppercase tracking-wide text-slate-400">Files</p><p class="mt-1 text-sm font-bold text-slate-800">{{ $task->min_file_count }}–{{ $task->max_file_count }}</p></div>
                         <div class="rounded-2xl bg-slate-50 p-3"><p class="text-[10px] font-black uppercase tracking-wide text-slate-400">Size</p><p class="mt-1 text-sm font-bold text-slate-800">{{ $task->max_file_size_mb }} MB</p></div>
@@ -57,11 +60,12 @@
                         @elseif($task->due_date && now()->lt($task->due_date))<span class="rounded-lg bg-emerald-50 px-2.5 py-1 text-emerald-700">Due {{ $task->due_date->diffForHumans() }}</span>
                         @elseif($task->allow_late_submissions && $task->late_deadline && now()->lt($task->late_deadline))<span class="rounded-lg bg-amber-50 px-2.5 py-1 text-amber-700">Late window until {{ $task->late_deadline->format('M j') }}</span>
                         @endif
+                        @if($hasExtension)<span class="rounded-lg bg-indigo-50 px-2.5 py-1 text-indigo-700">Extension granted · due {{ $effectiveClose->format('M j, H:i') }}</span>@endif
                         @if($task->late_submission_penalty_percent > 0)<span class="rounded-lg bg-rose-50 px-2.5 py-1 text-rose-700">{{ $task->late_submission_penalty_percent }}% late penalty</span>@endif
                     </div>
                 </div>
                 <div class="flex gap-2 border-t border-slate-100 bg-slate-50/70 p-4">
-                    <a href="{{ route('submission-tasks.student.show', [$course,$task]) }}" class="flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-center text-sm font-black text-white hover:bg-slate-800">View assignment</a>
+                    <a href="{{ route('submission-tasks.student.show', ['course' => $course ?? $task->course_id, 'task' => $task]) }}" class="flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-center text-sm font-black text-white hover:bg-slate-800">View assignment</a>
                     @if($canSubmit)<a href="{{ route('submissions.create') }}?task_id={{ $task->id }}" class="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-center text-sm font-black text-white hover:bg-indigo-700">{{ $mySubmission ? 'Resubmit' : 'Submit work' }}</a>@endif
                 </div>
             </article>

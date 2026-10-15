@@ -14,6 +14,8 @@ class SubmissionGrade extends Model
         'max_score',
         'rubric_id',
         'feedback',
+        'criteria_scores',
+        'criteria_feedback',
         'is_final',
     ];
 
@@ -22,6 +24,8 @@ class SubmissionGrade extends Model
         return [
             'score' => 'decimal:2',
             'max_score' => 'decimal:2',
+            'criteria_scores' => 'array',
+            'criteria_feedback' => 'array',
             'is_final' => 'boolean',
         ];
     }

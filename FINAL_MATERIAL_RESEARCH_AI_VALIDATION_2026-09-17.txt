@@ -1,0 +1,20 @@
+AcadFlow Material Upload + Research Assistant Delivery Fix
+Validation date: 2026-09-17
+
+Preflight/regression checks: 35/35 PASS
+PHP/Blade syntax: 837/837 PASS
+JavaScript syntax: 13/13 PASS
+.env packaged: NO
+vendor packaged: NO
+node_modules packaged: NO
+generated bootstrap cache files: 0
+Full PHPUnit: not executed in source-only validation workspace because vendor/ is intentionally absent.
+
+Key regression coverage:
+- browser-style checked checkbox value "on" is normalized before boolean validation
+- independent lecturer can POST material without institution-profile 403
+- active semester resolved from course academic context
+- material is_visible is persisted
+- AI analytics is deferred after the web response
+- contextual assistant opts out of the global blocking loader
+- contextual assistant has bounded browser timeout and cleanup

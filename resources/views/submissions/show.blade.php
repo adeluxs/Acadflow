@@ -3,63 +3,162 @@
 @section('title', $submission->title)
 
 @section('content')
+@php
+    $task = $submission->task;
+    $course = $submission->course;
+
+    $isDraft = in_array($submission->status, ['draft', 'correction_requested'], true);
+    $isSubmitted = ! $isDraft;
+
+    $submissionFormat = $task?->submission_format ?? 'file';
+
+    $descriptionText = \App\Support\HtmlSanitizer::toPlainText($submission->description);
+    $hasText = $descriptionText !== '';
+    $hasFiles = $submission->versions->isNotEmpty();
+
+    // A draft can be completed only when it already contains what its format
+    // requires, mirroring the same rules the controller enforces on submit.
+    $readyToSubmit = match ($submissionFormat) {
+        'text' => $hasText,
+        'file' => $hasFiles,
+        default => $hasText || $hasFiles,
+    };
+
+    $statusLabel = \Illuminate\Support\Str::headline($submission->status);
+    $statusClasses = match (true) {
+        $submission->status === 'graded' => 'bg-emerald-100 text-emerald-800',
+        $submission->status === 'approved' => 'bg-blue-100 text-blue-800',
+        in_array($submission->status, ['submitted', 'under_review', 'resubmitted'], true) => 'bg-amber-100 text-amber-800',
+        $submission->status === 'correction_requested' => 'bg-rose-100 text-rose-800',
+        default => 'bg-slate-100 text-slate-700',
+    };
+
+    $deadline = $submission->extension_until ?? $submission->due_date ?? $task?->due_date;
+@endphp
+
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2">
+        {{-- Header: identity, context, and the accurate lifecycle status --}}
         <div class="bg-white p-6 rounded-lg shadow mb-6">
-            <div class="flex justify-between items-start mb-4">
-                <div>
-                    <h2 class="text-2xl font-bold">{{ $submission->title }}</h2>
-                    <p class="text-gray-500">{{ $submission->course->name }} • {{ ucfirst($submission->type) }}</p>
+            <div class="flex flex-wrap justify-between items-start gap-4">
+                <div class="min-w-0">
+                    <h2 class="text-2xl font-bold break-words">{{ $submission->title }}</h2>
+                    <p class="mt-1 text-gray-500">
+                        {{ $course?->name }}
+                        @if($course?->code) • {{ $course->code }} @endif
+                        • {{ ucfirst($submission->type) }}
+                    </p>
+                    @if($task)
+                        <p class="mt-1 text-sm text-gray-500">
+                            Assignment: <span class="font-medium text-gray-700">{{ $task->title }}</span>
+                            @if($task->max_score) · Max score {{ $task->max_score }} @endif
+                        </p>
+                    @endif
                 </div>
-                <span class="px-3 py-1 rounded text-sm 
-                    @if($submission->status === 'graded') bg-green-100 text-green-800
-                    @elseif($submission->status === 'approved') bg-blue-100 text-blue-800
-                    @elseif(in_array($submission->status, ['submitted', 'under_review'])) bg-yellow-100 text-yellow-800
-                    @else bg-gray-100 text-gray-800
-                    @endif">
-                    {{ ucfirst(str_replace('_', ' ', $submission->status)) }}
-                </span>
+                <div class="text-right shrink-0">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold {{ $statusClasses }}">
+                        {{ $statusLabel }}@if($submission->is_late && $isSubmitted) · Late @endif
+                    </span>
+                    <p class="mt-2 text-xs text-gray-500">
+                        @if($submission->submitted_at)
+                            Submitted {{ $submission->submitted_at->format('M d, Y · H:i') }}
+                        @else
+                            Not submitted yet
+                        @endif
+                    </p>
+                </div>
             </div>
 
-            @if($submission->description)
-                <p class="text-gray-700 mb-6">{{ $submission->description }}</p>
+            @if($submission->status === 'correction_requested')
+                <div class="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-4">
+                    <p class="font-semibold text-rose-900">Corrections requested.</p>
+                    <p class="mt-1 text-sm text-rose-800">Review your lecturer's feedback, update your work below, then resubmit.</p>
+                </div>
+            @elseif($isDraft)
+                <div class="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                    <p class="font-semibold text-amber-900">This is a draft — not yet submitted.</p>
+                    <p class="mt-1 text-sm text-amber-800">
+                        Review your work below. When it is complete, use “Submit for review” so your lecturer can grade it.
+                        @unless($readyToSubmit)
+                            Add your {{ $submissionFormat === 'text' ? 'written answer' : 'file(s)' }} first.
+                        @endunless
+                    </p>
+                </div>
             @endif
 
-            <h3 class="font-bold mb-3">Files</h3>
-            @if($submission->versions->isEmpty())
-                <p class="text-gray-500 mb-4">No files uploaded yet.</p>
-            @else
-                <ul class="space-y-2 mb-6">
-                    @foreach($submission->versions as $version)
-                        <li class="flex items-center justify-between p-3 bg-gray-50 rounded">
-                            <span>{{ $version->file_name }}</span>
-                            <a href="{{ route('submission-versions.download', ['submission' => $submission, 'version' => $version->id]) }}" 
-                                class="text-indigo-600 hover:underline text-sm">
-                                Download
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
+            {{-- Written answer --}}
+            @if($hasText)
+                <div class="mt-6">
+                    <h3 class="font-bold mb-2">Written submission</h3>
+                    <div class="prose prose-sm max-w-none rounded-lg border border-slate-200 bg-slate-50/60 p-4 text-gray-800">{!! $submission->description !!}</div>
+                </div>
             @endif
 
-            @if(in_array($submission->status, ['draft', 'correction_requested']))
-                <form method="POST" action="{{ route('submissions.upload', $submission) }}" enctype="multipart/form-data" class="mb-4">
-                    @csrf
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Upload File</label>
-                    <input type="file" name="file" class="border rounded px-3 py-2 w-full" required>
-                    <button type="submit" class="mt-2 bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
-                        Upload
-                    </button>
-                </form>
+            {{-- Submitted files --}}
+            @if($hasFiles)
+                <div class="mt-6">
+                    <h3 class="font-bold mb-3">Submitted files</h3>
+                    <ul class="space-y-2">
+                        @foreach($submission->versions as $version)
+                            <li class="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-50 rounded">
+                                <span class="min-w-0 flex-1 truncate font-medium text-gray-800">{{ $version->file_name }}</span>
+                                <span class="flex items-center gap-3 shrink-0">
+                                    <a href="{{ route('submissions.view', ['submission' => $submission, 'version' => $version->id]) }}"
+                                       target="_blank" rel="noopener"
+                                       class="text-sm font-semibold text-indigo-600 hover:underline">View</a>
+                                    <a href="{{ route('submission-versions.download', $version) }}"
+                                       class="text-sm font-semibold text-indigo-600 hover:underline">Download</a>
+                                </span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @elseif($isSubmitted)
+                <p class="mt-6 text-gray-500">No files were attached to this submission.</p>
+            @endif
 
-                @if($submission->versions->isNotEmpty())
-                    <form method="POST" action="{{ route('submissions.submit', $submission) }}">
-                        @csrf
-                        <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">
-                            Submit for Review
-                        </button>
-                    </form>
-                @endif
+            {{-- Draft-only controls: never shown for a submitted submission. The
+                 upload/file-selection control only applies to file-accepting
+                 formats (file / both); a text assignment never accepts files. --}}
+            @if($isDraft)
+                <div class="mt-6 border-t pt-6">
+                    @if($submissionFormat !== 'text')
+                        <h3 class="font-bold mb-3">Add or replace files</h3>
+                        <form method="POST" action="{{ route('submissions.upload', $submission) }}" enctype="multipart/form-data" class="mb-4">
+                            @csrf
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="draftFiles">Upload file(s)</label>
+                            <input id="draftFiles" type="file" name="files[]" multiple class="border rounded px-3 py-2 w-full" required>
+                            <button type="submit" class="mt-2 bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                                Upload
+                            </button>
+                        </form>
+                    @endif
+
+                    {{-- A draft is fully editable until it is submitted. --}}
+                    <div class="flex flex-wrap items-center gap-3">
+                        <a href="{{ route('submissions.edit', $submission) }}"
+                           class="inline-flex items-center rounded border border-slate-300 bg-white px-5 py-2 font-semibold text-slate-700 hover:bg-slate-50">
+                            Edit draft
+                        </a>
+
+                        @if($readyToSubmit)
+                            <form method="POST" action="{{ route('submissions.submit', $submission) }}">
+                                @csrf
+                                <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700 font-semibold">
+                                    Submit for review
+                                </button>
+                            </form>
+                        @endif
+                    </div>
+
+                    @unless($readyToSubmit)
+                        <p class="mt-3 text-sm text-gray-500">
+                            {{ $submissionFormat === 'text'
+                                ? 'Write your answer using “Edit draft” before submitting.'
+                                : 'Add the required files above to enable submission.' }}
+                        </p>
+                    @endunless
+                </div>
             @endif
         </div>
 
@@ -71,15 +170,15 @@
             <div class="h-6"></div>
         @endif
 
-        <!-- Comments -->
+        <!-- Feedback -->
         <div class="bg-white p-6 rounded-lg shadow">
             <h3 class="font-bold mb-4">Feedback</h3>
             @if($submission->comments->isEmpty())
                 <p class="text-gray-500">No feedback yet.</p>
             @else
                 @foreach($submission->comments as $comment)
-                    <div class="border-b pb-3 mb-3">
-                        <p class="font-medium">{{ $comment->user->full_name }}</p>
+                    <div class="border-b last:border-b-0 pb-3 mb-3 last:pb-0 last:mb-0">
+                        <p class="font-medium">{{ $comment->user?->full_name }}</p>
                         <p class="text-gray-700">{{ $comment->content }}</p>
                         <p class="text-xs text-gray-500 mt-1">{{ $comment->created_at->format('M d, Y H:i') }}</p>
                     </div>
@@ -88,51 +187,87 @@
         </div>
     </div>
 
-    <div>
+    <div class="space-y-4">
         <div class="bg-white p-6 rounded-lg shadow">
             <h3 class="font-bold mb-3">Details</h3>
-            <dl class="space-y-2">
-                <dt class="text-gray-500 text-sm">Version</dt>
-                <dd class="font-medium">{{ $submission->version }}</dd>
-                <dt class="text-gray-500 text-sm">Due Date</dt>
-                <dd class="font-medium">{{ $submission->due_date?->format('M d, Y') ?? 'No deadline' }}</dd>
-                <dt class="text-gray-500 text-sm">Submitted</dt>
-                <dd class="font-medium">{{ $submission->submitted_at?->format('M d, Y H:i') ?? '-' }}</dd>
+            <dl class="space-y-3">
+                <div>
+                    <dt class="text-gray-500 text-sm">Status</dt>
+                    <dd class="font-medium">
+                        {{ $statusLabel }}@if($submission->is_late && $isSubmitted) · Late @endif
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 text-sm">Submitted</dt>
+                    <dd class="font-medium">{{ $submission->submitted_at?->format('M d, Y H:i') ?? 'Not submitted' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 text-sm">Due date</dt>
+                    <dd class="font-medium">
+                        {{ $deadline?->format('M d, Y') ?? 'No deadline' }}
+                        @if($submission->extension_until)
+                            <span class="ml-1 text-xs font-semibold text-indigo-600">(extended)</span>
+                        @endif
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 text-sm">Course</dt>
+                    <dd class="font-medium">{{ $course?->code }} — {{ $course?->name }}</dd>
+                </div>
+                @if($task)
+                    <div>
+                        <dt class="text-gray-500 text-sm">Assignment</dt>
+                        <dd class="font-medium">{{ $task->title }}</dd>
+                    </div>
+                @endif
+                <div>
+                    <dt class="text-gray-500 text-sm">Version</dt>
+                    <dd class="font-medium">{{ $submission->version }}</dd>
+                </div>
             </dl>
         </div>
 
         @if($submission->grade)
-        <div class="bg-white p-6 rounded-lg shadow mt-4">
-            <h3 class="font-bold mb-3">Grade</h3>
-            <p class="text-3xl font-bold text-indigo-600">
-                {{ $submission->grade->score }}/{{ $submission->grade->max_score }}
-            </p>
-            @if($submission->grade->feedback)
-                <p class="text-gray-600 mt-2">{{ $submission->grade->feedback }}</p>
-            @endif
-        </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="font-bold mb-3">Grade</h3>
+                <p class="text-3xl font-bold text-indigo-600">
+                    {{ $submission->grade->score }}/{{ $submission->grade->max_score ?? $task?->max_score ?? 100 }}
+                </p>
+                @if($submission->grade->feedback)
+                    <p class="text-gray-600 mt-2">{{ $submission->grade->feedback }}</p>
+                @endif
+            </div>
+        @elseif($isSubmitted)
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="font-bold mb-2">Grade</h3>
+                <p class="text-gray-500 text-sm">Awaiting grading.</p>
+            </div>
         @endif
 
         @if($aiAnalyses->isNotEmpty())
-        <div class="bg-white p-6 rounded-lg shadow mt-4">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="font-bold">AI Analysis</h3>
-                <a href="{{ route('ai.submission.analysis', $submission) }}" class="text-indigo-600 hover:underline text-sm">
-                    View details
-                </a>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="font-bold">AI analysis</h3>
+                    <a href="{{ route('ai.submission.analysis', $submission) }}" class="text-indigo-600 hover:underline text-sm">
+                        View details
+                    </a>
+                </div>
+                <ul class="space-y-2">
+                    @foreach($aiAnalyses as $ai)
+                        <li class="flex items-center justify-between text-sm">
+                            <span class="capitalize">{{ str_replace('_', ' ', $ai->feature) }}</span>
+                            <span class="font-medium">
+                                @if(!is_null($ai->score)) {{ $ai->score }}/100 @else {{ ucfirst($ai->status) }} @endif
+                            </span>
+                        </li>
+                    @endforeach
+                </ul>
             </div>
-            <ul class="space-y-2">
-                @foreach($aiAnalyses as $ai)
-                    <li class="flex items-center justify-between text-sm">
-                        <span class="capitalize">{{ str_replace('_', ' ', $ai->feature) }}</span>
-                        <span class="font-medium">
-                            @if(!is_null($ai->score)) {{ $ai->score }}/100 @else {{ ucfirst($ai->status) }} @endif
-                        </span>
-                    </li>
-                @endforeach
-            </ul>
-        </div>
         @endif
+
+        <div class="bg-white p-6 rounded-lg shadow">
+            <a href="{{ route('submissions.dashboard') }}" class="text-sm font-semibold text-indigo-600 hover:underline">← Back to my submissions</a>
+        </div>
     </div>
 </div>
 @endsection

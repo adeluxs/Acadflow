@@ -1,0 +1,23 @@
+AcadFlow PHPUnit Vite Isolation Final Validation
+Date: 2026-09-16
+
+Problem addressed:
+- Feature tests returned HTTP 500 because Laravel @vite attempted to load public/build/manifest.json when frontend assets had not been built.
+
+Implementation:
+- Tests\\TestCase::setUp() calls parent::setUp() and Laravel's withoutVite().
+- Production/development Blade @vite directives remain unchanged.
+- Existing test cache isolation remains intact.
+
+Validation:
+- Project preflight/regression scripts: 27/27 passed.
+- PHP + Blade parse checks: 818/818 passed.
+- Generated bootstrap cache artifacts packaged: 0.
+- .env secrets packaged: 0.
+- vendor packaged: no.
+- node_modules packaged: no.
+- No database migration required for this fix.
+
+Local runtime verification command:
+php artisan optimize:clear
+php artisan test

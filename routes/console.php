@@ -116,3 +116,122 @@ Schedule::command('acadflow:ai-health')
     ->hourly()
     ->name('acadflow-ai-provider-health')
     ->withoutOverlapping();
+
+// Proactive deadline coach: for students with deadlines in the next three days,
+// generate an advisory action plan. Gated by the study_planner AI feature and
+// capped so one run cannot fan out unbounded provider usage.
+Schedule::call(function (): void {
+    if (! app(\App\Services\Ai\AiRuntimeConfigService::class)->featureEnabled('study_planner')) {
+        return;
+    }
+
+    $dueTasks = \App\Models\SubmissionTask::query()
+        ->where('status', 'published')
+        ->where(function ($query): void {
+            $query->whereNull('close_at')->orWhere('close_at', '>=', now());
+        })
+        ->where(function ($query): void {
+            $query->where('close_at', '<=', now()->addDays(3))
+                ->orWhere('due_date', '<=', now()->addDays(3));
+        })
+        ->get(['id', 'course_id']);
+
+    $budget = 50;
+    $service = app(\App\Services\Student\DeadlineCoachService::class);
+
+    foreach ($dueTasks->groupBy('course_id') as $courseId => $rows) {
+        if ($budget <= 0) break;
+
+        $course = \App\Models\Course::find($courseId);
+        if (! $course) continue;
+
+        $studentIds = \App\Models\Enrollment::query()
+            ->where('course_id', $courseId)
+            ->where('status', 'enrolled')
+            ->pluck('user_id');
+
+        foreach ($studentIds as $studentId) {
+            if ($budget <= 0) break;
+            $student = \App\Models\User::find($studentId);
+            if (! $student) continue;
+
+            try {
+                $service->generate($student, $course);
+                $budget--;
+            } catch (\Throwable) {
+                // Best-effort automation; never fail the scheduler.
+            }
+        }
+    }
+})->dailyAt('07:00')->name('acadflow-deadline-coach')->withoutOverlapping();
+
+// Assignment deadline reminders. The lead time is configurable via the
+// `assignment_reminder_hours` setting (default 24h). A second pass notifies
+// students about assignments that have passed their deadline with no
+// submission, so overdue work is not silently missed.
+Schedule::call(function (): void {
+    $now = now();
+    $leadHours = (int) (\App\Services\SettingService::get('assignment_reminder_hours', 24) ?: 24);
+    $windowEnd = $now->copy()->addHours($leadHours);
+
+    $nonSubmitters = function (\App\Models\SubmissionTask $task) {
+        $submittedIds = \App\Models\Submission::query()
+            ->where('submission_task_id', $task->id)
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return \App\Models\User::query()
+            ->whereHas('enrollments', function ($query) use ($task): void {
+                $query->where('course_id', $task->course_id)
+                    ->where('semester_id', $task->semester_id)
+                    ->where('status', 'enrolled');
+            })
+            ->whereNotIn('id', $submittedIds ?: [0])
+            ->get();
+    };
+
+    // Upcoming reminders.
+    \App\Models\SubmissionTask::query()
+        ->where('status', 'published')
+        ->where('is_visible_to_students', true)
+        ->where(function ($query) use ($now, $windowEnd): void {
+            $query->whereBetween('close_at', [$now, $windowEnd])
+                ->orWhereBetween('due_date', [$now, $windowEnd]);
+        })
+        ->with('course:id,name')
+        ->chunkById(100, function ($tasks) use ($nonSubmitters): void {
+            foreach ($tasks as $task) {
+                $students = $nonSubmitters($task);
+                if ($students->isNotEmpty()) {
+                    event(new \App\Events\DeadlineApproaching($task, $students));
+                }
+            }
+        });
+
+    // Overdue reminders.
+    $notifications = app(\App\Services\NotificationService::class);
+    \App\Models\SubmissionTask::query()
+        ->where('status', 'published')
+        ->where('is_visible_to_students', true)
+        ->whereNotNull('close_at')
+        ->where('close_at', '<', $now)
+        ->with('course:id,name')
+        ->chunkById(100, function ($tasks) use ($nonSubmitters, $notifications): void {
+            foreach ($tasks as $task) {
+                foreach ($nonSubmitters($task) as $student) {
+                    $notifications->send(
+                        $student,
+                        \App\Enums\NotificationType::OVERDUE_SUBMISSION,
+                        'Assignment overdue',
+                        "The deadline for '{$task->title}' has passed and no submission was received.",
+                        [
+                            'task_id' => $task->uuid,
+                            'title' => $task->title,
+                            'url' => route('submission-tasks.student.show', ['course' => $task->course ?? $task->course_id, 'task' => $task]),
+                        ]
+                    );
+                }
+            }
+        });
+})->dailyAt('08:00')->name('assignment-deadline-reminders')->withoutOverlapping();

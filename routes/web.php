@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\NotificationManagementController;
 use App\Http\Controllers\Admin\MonetizationController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AccountSecurityController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\CourseController;
@@ -48,6 +49,18 @@ use App\Http\Controllers\StudentImportController;
 use App\Http\Controllers\AiController;
 use App\Http\Controllers\ContextualAiController;
 use App\Http\Controllers\AiPromptController;
+use App\Http\Controllers\LecturerContentAssistantController;
+use App\Http\Controllers\SubmissionGradingAssistantController;
+use App\Http\Controllers\LearningProfileController;
+use App\Http\Controllers\StudyNoteController;
+use App\Http\Controllers\PracticeQuizController;
+use App\Http\Controllers\FlashcardController;
+use App\Http\Controllers\StudyPlanController;
+use App\Http\Controllers\MasteryController;
+use App\Http\Controllers\SelfAssessmentController;
+use App\Http\Controllers\StudyReflectionController;
+use App\Http\Controllers\MaterialAnnotationController;
+use App\Http\Controllers\DeadlineCoachController;
 use Illuminate\Support\Facades\Route;
 
 // PWA manifest (dynamic)
@@ -140,6 +153,10 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::post('/account/security/two-factor/confirm', [AccountSecurityController::class, 'confirm'])->name('security.two-factor.confirm');
     Route::post('/account/security/two-factor/recovery-codes', [AccountSecurityController::class, 'regenerateRecoveryCodes'])->name('security.two-factor.recovery');
     Route::delete('/account/security/two-factor', [AccountSecurityController::class, 'disable'])->name('security.two-factor.disable');
+
+    // Authenticated user profile overview (role-aware identity, institution
+    // membership, academic session, enrollments and access restrictions).
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
 
     // Notifications and personal notification preferences are shared by every authenticated role.
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
@@ -369,9 +386,9 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         // Course assignments list
         Route::get('/courses/{course}/assignments/stdview', [SubmissionTaskController::class, 'availableForStudent'])->name('courses.assignments');
 
-        // Course join via link/code
-        Route::get('/courses/join/{uuid}', [CourseController::class, 'joinViaLink'])->name('courses.join.link');
-        Route::post('/courses/join/{uuid}', [CourseController::class, 'processJoinLink'])->name('courses.join.link.process');
+        // Direct course enrollment for students browsing eligible courses.
+        Route::post('/courses/{course}/enroll', [CourseController::class, 'enroll'])
+            ->middleware('throttle:20,1')->name('courses.enroll');
 
         // Compatibility callback for payments initiated before subscription retirement.
         // No new subscription checkout/upgrade routes are exposed.
@@ -417,6 +434,14 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 
     // Submission show (accessible by all authenticated users with proper policy)
     Route::get('/submissions/{submission}', [SubmissionController::class, 'show'])->name('submissions.show');
+
+    // Course join links must be reachable before the generic /courses/{course} route
+    // and outside role middleware so the controller can show a friendly redirect
+    // instead of the global access-denied page for non-student accounts.
+    Route::get('/courses/join/{uuid}', [CourseController::class, 'joinViaLink'])
+        ->middleware('throttle:30,1')->name('courses.join.link');
+    Route::post('/courses/join/{uuid}', [CourseController::class, 'processJoinLink'])
+        ->middleware('throttle:20,1')->name('courses.join.link.process');
 
     // Shared Student & Lecturer routes (materials, discussions, assignments view)
     Route::middleware('role:student,lecturer')->group(function () {
@@ -475,6 +500,56 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::post('/ai/writing', [AiController::class, 'writingAssistant'])->middleware('throttle:ai')->name('ai.writing');
     Route::post('/ai/citation', [AiController::class, 'citationAssistant'])->middleware('throttle:ai')->name('ai.citation');
 
+    // Student study tools (Phase 1 + Phase 2 AI enhancements)
+    Route::get('/student/learning-profile', [LearningProfileController::class, 'show'])->name('student.learning-profile');
+    Route::put('/student/learning-profile', [LearningProfileController::class, 'update'])->name('student.learning-profile.update');
+
+    Route::get('/study-notes', [StudyNoteController::class, 'index'])->name('study-notes.index');
+    Route::post('/study-notes', [StudyNoteController::class, 'store'])->name('study-notes.store');
+    Route::delete('/study-notes/{note}', [StudyNoteController::class, 'destroy'])->name('study-notes.destroy');
+
+    Route::middleware('feature.flag:ai_assistant')->group(function () {
+        Route::get('/practice-quizzes', [PracticeQuizController::class, 'index'])->name('practice-quizzes.index');
+        Route::post('/practice-quizzes', [PracticeQuizController::class, 'store'])
+            ->middleware(['ai.feature:practice_generator', 'throttle:ai'])->name('practice-quizzes.store');
+        Route::get('/practice-quizzes/{quiz}', [PracticeQuizController::class, 'show'])->name('practice-quizzes.show');
+        Route::post('/practice-quizzes/{quiz}/submit', [PracticeQuizController::class, 'submit'])->name('practice-quizzes.submit');
+
+        Route::get('/flashcards', [FlashcardController::class, 'index'])->name('flashcards.index');
+        Route::post('/flashcards', [FlashcardController::class, 'store'])
+            ->middleware(['ai.feature:flashcard_generator', 'throttle:ai'])->name('flashcards.store');
+        Route::get('/flashcards/{deck}', [FlashcardController::class, 'show'])->name('flashcards.show');
+        Route::post('/flashcards/{deck}/review', [FlashcardController::class, 'review'])->name('flashcards.review');
+
+        Route::get('/study-plans', [StudyPlanController::class, 'index'])->name('study-plans.index');
+        Route::post('/study-plans', [StudyPlanController::class, 'store'])
+            ->middleware(['ai.feature:study_planner', 'throttle:ai'])->name('study-plans.store');
+        Route::get('/study-plans/{plan}', [StudyPlanController::class, 'show'])->name('study-plans.show');
+
+        // Phase 3: mastery analytics and deadline coach
+        Route::get('/student/mastery', [MasteryController::class, 'show'])->name('mastery.index');
+        Route::post('/student/mastery/recompute', [MasteryController::class, 'recompute'])->name('mastery.recompute');
+
+        Route::get('/student/deadline-coach', [DeadlineCoachController::class, 'index'])->name('deadline-coach.index');
+        Route::post('/student/deadline-coach', [DeadlineCoachController::class, 'store'])
+            ->middleware(['ai.feature:study_planner', 'throttle:ai'])->name('deadline-coach.store');
+        Route::get('/student/deadline-coach/{plan}', [DeadlineCoachController::class, 'show'])->name('deadline-coach.show');
+
+        // Phase 3: rubric self-assessment
+        Route::get('/courses/{course}/assignments/{task}/self-assessment', [SelfAssessmentController::class, 'show'])->name('self-assessment.show');
+        Route::post('/courses/{course}/assignments/{task}/self-assessment', [SelfAssessmentController::class, 'store'])->name('self-assessment.store');
+
+        // Phase 4: material annotations and highlight summaries
+        Route::post('/courses/{course}/materials/{material}/annotations', [MaterialAnnotationController::class, 'store'])->name('annotations.store');
+        Route::delete('/annotations/{annotation}', [MaterialAnnotationController::class, 'destroy'])->name('annotations.destroy');
+        Route::post('/courses/{course}/materials/{material}/annotations/summary', [MaterialAnnotationController::class, 'summarize'])
+            ->middleware(['ai.feature:annotation_summary', 'throttle:ai'])->name('annotations.summary');
+
+        // Phase 4: reflection journal
+        Route::get('/student/reflections', [StudyReflectionController::class, 'index'])->name('reflections.index');
+        Route::post('/student/reflections', [StudyReflectionController::class, 'store'])->name('reflections.store');
+    });
+
     // Specialized contextual assistants. Each endpoint performs model-level
     // authorization and delegates provider/model selection to the central AI
     // runtime. Module availability and AI Assistant availability are both
@@ -532,6 +607,24 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::put('/lecturer/courses/{course}/materials/{material}', [CourseMaterialController::class, 'update'])->name('lecturer.materials.update');
         Route::delete('/lecturer/courses/{course}/materials/{material}', [CourseMaterialController::class, 'destroy'])->name('lecturer.materials.destroy');
 
+        // Lecturer AI Studio: draft/generate/edit course content. Drafts are
+        // advisory only and are never persisted by these endpoints.
+        Route::post('/lecturer/courses/{course}/ai/content', [LecturerContentAssistantController::class, 'course'])
+            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.content');
+        Route::post('/lecturer/courses/{course}/materials/{material}/ai', [LecturerContentAssistantController::class, 'material'])
+            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.material');
+
+        // Queued batch automation and the lecturer draft library. Drafts are
+        // advisory until a lecturer explicitly applies one.
+        Route::get('/lecturer/courses/{course}/ai/drafts', [LecturerContentAssistantController::class, 'draftsPage'])
+            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant'])->name('lecturer.ai.drafts');
+        Route::post('/lecturer/courses/{course}/ai/batch', [LecturerContentAssistantController::class, 'batch'])
+            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.batch');
+        Route::post('/lecturer/courses/{course}/ai/drafts/{draft}/apply', [LecturerContentAssistantController::class, 'applyDraft'])
+            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.drafts.apply');
+        Route::post('/lecturer/courses/{course}/ai/drafts/{draft}/discard', [LecturerContentAssistantController::class, 'discardDraft'])
+            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.drafts.discard');
+
         // Assignment management
         Route::get('/courses/{course}/assignments', [SubmissionTaskController::class, 'indexForCourse'])
             ->name('submission-tasks.manage.index');
@@ -580,6 +673,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 
         // Lecturer submission review
         Route::get('lecturer/submissions', [SubmissionController::class, 'lecturerIndex'])->name('submissions.lecturer-index');
+        Route::post('lecturer/submissions/bulk', [SubmissionController::class, 'bulk'])->name('submissions.bulk');
         Route::get('lecturer/submissions/{submission}/review', [SubmissionController::class, 'review'])->name('submissions.review');
         Route::post('lecturer/submissions/{submission}/grade', [SubmissionController::class, 'grade'])->name('submissions.grade');
         Route::post('lecturer/submissions/{submission}/comment', [SubmissionController::class, 'comment'])->name('submissions.comment');
@@ -587,6 +681,11 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::post('lecturer/submissions/{submission}/reject', [SubmissionController::class, 'reject'])->name('submissions.reject');
         Route::post('lecturer/submissions/{submission}/request-correction', [SubmissionController::class, 'requestCorrection'])->name('submissions.request-correction');
         Route::get('lecturer/submissions/{submission}/compare', [SubmissionController::class, 'compare'])->name('submissions.compare');
+
+        // Advisory AI grading assistance. Returns a suggested score/feedback
+        // only; the lecturer applies it through the normal grade action.
+        Route::post('lecturer/submissions/{submission}/ai/grade-suggestion', [SubmissionGradingAssistantController::class, 'suggest'])
+            ->middleware(['feature.flag:ai_assistant', 'ai.feature:submission_validator', 'throttle:ai'])->name('submissions.ai.grade-suggestion');
 
         // Lecturer AI layout preferences
         Route::get('/lecturer/ai/layout-preferences', [AiController::class, 'lecturerLayoutPreferences'])->name('ai.lecturer.layout.preferences');
@@ -650,6 +749,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::get('/admin/settings', [SettingsController::class, 'index'])->name('admin.settings');
         Route::post('/admin/settings', [SettingsController::class, 'updateMultiple'])->name('admin.settings.update');
         Route::put('/admin/settings/{key}', [SettingsController::class, 'update'])->name('admin.settings.update-key');
+        Route::put('/admin/settings/assignment-types/siwes', [SettingsController::class, 'updateSiwesAssignmentType'])->name('admin.settings.assignment-types.siwes');
 
         Route::get('/institution/setup', [InstitutionOnboardingController::class, 'institutionDashboard'])
             ->middleware('role:university_admin')

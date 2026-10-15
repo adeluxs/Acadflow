@@ -6,13 +6,50 @@
         <div class="bg-white shadow sm:rounded-lg p-6">
             <h1 class="text-3xl font-bold text-gray-900 mb-6">Student Submissions to Review</h1>
 
+            <form method="GET" action="{{ route('submissions.lecturer-index') }}" class="mb-6 flex flex-wrap items-end gap-3">
+                <label class="text-xs font-semibold text-gray-600">Search
+                    <input type="text" name="q" value="{{ request('q') }}" placeholder="Student name or title" class="mt-1 block w-56 rounded-md border-gray-300 text-sm">
+                </label>
+                <label class="text-xs font-semibold text-gray-600">Course
+                    <select name="course_id" class="mt-1 block rounded-md border-gray-300 text-sm">
+                        <option value="">All courses</option>
+                        @foreach($courses as $course)
+                            <option value="{{ $course->id }}" @selected((int) request('course_id') === $course->id)>{{ $course->code }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="text-xs font-semibold text-gray-600">Assignment
+                    <select name="task_id" class="mt-1 block rounded-md border-gray-300 text-sm">
+                        <option value="">All assignments</option>
+                        @foreach($tasks as $task)
+                            <option value="{{ $task->id }}" @selected((int) request('task_id') === $task->id)>{{ \Str::limit($task->title, 40) }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="text-xs font-semibold text-gray-600">Status
+                    <select name="status" class="mt-1 block rounded-md border-gray-300 text-sm">
+                        <option value="">Any status</option>
+                        @foreach(['submitted', 'under_review', 'graded', 'approved', 'correction_requested', 'resubmitted', 'draft'] as $status)
+                            <option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst(str_replace('_', ' ', $status)) }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <button type="submit" class="rounded-md bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700">Filter</button>
+                @if(request()->hasAny(['q', 'course_id', 'task_id', 'status']))
+                    <a href="{{ route('submissions.lecturer-index') }}" class="text-xs font-semibold text-gray-500 hover:text-gray-700">Clear</a>
+                @endif
+            </form>
+
             @if($submissions->isEmpty())
                 <p class="text-gray-500 text-center py-8">No submissions pending review.</p>
             @else
+                <form method="POST" action="{{ route('submissions.bulk') }}">
+                    @csrf
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Select</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Student</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Course</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Title</th>
@@ -24,6 +61,9 @@
                         <tbody class="bg-white divide-y divide-gray-200">
                             @foreach($submissions as $submission)
                                 <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <input type="checkbox" name="submission_ids[]" value="{{ $submission->id }}" class="rounded border-gray-300">
+                                    </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {{ $submission->user->first_name }} {{ $submission->user->last_name }}
                                     </td>
@@ -122,6 +162,16 @@
                         </tbody>
                     </table>
                 </div>
+
+                <div class="mt-6 flex flex-wrap items-center gap-3">
+                    <select name="action" class="rounded-md border-gray-300 text-sm">
+                        <option value="approve">Approve selected</option>
+                        <option value="request_correction">Request correction for selected</option>
+                    </select>
+                    <button type="submit" class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700">Apply to selected</button>
+                    <span class="text-xs text-gray-500">Each submission is checked against your permissions before it changes.</span>
+                </div>
+                </form>
 
                 <div class="mt-6">
                     {{ $submissions->links() }}

@@ -26,6 +26,10 @@ class CourseMaterial extends Model
         'media_asset_id',
         'mime_type',
         'file_size',
+        'content',
+        'content_format',
+        'source',
+        'content_updated_at',
         'topic',
         'week_number',
         'sequence_order',
@@ -52,10 +56,39 @@ class CourseMaterial extends Model
             'requires_enrollment' => 'boolean',
             'is_visible' => 'boolean',
             'published_at' => 'datetime',
+            'content_updated_at' => 'datetime',
             'download_count' => 'integer',
             'week_number' => 'integer',
             'sequence_order' => 'integer',
         ];
+    }
+
+    /**
+     * Whether this material is backed by an uploaded file.
+     */
+    public function hasFile(): bool
+    {
+        return is_string($this->file_path) && trim($this->file_path) !== '';
+    }
+
+    /**
+     * Whether this material carries in-system authored content.
+     */
+    public function hasContent(): bool
+    {
+        return is_string($this->content) && trim(strip_tags($this->content)) !== '';
+    }
+
+    /**
+     * Short, human-readable label describing how this material was created.
+     */
+    public function sourceLabel(): string
+    {
+        return match ($this->source) {
+            'authored' => 'Written in AcadFlow',
+            'ai_assisted' => 'AI-assisted draft',
+            default => 'Uploaded file',
+        };
     }
 
     public function course(): BelongsTo
@@ -86,6 +119,11 @@ class CourseMaterial extends Model
     public function discussions(): HasMany
     {
         return $this->hasMany(Discussion::class, 'material_id');
+    }
+
+    public function annotations(): HasMany
+    {
+        return $this->hasMany(MaterialAnnotation::class, 'material_id');
     }
 
     /**

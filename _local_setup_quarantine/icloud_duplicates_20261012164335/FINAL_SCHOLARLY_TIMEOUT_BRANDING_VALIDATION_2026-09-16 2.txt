@@ -1,0 +1,30 @@
+AcadFlow scholarly timeout + branding validation — 2026-09-16
+
+RESULTS
+- AcadFlow preflight/regression checks: 31/31 PASS
+- PHP + Blade lexical checks: 830/830 PASS
+- JavaScript syntax checks: PASS
+- PWA manifest JSON validation: PASS
+- Generated bootstrap cache files: 0
+- Packaged .env files: 0
+- vendor directory: absent
+- node_modules directory: absent
+- stale old PNG PWA icon runtime references: 0
+- interactive scholarly retry chains: 0
+- sequential all-provider discovery loop: 0
+
+IMPLEMENTED
+- concurrent bounded scholarly discovery using Laravel HTTP pooling
+- 5s request timeout / 2s connect timeout defaults
+- no retry chain in interactive multi-provider search
+- PubMed bounded dependent second wave
+- partial provider failure tolerance
+- successful query cache; total outage not cached
+- batch scholarly record upsert in chunks of 25 with stable UUID preservation
+- AcadFlow brand assets + favicon/PWA integration
+- global branded loader for navigation/forms/foreground fetch/Axios actions
+- background sync/polling excluded from blocking loader
+
+LIMITATIONS OF THIS SOURCE-ONLY EXECUTION ENVIRONMENT
+- Full Laravel PHPUnit was not executed because vendor/ is intentionally absent.
+- Vite production build was not executed because node_modules/ is intentionally absent.

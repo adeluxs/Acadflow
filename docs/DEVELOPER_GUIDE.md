@@ -176,14 +176,14 @@ docs/                         product/developer/history documentation
 
 The canonical role enum is `App\Enums\UserRole`:
 
-| Role key | Meaning |
-|---|---|
-| `super_admin` | Platform-wide administrator |
-| `university_admin` | Administrator scoped primarily to one university |
-| `department_admin` | Administrator scoped primarily to one department |
-| `lecturer` | Academic staff assigned to courses/research responsibilities |
-| `student` | Institutional learner |
-| `member` | Platform member for knowledge/research/community participation |
+| Role key           | Meaning                                                        |
+| ------------------ | -------------------------------------------------------------- |
+| `super_admin`      | Platform-wide administrator                                    |
+| `university_admin` | Administrator scoped primarily to one university               |
+| `department_admin` | Administrator scoped primarily to one department               |
+| `lecturer`         | Academic staff assigned to courses/research responsibilities   |
+| `student`          | Institutional learner                                          |
+| `member`           | Platform member for knowledge/research/community participation |
 
 `Group Leader` and `Supervisor` are **contextual responsibilities**, not separate `UserRole` enum values. A group leader is a user who leads a group; a supervisor is typically a lecturer associated with a research/project workflow.
 
@@ -226,47 +226,47 @@ Dependencies are resolved centrally. A child feature can become effectively unav
 
 Current registered feature keys:
 
-| Feature key | Module |
-|---|---|
-| `dashboard` | Dashboards |
-| `courses` | Courses & Enrolment |
-| `course_materials` | Course Materials |
-| `assignments` | Assignments |
-| `submissions` | Submissions & Grading |
-| `attendance` | Attendance |
-| `course_discussions` | Course Discussions |
-| `group_collaboration` | Groups & Collaboration |
-| `research_studio` | Research Studio |
-| `research_literature` | Research Literature & Reference Library |
-| `research_institutional_expansion` | Research Institutional Expansion |
-| `research_meetings` | Research Meetings & Action Items |
-| `research_collaboration` | Research Collaboration & Contribution Tracking |
-| `research_archives` | Research Archives & Controlled Amendments |
-| `research_datasets` | Research Dataset Management |
-| `research_to_knowledge_hub` | Research → Knowledge Hub Publishing |
-| `siwes_module` | SIWES Workspace |
-| `seminar_module` | Seminar Workspace |
-| `final_year_project` | Project Defense |
-| `knowledge_hub` | Knowledge Hub |
-| `knowledge_communities` | Knowledge Communities |
-| `learning_paths` | Learning Paths |
-| `reading_lists` | Reading Lists |
-| `academic_events` | Academic Events & Calendar |
-| `academic_challenges` | Academic Challenges |
-| `course_certificates` | Certificates |
-| `knowledge_ai_companion` | Knowledge AI Companion |
-| `ai_assistant` | AI Assistant |
-| `notifications` | Notifications |
-| `push_notifications` | Push Notifications |
-| `institution_self_service` | Institution Self-Service Onboarding |
-| `monetization_commerce` | Monetization & Commerce |
-| `knowledge_hub_premium` | Premium Knowledge Resources |
-| `wallet_billing` | Wallet & Paid Feature Access |
-| `commerce_marketplace` | Knowledge Marketplace |
-| `creator_payouts` | Creator Payouts & Withdrawals |
-| `documents_exports` | Documents & Academic Exports |
-| `advanced_analytics` | Reports & Advanced Analytics |
-| `pwa_enabled` | Progressive Web App (PWA) |
+| Feature key                        | Module                                         |
+| ---------------------------------- | ---------------------------------------------- |
+| `dashboard`                        | Dashboards                                     |
+| `courses`                          | Courses & Enrolment                            |
+| `course_materials`                 | Course Materials                               |
+| `assignments`                      | Assignments                                    |
+| `submissions`                      | Submissions & Grading                          |
+| `attendance`                       | Attendance                                     |
+| `course_discussions`               | Course Discussions                             |
+| `group_collaboration`              | Groups & Collaboration                         |
+| `research_studio`                  | Research Studio                                |
+| `research_literature`              | Research Literature & Reference Library        |
+| `research_institutional_expansion` | Research Institutional Expansion               |
+| `research_meetings`                | Research Meetings & Action Items               |
+| `research_collaboration`           | Research Collaboration & Contribution Tracking |
+| `research_archives`                | Research Archives & Controlled Amendments      |
+| `research_datasets`                | Research Dataset Management                    |
+| `research_to_knowledge_hub`        | Research → Knowledge Hub Publishing            |
+| `siwes_module`                     | SIWES Workspace                                |
+| `seminar_module`                   | Seminar Workspace                              |
+| `final_year_project`               | Project Defense                                |
+| `knowledge_hub`                    | Knowledge Hub                                  |
+| `knowledge_communities`            | Knowledge Communities                          |
+| `learning_paths`                   | Learning Paths                                 |
+| `reading_lists`                    | Reading Lists                                  |
+| `academic_events`                  | Academic Events & Calendar                     |
+| `academic_challenges`              | Academic Challenges                            |
+| `course_certificates`              | Certificates                                   |
+| `knowledge_ai_companion`           | Knowledge AI Companion                         |
+| `ai_assistant`                     | AI Assistant                                   |
+| `notifications`                    | Notifications                                  |
+| `push_notifications`               | Push Notifications                             |
+| `institution_self_service`         | Institution Self-Service Onboarding            |
+| `monetization_commerce`            | Monetization & Commerce                        |
+| `knowledge_hub_premium`            | Premium Knowledge Resources                    |
+| `wallet_billing`                   | Wallet & Paid Feature Access                   |
+| `commerce_marketplace`             | Knowledge Marketplace                          |
+| `creator_payouts`                  | Creator Payouts & Withdrawals                  |
+| `documents_exports`                | Documents & Academic Exports                   |
+| `advanced_analytics`               | Reports & Advanced Analytics                   |
+| `pwa_enabled`                      | Progressive Web App (PWA)                      |
 
 When adding a module:
 
@@ -281,7 +281,6 @@ When adding a module:
 Do **not** add availability switches to System Settings or `.env`; feature release state belongs here.
 
 ---
-
 
 ### Independent-first launch profile
 
@@ -360,24 +359,24 @@ Database/admin runtime choices take precedence over `.env` bootstrap defaults. Q
 
 ### 7.4 Active AI feature keys
 
-| AI feature key |
-|---|
-| `submission_validator` |
-| `plagiarism` |
-| `writing_assistant` |
-| `citation_assistant` |
-| `study_assistant` |
-| `lecturer_assistant` |
-| `research_assistant` |
-| `research_validator` |
-| `assignment_assistant` |
-| `siwes_assistant` |
-| `project_assistant` |
-| `material_assistant` |
-| `discussion_assistant` |
+| AI feature key                    |
+| --------------------------------- |
+| `submission_validator`            |
+| `plagiarism`                      |
+| `writing_assistant`               |
+| `citation_assistant`              |
+| `study_assistant`                 |
+| `lecturer_assistant`              |
+| `research_assistant`              |
+| `research_validator`              |
+| `assignment_assistant`            |
+| `siwes_assistant`                 |
+| `project_assistant`               |
+| `material_assistant`              |
+| `discussion_assistant`            |
 | `knowledge_publication_validator` |
-| `knowledge_moderation` |
-| `knowledge_companion` |
+| `knowledge_moderation`            |
+| `knowledge_companion`             |
 
 ### 7.5 User-facing assistant mapping
 
@@ -526,6 +525,9 @@ Queued jobs currently include:
 - `RecalculateReputation`
 - `RemoveSearchableContent`
 - `ValidateResearchProject`
+- `GenerateLecturerContentDraft`
+
+`GenerateLecturerContentDraft` backs the Lecturer AI Studio batch feature. The lecturer AI draft library (`lecturer.ai.batch`, `lecturer.ai.drafts`) dispatches one job per queued instruction to produce an advisory `ai_content_drafts` row. Drafts are never course content until a lecturer explicitly applies one. These jobs run on the `default` queue, so the standard worker below is sufficient.
 
 Queue names used by the application include:
 
@@ -1017,8 +1019,6 @@ Knowledge Hub publication **view/manage** permission is intentionally different 
 
 The current interface uses modern, responsive workspace layouts for student courses, course detail, materials, assignments, discussions, attendance, communities, groups, learning paths, reading lists, events, challenges, leaderboard and creator profiles. Preserve authorization, form routes, filters, pagination, status controls, AI contextual tools and server-side business rules when redesigning these pages. The lecturer `courses.lecturer` My Courses page is intentionally separate from the student `courses.index` experience.
 
-
-
 ## 31. AI provider request-body and Gemini network/model remediation (2026-08-18)
 
 All external providers continue to route through `App\Ai\Providers\ExternalProvider`. Provider POST payloads are explicitly JSON-encoded and sent with Laravel HTTP `withBody(..., 'application/json')`. This removes ambiguity in request serialization and guarantees required top-level fields such as OpenAI's `model` parameter are present in the upstream body.
@@ -1028,7 +1028,6 @@ The dedicated `storage/logs/ai-provider.log` channel may record only safe payloa
 When automatic address selection fails with a retryable cURL/DNS/connect error, the transport adds at most one IPv4-only fallback attempt. This does not change the selected provider/model or central routing decision. Installations may still force IPv4 for all provider traffic with `AI_HTTP_FORCE_IPV4=true`.
 
 Google shut down Gemini 1.5 models in 2025 and Gemini 2.0 Flash models in 2026. `config/ai.php` therefore contains a narrow `retired_model_replacements` map. `AiRuntimeConfigService` normalizes only exact known retired IDs, and migration `2026_08_18_220000_replace_retired_gemini_models.php` updates matching persisted global/tenant model values without overwriting unrelated/custom administrator selections.
-
 
 ## 42. Grok (xAI) provider and interaction-performance architecture — 2026-08-20
 
@@ -1075,7 +1074,6 @@ php scripts/check-grok-performance.php
 composer performance-check
 ```
 
-
 ## 43. Central password policy and authentication rate-limit UX — 2026-08-20
 
 Password/security behavior must continue to use the existing **Security Settings** group and `SettingService`; do not introduce a second password-policy service, a second security settings page, or controller-local copies of the same limits.
@@ -1113,13 +1111,13 @@ Authenticated account bootstrap responses also expose the effective scoped polic
 
 The named Laravel rate limiters remain registered in `AppServiceProvider` and now resolve values through `SettingService::getSecurityRateLimits()`:
 
-| Limiter | Security setting | Scope/key behavior |
-|---|---|---|
-| `login` | `login_requests_per_minute` | email + IP |
-| `register` | `registration_requests_per_hour` | IP |
-| `password-reset` | `password_reset_requests_per_minute` | email + IP |
-| `verification` | `verification_requests_per_minute` | authenticated user or IP |
-| `two-factor` | `two_factor_attempts_per_minute` | authenticated user or IP |
+| Limiter          | Security setting                     | Scope/key behavior       |
+| ---------------- | ------------------------------------ | ------------------------ |
+| `login`          | `login_requests_per_minute`          | email + IP               |
+| `register`       | `registration_requests_per_hour`     | IP                       |
+| `password-reset` | `password_reset_requests_per_minute` | email + IP               |
+| `verification`   | `verification_requests_per_minute`   | authenticated user or IP |
+| `two-factor`     | `two_factor_attempts_per_minute`     | authenticated user or IP |
 
 Do not confuse the `login` request throttle with the existing failed-credential lockout. The latter continues to use `max_login_attempts` and `lockout_duration_minutes`, and is intentionally separate because it counts failed credentials rather than every HTTP request.
 
@@ -1135,9 +1133,9 @@ API/JSON clients receive HTTP 429 in the existing simple JSON style:
 
 ```json
 {
-  "message": "Too many attempts. Please try again in 2 minutes.",
-  "code": "TOO_MANY_REQUESTS",
-  "retry_after": 120
+    "message": "Too many attempts. Please try again in 2 minutes.",
+    "code": "TOO_MANY_REQUESTS",
+    "retry_after": 120
 }
 ```
 

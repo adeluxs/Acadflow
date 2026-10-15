@@ -1,3 +1,39 @@
+## 2026-09-17 — Lecturer material upload + Research Assistant delivery fix
+
+- Normalized material visibility/enrollment checkboxes before Laravel boolean validation so native browser values such as `on` no longer fail `boolean` rules.
+- Added explicit hidden `0` + checkbox `1` values for `is_public`, `requires_enrollment` and `is_visible` on lecturer create/edit material forms.
+- Removed the institution-profile equality guard that incorrectly denied independent lecturers after material submission; course authorization and the course academic context now determine access.
+- Material creation now resolves the active semester from the course's academic context and persists `is_visible` consistently.
+- Deferred AI analytics recording until after the HTTP response in normal web requests so a successful Research Assistant provider response cannot be held behind observability/database work.
+- Changed the contextual Research Assistant to use its own inline loading state without invoking the global full-screen loader, added a bounded browser wait/abort path, and guaranteed button/loading cleanup in `finally`.
+- Added feature/static regression coverage for independent lecturer material upload and post-provider Research Assistant response delivery.
+
+## 2026-09-16 — AI Admin provider timeout + OpenRouter catalog persistence fix
+
+- Bounded provider Test Connection health checks to a 12-second total budget with 6-second request and 3-second connect defaults, including IPv4 fallback.
+- Prevented Gemini and other provider connectivity tests from reaching PHP's common 30-second fatal execution limit.
+- Bounded OpenRouter model discovery and stopped persisting the oversized full model catalog in the generic settings table.
+- Persist only the OpenRouter model IDs required by AcadFlow runtime; cache the full discovery payload for short-lived diagnostics.
+- Added cleanup migration for the obsolete `ai_provider_openrouter_model_catalog` setting and a regression preflight.
+
+## 2026-09-16 — Research Studio chapter guidance runtime fix
+
+- Fixed `ResearchWritingExperienceService` returning `aiPrompts` while the Writing Workspace consumed `ai_prompts`, which caused an HTTP 500 on chapter pages such as Chapter 3.
+- Standardized the writing-guidance contract on snake_case `ai_prompts`.
+- Made the Blade prompt renderer null-safe so optional guidance data can never crash the chapter editor.
+- Added runtime/static regression coverage for the guidance contract.
+
+## 2026-09-16 — Professional Research Studio dashboard and chapter workspace
+
+- Reorganized Research Studio around a unified professional project Control Center and template-driven Research Journey.
+- Replaced the long all-sections writing page with a focused Chapter Navigator + one active versioned section editor.
+- Added chapter-aware structure guidance and Research Assistant prompts for Introduction, Literature Review, Methodology, Results/Analysis, Discussion/Conclusion, References and other template sections.
+- Preserved Chapter Two reviewed-literature insertion and References bibliography insertion in the existing rich editor.
+- Added optional results-section dataset tools only when Admin enables Research Dataset Management.
+- Kept all institution-related UI absent unless Research Institutional Expansion is enabled and the project is institutional.
+- Enforced disabled Meetings, Collaboration, Archives, Datasets, SIWES and Seminar modules at controller endpoints as well as in the UI.
+- Added regression coverage for the professional Research Studio workflow.
+
 ## 2026-09-16 — Chapter Two reviewed-literature insertion fix
 
 - Fixed Research Studio literature actions reporting "Inserted" without placing the selected citation/evidence into the visible Chapter Two Quill editor.

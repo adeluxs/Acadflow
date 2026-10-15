@@ -11,6 +11,7 @@ use App\Models\LecturerCourseAssignment;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\AcademicContextService;
+use App\Services\CourseMembershipScope;
 use App\Services\SettingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -201,17 +202,8 @@ class CourseMembershipController extends Controller
 
     private function assertSameAcademicScope(User $user, Course $course, bool $requireDepartment): void
     {
-        if ($course->isIndependent()) {
-            return;
-        }
-
-        $course->loadMissing('department.faculty');
-        $courseUniversityId = $course->department?->faculty?->university_id;
-
-        abort_unless($courseUniversityId && $user->university_id === $courseUniversityId, 403, 'The account and course must belong to the same institution.');
-
-        if ($requireDepartment) {
-            abort_unless($user->department_id && $user->department_id === $course->department_id, 403, 'The account and course must belong to the same department.');
+        if ($denial = CourseMembershipScope::denial($user, $course, $requireDepartment)) {
+            abort(403, $denial);
         }
     }
 

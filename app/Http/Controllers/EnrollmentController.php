@@ -6,6 +6,7 @@ use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Invoice;
 use App\Services\AcademicContextService;
+use App\Services\CourseMembershipScope;
 use App\Services\SettingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -33,13 +34,6 @@ class EnrollmentController extends Controller
         $semester = $academicContext->requireActiveSemesterForCourse($course);
         $course->loadMissing('department.faculty');
 
-        if (! $course->isIndependent()) {
-            abort_unless($user->university_id && $course->department?->faculty?->university_id === $user->university_id, 403);
-            if ((bool) SettingService::get('restrict_course_membership_to_department', true, $user->university_id)) {
-                abort_unless($user->department_id && $course->department_id === $user->department_id, 403, 'You can only join courses in your department.');
-            }
-        }
-
         $existing = Enrollment::where('user_id', Auth::id())
             ->where('course_id', $course->id)
             ->where('semester_id', $semester->id)
@@ -47,6 +41,15 @@ class EnrollmentController extends Controller
 
         if ($existing) {
             return back()->with('error', 'Already enrolled in this course.');
+        }
+
+        // Existing (any-semester) enrollment already grants access; only evaluate
+        // institution/department scope for students who do not yet have access.
+        if (! $user->canAccessCourse($course)) {
+            $requireDepartment = (bool) SettingService::get('restrict_course_membership_to_department', true, $user->university_id);
+            if ($denial = CourseMembershipScope::denial($user, $course, $requireDepartment)) {
+                return back()->with('error', $denial);
+            }
         }
 
         if (! $course->isIndependent()) {

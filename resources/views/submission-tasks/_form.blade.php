@@ -32,20 +32,84 @@
 </div>
 
 <!-- Assignment Type -->
+@php($typeProfiles = $typeProfiles ?? \App\Services\Assignments\AssignmentTypeProfile::availableDefinitions())
 <div class="mb-6">
     <label class="block text-sm font-semibold text-gray-700 mb-2">Assignment Type *</label>
     <select name="type" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
         <option value="">Select type</option>
-        <option value="assignment" {{ (old('type', $task->type ?? '') === 'assignment') ? 'selected' : '' }}>Assignment</option>
-        <option value="project" {{ (old('type', $task->type ?? '') === 'project') ? 'selected' : '' }}>Project</option>
-        <option value="siwes" {{ (old('type', $task->type ?? '') === 'siwes') ? 'selected' : '' }}>SIWES</option>
-        <option value="group" {{ (old('type', $task->type ?? '') === 'group') ? 'selected' : '' }}>Group Work</option>
-        <option value="seminar" {{ (old('type', $task->type ?? '') === 'seminar') ? 'selected' : '' }}>Seminar</option>
+        @foreach($typeProfiles as $typeKey => $typeDef)
+            <option value="{{ $typeKey }}" @selected(old('type', $task->type ?? '') === $typeKey)>{{ $typeDef['label'] }}</option>
+        @endforeach
     </select>
     @error('type')
         <span class="text-red-600 text-sm mt-1">{{ $message }}</span>
     @enderror
 </div>
+
+<!-- Type-specific fields: the assignment type drives a unique creation form -->
+@php($typeProfiles = $typeProfiles ?? \App\Services\Assignments\AssignmentTypeProfile::definitions())
+@php($currentType = old('type', $task->type ?? ''))
+@php($existingMeta = old('type_metadata', $task->type_metadata ?? []))
+@foreach($typeProfiles as $typeKey => $profile)
+    @if(!empty($profile['fields']))
+        <div class="mb-6 rounded-lg border border-blue-100 bg-blue-50/50 p-4" data-type-fields="{{ $typeKey }}" @if($currentType !== $typeKey) style="display:none" @endif>
+            <p class="text-sm font-bold text-gray-800">{{ $profile['label'] }} details</p>
+            <p class="text-xs text-gray-500 mb-3">{{ $profile['description'] }}</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                @foreach($profile['fields'] as $field)
+                    @php($fname = 'type_metadata['.$field['key'].']')
+                    @php($fvalue = $existingMeta[$field['key']] ?? '')
+                    <div class="{{ $field['type'] === 'textarea' ? 'md:col-span-2' : '' }}">
+                        @if($field['type'] === 'checkbox')
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                <input type="checkbox" name="{{ $fname }}" value="1" @checked((bool) $fvalue) class="rounded border-gray-300">
+                                {{ $field['label'] }}
+                            </label>
+                        @else
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">
+                                {{ $field['label'] }} @if($field['required'])*@endif
+                            </label>
+                            @if($field['type'] === 'textarea')
+                                <textarea name="{{ $fname }}" rows="3" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">{{ $fvalue }}</textarea>
+                            @elseif($field['type'] === 'select')
+                                <select name="{{ $fname }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Select</option>
+                                    @foreach($field['options'] as $optValue => $optLabel)
+                                        <option value="{{ $optValue }}" @selected((string) $fvalue === (string) $optValue)>{{ $optLabel }}</option>
+                                    @endforeach
+                                </select>
+                            @elseif($field['type'] === 'date')
+                                <input type="date" name="{{ $fname }}" value="{{ $fvalue }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                            @elseif($field['type'] === 'number')
+                                <input type="number" name="{{ $fname }}" value="{{ $fvalue }}" min="1" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                            @else
+                                <input type="{{ $field['type'] === 'email' ? 'email' : 'text' }}" name="{{ $fname }}" value="{{ $fvalue }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                            @endif
+                        @endif
+                        @error('type_metadata.'.$field['key'])
+                            <span class="text-red-600 text-xs">{{ $message }}</span>
+                        @enderror
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+@endforeach
+
+<script>
+(() => {
+    const select = document.querySelector('select[name="type"]');
+    if (!select) return;
+    const groups = document.querySelectorAll('[data-type-fields]');
+    const sync = () => {
+        groups.forEach((group) => {
+            group.style.display = group.dataset.typeFields === select.value ? '' : 'none';
+        });
+    };
+    select.addEventListener('change', sync);
+    sync();
+})();
+</script>
 
 <!-- Deadlines -->
 <div class="grid grid-cols-2 gap-4 mb-6">
@@ -93,8 +157,8 @@
     </div>
 </div>
 
-<!-- File Requirements -->
-<div class="bg-gray-50 p-6 rounded-lg mb-6">
+<!-- File Requirements (only relevant when the format accepts files) -->
+<div class="bg-gray-50 p-6 rounded-lg mb-6" data-format-fields="file">
     <h3 class="font-semibold text-gray-900 mb-4">File Requirements</h3>
     
     <div class="grid grid-cols-2 gap-4 mb-4">
@@ -246,6 +310,12 @@
     @enderror
 </div>
 
+<!-- Text format guidance (shown when the format allows written answers) -->
+<div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6" data-format-fields="text">
+    <h3 class="font-semibold text-gray-900 mb-1">Text submission</h3>
+    <p class="text-sm text-gray-700">Students will write their answer in a rich text editor with formatting, lists and links. No file upload is required for a text-only assignment.</p>
+</div>
+
 <!-- Buttons -->
 <div class="flex gap-3 pt-6 border-t">
     <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold">
@@ -268,4 +338,27 @@ document.querySelector('input[name="allow_group_submissions"]').addEventListener
 if (document.querySelector('input[name="allow_group_submissions"]').checked) {
     document.getElementById('groupSettings').style.display = 'block';
 }
+
+// Reveal only the fields relevant to the selected submission format. Inputs are
+// hidden (not removed), so any values already entered are preserved when the
+// lecturer switches formats.
+(() => {
+    const formatSelect = document.querySelector('select[name="submission_format"]');
+    if (!formatSelect) return;
+    const groups = document.querySelectorAll('[data-format-fields]');
+    const sync = () => {
+        const format = formatSelect.value || 'file';
+        groups.forEach((group) => {
+            const belongs = group.dataset.formatFields;
+            const show = belongs === 'file'
+                ? (format === 'file' || format === 'both')
+                : belongs === 'text'
+                    ? (format === 'text' || format === 'both')
+                    : false;
+            group.style.display = show ? '' : 'none';
+        });
+    };
+    formatSelect.addEventListener('change', sync);
+    sync();
+})();
 </script>

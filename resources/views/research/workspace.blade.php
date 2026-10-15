@@ -5,7 +5,8 @@
 
 @section('content')
 <div class="space-y-6">
-    <nav class="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+    <nav class="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+        <a href="{{ route('research.workspace', $research) }}" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Control center</a>
         <a href="{{ route('research.show', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Writing workspace</a>
         @if($modules['literature'])
             <a href="{{ route('research.literature.search', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Literature &amp; references</a>
@@ -13,42 +14,80 @@
         @if($modules['siwes'] || $modules['seminar'])
             <a href="{{ route('research.specialized.show', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Specialized workspace</a>
         @endif
-        <a href="{{ route('research.export.html', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Export research</a>
+        <a href="{{ route('research.export.html', $research) }}" class="ml-auto rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Export research</a>
     </nav>
 
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white p-5">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <p class="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">Project operations</p>
-                    <h2 class="mt-1 text-xl font-black text-slate-950">Keep the research moving</h2>
-                    <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Use this area for milestones, actionable tasks and the optional research-management modules enabled by the administrator.</p>
+    <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div class="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-5 py-6 text-white sm:px-7">
+            <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                <div class="max-w-3xl">
+                    <div class="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-indigo-200">
+                        <span>Research Studio</span>
+                        <span class="text-white/30">•</span>
+                        <span>{{ $research->researchType?->name ?? 'Research project' }}</span>
+                    </div>
+                    <h1 class="mt-3 text-2xl font-black leading-tight sm:text-3xl">{{ $research->title }}</h1>
+                    @if($research->abstract)
+                        <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300">{{ str(strip_tags($research->abstract))->limit(220) }}</p>
+                    @elseif($research->research_area)
+                        <p class="mt-3 text-sm text-slate-300">{{ $research->research_area }}</p>
+                    @endif
+
+                    @if(!empty($research->keywords))
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            @foreach(array_slice($research->keywords ?? [], 0, 6) as $keyword)
+                                <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-slate-100">{{ $keyword }}</span>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
-                @if($modules['institutional'] && $research->workspace_mode === 'institutional')
-                    <span class="inline-flex w-fit items-center rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 ring-1 ring-indigo-100">Institutional research workspace</span>
-                @else
-                    <span class="inline-flex w-fit items-center rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">Independent research workspace</span>
-                @endif
+
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('research.show', ['research' => $research, 'section' => $nextWritingAction['section']?->uuid]) }}" class="rounded-xl bg-white px-4 py-2.5 text-sm font-black text-slate-950 shadow-sm">Continue writing</a>
+                    @if($modules['literature'])
+                        <a href="{{ route('research.literature.search', $research) }}" class="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/15">Search literature</a>
+                    @endif
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <div class="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-slate-300">
+                    <span>Overall project progress</span>
+                    <span>{{ number_format((float) $research->progress) }}%</span>
+                </div>
+                <div class="h-2.5 overflow-hidden rounded-full bg-white/10">
+                    <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 to-indigo-400" style="width:{{ min(100, max(0, (float) $research->progress)) }}%"></div>
+                </div>
             </div>
         </div>
-        <div class="grid gap-px bg-slate-200 sm:grid-cols-2 {{ $modules['literature'] ? 'xl:grid-cols-4' : 'xl:grid-cols-3' }}">
-            <div class="bg-white p-5">
-                <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Progress</p>
-                <p class="mt-2 text-2xl font-black text-slate-950">{{ number_format((float) $research->progress) }}%</p>
+
+        <div class="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
+            <div class="p-5">
+                <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Research sections</p>
+                <p class="mt-2 text-2xl font-black text-slate-950">{{ $workspaceStats['approved_sections'] }}/{{ $workspaceStats['total_sections'] }}</p>
+                <p class="mt-1 text-xs text-slate-500">approved</p>
             </div>
-            <div class="bg-white p-5">
+            <div class="p-5">
                 <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Open tasks</p>
                 <p class="mt-2 text-2xl font-black text-slate-950">{{ $workspaceStats['open_tasks'] }}</p>
+                <p class="mt-1 text-xs text-slate-500">actions remaining</p>
             </div>
             @if($modules['literature'])
-            <div class="bg-white p-5">
-                <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Saved references</p>
-                <p class="mt-2 text-2xl font-black text-slate-950">{{ $workspaceStats['references'] }}</p>
-            </div>
+                <div class="p-5">
+                    <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Literature</p>
+                    <p class="mt-2 text-2xl font-black text-slate-950">{{ $literatureStatus['reviewed'] ?? 0 }}</p>
+                    <p class="mt-1 text-xs text-slate-500">reviewed · {{ $workspaceStats['references'] }} saved</p>
+                </div>
+            @else
+                <div class="p-5">
+                    <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Workspace mode</p>
+                    <p class="mt-2 text-sm font-black text-slate-950">Independent research</p>
+                    <p class="mt-1 text-xs text-slate-500">Personal research workspace</p>
+                </div>
             @endif
-            <div class="bg-white p-5">
+            <div class="p-5">
                 <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Next milestone</p>
-                <p class="mt-2 text-sm font-bold text-slate-950">{{ $workspaceStats['next_milestone']?->title ?? 'No pending milestone' }}</p>
+                <p class="mt-2 text-sm font-black text-slate-950">{{ $workspaceStats['next_milestone']?->title ?? 'No pending milestone' }}</p>
                 @if($workspaceStats['next_milestone']?->due_at)
                     <p class="mt-1 text-xs text-slate-500">Due {{ $workspaceStats['next_milestone']->due_at->format('M j, Y') }}</p>
                 @endif
@@ -56,11 +95,95 @@
         </div>
     </section>
 
-    @include('ai._contextual-assistant', [
-        'assistantFeature' => 'research_assistant',
-        'assistantEndpoint' => route('ai.context.research', $research),
-        'assistantDescription' => 'Use the current research plan, milestones, tasks, literature notes, sections and authorized research evidence to get source-aware guidance without fabricating academic work.',
-    ])
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <p class="text-xs font-black uppercase tracking-[0.14em] text-indigo-600">Research journey</p>
+                    <h2 class="mt-1 text-xl font-black text-slate-950">Your document, section by section</h2>
+                    <p class="mt-1 text-sm leading-6 text-slate-500">The navigator follows this project's configured research template, so different research types can use different structures without changing existing projects.</p>
+                </div>
+                <a href="{{ route('research.show', $research) }}" class="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Open writing workspace</a>
+            </div>
+
+            <div class="mt-5 space-y-3">
+                @forelse($sectionJourney as $step)
+                    @php($section = $step['section'])
+                    <a href="{{ route('research.show', ['research' => $research, 'section' => $section->uuid]) }}" class="group grid gap-3 rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:bg-indigo-50/30 sm:grid-cols-[42px_minmax(0,1fr)_120px] sm:items-center">
+                        <span class="flex h-10 w-10 items-center justify-center rounded-full {{ $step['status_tone'] === 'emerald' ? 'bg-emerald-100 text-emerald-700' : ($step['status_tone'] === 'amber' ? 'bg-amber-100 text-amber-700' : ($step['status_tone'] === 'blue' ? 'bg-blue-100 text-blue-700' : ($step['status_tone'] === 'indigo' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'))) }} text-sm font-black">
+                            @if($step['progress'] >= 100) ✓ @else {{ $loop->iteration }} @endif
+                        </span>
+                        <span class="min-w-0">
+                            <span class="block truncate font-bold text-slate-900">{{ $section->title }}</span>
+                            <span class="mt-0.5 block text-xs text-slate-500">{{ $step['status_label'] }}{{ $section->is_required ? ' · Required' : '' }}</span>
+                        </span>
+                        <span>
+                            <span class="mb-1 flex justify-between text-[10px] font-bold uppercase tracking-wide text-slate-400"><span>Progress</span><span>{{ $step['progress'] }}%</span></span>
+                            <span class="block h-1.5 overflow-hidden rounded-full bg-slate-100"><span class="block h-full rounded-full bg-indigo-500" style="width:{{ $step['progress'] }}%"></span></span>
+                        </span>
+                    </a>
+                @empty
+                    <p class="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500">This project has no configured writing sections yet.</p>
+                @endforelse
+            </div>
+        </section>
+
+        <aside class="space-y-5">
+            <section class="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-5 shadow-sm">
+                <p class="text-xs font-black uppercase tracking-[0.14em] text-indigo-600">Next action</p>
+                <h2 class="mt-2 text-lg font-black text-slate-950">{{ $nextWritingAction['label'] }}</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-600">{{ $nextWritingAction['description'] }}</p>
+                @if($nextWritingAction['section'])
+                    <a href="{{ route('research.show', ['research' => $research, 'section' => $nextWritingAction['section']->uuid]) }}" class="mt-4 block rounded-xl bg-indigo-600 px-4 py-2.5 text-center text-sm font-black text-white">Continue writing</a>
+                @endif
+            </section>
+
+            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p class="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Quick actions</p>
+                @if($modules['literature'])
+                    <form method="GET" action="{{ route('research.literature.search', $research) }}" class="mt-3 flex gap-2">
+                        <input name="q" class="min-w-0 flex-1 rounded-xl border-slate-200 text-xs" placeholder="Search academic papers...">
+                        <button class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white">Search</button>
+                    </form>
+                @endif
+                <div class="mt-3 space-y-2">
+                    @if($modules['literature'])
+                        <a href="{{ route('research.literature.search', $research) }}" class="block rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Search literature</a>
+                        <a href="{{ route('research.literature.search', ['research' => $research, 'view' => 'saved']) }}" class="block rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">View saved references</a>
+                    @endif
+                    <a href="#research-assistant" class="block rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Research Assistant</a>
+                    <a href="{{ route('research.export.html', $research) }}" class="block rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Preview / export research</a>
+                </div>
+            </section>
+
+            @if($modules['literature'])
+                <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div class="flex items-center justify-between gap-3"><h3 class="font-black text-slate-900">Reading progress</h3><span class="text-xs font-bold text-slate-400">{{ $workspaceStats['references'] }} total</span></div>
+                    <div class="mt-4 grid grid-cols-3 gap-2 text-center">
+                        <div class="rounded-xl bg-slate-50 p-3"><p class="text-xl font-black text-slate-900">{{ $literatureStatus['saved'] ?? 0 }}</p><p class="text-[10px] font-bold uppercase text-slate-400">Saved</p></div>
+                        <div class="rounded-xl bg-amber-50 p-3"><p class="text-xl font-black text-amber-800">{{ $literatureStatus['reading'] ?? 0 }}</p><p class="text-[10px] font-bold uppercase text-amber-600">Reading</p></div>
+                        <div class="rounded-xl bg-emerald-50 p-3"><p class="text-xl font-black text-emerald-800">{{ $literatureStatus['reviewed'] ?? 0 }}</p><p class="text-[10px] font-bold uppercase text-emerald-600">Reviewed</p></div>
+                    </div>
+                </section>
+            @endif
+
+            @if($modules['institutional'] && $research->workspace_mode === 'institutional')
+                <section class="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 shadow-sm">
+                    <p class="text-xs font-black uppercase tracking-[0.14em] text-indigo-600">Institutional workspace</p>
+                    <p class="mt-2 text-sm font-bold text-indigo-950">Institutional research features are active for this project.</p>
+                    <p class="mt-1 text-xs leading-5 text-indigo-800/75">Supervision, department and institution-linked controls appear only because the administrator enabled Institutional Expansion.</p>
+                </section>
+            @endif
+        </aside>
+    </div>
+
+    <div id="research-assistant">
+        @include('ai._contextual-assistant', [
+            'assistantFeature' => 'research_assistant',
+            'assistantEndpoint' => route('ai.context.research', $research),
+            'assistantDescription' => 'Use the current research plan, milestones, tasks, literature notes, sections and authorized research evidence to get source-aware guidance without fabricating academic work.',
+        ])
+    </div>
 
     <div class="grid gap-6 xl:grid-cols-2">
         <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

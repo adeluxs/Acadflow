@@ -8,6 +8,7 @@ use App\Models\AiGroundingSession;
 use App\Models\KnowledgePublication;
 use App\Models\User;
 use App\Services\Discovery\DiscoverySearchService;
+use App\Support\AiResponseText;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -211,7 +212,7 @@ class GroundedCompanionService
 
             $session->update([
                 'status' => 'completed',
-                'answer' => $answer,
+                'answer' => AiResponseText::clean($answer),
                 'provider' => $fallbackUsed
                     ? ($response->source === 'rule_engine' ? 'rule_engine_grounded' : ($response->provider ?: $response->source).'_validated_fallback')
                     : ($response->provider ?: $response->source),
@@ -348,16 +349,16 @@ class GroundedCompanionService
         foreach (['answer', 'response', 'content', 'text', 'extractive_summary'] as $key) {
             $value = $data[$key] ?? null;
             if (is_string($value) && trim($value) !== '') {
-                return trim($value);
+                return AiResponseText::clean($value);
             }
         }
 
         $raw = $data['raw'] ?? null;
         if (is_string($raw) && trim($raw) !== '') {
-            return trim($raw);
+            return AiResponseText::clean($raw);
         }
 
-        return trim((string) ($summary ?? ''));
+        return AiResponseText::clean((string) ($summary ?? ''));
     }
 
     private function sanitizeGroundingText(string $text): string

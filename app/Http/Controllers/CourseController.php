@@ -12,6 +12,7 @@ use App\Models\LecturerCourseAssignment;
 use App\Models\Semester;
 use App\Models\User;
 use App\Services\AcademicContextService;
+use App\Services\CourseMembershipScope;
 use App\Services\IndependentAcademicContextService;
 use App\Services\FeatureAccessService;
 use App\Services\SettingService;
@@ -97,7 +98,7 @@ class CourseController extends Controller
 
     public function enroll(Request $request, Course $course): RedirectResponse
     {
-        $this->authorize('view', $course);
+        $this->authorize('enroll', $course);
 
         return $this->enrollStudent($course, $request->user());
     }
@@ -108,31 +109,40 @@ class CourseController extends Controller
         $user = Auth::user();
 
         if (! $user->isStudent()) {
-            return redirect()->route('courses.show', $course)
+            return redirect()->route('dashboard')
                 ->with('error', 'Only student accounts can join a course.');
         }
 
-        $this->assertStudentCourseScope($course, $user);
+        // A student who already has access to the course (for example an existing
+        // enrollment) must always be able to open the join page. Applying the
+        // institution/department scope gate first produced a false Access Denied
+        // for authorized students whose profile lacked or mismatched those fields.
+        if ($user->canAccessCourse($course)) {
+            $course->load('department.faculty');
 
-        $alreadyEnrolled = $user->enrollments()
-            ->where('course_id', $course->id)
-            ->where('status', 'enrolled')
-            ->exists();
+            return view('courses.join', ['course' => $course, 'alreadyEnrolled' => true]);
+        }
+
+        if ($denial = CourseMembershipScope::denial($user, $course, $this->restrictStudentMembershipToDepartment($user))) {
+            return redirect()->route('courses.index')->with('error', $denial);
+        }
 
         $course->load('department.faculty');
 
-        return view('courses.join', compact('course', 'alreadyEnrolled'));
+        return view('courses.join', ['course' => $course, 'alreadyEnrolled' => false]);
     }
 
     public function processJoinLink(Request $request, string $uuid): RedirectResponse
     {
         $course = Course::query()->where('uuid', $uuid)->where('is_active', true)->firstOrFail();
+        $user = $request->user();
 
-        if (! $request->user()->isStudent()) {
-            abort(403, 'Only student accounts can join a course.');
+        if (! $user->isStudent()) {
+            return redirect()->route('dashboard')
+                ->with('error', 'Only student accounts can join a course.');
         }
 
-        return $this->enrollStudent($course, $request->user());
+        return $this->enrollStudent($course, $user);
     }
 
     public function myCourses(): View
@@ -313,12 +323,11 @@ class CourseController extends Controller
     protected function enrollStudent(Course $course, User $user): RedirectResponse
     {
         if (! $user->isStudent()) {
-            abort(403, 'Only students can enroll in courses.');
+            return redirect()->route('dashboard')->with('error', 'Only student accounts can enroll in courses.');
         }
 
-        $this->assertStudentCourseScope($course, $user);
-
         $semester = app(AcademicContextService::class)->requireActiveSemesterForCourse($course);
+
         $existing = Enrollment::query()
             ->where('user_id', $user->id)
             ->where('course_id', $course->id)
@@ -327,6 +336,14 @@ class CourseController extends Controller
 
         if ($existing?->status === 'enrolled') {
             return redirect()->route('courses.show', $course)->with('info', 'You are already enrolled in this course.');
+        }
+
+        // A student with an existing enrollment (any semester) already has access
+        // and is never blocked by later institution/department scope changes.
+        if (! $user->canAccessCourse($course)) {
+            if ($denial = CourseMembershipScope::denial($user, $course, $this->restrictStudentMembershipToDepartment($user))) {
+                return redirect()->route('courses.index')->with('error', $denial);
+            }
         }
 
         if ($course->max_capacity) {
@@ -348,26 +365,10 @@ class CourseController extends Controller
 
         return redirect()->route('courses.show', $course)->with('success', 'Successfully enrolled.');
     }
-    protected function assertStudentCourseScope(Course $course, User $user): void
+
+    private function restrictStudentMembershipToDepartment(User $user): bool
     {
-        if ($course->isIndependent()) {
-            return;
-        }
-
-        $course->loadMissing('department.faculty');
-        abort_unless(
-            $user->university_id && $course->department?->faculty?->university_id === $user->university_id,
-            403,
-            'You can only join institutional courses from your institution.'
-        );
-
-        if ((bool) SettingService::get('restrict_course_membership_to_department', true, $user->university_id)) {
-            abort_unless(
-                $user->department_id && $user->department_id === $course->department_id,
-                403,
-                'You can only join courses in your department.'
-            );
-        }
+        return (bool) SettingService::get('restrict_course_membership_to_department', true, $user->university_id);
     }
 
 }

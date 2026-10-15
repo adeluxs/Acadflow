@@ -3,15 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Events\NewMaterialUploaded;
+use App\Models\AuditLog;
 use App\Models\Course;
 use App\Models\CourseMaterial;
-use App\Models\Semester;
 use App\Models\User;
 use App\Services\AcademicContextService;
 use App\Services\Media\MediaSecurityService;
 use App\Services\Media\SafeFileDeliveryService;
 use App\Services\PdfService;
 use App\Services\SettingService;
+use App\Support\HtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -134,39 +135,64 @@ class CourseMaterialController extends Controller
 
         $this->authorize('create', $course);
 
-        // Upload policy is an operational institution setting, not a paid-plan entitlement.
-        $maxFileSizeBytes = SettingService::getMaxUploadSize($user->university_id);
+        // Course access has already been authorized above. Resolve upload limits and
+        // semester context from the course itself so independent classrooms keep
+        // working even though their lecturer intentionally has no institution on
+        // their public profile.
+        $course->loadMissing('department.faculty');
+        $courseUniversityId = $course->department?->faculty?->university_id;
+        $maxFileSizeBytes = SettingService::getMaxUploadSize($courseUniversityId);
         $maxFileSizeKb = intdiv($maxFileSizeBytes, 1024);
-        $allowedMimes = implode(',', SettingService::getAllowedExtensions($user->university_id));
+        $allowedMimes = implode(',', SettingService::getAllowedExtensions($courseUniversityId));
+
+        // Native HTML checkboxes submit "on" when checked and nothing when
+        // unchecked. Normalize them before Laravel's boolean validation so both
+        // browser forms and API-style 0/1 values behave consistently.
+        $this->normalizeMaterialBooleans($request, [
+            'is_public' => false,
+            'requires_enrollment' => true,
+            'is_visible' => true,
+        ]);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:20000',
             'type' => 'required|in:lecture_note,slides,reading,video,assignment,exam,reference,other',
-            'file' => 'required|file|mimes:'.$allowedMimes.'|max:'.$maxFileSizeKb,
+            'file' => 'nullable|file|mimes:'.$allowedMimes.'|max:'.$maxFileSizeKb,
+            'content' => 'nullable|string|max:200000',
             'topic' => 'nullable|string|max:255',
             'week_number' => 'nullable|integer|min:1|max:20',
             'sequence_order' => 'nullable|integer|min:0',
             'is_public' => 'boolean',
             'requires_enrollment' => 'boolean',
+            'is_visible' => 'boolean',
         ]);
 
         $file = $request->file('file');
+        // Authored content is untrusted HTML: sanitize before persisting so the
+        // stored value is always safe to render later without extra escaping.
+        $cleanContent = HtmlSanitizer::clean((string) ($validated['content'] ?? ''));
+        $hasContent = trim(strip_tags($cleanContent)) !== '';
 
-        $universityId = $course->loadMissing('department.faculty')->department?->faculty?->university_id;
-        abort_unless($universityId && $universityId === $user->university_id, 403);
-        $semester = Semester::active()
-            ->whereHas('academicSession', fn ($query) => $query->where('university_id', $universityId))
-            ->firstOrFail();
-
-        $material = DB::transaction(function () use ($file, $user, $course, $semester, $validated): CourseMaterial {
-            $asset = $this->mediaSecurityService->store($file, $user, $course, ($validated['is_public'] ?? false) ? 'public' : 'institution', [
-                'purpose' => 'course_material',
-                'course_uuid' => $course->uuid,
-                'semester_id' => $semester->id,
+        if ($file === null && ! $hasContent) {
+            throw ValidationException::withMessages([
+                'content' => 'Provide an uploaded file or write the material content directly.',
             ]);
-            if (! in_array($asset->scan_status, ['clean', 'skipped'], true)) {
-                throw ValidationException::withMessages(['file' => 'The material did not pass the configured security scan.']);
+        }
+
+        $semester = $this->academicContext->requireActiveSemesterForCourse($course);
+
+        $material = DB::transaction(function () use ($request, $file, $user, $course, $semester, $validated, $cleanContent, $hasContent): CourseMaterial {
+            $asset = null;
+            if ($file !== null) {
+                $asset = $this->mediaSecurityService->store($file, $user, $course, ($validated['is_public'] ?? false) ? 'public' : 'institution', [
+                    'purpose' => 'course_material',
+                    'course_uuid' => $course->uuid,
+                    'semester_id' => $semester->id,
+                ]);
+                if (! in_array($asset->scan_status, ['clean', 'skipped'], true)) {
+                    throw ValidationException::withMessages(['file' => 'The material did not pass the configured security scan.']);
+                }
             }
 
             $material = CourseMaterial::create([
@@ -177,23 +203,46 @@ class CourseMaterialController extends Controller
                 'title' => $validated['title'],
                 'description' => $validated['description'] ?? null,
                 'type' => $validated['type'],
-                'file_name' => $asset->original_name,
-                'file_path' => $asset->path,
-                'disk' => $asset->disk,
-                'media_asset_id' => $asset->id,
-                'mime_type' => $asset->mime_type,
-                'file_size' => $asset->size_bytes,
+                'file_name' => $asset?->original_name,
+                'file_path' => $asset?->path,
+                'disk' => $asset?->disk,
+                'media_asset_id' => $asset?->id,
+                'mime_type' => $asset?->mime_type,
+                'file_size' => $asset?->size_bytes,
+                'content' => $hasContent ? $cleanContent : null,
+                'content_format' => 'html',
+                'content_updated_at' => $hasContent ? now() : null,
+                'source' => $asset !== null ? 'upload' : ($request->boolean('ai_assisted') ? 'ai_assisted' : 'authored'),
                 'topic' => $validated['topic'] ?? null,
                 'week_number' => $validated['week_number'] ?? null,
                 'sequence_order' => $validated['sequence_order'] ?? 0,
                 'is_public' => $validated['is_public'] ?? false,
                 'requires_enrollment' => $validated['requires_enrollment'] ?? true,
-                'is_visible' => true,
+                'is_visible' => $validated['is_visible'] ?? true,
                 'published_at' => now(),
             ]);
-            $asset->update(['attachable_type' => $material->getMorphClass(), 'attachable_id' => $material->id]);
+
+            if ($asset !== null) {
+                $asset->update(['attachable_type' => $material->getMorphClass(), 'attachable_id' => $material->id]);
+            }
+
             return $material;
         });
+
+        // Authored and AI-assisted materials are a distinct, higher-risk change
+        // surface, so record an explicit audit entry for observability.
+        if ($material->source !== 'upload') {
+            AuditLog::log(
+                'course_material_authored',
+                $user->id,
+                CourseMaterial::class,
+                $material->id,
+                null,
+                ['source' => $material->source, 'title' => $material->title],
+                $request->ip(),
+                $request->userAgent(),
+            );
+        }
 
         // Fire event to notify enrolled students
         $enrolledStudents = User::whereHas('enrollments', function ($q) use ($course, $semester) {
@@ -222,6 +271,8 @@ class CourseMaterialController extends Controller
         $this->authorize('view', $material);
 
         $material->load(['uploader', 'accessLogs.user']);
+        // Students only ever see their own highlights and notes.
+        $material->setRelation('annotations', $material->annotations()->where('user_id', Auth::id())->latest()->get());
 
         // Log view
         $material->accessLogs()->create([
@@ -324,10 +375,17 @@ class CourseMaterialController extends Controller
 
         $this->authorize('update', $material);
 
+        $this->normalizeMaterialBooleans($request, [
+            'is_public' => (bool) $material->is_public,
+            'requires_enrollment' => (bool) $material->requires_enrollment,
+            'is_visible' => (bool) $material->is_visible,
+        ]);
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:20000',
             'type' => 'required|in:lecture_note,slides,reading,video,assignment,exam,reference,other',
+            'content' => 'nullable|string|max:200000',
             'topic' => 'nullable|string|max:255',
             'week_number' => 'nullable|integer|min:1|max:20',
             'sequence_order' => 'nullable|integer|min:0',
@@ -336,10 +394,68 @@ class CourseMaterialController extends Controller
             'is_visible' => 'boolean',
         ]);
 
-        $material->update($validated);
+        $updates = [
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'type' => $validated['type'],
+            'topic' => $validated['topic'] ?? null,
+            'week_number' => $validated['week_number'] ?? null,
+            'sequence_order' => $validated['sequence_order'] ?? 0,
+            'is_public' => $validated['is_public'] ?? false,
+            'requires_enrollment' => $validated['requires_enrollment'] ?? true,
+            'is_visible' => $validated['is_visible'] ?? true,
+        ];
+
+        // Only touch authored content when the edit form actually submits the
+        // content field, so metadata-only edits of an uploaded material never
+        // clear an existing authored body.
+        if ($request->has('content')) {
+            $cleanContent = HtmlSanitizer::clean((string) ($validated['content'] ?? ''));
+            $hasContent = trim(strip_tags($cleanContent)) !== '';
+            $updates['content'] = $hasContent ? $cleanContent : null;
+            $updates['content_format'] = 'html';
+            $updates['content_updated_at'] = $hasContent ? now() : null;
+            if ($hasContent && ! $material->hasFile()) {
+                $updates['source'] = in_array($material->source, ['authored', 'ai_assisted'], true)
+                    ? $material->source
+                    : 'authored';
+            }
+        }
+
+        $material->update($updates);
+
+        if (array_key_exists('content', $updates)) {
+            AuditLog::log(
+                'course_material_content_updated',
+                $request->user()?->id,
+                CourseMaterial::class,
+                $material->id,
+                null,
+                ['has_content' => $updates['content'] !== null],
+                $request->ip(),
+                $request->userAgent(),
+            );
+        }
 
         return redirect()->route('materials.show', [$course, $material])
             ->with('success', 'Material updated successfully.');
+    }
+
+    /**
+     * Normalize browser checkbox values into actual booleans before validation.
+     *
+     * @param array{is_public?:bool,requires_enrollment?:bool,is_visible?:bool} $defaults
+     */
+    private function normalizeMaterialBooleans(Request $request, array $defaults = []): void
+    {
+        $normalized = [];
+        foreach (['is_public', 'requires_enrollment', 'is_visible'] as $field) {
+            $normalized[$field] = $request->has($field)
+                ? $request->boolean($field)
+                : (bool) ($defaults[$field] ?? false);
+        }
+
+        $request->merge($normalized);
     }
 
     /**

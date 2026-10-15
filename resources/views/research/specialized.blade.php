@@ -1,11 +1,12 @@
 @extends('layouts.app')
 @section('title','Specialized research workspace')
-@section('page-title','SIWES and seminar workspace')
+@section('page-title',$siwesEnabled && $seminarEnabled ? 'SIWES and seminar workspace' : ($siwesEnabled ? 'SIWES workspace' : 'Seminar workspace'))
 @section('page-subtitle',$research->title)
 @section('content')
 <div class="space-y-6">
   <div class="flex flex-wrap gap-3"><a href="{{ route('research.show',$research) }}" class="rounded-xl border px-4 py-2">Writing workspace</a><a href="{{ route('research.workspace',$research) }}" class="rounded-xl border px-4 py-2">Control center</a></div>
 
+  @if($siwesEnabled)
   <section class="rounded-2xl border bg-white p-5">
     <h2 class="text-xl font-semibold">SIWES placement and logbook</h2>
     <div class="mt-4">
@@ -34,7 +35,9 @@
       @can('review',$research)<form method="POST" action="{{ route('research.siwes.evaluations.store',[$research,$placement]) }}" class="mt-6 grid gap-2 md:grid-cols-3">@csrf<select name="evaluator_type" class="rounded-xl border-slate-300"><option>lecturer</option><option>department</option><option>industry_supervisor</option></select>@foreach(['attendance_score','technical_score','conduct_score','report_score'] as $score)<input type="number" min="0" max="100" step="0.01" name="{{ $score }}" class="rounded-xl border-slate-300" placeholder="{{ str($score)->headline() }}">@endforeach<textarea name="comment" class="rounded-xl border-slate-300 md:col-span-2" placeholder="Evaluation comment"></textarea><button class="rounded-xl bg-emerald-600 px-4 py-2 text-white">Submit evaluation</button></form>@endcan
     @endif
   </section>
+  @endif
 
+  @if($seminarEnabled)
   <section class="rounded-2xl border bg-white p-5">
     <h2 class="text-xl font-semibold">Seminar schedule, panel, questions, and marks</h2>
     @if(!$seminar)
@@ -45,5 +48,6 @@
       @can('review',$research)<form method="POST" action="{{ route('research.seminar.complete',[$research,$seminar]) }}" class="mt-6 grid gap-2 md:grid-cols-[220px_1fr_auto]">@csrf<select name="status" class="rounded-xl border-slate-300"><option value="completed">Complete and grade</option><option value="corrections_required">Corrections required</option><option value="cancelled">Cancel</option></select><input name="moderator_notes" class="rounded-xl border-slate-300" placeholder="Moderator notes or correction instructions"><button class="rounded-xl bg-emerald-600 px-4 text-white">Finalize</button></form>@endcan
     @endif
   </section>
+  @endif
 </div>
 @endsection

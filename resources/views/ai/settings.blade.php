@@ -6,6 +6,7 @@
 @php
     $externalProviders = collect($providers)->reject(fn($p) => $p->value === 'rule_based')->values();
     $providerModels = collect($providerDefinitions)->mapWithKeys(fn($p, $key) => [$key => $p['models'] ?? []]);
+    $providerLabels = collect($providerDefinitions)->mapWithKeys(fn($p, $key) => [$key => $p['label'] ?? $key]);
 @endphp
 <div class="mx-auto max-w-7xl space-y-6">
     <header class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -88,6 +89,7 @@
                 </label>
                 <label class="block"><span class="text-sm font-bold text-slate-700">Default Model</span>
                     <select name="ai_default_model" id="ai-default-model" data-current="{{ old('ai_default_model',$defaultModel) }}" class="mt-1.5 w-full rounded-xl border px-3 py-2.5"></select>
+                    <span id="ai-default-model-help" class="mt-1 block text-[11px] leading-4 text-slate-500">Choose a model from the selected provider.</span>
                 </label>
                 <label class="block"><span class="text-sm font-bold text-slate-700">Global Temperature</span><input name="ai_temperature" type="number" min="0" max="2" step="0.05" value="{{ old('ai_temperature',$settings['ai_temperature']) }}" class="mt-1.5 w-full rounded-xl border px-3 py-2.5"></label>
 
@@ -255,6 +257,7 @@ Authorized context:
 <script>
 (() => {
     const models = @json($providerModels);
+    const labels = @json($providerLabels);
     const fill = (providerEl, modelEl, includeGlobal = false) => {
         if (!providerEl || !modelEl) return;
         const provider = providerEl.value;
@@ -263,12 +266,30 @@ Authorized context:
         modelEl.innerHTML = '';
         if (includeGlobal || provider === 'global') {
             const o = document.createElement('option'); o.value = 'global'; o.textContent = 'Use Global Default'; modelEl.appendChild(o);
-        } else {
-            const o = document.createElement('option'); o.value = ''; o.textContent = 'Use provider default'; modelEl.appendChild(o);
+        } else if (values.length === 0) {
+            const o = document.createElement('option'); o.value = ''; o.textContent = 'No configured models for selected provider'; modelEl.appendChild(o);
         }
-        values.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; modelEl.appendChild(o); });
-        if ([...modelEl.options].some(o => o.value === current)) modelEl.value = current;
+        values.forEach(v => {
+            const o = document.createElement('option');
+            o.value = v;
+            o.textContent = v;
+            modelEl.appendChild(o);
+        });
+        if ([...modelEl.options].some(o => o.value === current)) {
+            modelEl.value = current;
+        } else if (values.length > 0 && !includeGlobal && provider !== 'global') {
+            modelEl.value = values[0];
+        }
         modelEl.dataset.current = modelEl.value;
+    };
+    const updateDefaultModelHelp = () => {
+        const help = document.getElementById('ai-default-model-help');
+        if (!help || !defaultProvider || !defaultModel) return;
+        const provider = defaultProvider.value;
+        const count = (models[provider] || []).length;
+        help.textContent = count > 0
+            ? `${labels[provider] || provider} models are available in this list. Current selection: ${defaultModel.value || 'none'}.`
+            : 'Select an external provider with configured models, or configure provider models in Provider Registry.';
     };
 
     const defaultProvider = document.getElementById('ai-default-provider');
@@ -277,8 +298,9 @@ Authorized context:
     const fallbackModel = document.getElementById('ai-fallback-model');
     const secondaryProvider = document.getElementById('ai-secondary-provider');
     const secondaryModel = document.getElementById('ai-secondary-model');
-    fill(defaultProvider, defaultModel); fill(fallbackProvider, fallbackModel); fill(secondaryProvider, secondaryModel);
-    defaultProvider?.addEventListener('change', () => { defaultModel.dataset.current=''; fill(defaultProvider, defaultModel); });
+    fill(defaultProvider, defaultModel); fill(fallbackProvider, fallbackModel); fill(secondaryProvider, secondaryModel); updateDefaultModelHelp();
+    defaultProvider?.addEventListener('change', () => { defaultModel.dataset.current=''; fill(defaultProvider, defaultModel); updateDefaultModelHelp(); });
+    defaultModel?.addEventListener('change', updateDefaultModelHelp);
     fallbackProvider?.addEventListener('change', () => { fallbackModel.dataset.current=''; fill(fallbackProvider, fallbackModel); });
     secondaryProvider?.addEventListener('change', () => { secondaryModel.dataset.current=''; fill(secondaryProvider, secondaryModel); });
 

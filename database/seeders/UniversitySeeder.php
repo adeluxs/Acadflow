@@ -26,6 +26,7 @@ class UniversitySeeder extends Seeder
         }
 
         $password = Hash::make((string) env('ACADEMIC_DEMO_PASSWORD', 'password123'));
+        $verifiedAt = now();
 
         User::firstOrCreate(
             ['email' => 'admin@uniacademic.com'],
@@ -34,6 +35,7 @@ class UniversitySeeder extends Seeder
                 'last_name' => 'Administrator',
                 'password' => $password,
                 'role' => 'super_admin',
+                'email_verified_at' => $verifiedAt,
                 'is_active' => true,
             ]
         );
@@ -134,6 +136,7 @@ class UniversitySeeder extends Seeder
                 'last_name' => 'Admin',
                 'password' => $password,
                 'role' => 'university_admin',
+                'email_verified_at' => $verifiedAt,
                 'is_active' => true,
             ]
         );
@@ -147,6 +150,7 @@ class UniversitySeeder extends Seeder
                 'last_name' => 'Admin',
                 'password' => $password,
                 'role' => 'department_admin',
+                'email_verified_at' => $verifiedAt,
                 'is_active' => true,
             ]
         );
@@ -154,7 +158,7 @@ class UniversitySeeder extends Seeder
         $lecturers = collect([
             'dr.ibrahim@futo.edu.ng' => ['Dr.', 'Ibrahim'],
             'prof.adeyemi@futo.edu.ng' => ['Prof.', 'Adeyemi'],
-        ])->map(function (array $name, string $email) use ($university, $department, $password) {
+        ])->map(function (array $name, string $email) use ($university, $department, $password, $verifiedAt) {
             return User::firstOrCreate(
                 ['email' => $email],
                 [
@@ -164,6 +168,7 @@ class UniversitySeeder extends Seeder
                     'last_name' => $name[1],
                     'password' => $password,
                     'role' => 'lecturer',
+                    'email_verified_at' => $verifiedAt,
                     'is_active' => true,
                 ]
             );
@@ -197,6 +202,7 @@ class UniversitySeeder extends Seeder
                     'last_name' => $name[1],
                     'password' => $password,
                     'role' => 'student',
+                    'email_verified_at' => $verifiedAt,
                     'is_active' => true,
                 ]
             );
@@ -208,6 +214,17 @@ class UniversitySeeder extends Seeder
                 );
             }
         }
+
+        User::whereIn('email', [
+            'admin@uniacademic.com',
+            'universityadmin@futo.edu.ng',
+            'deptadmin@futo.edu.ng',
+            'dr.ibrahim@futo.edu.ng',
+            'prof.adeyemi@futo.edu.ng',
+            'student001@student.futo.edu.ng',
+            'student002@student.futo.edu.ng',
+            'student003@student.futo.edu.ng',
+        ])->whereNull('email_verified_at')->update(['email_verified_at' => $verifiedAt]);
 
         $this->command?->info('AcadFlow demo tenant and role accounts ensured without overwriting existing rows.');
     }

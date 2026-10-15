@@ -22,3 +22,10 @@ yarn-error.log
 /.vscode
 /.zed
 .opencode
+
+# Marketing screenshot → video pipeline artifacts
+/database/marketing-demo.sqlite
+/storage/app/marketing-demo.json
+/marketing/video/artifacts
+/marketing/video/frames
+/marketing/video/.auth

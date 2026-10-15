@@ -15,7 +15,7 @@
     $assistantVisible = $assistantModuleAccessible && $assistantFeatureEnabled && ! $assistantModeDisabled;
 @endphp
 @if($assistantVisible)
-<section id="{{ $assistantId }}" class="rounded-2xl border border-indigo-200 bg-gradient-to-br from-white to-indigo-50/50 p-5 shadow-sm" data-contextual-ai>
+<section id="{{ $assistantId }}" class="rounded-2xl border border-indigo-200 bg-gradient-to-br from-white to-indigo-50/50 p-5 shadow-sm" data-contextual-ai data-ai-timeout="{{ max(5000, (int) config('ai.contextual_ui_timeout_ms', 28000)) }}">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
             <div class="flex flex-wrap items-center gap-2">
@@ -50,12 +50,12 @@
             <span class="hidden rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-700" data-ai-model></span>
             <span class="hidden rounded-full bg-amber-100 px-2 py-1 font-semibold text-amber-700" data-ai-fallback>Fallback used</span>
         </div>
-        <div class="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-800" data-ai-answer></div>
-        <div class="mt-4 hidden border-t border-slate-100 pt-3" data-ai-sources-wrap>
+        <div class="mt-3 max-h-[32rem] overflow-y-auto whitespace-pre-wrap rounded-xl bg-slate-50/70 p-4 text-sm leading-7 text-slate-800" data-ai-answer></div>
+        <div class="mt-4 hidden border-t border-slate-100 pt-3" data-ai-sources-wrap aria-hidden="true">
             <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Authorized sources used</p>
             <div class="mt-2 space-y-1.5 text-xs text-slate-600" data-ai-sources></div>
         </div>
-        <p class="mt-3 hidden text-[11px] text-slate-400" data-ai-request></p>
+        <p class="mt-3 hidden text-[11px] text-slate-400" data-ai-request aria-hidden="true"></p>
         <button type="button" class="mt-3 hidden rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60" data-ai-retry>Try Again</button>
     </div>
 </section>
@@ -74,88 +74,22 @@
 @once
 @push('scripts')
 <script>
+// Contextual assistant behavior is loaded from resources/js/contextual-assistant.js
+// through the Vite app bundle. This small fallback only helps users still running
+// an older cached bundle/service worker by surfacing a refresh instruction instead
+// of leaving the assistant card silent.
 document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('[data-contextual-ai]').forEach(root => {
-        if (root.dataset.bound === '1') return;
-        root.dataset.bound = '1';
-        const form = root.querySelector('[data-ai-form]');
-        const question = root.querySelector('[data-ai-question]');
-        const submit = root.querySelector('[data-ai-submit]');
-        const result = root.querySelector('[data-ai-result]');
-        const answer = root.querySelector('[data-ai-answer]');
-        const provider = root.querySelector('[data-ai-provider]');
-        const model = root.querySelector('[data-ai-model]');
-        const fallback = root.querySelector('[data-ai-fallback]');
-        const sourcesWrap = root.querySelector('[data-ai-sources-wrap]');
-        const sources = root.querySelector('[data-ai-sources]');
-        const request = root.querySelector('[data-ai-request]');
-        const retry = root.querySelector('[data-ai-retry]');
-        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-        root.querySelectorAll('[data-ai-suggestion]').forEach(button => button.addEventListener('click', () => {
-            question.value = button.dataset.aiSuggestion || '';
-            question.focus();
-        }));
-
-        form?.addEventListener('submit', async event => {
-            event.preventDefault();
-            const value = question.value.trim();
-            if (value.length < 3) return;
-            submit.disabled = true;
-            submit.textContent = 'Thinking…';
-            result.classList.remove('hidden');
-            answer.textContent = 'Processing your request…';
-            provider.classList.add('hidden');
-            model.classList.add('hidden');
-            fallback.classList.add('hidden');
-            sourcesWrap.classList.add('hidden');
-            request.classList.add('hidden');
-            retry?.classList.add('hidden');
-
-            try {
-                const response = await fetch(form.dataset.endpoint, {
-                    method: 'POST',
-                    headers: {'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':csrf},
-                    body: JSON.stringify({question:value})
-                });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok || data.success === false) {
-                    const requestError = new Error(data.message || data.answer || 'AI assistance is currently unavailable.');
-                    requestError.data = data;
-                    requestError.status = response.status;
-                    throw requestError;
-                }
-                answer.textContent = data.answer || 'No response was returned.';
-                if (data.provider) { provider.textContent = `Provider: ${data.provider}`; provider.classList.remove('hidden'); }
-                if (data.model) { model.textContent = `Model: ${data.model}`; model.classList.remove('hidden'); }
-                if (data.fallback_used) fallback.classList.remove('hidden');
-                if (Array.isArray(data.sources) && data.sources.length) {
-                    sources.innerHTML = '';
-                    data.sources.forEach(source => {
-                        const row = document.createElement('div');
-                        row.textContent = `${source.label || 'S'} · ${source.title || 'AcadFlow source'}${source.locator ? ` · ${source.locator}` : ''}`;
-                        sources.appendChild(row);
-                    });
-                    sourcesWrap.classList.remove('hidden');
-                }
-                if (data.request_id) { request.textContent = `Request ID: ${data.request_id}`; request.classList.remove('hidden'); }
-            } catch (error) {
-                const detail = window.AcadFlowFeedback?.normalize(error, 'AI assistance is currently unavailable. Please try again.') || {
-                    message: 'AI assistance is currently unavailable. Please try again.', retryable: true, requestId: null
-                };
-                answer.textContent = detail.message;
-                if (detail.requestId) { request.textContent = `Request ID: ${detail.requestId}`; request.classList.remove('hidden'); }
-                if (detail.retryable && retry) retry.classList.remove('hidden');
-            } finally {
-                submit.disabled = false;
-                submit.textContent = 'Ask AI';
-            }
+    window.setTimeout(() => {
+        document.querySelectorAll('[data-contextual-ai]:not([data-bound="1"])').forEach(root => {
+            const answer = root.querySelector('[data-ai-answer]');
+            const result = root.querySelector('[data-ai-result]');
+            const retry = root.querySelector('[data-ai-retry]');
+            if (!answer || root.dataset.bound === '1') return;
+            result?.classList.remove('hidden');
+            answer.textContent = 'The AI assistant script did not finish loading. Refresh this page to load the latest AcadFlow assets.';
+            retry?.classList.remove('hidden');
         });
-
-        retry?.addEventListener('click', () => {
-            if (!submit.disabled) form.requestSubmit();
-        });
-    });
+    }, 5000);
 });
 </script>
 @endpush

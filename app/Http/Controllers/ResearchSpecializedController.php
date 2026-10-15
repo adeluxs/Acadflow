@@ -14,6 +14,7 @@ use App\Models\SiwesLogEntry;
 use App\Models\SiwesPlacement;
 use App\Models\Submission;
 use App\Services\Media\MediaSecurityService;
+use App\Services\FeatureAccessService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,23 +25,39 @@ class ResearchSpecializedController extends Controller
     public function show(Request $request, ResearchProject $research): View
     {
         $this->authorize('view', $research);
-        $placement = SiwesPlacement::with(['logs.creator', 'attendance', 'evaluations.evaluator'])->where('research_project_id', $research->id)->first();
-        $seminar = SeminarSession::with(['panelMembers.user', 'questions.asker', 'questions.answerer', 'submission.grade'])->where('research_project_id', $research->id)->first();
+        $siwesEnabled = $this->featureEnabled('siwes_module', $request->user());
+        $seminarEnabled = $this->featureEnabled('seminar_module', $request->user());
+        abort_unless($siwesEnabled || $seminarEnabled, 403, 'Specialized research workspaces are currently disabled by the platform administrator.');
+
+        $placement = $siwesEnabled
+            ? SiwesPlacement::with(['logs.creator', 'attendance', 'evaluations.evaluator'])->where('research_project_id', $research->id)->first()
+            : null;
+        $seminar = $seminarEnabled
+            ? SeminarSession::with(['panelMembers.user', 'questions.asker', 'questions.answerer', 'submission.grade'])->where('research_project_id', $research->id)->first()
+            : null;
+
+        $enabledTypes = array_values(array_filter([
+            $siwesEnabled ? 'siwes' : null,
+            $seminarEnabled ? 'seminar' : null,
+        ]));
         $eligibleSubmissions = Submission::query()->with('course.department.faculty')
-            ->whereIn('type', ['siwes', 'seminar'])
+            ->whereIn('type', $enabledTypes)
             ->where(function ($query) use ($request, $research) {
                 $query->where('user_id', $research->owner_id);
                 if ($request->user()->isAdmin()) {
                     $query->orWhereHas('course.department.faculty', fn ($scope) => $scope->where('university_id', $research->university_id));
                 }
             })->latest()->get();
-        $panelUsers = $research->university->users()->whereIn('role', ['lecturer', 'department_admin', 'university_admin'])->where('is_active', true)->orderBy('first_name')->get();
+        $panelUsers = $seminarEnabled
+            ? $research->university->users()->whereIn('role', ['lecturer', 'department_admin', 'university_admin'])->where('is_active', true)->orderBy('first_name')->get()
+            : collect();
 
-        return view('research.specialized', compact('research', 'placement', 'seminar', 'eligibleSubmissions', 'panelUsers'));
+        return view('research.specialized', compact('research', 'placement', 'seminar', 'eligibleSubmissions', 'panelUsers', 'siwesEnabled', 'seminarEnabled'));
     }
 
     public function storePlacement(Request $request, ResearchProject $research): RedirectResponse
     {
+        $this->assertFeatureEnabled('siwes_module', $request->user());
         $this->authorize('update', $research);
         $data = $request->validate([
             'submission_id' => ['required', 'integer', 'exists:submissions,id'],
@@ -67,6 +84,7 @@ class ResearchSpecializedController extends Controller
 
     public function storeLog(Request $request, ResearchProject $research, SiwesPlacement $placement): RedirectResponse
     {
+        $this->assertFeatureEnabled('siwes_module', $request->user());
         $this->authorize('update', $research); $this->assertPlacement($research, $placement);
         $data = $request->validate([
             'entry_date' => ['required', 'date'], 'period_type' => ['required', 'in:daily,weekly,monthly'],
@@ -81,6 +99,7 @@ class ResearchSpecializedController extends Controller
 
     public function reviewLog(Request $request, ResearchProject $research, SiwesLogEntry $log): RedirectResponse
     {
+        $this->assertFeatureEnabled('siwes_module', $request->user());
         $this->authorize('review', $research); abort_unless($log->placement?->research_project_id === $research->id, 404);
         $data = $request->validate(['status' => ['required', 'in:approved,revision_requested,rejected'], 'lecturer_comment' => ['nullable', 'string', 'max:10000'], 'employer_comment' => ['nullable', 'string', 'max:10000']]);
         $log->update($data + ['reviewed_by' => $request->user()->id, 'reviewed_at' => now()]);
@@ -89,6 +108,7 @@ class ResearchSpecializedController extends Controller
 
     public function attendance(Request $request, ResearchProject $research, SiwesPlacement $placement): RedirectResponse
     {
+        $this->assertFeatureEnabled('siwes_module', $request->user());
         $this->authorize('update', $research); $this->assertPlacement($research, $placement);
         $data = $request->validate([
             'attendance_date' => ['required', 'date'], 'check_in_at' => ['nullable', 'date_format:H:i'], 'check_out_at' => ['nullable', 'date_format:H:i'],
@@ -101,6 +121,7 @@ class ResearchSpecializedController extends Controller
 
     public function evaluate(Request $request, ResearchProject $research, SiwesPlacement $placement): RedirectResponse
     {
+        $this->assertFeatureEnabled('siwes_module', $request->user());
         $this->authorize('review', $research); $this->assertPlacement($research, $placement);
         $data = $request->validate([
             'evaluator_type' => ['required', 'in:industry_supervisor,lecturer,department'],
@@ -114,6 +135,7 @@ class ResearchSpecializedController extends Controller
 
     public function storeSeminar(Request $request, ResearchProject $research, MediaSecurityService $media): RedirectResponse
     {
+        $this->assertFeatureEnabled('seminar_module', $request->user());
         $this->authorize('review', $research);
         $data = $request->validate([
             'submission_id' => ['required', 'integer', 'exists:submissions,id'], 'title' => ['required', 'string', 'max:255'],
@@ -165,6 +187,7 @@ class ResearchSpecializedController extends Controller
 
     public function askQuestion(Request $request, ResearchProject $research, SeminarSession $seminar): RedirectResponse
     {
+        $this->assertFeatureEnabled('seminar_module', $request->user());
         $this->authorize('view', $research); $this->assertSeminar($research, $seminar);
         $data = $request->validate(['question' => ['required', 'string', 'max:10000']]);
         $seminar->questions()->create($data + ['asked_by' => $request->user()->id, 'status' => 'open']);
@@ -173,6 +196,7 @@ class ResearchSpecializedController extends Controller
 
     public function answerQuestion(Request $request, ResearchProject $research, SeminarQuestion $question): RedirectResponse
     {
+        $this->assertFeatureEnabled('seminar_module', $request->user());
         $this->authorize('view', $research); abort_unless($question->session?->research_project_id === $research->id, 404);
         abort_unless($request->user()->isAdmin() || $research->owner_id === $request->user()->id || $research->supervisor_id === $request->user()->id, 403);
         $data = $request->validate(['response' => ['required', 'string', 'max:20000']]);
@@ -182,6 +206,7 @@ class ResearchSpecializedController extends Controller
 
     public function scorePanel(Request $request, ResearchProject $research, SeminarSession $seminar, SeminarPanelMember $panel): RedirectResponse
     {
+        $this->assertFeatureEnabled('seminar_module', $request->user());
         $this->authorize('review', $research); $this->assertSeminar($research, $seminar); abort_unless($panel->seminar_session_id === $seminar->id, 404);
         abort_unless($request->user()->isAdmin() || $panel->user_id === $request->user()->id, 403);
         $data = $request->validate(['score' => ['required', 'numeric', 'between:0,100'], 'comment' => ['nullable', 'string', 'max:10000']]);
@@ -193,6 +218,7 @@ class ResearchSpecializedController extends Controller
 
     public function completeSeminar(Request $request, ResearchProject $research, SeminarSession $seminar): RedirectResponse
     {
+        $this->assertFeatureEnabled('seminar_module', $request->user());
         $this->authorize('review', $research); $this->assertSeminar($research, $seminar);
         $data = $request->validate(['moderator_notes' => ['nullable', 'string', 'max:20000'], 'status' => ['required', 'in:completed,corrections_required,cancelled']]);
         DB::transaction(function () use ($seminar, $data, $request) {
@@ -220,6 +246,16 @@ class ResearchSpecializedController extends Controller
     {
         $research->specializedLinks()->updateOrCreate(['workspace_type' => $type, 'source_type' => $submission->getMorphClass(), 'source_id' => $submission->id], ['settings' => ['submission_uuid' => $submission->uuid, 'reuse_existing_submission_versions' => true, 'reuse_existing_grading_and_defense' => true]]);
         $research->update(['specialization_type' => $type]);
+    }
+
+    private function featureEnabled(string $feature, ?\App\Models\User $user): bool
+    {
+        return FeatureAccessService::effectiveStatus($feature, $user?->university_id) === FeatureAccessService::STATUS_ENABLED;
+    }
+
+    private function assertFeatureEnabled(string $feature, ?\App\Models\User $user): void
+    {
+        abort_unless($this->featureEnabled($feature, $user), 403, 'This specialized research module is currently disabled by the platform administrator.');
     }
 
     private function assertPlacement(ResearchProject $research, SiwesPlacement $placement): void { abort_unless($placement->research_project_id === $research->id, 404); }

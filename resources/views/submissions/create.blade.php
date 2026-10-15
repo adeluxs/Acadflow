@@ -11,7 +11,7 @@
             <span class="text-gray-600 mx-2">/</span>
             <a href="{{ route('courses.assignments', $task->course) }}" class="text-blue-600 hover:underline">Assignments</a>
             <span class="text-gray-600 mx-2">/</span>
-            <a href="{{ route('submission-tasks.student.show', [$task->course, $task]) }}" class="text-blue-600 hover:underline">{{ $task->title }}</a>
+            <a href="{{ route('submission-tasks.student.show', ['course' => $task->course ?? $task->course_id, 'task' => $task]) }}" class="text-blue-600 hover:underline">{{ $task->title }}</a>
         @else
             Assignments
         @endif
@@ -35,7 +35,7 @@
                             <div class="mt-1 text-xs text-slate-500">{{ $availableTask->course?->code }} · {{ $availableTask->course?->name }}</div>
                         </div>
                         <div class="text-right text-xs text-slate-500">
-                            <div>{{ $availableTask->due_date?->format('M d, Y') ?? 'No due date' }}</div>
+                            <div>{{ ($availableTask->acceptanceDeadline(auth()->user()) ?? $availableTask->due_date)?->format('M d, Y') ?? 'No due date' }}</div>
                             <span class="font-semibold text-indigo-600">Open →</span>
                         </div>
                     </a>
@@ -47,6 +47,40 @@
             </div>
         </div>
     @else
+
+    @php
+        // Accurate, reassuring status. The acceptance deadline already accounts
+        // for the late window and any approved per-student extension, so an
+        // extended deadline never renders as "closed".
+        $acceptance = $task->acceptanceDeadline(auth()->user());
+        $baseDeadline = $task->due_date ?? $task->close_at ?? $task->late_deadline;
+        $deadlineExtended = $acceptance && $baseDeadline && $acceptance->gt($baseDeadline);
+        $windowClosed = $acceptance ? now()->isAfter($acceptance) : false;
+        $lateWindow = ! $windowClosed && $task->due_date && now()->isAfter($task->due_date);
+        $acceptsText = $task->acceptsText();
+        $acceptsFiles = $task->acceptsFiles();
+    @endphp
+
+    {{-- Submission window status banner --}}
+    <div class="mb-6 rounded-2xl border p-4 text-sm
+        @if($windowClosed) border-rose-200 bg-rose-50 text-rose-800
+        @elseif($deadlineExtended) border-indigo-200 bg-indigo-50 text-indigo-900
+        @elseif($lateWindow) border-amber-200 bg-amber-50 text-amber-900
+        @else border-emerald-200 bg-emerald-50 text-emerald-800 @endif">
+        @if($windowClosed)
+            <p class="font-bold">This assignment is closed.</p>
+            <p class="mt-1">The submission window ended on {{ $acceptance?->format('M d, Y H:i') }} and no further submissions are accepted.</p>
+        @elseif($deadlineExtended)
+            <p class="font-bold">Submission window open — deadline extended.</p>
+            <p class="mt-1">Your lecturer extended the deadline to <strong>{{ $acceptance?->format('M d, Y H:i') }}</strong>, so you can still submit this assignment. The original deadline was {{ $baseDeadline?->format('M d, Y H:i') }}.</p>
+        @elseif($lateWindow)
+            <p class="font-bold">Late submission window is open.</p>
+            <p class="mt-1">The original deadline passed on {{ $task->due_date?->format('M d, Y H:i') }}. You can still submit until {{ $acceptance?->format('M d, Y H:i') }} — a {{ $task->late_submission_penalty_percent }}% late penalty applies.</p>
+        @else
+            <p class="font-bold">Submission window open.</p>
+            <p class="mt-1">Submit before <strong>{{ ($acceptance ?? $baseDeadline)?->format('M d, Y H:i') }}</strong>.</p>
+        @endif
+    </div>
 
     @if($errors->any())
         <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -62,7 +96,7 @@
     <div class="grid grid-cols-3 gap-8">
         <!-- Left: Upload Form -->
         <div class="col-span-2">
-    <form action="{{ route('submissions.store') }}" method="POST" enctype="multipart/form-data" id="submissionForm">
+    <form action="{{ route('submissions.store') }}" method="POST" enctype="multipart/form-data" id="submissionForm" data-format="{{ $task->submission_format ?? 'file' }}">
         @csrf
         @if(isset($task) && $task->course)
             <input type="hidden" name="course_id" value="{{ $task->course->id }}">
@@ -70,8 +104,26 @@
         <input type="hidden" name="submission_task_id" value="{{ $task->id ?? '' }}">
         <input type="hidden" name="type" value="{{ $task->type ?? '' }}">
         <input type="hidden" name="title" value="{{ $task->title ?? '' }}">
+        {{-- The primary button completes the submission in one step; the
+             controller still stores a draft first so nothing is lost if a
+             deadline/format/security guard rejects the submit. --}}
+        <input type="hidden" name="intent" value="submit">
         
 
+                @if($acceptsText)
+                <!-- Written Answer -->
+                <div class="bg-white rounded-lg shadow p-8 mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">✍️ Your Written Answer</h2>
+                    <p class="text-sm text-gray-600 mb-4">Write your submission below. Use the toolbar to format headings, lists, links and emphasis — your answer is saved with the submission.</p>
+                    <label for="submissionContent" class="sr-only">Your written answer</label>
+                    <textarea id="submissionContent" name="content" rows="16" data-rich-editor data-editor-height="420px">{{ old('content') }}</textarea>
+                    @error('content')
+                        <p class="text-red-600 text-sm mt-2">{{ $message }}</p>
+                    @enderror
+                </div>
+                @endif
+
+                @if($acceptsFiles)
                 <!-- Files Upload -->
                 <div class="bg-white rounded-lg shadow p-8 mb-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-6">📁 Upload Your Files</h2>
@@ -117,6 +169,7 @@
                         <p class="text-red-600 text-sm mb-4">{{ $message }}</p>
                     @enderror
                 </div>
+                @endif
 
                 <!-- Comments -->
                 <div class="bg-white rounded-lg shadow p-8 mb-6">
@@ -162,7 +215,7 @@
                         📤 Submit Assignment
                     </button>
                     
-                    <a href="{{ route('submission-tasks.student.show', [$task->course, $task]) }}" 
+                    <a href="{{ route('submission-tasks.student.show', ['course' => $task->course ?? $task->course_id, 'task' => $task]) }}" 
                        class="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-semibold text-center">
                         Cancel
                     </a>
@@ -175,25 +228,31 @@
             <!-- Deadline -->
             <div class="bg-white rounded-lg shadow p-6 mb-6">
                 <h3 class="font-bold text-gray-900 mb-4">📅 Deadline</h3>
-                @php($displayDeadline = $task->due_date ?? $task->close_at ?? $task->late_deadline)
-                <p class="text-lg font-bold text-gray-900">{{ $displayDeadline?->format('M d, Y') ?? 'No deadline set' }}</p>
-                <p class="text-sm text-gray-600">{{ $displayDeadline?->format('H:i') ?? '—' }}</p>
-                
-                @if($task->due_date && now()->isAfter($task->due_date) && (! $task->late_deadline || now()->isBefore($task->late_deadline)))
-                    <div class="mt-4 p-3 bg-orange-50 border border-orange-200 rounded">
-                        <p class="text-orange-700 font-semibold text-sm">⚠ This is a late submission</p>
-                        <p class="text-orange-600 text-xs mt-1">
-                            {{ $task->late_submission_penalty_percent }}% penalty will be applied to your grade
-                        </p>
-                    </div>
+                <p class="text-lg font-bold text-gray-900">{{ ($acceptance ?? $baseDeadline)?->format('M d, Y') ?? 'No deadline set' }}</p>
+                @if($deadlineExtended)
+                    <p class="mt-1 text-xs font-semibold text-indigo-600">Extended by your lecturer</p>
                 @endif
+                <p class="text-sm text-gray-600">{{ ($acceptance ?? $baseDeadline)?->format('H:i') ?? '—' }}</p>
 
-                @if($task->late_deadline && now()->isAfter($task->late_deadline))
-                    <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded">
-                        <p class="text-red-700 font-semibold text-sm">❌ Hard deadline passed</p>
-                        <p class="text-red-600 text-xs mt-1">
-                            Submissions are no longer accepted
-                        </p>
+                @if($windowClosed)
+                    <div class="mt-4 p-3 bg-rose-50 border border-rose-200 rounded">
+                        <p class="text-rose-700 font-semibold text-sm">Closed</p>
+                        <p class="text-rose-600 text-xs mt-1">Submissions are no longer accepted for this assignment.</p>
+                    </div>
+                @elseif($deadlineExtended)
+                    <div class="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded">
+                        <p class="text-indigo-700 font-semibold text-sm">Extended — you can still submit</p>
+                        <p class="text-indigo-600 text-xs mt-1">New deadline: {{ $acceptance?->format('M d, Y H:i') }}.</p>
+                    </div>
+                @elseif($lateWindow)
+                    <div class="mt-4 p-3 bg-orange-50 border border-orange-200 rounded">
+                        <p class="text-orange-700 font-semibold text-sm">Late submission window</p>
+                        <p class="text-orange-600 text-xs mt-1">{{ $task->late_submission_penalty_percent }}% penalty will be applied to your grade.</p>
+                    </div>
+                @else
+                    <div class="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded">
+                        <p class="text-emerald-700 font-semibold text-sm">Open</p>
+                        <p class="text-emerald-600 text-xs mt-1">Submit before the deadline shown above.</p>
                     </div>
                 @endif
             </div>
@@ -295,37 +354,51 @@ function validateFile(file) {
     return file.size <= maxSize && allowedTypes.includes(ext);
 }
 
-// Validate all files
-function validateFiles() {
-    const minFiles = {{ $task->min_file_count }};
-    const maxFiles = {{ $task->max_file_count }};
-    const allValid = selectedFiles.length >= minFiles && selectedFiles.length <= maxFiles && 
-                    selectedFiles.every(f => validateFile(f));
-    
-    document.getElementById('submitBtn').disabled = !allValid || !document.querySelector('input[name="confirm_submission"]').checked;
+// Whether a written answer has been provided (the rich editor keeps the plain
+// textarea in sync, so reading its value works either way).
+function hasWrittenAnswer() {
+    const el = document.getElementById('submissionContent');
+    if (!el) return false;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = el.value || '';
+    return (tmp.textContent || '').trim().length > 0;
 }
 
-// Enable submit on confirmation check
-document.querySelector('input[name="confirm_submission"]').addEventListener('change', validateFiles);
+// Validate the submission against the assignment's format.
+function validateFiles() {
+    const format = document.getElementById('submissionForm').dataset.format || 'file';
+    const minFiles = {{ $task->min_file_count }};
+    const maxFiles = {{ $task->max_file_count }};
 
-// Drag and drop
+    const filesValid = selectedFiles.length <= maxFiles && selectedFiles.every(f => validateFile(f));
+    const textOk = hasWrittenAnswer();
+
+    let contentOk;
+    if (format === 'text') {
+        contentOk = textOk;
+    } else if (format === 'both') {
+        contentOk = textOk || (selectedFiles.length > 0 && filesValid);
+    } else {
+        contentOk = selectedFiles.length >= minFiles && filesValid;
+    }
+
+    const confirmed = document.querySelector('input[name="confirm_submission"]').checked;
+    document.getElementById('submitBtn').disabled = !(contentOk && confirmed);
+}
+
+// Re-evaluate whenever the confirmation or the written answer changes.
+document.querySelector('input[name="confirm_submission"]').addEventListener('change', validateFiles);
+document.getElementById('submissionContent')?.addEventListener('input', validateFiles);
+document.getElementById('submissionContent')?.addEventListener('change', validateFiles);
+validateFiles();
+
+// Drag and drop (only present when the assignment accepts file uploads).
 const dropZone = document.querySelector('.border-dashed');
-['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, preventDefaults, false);
-});
 
 function preventDefaults(e) {
     e.preventDefault();
     e.stopPropagation();
 }
-
-['dragenter', 'dragover'].forEach(eventName => {
-    dropZone.addEventListener(eventName, highlight, false);
-});
-
-['dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, unhighlight, false);
-});
 
 function highlight(e) {
     dropZone.classList.add('border-blue-400', 'bg-blue-50');
@@ -335,7 +408,18 @@ function unhighlight(e) {
     dropZone.classList.remove('border-blue-400', 'bg-blue-50');
 }
 
-        dropZone.addEventListener('drop', handleDrop, false);
+if (dropZone) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+    dropZone.addEventListener('drop', handleDrop, false);
+}
 
         // Offline submission support
         const taskId = {{ $task->id }};

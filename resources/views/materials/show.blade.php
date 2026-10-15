@@ -16,7 +16,9 @@
                 <p class="mt-2 text-sm text-slate-300">{{ $course->code }} · {{ $course->name }}</p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a href="{{ route('materials.download', [$course, $material]) }}" class="rounded-xl bg-white px-5 py-2.5 text-sm font-black text-slate-950 hover:bg-slate-100">Download</a>
+                @if($material->hasFile())
+                    <a href="{{ route('materials.download', [$course, $material]) }}" class="rounded-xl bg-white px-5 py-2.5 text-sm font-black text-slate-950 hover:bg-slate-100">Download</a>
+                @endif
                 @can('update', $material)<a href="{{ route('lecturer.materials.edit', [$course, $material]) }}" class="rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-bold hover:bg-white/20">Edit material</a>@endcan
             </div>
         </div>
@@ -24,6 +26,22 @@
 
     <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,.8fr)]">
         <main class="space-y-6">
+            @if($material->hasContent())
+                <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <h2 class="text-xl font-black text-slate-900">Course content</h2>
+                        <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">{{ $material->sourceLabel() }}</span>
+                    </div>
+                    {{-- Content is sanitized with an allowlist on save, so it is safe to render here. --}}
+                    <div class="prose prose-sm mt-4 max-w-none prose-slate">{!! $material->content !!}</div>
+                    @can('update', $material)
+                        <div class="mt-5 flex flex-wrap gap-2">
+                            <a href="{{ route('lecturer.materials.edit', [$course, $material]) }}" class="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700">Edit content</a>
+                        </div>
+                    @endcan
+                </section>
+            @endif
+
             <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
                 <div class="flex items-center justify-between gap-4"><h2 class="text-xl font-black text-slate-900">About this resource</h2><span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">{{ $material->download_count ?? 0 }} downloads</span></div>
                 @if($material->description)<p class="mt-4 whitespace-pre-line text-sm leading-7 text-slate-600">{{ $material->description }}</p>@else<p class="mt-4 text-sm text-slate-500">No additional description was provided.</p>@endif
@@ -34,6 +52,63 @@
                 </div>
                 @if($material->is_public)<div class="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">This material is marked as publicly accessible.</div>@endif
             </section>
+
+            @auth
+            <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <h2 class="text-xl font-black text-slate-900">My highlights &amp; notes</h2>
+                    <button type="button" id="annotationSummaryBtn" data-url="{{ route('annotations.summary', [$course, $material]) }}" class="rounded-xl border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50">Summarize my highlights</button>
+                </div>
+                <form method="POST" action="{{ route('annotations.store', [$course, $material]) }}" class="mt-4 space-y-2">
+                    @csrf
+                    <input type="text" name="quote" maxlength="2000" placeholder="Highlight a quote from this material" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                    <textarea name="note" rows="2" maxlength="4000" placeholder="Add your own note" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"></textarea>
+                    <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white">Save highlight</button>
+                </form>
+                <div id="annotationSummary" class="mt-3 hidden rounded-xl bg-indigo-50 p-3 text-sm text-slate-700"></div>
+                <div class="mt-4 space-y-2">
+                    @forelse($material->annotations as $annotation)
+                        <div class="rounded-xl border border-slate-200 p-3 text-sm">
+                            @if($annotation->quote)<p class="font-semibold text-slate-800">&ldquo;{{ $annotation->quote }}&rdquo;</p>@endif
+                            @if($annotation->note)<p class="mt-1 text-slate-600">{{ $annotation->note }}</p>@endif
+                            <form method="POST" action="{{ route('annotations.destroy', $annotation) }}" class="mt-2">
+                                @csrf
+                                @method('DELETE')
+                                <button class="text-xs font-bold text-rose-600">Remove</button>
+                            </form>
+                        </div>
+                    @empty
+                        <p class="text-xs text-slate-500">No highlights yet.</p>
+                    @endforelse
+                </div>
+            </section>
+            <script>
+            (() => {
+                const btn = document.getElementById('annotationSummaryBtn');
+                const box = document.getElementById('annotationSummary');
+                btn?.addEventListener('click', async () => {
+                    btn.disabled = true;
+                    const original = btn.textContent;
+                    btn.textContent = 'Summarizing…';
+                    try {
+                        const res = await fetch(btn.dataset.url, {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+                            credentials: 'same-origin',
+                        });
+                        const data = await res.json();
+                        box.textContent = data.summary || 'No summary available.';
+                    } catch (_) {
+                        box.textContent = 'Summary unavailable right now.';
+                    } finally {
+                        box.classList.remove('hidden');
+                        btn.disabled = false;
+                        btn.textContent = original;
+                    }
+                });
+            })();
+            </script>
+            @endauth
 
             @include('ai._contextual-assistant', ['assistantFeature' => 'material_assistant', 'assistantEndpoint' => route('ai.context.material',[$course,$material])])
 

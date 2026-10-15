@@ -26,11 +26,13 @@ use App\Models\Submission;
 use App\Services\Ai\AcademicAssistantService;
 use App\Services\Ai\AiRuntimeConfigService;
 use App\Services\SettingService;
+use App\Support\AiResponseText;
 use App\Support\Errors\UserFacingError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -63,6 +65,8 @@ class AiController extends Controller
     {
         $user = $request->user();
         $courses = collect();
+        $isLecturer = (bool) $user?->isLecturer();
+        $assistantExperience = $this->assistant->assistantExperience($user);
 
         if ($user->isStudent()) {
             $courses = Course::query()
@@ -84,6 +88,11 @@ class AiController extends Controller
         $selectedTool = in_array($request->query('tool'), ['ask', 'writing', 'citation'], true)
             ? (string) $request->query('tool')
             : 'ask';
+        $selectedFeature = $this->assistant->featureFor(
+            $user,
+            'ask',
+            is_string($request->query('assistant_feature')) ? (string) $request->query('assistant_feature') : null,
+        );
 
         // Resolve the same canonical feature keys used by the eventual runtime
         // requests. A lecturer therefore sees lecturer_assistant routing for
@@ -92,11 +101,24 @@ class AiController extends Controller
         // badges stay consistent when the user changes tools before submitting.
         $toolRoutes = [];
         foreach (['ask', 'writing', 'citation'] as $tool) {
-            $feature = $this->assistant->featureFor($user, $tool);
+            $feature = $this->assistant->featureFor($user, $tool, $tool === 'ask' ? $selectedFeature : null);
             $resolved = $this->router->route($feature, $user->university_id);
             $externalAiEnabled = in_array($resolved['mode'], [AiMode::PROVIDER->value, AiMode::HYBRID->value], true);
 
             $toolRoutes[$tool] = [
+                'feature' => $feature,
+                'mode' => $resolved['mode'],
+                'provider' => $externalAiEnabled ? $resolved['resolved_provider'] : 'Rule engine',
+                'model' => $externalAiEnabled ? ($resolved['resolved_model'] ?: 'Provider default') : 'rule-engine',
+                'feature_enabled' => (bool) $resolved['feature_enabled'],
+            ];
+        }
+
+        $featureRoutes = [];
+        foreach ($this->assistant->allowedAskFeatures($user) as $feature) {
+            $resolved = $this->router->route($feature, $user->university_id);
+            $externalAiEnabled = in_array($resolved['mode'], [AiMode::PROVIDER->value, AiMode::HYBRID->value], true);
+            $featureRoutes[$feature] = [
                 'feature' => $feature,
                 'mode' => $resolved['mode'],
                 'provider' => $externalAiEnabled ? $resolved['resolved_provider'] : 'Rule engine',
@@ -115,20 +137,27 @@ class AiController extends Controller
             'model' => $route['model'],
             'externalAiEnabled' => in_array($route['mode'], [AiMode::PROVIDER->value, AiMode::HYBRID->value], true),
             'selectedTool' => $selectedTool,
+            'selectedFeature' => $selectedFeature,
             'toolRoutes' => $toolRoutes,
+            'featureRoutes' => $featureRoutes,
+            'assistantExperience' => $assistantExperience,
+            'isLecturer' => $isLecturer,
+            'assistantTimeoutMs' => max(5000, (int) config('ai.contextual_ui_timeout_ms', 28000)),
         ]);
     }
 
     public function askAssistant(Request $request)
     {
+        $user = $request->user();
         $data = $request->validate([
             'tool' => ['required', 'in:ask,writing,citation'],
             'message' => ['required', 'string', 'max:50000'],
             'course_id' => ['nullable', 'integer', 'exists:courses,id'],
             'style' => ['nullable', 'in:apa,mla,chicago,harvard,ieee,vancouver'],
+            'assistant_feature' => ['nullable', 'string', Rule::in($this->assistant->allowedAskFeatures($user))],
+            'study_mode' => ['nullable', 'in:answer,socratic'],
         ]);
 
-        $user = $request->user();
         $requestId = UserFacingError::requestId($request);
         $startedAt = microtime(true);
         Log::info('AI request received.', [
@@ -136,6 +165,7 @@ class AiController extends Controller
             'user_id' => $user?->id,
             'operation' => 'ai.assistant.ask',
             'tool' => $data['tool'],
+            'assistant_feature' => $data['assistant_feature'] ?? null,
             'elapsed_ms' => 0,
         ]);
 
@@ -144,30 +174,59 @@ class AiController extends Controller
             abort(403, 'You do not have access to the selected course.');
         }
 
-        if ($data['tool'] === 'writing') {
-            if (! $this->writing->isEnabled($user->university_id)) {
-                return response()->json(['success' => false, 'answer' => 'The writing assistant is disabled for your institution.']);
+        try {
+            if ($data['tool'] === 'writing') {
+                if (! $this->writing->isEnabled($user->university_id)) {
+                    return response()->json($this->assistantFailurePayload(
+                        'AI_FEATURE_DISABLED',
+                        'The writing assistant is disabled for your institution.',
+                        $requestId,
+                        false,
+                    ), 503);
+                }
+                $payload = $this->assistantModulePayload(
+                    $this->writing->analyze($data['message'], 'general', $user)->toArray(), 'Writing review'
+                );
+            } elseif ($data['tool'] === 'citation') {
+                if (! $this->citation->isEnabled($user->university_id)) {
+                    return response()->json($this->assistantFailurePayload(
+                        'AI_FEATURE_DISABLED',
+                        'The citation assistant is disabled for your institution.',
+                        $requestId,
+                        false,
+                    ), 503);
+                }
+                $payload = $this->assistantModulePayload(
+                    $this->citation->analyze($data['message'], $data['style'] ?? 'apa', $user)->toArray(), 'Citation review'
+                );
+            } else {
+                // The public assistant service contract carries the request correlation ID
+                // and lifecycle start time so the same logical request is observable from
+                // controller -> service -> manager -> provider -> response. Keep the nullable
+                // course argument explicit because existing endpoint regression tests and
+                // decorators rely on this five-argument contract.
+                $studyMode = ($data['study_mode'] ?? null) === 'socratic' ? 'socratic' : null;
+                $payload = $this->assistant->ask($user, $data['message'], $courseId, $requestId, $startedAt, $data['assistant_feature'] ?? null, $studyMode);
             }
-            return response()->json($this->assistantModulePayload(
-                $this->writing->analyze($data['message'], 'general', $user)->toArray(), 'Writing review'
-            ));
-        }
+        } catch (\Throwable $exception) {
+            $safe = UserFacingError::fromThrowable($exception, $request);
+            Log::channel('ai_provider')->error('AI assistant request failed before a normalized response could be returned.', [
+                'request_id' => $requestId,
+                'operation' => 'ai.assistant.ask',
+                'tool' => $data['tool'],
+                'user_id' => $user?->id,
+                'error_code' => $safe->code,
+                'error_type' => $exception::class,
+                'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            ]);
 
-        if ($data['tool'] === 'citation') {
-            if (! $this->citation->isEnabled($user->university_id)) {
-                return response()->json(['success' => false, 'answer' => 'The citation assistant is disabled for your institution.']);
-            }
-            return response()->json($this->assistantModulePayload(
-                $this->citation->analyze($data['message'], $data['style'] ?? 'apa', $user)->toArray(), 'Citation review'
-            ));
+            return response()->json($this->assistantFailurePayload(
+                $safe->code,
+                $safe->message,
+                $requestId,
+                $safe->retryable,
+            ), $safe->status);
         }
-
-        // The public assistant service contract carries the request correlation ID
-        // and lifecycle start time so the same logical request is observable from
-        // controller -> service -> manager -> provider -> response. Keep the nullable
-        // course argument explicit because existing endpoint regression tests and
-        // decorators rely on this five-argument contract.
-        $payload = $this->assistant->ask($user, $data['message'], $courseId, $requestId, $startedAt);
 
         Log::info('AI response returned to client.', [
             'request_id' => $requestId,
@@ -179,6 +238,25 @@ class AiController extends Controller
         ]);
 
         return response()->json($payload);
+    }
+
+    private function assistantFailurePayload(string $code, string $message, string $requestId, bool $retryable): array
+    {
+        return [
+            'success' => false,
+            'status' => false,
+            'message' => UserFacingError::safeMessage($message, 'AI is temporarily unavailable. Your work has not been lost. Please try again.'),
+            'answer' => UserFacingError::safeMessage($message, 'AI is temporarily unavailable. Your work has not been lost. Please try again.'),
+            'provider' => null,
+            'model' => null,
+            'source' => 'controller_error',
+            'fallback_used' => false,
+            'confidence' => 0.0,
+            'sources' => [],
+            'request_id' => $requestId,
+            'error_code' => $code,
+            'retryable' => $retryable,
+        ];
     }
 
     private function assistantModulePayload(array $payload, string $fallbackTitle): array
@@ -199,7 +277,7 @@ class AiController extends Controller
 
         return [
             'success' => $success,
-            'answer' => (is_string($answer) && trim($answer) !== '') ? $answer : $fallbackTitle.' completed. No additional suggestions were returned.',
+            'answer' => (is_string($answer) && trim($answer) !== '') ? AiResponseText::clean($answer) : $fallbackTitle.' completed. No additional suggestions were returned.',
             'provider' => $payload['provider'] ?? null,
             'model' => $payload['model'] ?? null,
             'source' => $payload['source'] ?? null,
@@ -467,6 +545,13 @@ class AiController extends Controller
         }
         $config['temperature'] = (float) $request->input("provider_{$provider}_temperature", $config['temperature'] ?? 0.2);
 
+        // Admin Test Connection is an interactive diagnostic, not a generation
+        // request. Bound it well below PHP's common 30-second execution limit.
+        $config['health_check_budget_seconds'] = max(4, min(12, (int) config('ai.health_check_budget_seconds', 12)));
+        $config['health_check_timeout'] = max(2, min(6, (int) config('ai.health_check_timeout', 6)));
+        $config['health_check_connect_timeout'] = max(1, min(3, (int) config('ai.health_check_connect_timeout', 3)));
+        $config['retry_count'] = 0;
+
         $result = $this->providerRegistry->healthWithConfig($provider, $config);
         return back()->withInput()->with('provider_test', $result);
     }
@@ -500,7 +585,11 @@ class AiController extends Controller
 
         $models = array_values(array_unique(array_map(fn (array $model): string => $model['id'], $catalog)));
         SettingService::set('ai_provider_openrouter_models', $models, 'json', null, $request->user()->id);
-        SettingService::set('ai_provider_openrouter_model_catalog', $catalog, 'json', null, $request->user()->id);
+
+        // The complete OpenRouter catalog (names, context windows and pricing)
+        // can exceed MySQL TEXT limits and is not part of runtime routing. Keep
+        // it as short-lived diagnostics data instead of bloating settings.value.
+        Cache::put('ai:provider-model-catalog:openrouter', $catalog, now()->addHours(6));
         $this->runtime->invalidate();
 
         return redirect()->route('ai.settings')->with('success', 'OpenRouter model catalog refreshed: '.count($models).' models discovered.');

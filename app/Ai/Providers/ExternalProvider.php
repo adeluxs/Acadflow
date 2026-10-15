@@ -262,6 +262,8 @@ abstract class ExternalProvider implements AiProviderInterface
     public function healthCheck(): array
     {
         $start = microtime(true);
+        $healthBudgetSeconds = max(4, min(20, (int) ($this->config['health_check_budget_seconds'] ?? 12)));
+        $healthDeadline = $start + $healthBudgetSeconds;
         $requestId = (string) Str::uuid();
         $base = [
             'provider' => $this->name(),
@@ -300,7 +302,12 @@ abstract class ExternalProvider implements AiProviderInterface
 
             try {
                 $response = $this->sendJson(
-                    $this->httpClient($requestId, true, $configuredForceIpv4),
+                    $this->httpClient(
+                        $requestId,
+                        true,
+                        $configuredForceIpv4,
+                        $this->healthAttemptTimeout($healthDeadline)
+                    ),
                     $endpoint,
                     $body
                 );
@@ -310,13 +317,19 @@ abstract class ExternalProvider implements AiProviderInterface
                     throw $firstConnectionError;
                 }
 
+                $fallbackTimeout = $this->healthAttemptTimeout($healthDeadline);
+                if ($fallbackTimeout < 1) {
+                    throw $firstConnectionError;
+                }
+
                 $this->providerLog('warning', 'AI provider health check retrying with IPv4 transport fallback.', [
                     'request_id' => $requestId,
                     'error_code' => $firstCode,
                     'diagnostic' => $firstDiagnostic,
+                    'remaining_budget_seconds' => max(0, round($healthDeadline - microtime(true), 2)),
                 ]);
                 $response = $this->sendJson(
-                    $this->httpClient($requestId, true, true),
+                    $this->httpClient($requestId, true, true, $fallbackTimeout),
                     $endpoint,
                     $body
                 );
@@ -437,6 +450,21 @@ abstract class ExternalProvider implements AiProviderInterface
     }
 
     /**
+     * Keep connectivity tests inside a small wall-clock budget so a broken
+     * provider/network cannot consume PHP's whole max_execution_time. The
+     * second IPv4 attempt, when needed, only gets the time still available.
+     */
+    protected function healthAttemptTimeout(float $deadline): int
+    {
+        $configured = max(2, min(10, (int) ($this->config['health_check_timeout'] ?? 6)));
+        $remaining = (int) floor($deadline - microtime(true) - 1.0);
+
+        if ($remaining < 1) return 0;
+
+        return max(1, min($configured, $remaining));
+    }
+
+    /**
      * Shared HTTP transport for Test Connection and real requests.
      */
     protected function httpClient(string $requestId, bool $healthCheck = false, ?bool $forceIpv4Override = null, ?int $timeoutOverride = null): PendingRequest
@@ -444,8 +472,17 @@ abstract class ExternalProvider implements AiProviderInterface
         $requestTimeout = $timeoutOverride !== null
             ? max(1, $timeoutOverride)
             : max(1, (int) ($this->config['request_timeout'] ?? 18));
-        if ($healthCheck) $requestTimeout = min(15, max(5, $requestTimeout));
-        $connectTimeout = max(1, min($requestTimeout, (int) ($this->config['connect_timeout'] ?? 10)));
+
+        if ($healthCheck) {
+            $healthTimeout = max(2, min(10, (int) ($this->config['health_check_timeout'] ?? 6)));
+            $requestTimeout = min($requestTimeout, $healthTimeout);
+            $connectTimeout = max(1, min(
+                $requestTimeout,
+                (int) ($this->config['health_check_connect_timeout'] ?? 3)
+            ));
+        } else {
+            $connectTimeout = max(1, min($requestTimeout, (int) ($this->config['connect_timeout'] ?? 10)));
+        }
 
         $options = [];
         $verifyTls = filter_var($this->config['verify_tls'] ?? true, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
@@ -484,12 +521,16 @@ abstract class ExternalProvider implements AiProviderInterface
 
     protected function body(string $feature, array $payload): array
     {
+        $configuredMaxTokens = (int) ($this->config['max_tokens'] ?? 2048);
+        $requestedMaxTokens = (int) ($payload['_ai_response_max_tokens'] ?? 0);
+        $maxTokens = $feature === '__health_check'
+            ? min(64, $configuredMaxTokens)
+            : max(1, min(8192, max($configuredMaxTokens, $requestedMaxTokens)));
+
         return [
             'model' => $this->model(),
             'temperature' => (float) ($this->config['temperature'] ?? 0.2),
-            'max_tokens' => $feature === '__health_check'
-                ? min(64, (int) ($this->config['max_tokens'] ?? 2048))
-                : (int) ($this->config['max_tokens'] ?? 2048),
+            'max_tokens' => $maxTokens,
             'messages' => [
                 ['role' => 'system', 'content' => $this->systemPrompt($payload)],
                 ['role' => 'user', 'content' => $this->userPrompt($feature, $payload)],

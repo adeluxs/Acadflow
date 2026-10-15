@@ -9,9 +9,9 @@
  * - preserve offline write queue/background sync support.
  */
 
-const CACHE_NAME = 'acadflow-pwa-v3';
-const STATIC_CACHE = 'acadflow-static-v3';
-const API_CACHE = 'acadflow-api-v3';
+const CACHE_NAME = 'acadflow-pwa-v6-auth-network-first';
+const STATIC_CACHE = 'acadflow-static-v6-auth-network-first';
+const API_CACHE = 'acadflow-api-v6-auth-network-first';
 
 // Only stable public files belong in the install cache. Vite assets are hashed
 // and are cached lazily when requested; /css/app.css and /js/app.js are not
@@ -55,7 +55,15 @@ self.addEventListener('fetch', (event) => {
     // Let online writes go directly to Laravel. If the browser is offline, the
     // existing sync queue can accept the write for later replay.
     if (request.method !== 'GET') {
-        if (self.navigator?.onLine === false) {
+        // Auth/session/payment/AI writes must always go directly to Laravel. A
+        // stale or over-eager service worker must never convert login/logout or
+        // assistant requests into offline queue JSON shown in the browser.
+        if (shouldBypassWriteQueue(url)) return;
+
+        // Only explicitly offline-sync endpoints are queueable. Generic form
+        // submissions should fail normally when offline so users do not see a
+        // JSON queue payload on pages such as login.
+        if (isQueueableOfflineWrite(url, request) && self.navigator?.onLine === false) {
             event.respondWith(
                 queueOfflineAction(request).then(() => new Response(JSON.stringify({
                     success: false,
@@ -66,6 +74,8 @@ self.addEventListener('fetch', (event) => {
         }
         return;
     }
+
+    if (url.pathname.startsWith('/ai/')) return;
 
     if (request.mode === 'navigate') {
         event.respondWith(handleNavigationRequest(event));
@@ -87,6 +97,26 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(handleStaticAsset(request));
     }
 });
+
+function shouldBypassWriteQueue(url) {
+    return url.pathname.startsWith('/ai/')
+        || url.pathname === '/login'
+        || url.pathname === '/logout'
+        || url.pathname === '/register'
+        || url.pathname.startsWith('/password')
+        || url.pathname.startsWith('/forgot-password')
+        || url.pathname.startsWith('/reset-password')
+        || url.pathname.startsWith('/two-factor')
+        || url.pathname.startsWith('/payment')
+        || url.pathname.startsWith('/commerce')
+        || url.pathname.startsWith('/billing');
+}
+
+function isQueueableOfflineWrite(url, request) {
+    return request.headers.get('X-AcadFlow-Offline-Queue') === '1'
+        || url.pathname.startsWith('/sync/')
+        || url.pathname.startsWith('/offline/');
+}
 
 async function handleNavigationRequest(event) {
     try {

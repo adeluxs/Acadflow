@@ -32,6 +32,7 @@
             ['Knowledge Hub','knowledge.index','book'],
             ['Communities','knowledge.communities.index','community'],
             ['Calendar','knowledge.events.index','calendar'],
+            ['My Profile','profile.show','profile'],
             ['Notifications','notifications.index','bell'],
         ],
         'student' => [
@@ -44,6 +45,7 @@
             ['Research Studio','research.index','research'],
             ['Knowledge Hub','knowledge.index','book'],
             ['Calendar','knowledge.events.index','calendar'],
+            ['My Profile','profile.show','profile'],
             ['Notifications','notifications.index','bell'],
         ],
         'member' => [
@@ -89,7 +91,7 @@
     $secondary = $user?->isAdmin() ? [
         ['Knowledge Hub','knowledge.index','book'],['Research Studio','research.index','research'],['Communities','knowledge.communities.index','community']
     ] : [
-        ['Profile','knowledge.creator.edit','profile'],['Preferences','notifications.settings','settings'],['Security','security.show','settings']
+        ['My Profile','profile.show','profile'],['Preferences','notifications.settings','settings'],['Security','security.show','settings']
     ];
 
     $render = function(array $items) use ($icons, $user) {

@@ -1,0 +1,28 @@
+AcadFlow final performance optimization validation
+Date: 2026-09-12
+
+Project preflight scripts: 24 passed, 0 failed
+PHP/Blade parse validation: 812 passed, 0 failed
+Blade templates present: 163
+HTTP route closures detected: 0
+.env included: no (only .env.example)
+node_modules included: no
+vendor included: no
+Performance index migration: database/migrations/2026_09_12_213000_add_hot_path_performance_indexes.php
+Performance regression guard: scripts/check-performance-optimization.php
+Detailed report: PERFORMANCE_OPTIMIZATION_REPORT_2026-09-12.md
+
+Limitations of this execution environment:
+- Full Laravel PHPUnit could not be executed because vendor/ is not supplied and Composer is unavailable.
+- npm ci could not complete within the environment execution window, so no production Vite bundle timing/size claim is made.
+
+Run after deployment:
+php artisan migrate --force
+php artisan optimize:clear
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan queue:restart
+npm ci
+npm run build
+php artisan test

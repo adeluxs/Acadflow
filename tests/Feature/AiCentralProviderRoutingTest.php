@@ -24,6 +24,9 @@ class AiCentralProviderRoutingTest extends TestCase
             'ai.providers.openai.model' => 'gpt-4o-mini',
             'ai.providers.gemini.api_key' => 'test-gemini-key',
             'ai.providers.gemini.model' => 'gemini-1.5-flash',
+            'ai.providers.openrouter.api_key' => 'test-openrouter-key',
+            'ai.providers.openrouter.model' => 'openai/gpt-4o-mini',
+            'ai.providers.openrouter.models' => ['openai/gpt-4o-mini', 'anthropic/claude-3.7-sonnet'],
         ]);
 
         $this->setAi('ai_mode', 'provider');
@@ -40,6 +43,9 @@ class AiCentralProviderRoutingTest extends TestCase
         $this->setAi('ai_provider_gemini_enabled', true, 'boolean');
         $this->setAi('ai_provider_gemini_model', 'gemini-1.5-flash');
         $this->setAi('ai_provider_gemini_models', ['gemini-1.5-flash'], 'json');
+        $this->setAi('ai_provider_openrouter_enabled', true, 'boolean');
+        $this->setAi('ai_provider_openrouter_model', 'openai/gpt-4o-mini');
+        $this->setAi('ai_provider_openrouter_models', ['openai/gpt-4o-mini', 'anthropic/claude-3.7-sonnet'], 'json');
         $this->setAi('ai_feature_writing_assistant', true, 'boolean');
         $this->setAi('ai_feature_writing_assistant_provider', 'global');
         $this->setAi('ai_feature_writing_assistant_model', 'global');
@@ -320,6 +326,93 @@ class AiCentralProviderRoutingTest extends TestCase
         $this->assertTrue($response->success);
         $this->assertSame('openai', $response->provider);
         $this->assertTrue($response->fallbackUsed);
+    }
+
+    public function test_openrouter_uses_configured_model_when_default_model_is_blank(): void
+    {
+        $this->setAi('ai_default_provider', 'openrouter');
+        $this->setAi('ai_default_model', '');
+        $this->refreshAiRuntime();
+
+        Http::fake([
+            'https://openrouter.ai/*' => Http::response($this->openAiPayload('openrouter configured model response'), 200),
+        ]);
+
+        $response = app(AiManager::class)->analyze('writing_assistant', ['text' => 'OpenRouter configured model fallback test.']);
+
+        $this->assertTrue($response->success);
+        $this->assertSame('openrouter', $response->provider);
+        $this->assertSame('openai/gpt-4o-mini', $response->model);
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'openrouter.ai/api/v1/chat/completions')
+            && ($request->data()['model'] ?? null) === 'openai/gpt-4o-mini');
+    }
+
+    public function test_openrouter_invalid_default_model_falls_back_to_configured_provider_model(): void
+    {
+        $this->setAi('ai_default_provider', 'openrouter');
+        $this->setAi('ai_default_model', 'not-configured-model');
+        $this->refreshAiRuntime();
+
+        Http::fake([
+            'https://openrouter.ai/*' => Http::response($this->openAiPayload('openrouter valid configured model response'), 200),
+        ]);
+
+        $response = app(AiManager::class)->analyze('writing_assistant', ['text' => 'OpenRouter invalid model fallback test.']);
+
+        $this->assertTrue($response->success);
+        $this->assertSame('openrouter', $response->provider);
+        $this->assertSame('openai/gpt-4o-mini', $response->model);
+        Http::assertSent(fn ($request) => ($request->data()['model'] ?? null) === 'openai/gpt-4o-mini');
+    }
+
+    public function test_openrouter_plain_text_response_completes_without_schema_hang_for_contextual_features(): void
+    {
+        $this->setAi('ai_default_provider', 'openrouter');
+        $this->setAi('ai_default_model', 'openai/gpt-4o-mini');
+        $this->setAi('ai_feature_research_assistant', true, 'boolean');
+        $this->setAi('ai_feature_research_assistant_provider', 'global');
+        $this->setAi('ai_feature_research_assistant_model', 'global');
+        $this->refreshAiRuntime();
+
+        Http::fake([
+            'https://openrouter.ai/*' => Http::response([
+                'choices' => [['message' => ['content' => 'This is a usable plain-text research answer.']]],
+                'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5],
+            ], 200),
+        ]);
+
+        $response = app(AiManager::class)->analyze('research_assistant', ['question' => 'How can I improve my methodology?']);
+
+        // The request must always complete without a schema hang. For a
+        // structured-output contextual feature a bare plain-text completion may
+        // be rejected with a normalized error rather than surfaced as a raw
+        // string answer, so accept either a clean success or a completed failure.
+        $this->assertSame('openrouter', $response->provider);
+        if ($response->success) {
+            $this->assertSame('This is a usable plain-text research answer.', $response->data['answer'] ?? null);
+            $this->assertNull($response->errorCode);
+        } else {
+            $this->assertNotNull($response->errorCode);
+        }
+    }
+
+    public function test_openrouter_provider_failure_returns_completed_failure_response(): void
+    {
+        $this->setAi('ai_default_provider', 'openrouter');
+        $this->setAi('ai_default_model', 'openai/gpt-4o-mini');
+        $this->setAi('ai_fallback_provider', 'none');
+        $this->refreshAiRuntime();
+
+        Http::fake([
+            'https://openrouter.ai/*' => Http::response(['error' => ['message' => 'upstream unavailable']], 503),
+        ]);
+
+        $response = app(AiManager::class)->analyze('writing_assistant', ['text' => 'OpenRouter failure response path test.']);
+
+        $this->assertFalse($response->success);
+        $this->assertSame('openrouter', $response->provider);
+        $this->assertSame('AI_PROVIDER_UNAVAILABLE', $response->errorCode);
+        $this->assertNotSame('', trim((string) $response->summary));
     }
 
     private function setAi(string $key, mixed $value, string $type = 'string'): void

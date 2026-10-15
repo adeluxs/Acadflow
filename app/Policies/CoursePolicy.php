@@ -98,7 +98,8 @@ class CoursePolicy
 
     public function enroll(User $user, Course $course): bool
     {
-        return $user->hasPermission(Permission::ENROLL_IN_COURSE)
+        return $user->isStudent()
+            && $user->hasPermission(Permission::ENROLL_IN_COURSE)
             && $course->is_active;
     }
 

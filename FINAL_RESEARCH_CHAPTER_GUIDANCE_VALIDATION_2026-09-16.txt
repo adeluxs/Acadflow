@@ -1,0 +1,20 @@
+AcadFlow Research Studio Chapter Guidance Runtime Fix
+Date: 2026-09-16
+
+Root cause fixed:
+- ResearchWritingExperienceService::pack() returned aiPrompts (camelCase).
+- resources/views/research/show.blade.php consumed ai_prompts (snake_case).
+- This caused Undefined array key "ai_prompts" and HTTP 500 on chapter views.
+
+Fixes:
+- Standardized guidance contract on ai_prompts.
+- Added null-safe Blade fallback.
+- Added runtime feature-test contract assertion.
+- Added static preflight coverage.
+
+Validation:
+- 33/33 check-*.php preflights passed.
+- PHP/Blade source files enumerated: 834.
+- JavaScript source files enumerated: 11.
+- No database migration required.
+- Full PHPUnit cannot be executed in this source-only environment because vendor/ is intentionally absent.

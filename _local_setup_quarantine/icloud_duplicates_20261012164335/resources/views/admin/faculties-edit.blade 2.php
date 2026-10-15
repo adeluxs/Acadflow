@@ -1,0 +1,8 @@
+@extends('layouts.app')
+@section('title', 'Edit Faculty')
+@section('content')
+<div class="mx-auto max-w-3xl px-4 py-8"><a href="{{ route('admin.faculties') }}" class="text-sm text-indigo-600">← Back to faculties</a><h1 class="mt-2 text-2xl font-bold">Edit {{ $faculty->name }}</h1>
+<form method="POST" action="{{ route('admin.faculties.update',$faculty) }}" class="mt-6 grid gap-5 rounded-2xl border bg-white p-6 md:grid-cols-2">@csrf @method('PUT')
+<label class="md:col-span-2">Faculty name<input name="name" required value="{{ old('name',$faculty->name) }}" class="mt-1 w-full rounded-xl border-slate-300"></label><label>Short name<input name="short_name" required value="{{ old('short_name',$faculty->short_name) }}" class="mt-1 w-full rounded-xl border-slate-300"></label><label>Code<input name="code" required value="{{ old('code',$faculty->code) }}" class="mt-1 w-full rounded-xl border-slate-300"></label><label class="md:col-span-2">Dean<select name="dean_id" class="mt-1 w-full rounded-xl border-slate-300"><option value="">Not assigned</option>@foreach($deans as $dean)<option value="{{ $dean->id }}" @selected(old('dean_id',$faculty->dean_id)==$dean->id)>{{ $dean->full_name }}</option>@endforeach</select></label><label class="flex items-center gap-2 md:col-span-2"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" @checked(old('is_active',$faculty->is_active))> Active</label><div class="flex justify-end gap-3 md:col-span-2"><a href="{{ route('admin.faculties') }}" class="rounded-xl border px-5 py-2">Cancel</a><button class="rounded-xl bg-indigo-600 px-5 py-2 font-semibold text-white">Save faculty</button></div>
+</form></div>
+@endsection

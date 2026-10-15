@@ -51,7 +51,7 @@ class AiRuntimeConfigService
         $provider = $this->defaultProvider($universityId);
         $value = trim((string) $this->setting('ai_default_model', config('ai.default_model', ''), $universityId));
 
-        return $value !== '' ? $value : $this->providerModel($provider, $universityId);
+        return $this->validModelForProvider($provider, $value, $universityId);
     }
 
     public function fallbackProvider(?int $universityId = null): ?string
@@ -70,7 +70,7 @@ class AiRuntimeConfigService
         if (! $provider) return null;
 
         $value = trim((string) $this->setting('ai_fallback_model', config('ai.fallback_model', ''), $universityId));
-        return $value !== '' ? $value : $this->providerModel($provider, $universityId);
+        return $this->validModelForProvider($provider, $value, $universityId);
     }
 
     public function secondaryFallbackProvider(?int $universityId = null): ?string
@@ -91,7 +91,7 @@ class AiRuntimeConfigService
         if (! $provider) return null;
 
         $value = trim((string) $this->setting('ai_secondary_fallback_model', config('ai.secondary_fallback_model', ''), $universityId));
-        return $value !== '' ? $value : $this->providerModel($provider, $universityId);
+        return $this->validModelForProvider($provider, $value, $universityId);
     }
 
     public function automaticFailover(?int $universityId = null): bool
@@ -280,7 +280,7 @@ class AiRuntimeConfigService
             'provider' => $overrideProvider,
             'model' => $modelOverride === self::GLOBAL_PROVIDER
                 ? $this->providerModel($overrideProvider, $universityId)
-                : $modelOverride,
+                : $this->validModelForProvider($overrideProvider, $modelOverride, $universityId),
             'uses_global' => false,
         ];
     }
@@ -307,12 +307,38 @@ class AiRuntimeConfigService
         return $this->supportedProviderModel($provider, $model);
     }
 
+    public function validModelForProvider(string $provider, ?string $requestedModel = null, ?int $universityId = null): string
+    {
+        if ($provider === AiProviderName::RULE_BASED->value) return 'rule-engine';
+
+        $requested = $this->supportedProviderModel($provider, trim((string) $requestedModel));
+        $models = $this->providerModels($provider, $universityId);
+        if ($requested !== '' && in_array($requested, $models, true)) {
+            return $requested;
+        }
+
+        $configured = $this->providerModel($provider, $universityId);
+        if ($configured !== '' && in_array($configured, $models, true)) {
+            return $configured;
+        }
+
+        return $models[0] ?? $configured;
+    }
+
     /** @return list<string> */
     public function providerModels(string $provider, ?int $universityId = null): array
     {
         if ($provider === AiProviderName::RULE_BASED->value) return ['rule-engine'];
 
-        $fallback = array_values(array_filter([$this->providerModel($provider, $universityId)]));
+        $bootstrap = $this->bootstrapProviderConfig($provider);
+        $bootstrapModels = array_values(array_filter(array_map(
+            'strval',
+            (array) ($bootstrap['models'] ?? [])
+        )));
+        $fallback = array_values(array_filter(array_merge(
+            [$this->providerModel($provider, $universityId)],
+            $bootstrapModels
+        )));
         $raw = $this->platformSetting('ai_provider_'.$provider.'_models', $fallback);
         if (is_string($raw)) {
             $decoded = json_decode($raw, true);
@@ -321,7 +347,7 @@ class AiRuntimeConfigService
 
         $models = array_values(array_unique(array_filter(array_map(
             fn ($model) => $this->supportedProviderModel($provider, trim((string) $model)),
-            is_array($raw) ? $raw : $fallback
+            is_array($raw) ? array_merge($fallback, $raw) : $fallback
         ))));
 
         $current = $this->providerModel($provider, $universityId);
@@ -375,6 +401,9 @@ class AiRuntimeConfigService
             'temperature' => max(0.0, min(2.0, $temperature)),
             'request_timeout' => $this->requestTimeout($universityId),
             'post_provider_reserve_seconds' => max(1, min(15, (int) config('ai.post_provider_reserve_seconds', 4))),
+            'health_check_budget_seconds' => max(4, min(20, (int) config('ai.health_check_budget_seconds', 12))),
+            'health_check_timeout' => max(2, min(10, (int) config('ai.health_check_timeout', 6))),
+            'health_check_connect_timeout' => max(1, min(5, (int) config('ai.health_check_connect_timeout', 3))),
             'retry_count' => $this->retryCount($universityId),
             'retry_delay_ms' => $this->retryDelayMs($universityId),
             'fast_failover' => $this->fastFailover($universityId),
@@ -391,9 +420,14 @@ class AiRuntimeConfigService
             if ($provider === AiProviderName::AZURE_OPENAI->value || $provider === AiProviderName::OLLAMA->value) {
                 $config['endpoint'] = $baseUrl;
             } else {
-                $config['base_url'] = $baseUrl;
+            $config['base_url'] = $baseUrl;
             }
         }
+
+        $models = $this->providerModels($provider, $universityId);
+        $model = $this->validModelForProvider($provider, $model, $universityId);
+        $config['model'] = $model;
+        $config['models'] = $models;
 
         $storedSecret = $this->providerSecret($provider, $universityId);
         if ($storedSecret !== null && $storedSecret !== '') {

@@ -44,6 +44,8 @@ class SettingsController extends Controller
             // Admin -> AI Settings. They must not appear again in System Settings.
             ->reject(fn (Setting $setting) => in_array($setting->group, ['ai', 'ai_legacy'], true))
             ->reject(fn (Setting $setting) => ! $user->isSuperAdmin() && $this->isGlobalOnlySetting($setting))
+            // The SIWES assignment type has one authoritative toggle below.
+            ->reject(fn (Setting $setting) => $setting->key === 'siwes_assignment_enabled')
             ->each(function (Setting $setting) use ($scopeUniversityId, $user): void {
                 $setting->value = $user->isSuperAdmin()
                     ? SettingService::getGlobal($setting->key, $setting->value)
@@ -70,7 +72,9 @@ class SettingsController extends Controller
 
         $settings->forget('subscription');
 
-        return view('settings.index', compact('settings', 'paymentGateways', 'settingGroups'));
+        $siwesAssignmentEnabled = \App\Services\Assignments\AssignmentTypeProfile::isEnabled('siwes');
+
+        return view('settings.index', compact('settings', 'paymentGateways', 'settingGroups', 'siwesAssignmentEnabled'));
     }
 
     /**
@@ -154,6 +158,39 @@ class SettingsController extends Controller
         }
 
         return back()->with('success', 'Settings updated successfully.');
+    }
+
+    /**
+     * Administrator control for the optional SIWES assignment type. Only admins
+     * can change it; it defaults to disabled.
+     */
+    public function updateSiwesAssignmentType(Request $request)
+    {
+        $user = Auth::user();
+        // SIWES availability is a platform-wide control, so it is restricted to
+        // the platform owner rather than institution admins.
+        abort_unless($user?->isSuperAdmin(), 403);
+
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+
+        $enabled = filter_var($validated['enabled'], FILTER_VALIDATE_BOOLEAN);
+
+        SettingService::set('siwes_assignment_enabled', $enabled, 'boolean', null, $user->id);
+
+        AuditLog::log(
+            'setting_updated',
+            $user->id,
+            Setting::class,
+            null,
+            null,
+            ['key' => 'siwes_assignment_enabled', 'value' => $enabled],
+            $request->ip(),
+            $request->userAgent(),
+        );
+
+        return back()->with('success', 'SIWES assignment type '.($enabled ? 'enabled' : 'disabled').'.');
     }
 
     /**

@@ -1,0 +1,12 @@
+@extends('layouts.app')
+@section('title','Edit Group')
+@section('content')
+<div class="mx-auto max-w-3xl px-4 py-8"><a href="{{ route('groups.show',$group) }}" class="text-sm text-blue-700">← Back to group</a><h1 class="mt-2 text-3xl font-bold">Group settings</h1>
+<form method="POST" enctype="multipart/form-data" action="{{ route('groups.update',$group) }}" class="mt-6 space-y-5 rounded-2xl border bg-white p-6">@csrf @method('PUT')
+<div><label class="font-medium">Name</label><input name="name" value="{{ old('name',$group->name) }}" required class="mt-1 w-full rounded-xl border-slate-300"></div>
+<div><label class="font-medium">Replace cover image</label><input type="file" name="cover_image" accept="image/jpeg,image/png,image/webp" class="mt-1 w-full rounded-xl border border-slate-300 p-2"></div>
+<div><label class="font-medium">Description</label><textarea name="description" rows="5" class="mt-1 w-full rounded-xl border-slate-300">{{ old('description',$group->description) }}</textarea></div>
+<div class="grid gap-4 md:grid-cols-3"><select name="group_type" class="rounded-xl border-slate-300">@foreach(['study','research','project','departmental','professional','course','siwes','seminar'] as $type)<option value="{{ $type }}" @selected($group->group_type===$type)>{{ str($type)->headline() }}</option>@endforeach</select><select name="visibility" class="rounded-xl border-slate-300">@foreach(['private','institution','public'] as $value)<option @selected($group->visibility===$value)>{{ $value }}</option>@endforeach</select><select name="membership_mode" class="rounded-xl border-slate-300">@foreach(['approval','open','invitation'] as $value)<option @selected($group->membership_mode===$value)>{{ $value }}</option>@endforeach</select></div>
+<div class="grid gap-4 md:grid-cols-3"><input type="number" name="max_members" value="{{ $group->max_members }}" min="2" max="250" class="rounded-xl border-slate-300"><select name="status" class="rounded-xl border-slate-300">@foreach(['forming','complete','archived'] as $value)<option @selected($group->status===$value)>{{ $value }}</option>@endforeach</select><label class="flex items-center gap-2 rounded-xl border p-3"><input type="checkbox" name="is_locked" value="1" @checked($group->is_locked)> Lock membership</label></div>
+<div class="flex justify-end"><button class="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white">Save changes</button></div></form></div>
+@endsection

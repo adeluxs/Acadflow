@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Ai\Providers\GeminiProvider;
+use App\Ai\Contracts\AiResponse;
+use App\Services\Ai\AiResponseSchemaValidator;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -102,6 +104,35 @@ class AiResponseLifecycleRegressionTest extends TestCase
         $timeout = $provider->timeoutFor(['_ai_deadline_at' => microtime(true) + 9]);
         $this->assertGreaterThanOrEqual(1, $timeout);
         $this->assertLessThanOrEqual(5, $timeout);
+    }
+
+    public function test_response_schema_validator_accepts_provider_data_answer(): void
+    {
+        $response = new AiResponse(
+            source: 'openrouter',
+            feature: 'study_assistant',
+            success: true,
+            data: [
+                'answer' => 'A valid provider answer.',
+                'suggested_actions' => ['Review notes'],
+                'confidence' => 0.8,
+                'human_review_required' => false,
+            ],
+            provider: 'openrouter',
+            model: 'google/gemini-2.5-flash',
+        );
+
+        $errors = app(AiResponseSchemaValidator::class)->errors($response, [
+            'required' => ['answer', 'suggested_actions', 'confidence', 'human_review_required'],
+            'properties' => [
+                'answer' => ['type' => 'string'],
+                'suggested_actions' => ['type' => 'array'],
+                'confidence' => ['type' => 'number'],
+                'human_review_required' => ['type' => 'boolean'],
+            ],
+        ]);
+
+        $this->assertSame([], $errors);
     }
 
     /** @param array<string,mixed> $overrides */

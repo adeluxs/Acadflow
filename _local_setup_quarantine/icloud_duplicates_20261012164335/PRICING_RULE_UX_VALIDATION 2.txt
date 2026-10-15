@@ -1,0 +1,21 @@
+AcadFlow Pricing Rule UX Update — 2026-08-31
+
+Implemented:
+- Human-readable feature dropdown for pricing rules.
+- Central pricing-feature allowlist in config/monetization.php.
+- Server-derived pricing rule key, name and currency.
+- Removed developer-only key/name/currency/percentage inputs from paid-feature pricing form.
+- Plain-language feature descriptions and inline validation.
+- Clear fixed-price and activation guidance.
+- Improved immutable pricing history table.
+- Added scripts/check-pricing-rule-ux.php regression guard.
+
+Validation:
+- check-pricing-rule-ux.php: PASS
+- check-monetization-rebuild.php: PASS
+- check-runtime-regressions.php: PASS
+- all repository check-*.php preflights: PASS
+- PHP lint: 766 PHP files passed
+
+Note:
+The supplied project still does not include vendor/ or node_modules/, so framework boot/PHPUnit/Vite build verification requires dependencies in the target staging/deployment environment.

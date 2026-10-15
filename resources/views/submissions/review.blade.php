@@ -61,6 +61,17 @@
                 @endif
             </div>
 
+            <!-- Written submission (for text / both formats) -->
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900 mb-3">Written submission</h2>
+                @php($reviewText = \App\Support\HtmlSanitizer::toPlainText($submission->description))
+                @if($reviewText !== '')
+                    <div class="prose prose-sm max-w-none rounded-lg border border-slate-200 bg-slate-50/60 p-4 text-gray-800">{!! $submission->description !!}</div>
+                @else
+                    <p class="text-gray-500">No written answer.</p>
+                @endif
+            </div>
+
             @if($submission->type === 'project')
                 <div class="px-6 py-5 border-b border-gray-200">
                     @include('ai._contextual-assistant', [
@@ -72,14 +83,37 @@
 
             <!-- Grading Section -->
             @if(!$submission->grade)
+                @php($reviewTask = $submission->task)
+                @php($reviewRubric = $reviewTask?->rubric)
+                @php($reviewMax = $reviewTask?->max_score ? (float) $reviewTask->max_score : 100)
                 <div class="px-6 py-4 border-b border-gray-200">
                     <h2 class="text-lg font-semibold text-gray-900 mb-4">Grade Submission</h2>
                     <form action="{{ route('submissions.grade', $submission) }}" method="POST" class="space-y-4">
                         @csrf
+
+                        @if($reviewRubric && is_array($reviewRubric->criteria) && count($reviewRubric->criteria))
+                            <div class="rounded-md border border-indigo-100 bg-indigo-50/50 p-4">
+                                <p class="text-sm font-semibold text-indigo-900 mb-2">Rubric: {{ $reviewRubric->name }}</p>
+                                <div class="space-y-2">
+                                    @foreach($reviewRubric->criteria as $index => $criterion)
+                                        @php($cName = is_array($criterion) ? ($criterion['name'] ?? $criterion['key'] ?? ('Criterion '.($index + 1))) : $criterion)
+                                        @php($cMax = is_array($criterion) ? ($criterion['points'] ?? $criterion['max_points'] ?? $criterion['weight'] ?? null) : null)
+                                        <label class="flex items-center justify-between gap-3 text-sm text-gray-700">
+                                            <span>{{ $cName }} @if($cMax)<span class="text-xs text-gray-400">/ {{ $cMax }}</span>@endif</span>
+                                            <input type="number" step="0.01" min="0" @if($cMax) max="{{ $cMax }}" @endif name="criteria[{{ $cName }}]" class="w-28 rounded-md border-gray-300 text-sm">
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
                         <div>
-                            <label for="score" class="block text-sm font-medium text-gray-700">Score (0-100)</label>
-                            <input type="number" name="score" id="score" min="0" max="100" required
+                            <label for="score" class="block text-sm font-medium text-gray-700">Score (0-{{ $reviewMax }})</label>
+                            <input type="number" name="score" id="score" min="0" max="{{ $reviewMax }}" step="0.01" @if(!$reviewRubric) required @endif
                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            @if($reviewRubric)
+                                <p class="mt-1 text-xs text-gray-500">Leave the score blank to use the rubric total.</p>
+                            @endif
                         </div>
                         <div>
                             <label for="feedback" class="block text-sm font-medium text-gray-700">Feedback</label>
@@ -90,6 +124,39 @@
                             Submit Grade
                         </button>
                     </form>
+
+                    {{-- Advisory AI grading suggestion. The suggestion is never
+                         saved automatically; the lecturer applies it themselves. --}}
+                    @if(Route::has('submissions.ai.grade-suggestion'))
+                        <div class="mt-4 rounded-md border border-purple-200 bg-purple-50 p-3 text-xs text-purple-900">
+                            <button type="button" id="aiGradeSuggestion" data-endpoint="{{ route('submissions.ai.grade-suggestion', $submission) }}" class="rounded-md bg-purple-600 px-3 py-1.5 font-bold text-white hover:bg-purple-700">Suggest a grade (AI, advisory)</button>
+                            <p id="aiGradeSuggestionOutput" class="mt-2 hidden"></p>
+                        </div>
+                        <script>
+                        (() => {
+                            const btn = document.getElementById('aiGradeSuggestion');
+                            const out = document.getElementById('aiGradeSuggestionOutput');
+                            if (!btn || !out) return;
+                            btn.addEventListener('click', async () => {
+                                btn.disabled = true;
+                                out.classList.remove('hidden');
+                                out.textContent = 'Analysing…';
+                                try {
+                                    const res = await fetch(btn.dataset.endpoint, {
+                                        method: 'POST',
+                                        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                                    });
+                                    const json = await res.json();
+                                    out.textContent = json.message || json.summary || JSON.stringify(json);
+                                } catch (e) {
+                                    out.textContent = 'Could not fetch a suggestion right now.';
+                                } finally {
+                                    btn.disabled = false;
+                                }
+                            });
+                        })();
+                        </script>
+                    @endif
                 </div>
             @else
                 <div class="px-6 py-4 border-b border-gray-200">
@@ -97,13 +164,23 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <p class="text-sm text-gray-600">Score</p>
-                            <p class="text-2xl font-bold text-gray-900">{{ $submission->grade->score }}/100</p>
+                            <p class="text-2xl font-bold text-gray-900">{{ $submission->grade->score }}/{{ $submission->grade->max_score ?? 100 }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-600">Feedback</p>
                             <p class="text-gray-900">{{ $submission->grade->feedback ?? 'No feedback provided' }}</p>
                         </div>
                     </div>
+                    @if(is_array($submission->grade->criteria_scores) && count($submission->grade->criteria_scores))
+                        <div class="mt-4">
+                            <p class="text-sm font-semibold text-gray-700 mb-2">Rubric breakdown</p>
+                            <ul class="space-y-1 text-sm text-gray-700">
+                                @foreach($submission->grade->criteria_scores as $criterion => $value)
+                                    <li class="flex justify-between"><span>{{ $criterion }}</span><span class="font-semibold">{{ $value }}</span></li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                 </div>
             @endif
 

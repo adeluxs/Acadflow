@@ -44,6 +44,7 @@ class SubmissionTask extends Model
         'submission_format',
         'max_submissions_per_student',
         'submission_requirements_json',
+        'type_metadata',
         'late_submission_penalty_percent',
     ];
 
@@ -60,6 +61,7 @@ class SubmissionTask extends Model
             'is_visible_to_students' => 'boolean',
             'allowed_file_types' => 'array',
             'submission_requirements_json' => 'array',
+            'type_metadata' => 'array',
             'max_file_size_mb' => 'integer',
             'max_file_count' => 'integer',
             'min_file_count' => 'integer',
@@ -205,6 +207,25 @@ class SubmissionTask extends Model
         }
 
         return $deadline;
+    }
+
+    /**
+     * The deadline by which a student can still submit: the later of the
+     * configured late window and any approved per-student extension.
+     */
+    public function acceptanceDeadline(?User $student = null): ?\DateTime
+    {
+        $base = $this->allow_late_submissions && $this->late_deadline
+            ? $this->late_deadline
+            : ($this->close_at ?? $this->due_date);
+
+        $effective = $this->getEffectiveDeadline($student);
+
+        if ($effective && $base && $effective->gt($base)) {
+            return $effective;
+        }
+
+        return $base;
     }
 
     /**

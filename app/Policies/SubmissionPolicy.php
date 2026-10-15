@@ -83,6 +83,17 @@ class SubmissionPolicy
             && $user->canViewCourseSubmissions($submission->course);
     }
 
+    /**
+     * Reject a submission outright (major corrections required before it can be
+     * accepted again). Distinct route from a minor correction request, but
+     * governed by the same reviewer permission set.
+     */
+    public function reject(User $user, Submission $submission): bool
+    {
+        return $user->hasPermission(Permission::REQUEST_CORRECTION)
+            && $user->canViewCourseSubmissions($submission->course);
+    }
+
     public function resubmit(User $user, Submission $submission): bool
     {
         if ($user->id === $submission->user_id && $submission->status === 'correction_requested') {

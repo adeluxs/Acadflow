@@ -30,6 +30,30 @@
         </div>
     </div>
 
+    <!-- Due soon / overdue assignments the student has not started -->
+    @if(isset($dueSoon) && $dueSoon->isNotEmpty())
+        <div class="bg-white rounded-lg shadow mb-8">
+            <div class="p-6 border-b flex items-center justify-between">
+                <h2 class="text-xl font-bold text-gray-900">Due soon & overdue</h2>
+                <span class="text-xs font-semibold text-gray-500">{{ $dueSoon->count() }} assignment(s)</span>
+            </div>
+            <div class="divide-y">
+                @foreach($dueSoon as $task)
+                    @php($deadline = $task->acceptanceDeadline(auth()->user()) ?? ($task->close_at ?? $task->due_date))
+                    <a href="{{ route('submission-tasks.student.show', ['course' => $task->course ?? $task->course_id, 'task' => $task]) }}" class="flex items-center justify-between p-4 hover:bg-gray-50">
+                        <div>
+                            <p class="text-xs font-semibold text-indigo-600">{{ $task->course?->code }}</p>
+                            <p class="font-bold text-gray-900">{{ $task->title }}</p>
+                        </div>
+                        <span class="text-sm font-semibold {{ $deadline && $deadline->isPast() ? 'text-red-600' : 'text-gray-700' }}">
+                            {{ $deadline ? $deadline->format('M j, Y H:i') : 'No deadline' }}
+                        </span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     <!-- Submissions List -->
     <div class="bg-white rounded-lg shadow">
         <div class="p-6 border-b">
@@ -75,11 +99,11 @@
                                     </div>
                                 @endif
 
-                                @if($submission->comments->where('type', 'feedback')->count() > 0)
+                                @if($submission->comments->whereIn('type', ['general', 'feedback'])->count() > 0)
                                     <div class="mt-2 p-3 bg-blue-50 rounded border border-blue-200">
                                         <p class="text-sm font-semibold text-blue-900 mb-1">Latest Feedback:</p>
                                         <p class="text-sm text-blue-800">
-                                            {{ Str::limit($submission->comments->where('type', 'feedback')->last()->comment, 100) }}
+                                            {{ Str::limit($submission->comments->whereIn('type', ['general', 'feedback'])->last()->content, 100) }}
                                         </p>
                                     </div>
                                 @endif

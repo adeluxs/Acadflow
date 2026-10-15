@@ -13,6 +13,7 @@ use App\Models\SubmissionTask;
 use App\Models\SubmissionTaskAttachment;
 use App\Models\User;
 use App\Services\AcademicContextService;
+use App\Services\Assignments\AssignmentTypeProfile;
 use App\Services\Commerce\FeatureBillingService;
 use App\Support\Errors\UserFacingError;
 use App\Services\Media\MediaSecurityService;
@@ -101,8 +102,9 @@ class SubmissionTaskController extends Controller
         $activeSemester = $this->academicContext->activeSemesterForCourse($course);
         $semesters = $activeSemester ? collect([$activeSemester]) : collect();
         $rubrics = $course->submissionRubrics()->where('is_active', true)->get();
+        $typeProfiles = AssignmentTypeProfile::availableDefinitions();
 
-        return view('submission-tasks.create', compact('course', 'semesters', 'rubrics'));
+        return view('submission-tasks.create', compact('course', 'semesters', 'rubrics', 'typeProfiles'));
     }
 
     /**
@@ -114,17 +116,11 @@ class SubmissionTaskController extends Controller
 
         $this->authorize('createForCourse', $course);
 
-        Log::info('Creating submission task', [
-            'user_id' => Auth::id(),
-            'course_id' => $course->id,
-            'request_data' => $request->except(['_token']),
-        ]);
-
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
             'instructions' => 'nullable|string|max:5000',
-            'type' => 'required|in:assignment,project,siwes,group,seminar',
+            'type' => ['required', Rule::in(AssignmentTypeProfile::enabledTypes())],
             'open_at' => 'required|date_format:Y-m-d\TH:i',
             'close_at' => 'nullable|date_format:Y-m-d\TH:i',
             'due_date' => 'required|date_format:Y-m-d\TH:i',
@@ -135,7 +131,7 @@ class SubmissionTaskController extends Controller
             'min_group_size' => 'required_if:allow_group_submissions,true|integer|min:1|max:10',
             'max_group_size' => 'required_if:allow_group_submissions,true|integer|min:1|max:10',
             'allowed_file_types' => 'nullable|string',
-            'max_file_size_mb' => 'required|integer|min:1|max:' . \App\Services\SettingService::getMaxUploadSize() / (1024 * 1024),
+            'max_file_size_mb' => 'required|integer|min:1|max:'.max(1, intdiv(\App\Services\SettingService::getMaxUploadSize($request->user()?->university_id), 1024 * 1024)),
             'max_file_count' => 'required|integer|min:1|max:20',
             'min_file_count' => 'required|integer|min:1',
             'rubric_id' => 'nullable|exists:submission_rubrics,id',
@@ -159,10 +155,12 @@ class SubmissionTaskController extends Controller
             throw ValidationException::withMessages(['rubric_id' => 'The selected rubric does not belong to this course.']);
         }
 
+        $this->assertTaskScheduleIsConsistent($validated);
+
+        $validated['type_metadata'] = $this->validateTypeMetadata($request, $validated['type']);
+
         // Apply centralized institution-aware academic settings as defaults.
         $validated['allow_late_submissions'] = $validated['allow_late_submissions'] ?? \App\Services\SettingService::get('allow_late_submissions', true, $user->university_id);
-
-        Log::info('Validation passed', ['validated_keys' => array_keys($validated)]);
 
         if (!empty($validated['allowed_file_types'])) {
             $validated['allowed_file_types'] = array_map('trim', explode(',', $validated['allowed_file_types']));
@@ -255,6 +253,62 @@ private function ensureTaskBelongsToCourse(Course $course, SubmissionTask $task)
 }
 
 /**
+ * Enforce date ordering and size relationships that the individual field
+ * rules cannot express, so an inconsistent assignment can never be saved.
+ *
+ * @param  array<string,mixed>  $data
+ */
+private function assertTaskScheduleIsConsistent(array $data): void
+{
+    $parse = fn ($value) => $value ? \Illuminate\Support\Carbon::parse($value) : null;
+
+    $openAt = $parse($data['open_at'] ?? null);
+    $dueAt = $parse($data['due_date'] ?? null);
+    $closeAt = $parse($data['close_at'] ?? null);
+    $lateAt = $parse($data['late_deadline'] ?? null);
+
+    $errors = [];
+    if ($openAt && $dueAt && $openAt->greaterThan($dueAt)) {
+        $errors['due_date'] = 'The due date must be on or after the open date.';
+    }
+    if ($dueAt && $closeAt && $dueAt->greaterThan($closeAt)) {
+        $errors['close_at'] = 'The close date must be on or after the due date.';
+    }
+    if ($closeAt && $lateAt && $closeAt->greaterThan($lateAt)) {
+        $errors['late_deadline'] = 'The late deadline must be on or after the close date.';
+    }
+
+    if (isset($data['min_file_count'], $data['max_file_count']) && (int) $data['min_file_count'] > (int) $data['max_file_count']) {
+        $errors['min_file_count'] = 'Minimum files must be less than or equal to the maximum.';
+    }
+
+    if (($data['allow_group_submissions'] ?? false) && isset($data['min_group_size'], $data['max_group_size'])
+        && (int) $data['min_group_size'] > (int) $data['max_group_size']) {
+        $errors['min_group_size'] = 'Minimum group size must be less than or equal to the maximum.';
+    }
+
+    if ($errors !== []) {
+        throw ValidationException::withMessages($errors);
+    }
+}
+
+/**
+ * Validate and normalize the assignment-type-specific metadata. Each type
+ * (project, siwes, seminar, group) requires its own fields, so an
+ * assignment cannot be created through an overly generic path.
+ *
+ * @return array<string,mixed>
+ */
+private function validateTypeMetadata(Request $request, string $type): array
+{
+    $rules = AssignmentTypeProfile::rules($type);
+
+    $validated = $rules === [] ? [] : $request->validate($rules);
+
+    return AssignmentTypeProfile::normalize($type, $validated['type_metadata'] ?? []);
+}
+
+/**
  * Student view for a specific submission task
  */
 public function showForStudent(Course $course, SubmissionTask $task)
@@ -331,8 +385,9 @@ public function showForLecturer(Course $course, SubmissionTask $task)
         $activeSemester = $this->academicContext->activeSemesterForCourse($course);
         $semesters = $activeSemester ? collect([$activeSemester]) : collect();
         $rubrics = $course->submissionRubrics()->where('is_active', true)->get();
+        $typeProfiles = AssignmentTypeProfile::availableDefinitions();
 
-        return view('submission-tasks.edit', compact('course', 'task', 'semesters', 'rubrics'));
+        return view('submission-tasks.edit', compact('course', 'task', 'semesters', 'rubrics', 'typeProfiles'));
     }
 
     /**
@@ -350,7 +405,7 @@ public function showForLecturer(Course $course, SubmissionTask $task)
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
             'instructions' => 'nullable|string|max:5000',
-            'type' => 'required|in:assignment,project,siwes,group,seminar',
+            'type' => ['required', Rule::in(AssignmentTypeProfile::enabledTypes())],
             'open_at' => 'nullable|date_format:Y-m-d\TH:i',
             'close_at' => 'nullable|date_format:Y-m-d\TH:i',
             'due_date' => 'nullable|date_format:Y-m-d\TH:i',
@@ -360,7 +415,7 @@ public function showForLecturer(Course $course, SubmissionTask $task)
             'allow_group_submissions' => 'boolean',
             'min_group_size' => 'integer|min:1|max:10',
             'max_group_size' => 'integer|min:1|max:10',
-            'max_file_size_mb' => 'required|integer|min:1|max:' . \App\Services\SettingService::getMaxUploadSize() / (1024 * 1024),
+            'max_file_size_mb' => 'required|integer|min:1|max:'.max(1, intdiv(\App\Services\SettingService::getMaxUploadSize($request->user()?->university_id), 1024 * 1024)),
             'max_file_count' => 'required|integer|min:1|max:20',
             'min_file_count' => 'required|integer|min:1',
             'rubric_id' => 'nullable|exists:submission_rubrics,id',
@@ -373,6 +428,10 @@ public function showForLecturer(Course $course, SubmissionTask $task)
         if (! empty($validated['rubric_id']) && ! $course->submissionRubrics()->whereKey($validated['rubric_id'])->exists()) {
             throw ValidationException::withMessages(['rubric_id' => 'The selected rubric does not belong to this course.']);
         }
+
+        $this->assertTaskScheduleIsConsistent($validated);
+
+        $validated['type_metadata'] = $this->validateTypeMetadata($request, $validated['type']);
 
         $task->update($validated);
 
@@ -452,7 +511,7 @@ public function showForLecturer(Course $course, SubmissionTask $task)
         $this->authorize('update', $task);
 
         $validated = $request->validate([
-            'file' => 'required|file|max:' . (\App\Services\SettingService::getMaxUploadSize() / 1024),
+            'file' => 'required|file|max:'.max(1, intdiv(\App\Services\SettingService::getMaxUploadSize($request->user()?->university_id), 1024)),
             'type' => 'required|in:template,guide,rubric,example,other',
             'description' => 'nullable|string|max:500',
             'is_required' => 'boolean',

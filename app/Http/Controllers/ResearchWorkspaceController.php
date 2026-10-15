@@ -31,6 +31,7 @@ use App\Services\ResearchArchiveService;
 use App\Services\ResearchCollaborationService;
 use App\Services\ResearchMeetingService;
 use App\Services\ResearchTemplateService;
+use App\Services\ResearchWritingExperienceService;
 use App\Services\Scholarly\ScholarlyDiscoveryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,7 +42,7 @@ use Illuminate\View\View;
 
 class ResearchWorkspaceController extends Controller
 {
-    public function controlCenter(Request $request, ResearchProject $research, ResearchCollaborationService $collaboration): View
+    public function controlCenter(Request $request, ResearchProject $research, ResearchCollaborationService $collaboration, ResearchWritingExperienceService $writing): View
     {
         $this->authorize('view', $research);
         $user = $request->user();
@@ -57,7 +58,7 @@ class ResearchWorkspaceController extends Controller
             'seminar' => $isEnabled('seminar_module'),
         ];
 
-        $relations = ['owner', 'milestones', 'tasks', 'templateVersion'];
+        $relations = ['owner', 'milestones', 'tasks', 'templateVersion', 'sections.document'];
         if ($modules['institutional']) {
             $relations[] = 'supervisor';
             $relations[] = 'coSupervisor';
@@ -110,9 +111,24 @@ class ResearchWorkspaceController extends Controller
             'open_tasks' => $research->tasks->whereNotIn('status', ['completed', 'cancelled'])->count(),
             'references' => $modules['literature'] ? $research->referenceLinks->count() : null,
             'next_milestone' => $research->milestones->whereNotIn('status', ['completed'])->sortBy('due_at')->first(),
+            'approved_sections' => $research->sections->where('status', 'approved')->count(),
+            'total_sections' => $research->sections->count(),
         ];
+        $sectionJourney = $writing->journey($research);
+        $nextWritingAction = $writing->nextAction($research);
+        $literatureStatus = ['saved' => 0, 'reading' => 0, 'reviewed' => 0];
+        if ($modules['literature']) {
+            $literatureStatus = $research->literatureNotes()
+                ->where('created_by', $user->id)
+                ->selectRaw("COALESCE(reading_status, 'saved') AS status_key, COUNT(*) AS aggregate")
+                ->groupBy('status_key')
+                ->pluck('aggregate', 'status_key')
+                ->map(fn ($value) => (int) $value)
+                ->union($literatureStatus)
+                ->all();
+        }
 
-        return view('research.workspace', compact('research', 'participants', 'candidateMembers', 'contributions', 'modules', 'workspaceStats'));
+        return view('research.workspace', compact('research', 'participants', 'candidateMembers', 'contributions', 'modules', 'workspaceStats', 'sectionJourney', 'nextWritingAction', 'literatureStatus'));
     }
 
     public function templates(Request $request): View
@@ -140,6 +156,7 @@ class ResearchWorkspaceController extends Controller
 
     public function scheduleMeeting(Request $request, ResearchProject $research, ResearchMeetingService $meetings): RedirectResponse
     {
+        $this->assertResearchFeatureEnabled('research_meetings', $request->user());
         $this->authorize('transition', $research);
         $data = $request->validate(['scheduled_at' => ['required','date','after:now'], 'duration_minutes' => ['required','integer','min:15','max:480'], 'location' => ['nullable','string','max:255'], 'online_url' => ['nullable','url','max:2000'], 'agenda' => ['nullable','string','max:10000'], 'notes' => ['nullable','string','max:10000'], 'attendee_ids' => ['nullable','array'], 'attendee_ids.*' => ['integer','exists:users,id']]);
         $meetings->schedule($research, $request->user(), $data);
@@ -148,6 +165,7 @@ class ResearchWorkspaceController extends Controller
 
     public function completeMeeting(Request $request, ResearchProject $research, ResearchMeeting $meeting, ResearchMeetingService $meetings): RedirectResponse
     {
+        $this->assertResearchFeatureEnabled('research_meetings', $request->user());
         $this->authorize('transition', $research); abort_unless($meeting->research_project_id === $research->id, 404);
         $data = $request->validate(['notes' => ['nullable','string','max:20000'], 'attendance' => ['nullable','array'], 'action_items' => ['nullable','array'], 'action_items.*.title' => ['required_with:action_items','string','max:255'], 'action_items.*.assigned_to' => ['nullable','integer','exists:users,id'], 'action_items.*.description' => ['nullable','string'], 'action_items.*.due_at' => ['nullable','date']]);
         $meetings->complete($meeting, $data);
@@ -156,6 +174,7 @@ class ResearchWorkspaceController extends Controller
 
     public function calendar(ResearchProject $research, ResearchMeeting $meeting, ResearchMeetingService $meetings): Response
     {
+        $this->assertResearchFeatureEnabled('research_meetings', auth()->user());
         $this->authorize('view', $research); abort_unless($meeting->research_project_id === $research->id, 404);
         return response($meetings->ics($meeting), 200, ['Content-Type' => 'text/calendar; charset=utf-8', 'Content-Disposition' => 'attachment; filename="research-meeting-'.$meeting->uuid.'.ics"']);
     }
@@ -199,6 +218,7 @@ class ResearchWorkspaceController extends Controller
 
     public function syncMember(Request $request, ResearchProject $research, ResearchCollaborationService $collaboration): RedirectResponse
     {
+        $this->assertResearchFeatureEnabled('research_collaboration', $request->user());
         $this->authorize('transition', $research);
         $data = $request->validate(['user_id' => ['required','integer','exists:users,id'], 'role' => ['required','in:lead_author,author,data_analyst,research_assistant,advisor'], 'permissions' => ['required','array','min:1'], 'permissions.*' => ['in:write,comment,manage_references,manage_datasets,view_private,assign_tasks'], 'contribution_percent' => ['nullable','numeric','min:0','max:100']]);
         $collaboration->syncMember($research, User::findOrFail($data['user_id']), $data['role'], $data['permissions'], $data['contribution_percent'] ?? null);
@@ -458,18 +478,21 @@ class ResearchWorkspaceController extends Controller
 
     public function seal(Request $request, ResearchProject $research, ResearchArchiveService $archives): RedirectResponse
     {
+        $this->assertResearchFeatureEnabled('research_archives', $request->user());
         $this->authorize('publish', $research); $archive = $archives->seal($research, $request->user());
         return back()->with('success', 'Immutable archive v'.$archive->version.' sealed with checksum '.$archive->checksum.'.');
     }
 
     public function downloadArchive(ResearchProject $research, ResearchArchive $archive, ResearchArchiveService $archives, SafeFileDeliveryService $files)
     {
+        $this->assertResearchFeatureEnabled('research_archives', auth()->user());
         $this->authorize('view', $research); abort_unless($archive->research_project_id === $research->id && $archives->verify($archive), 404, 'Archive package is unavailable or failed integrity verification.');
         return $files->stream($archive->disk, $archive->package_path, str($research->title)->slug().'-archive-v'.$archive->version.'.zip', 'application/zip', 'attachment');
     }
 
     public function requestAmendment(Request $request, ResearchProject $research): RedirectResponse
     {
+        $this->assertResearchFeatureEnabled('research_archives', $request->user());
         $this->authorize('view', $research); abort_unless($research->archives()->where('status','sealed')->exists(), 422);
         $data = $request->validate(['reason' => ['required','string','max:10000'], 'requested_changes' => ['nullable','array']]);
         $research->amendments()->create($data + ['research_archive_id' => $research->archives()->latest('version')->value('id'), 'requested_by' => $request->user()->id, 'status' => 'pending']);
@@ -478,6 +501,7 @@ class ResearchWorkspaceController extends Controller
 
     public function reviewAmendment(Request $request, ResearchProject $research, ResearchAmendment $amendment): RedirectResponse
     {
+        $this->assertResearchFeatureEnabled('research_archives', $request->user());
         $this->authorize('review', $research); abort_unless($amendment->research_project_id === $research->id, 404);
         $data = $request->validate(['decision' => ['required','in:approve,reject'], 'review_note' => ['nullable','string','max:10000']]);
         $amendment->update(['status' => $data['decision'] === 'approve' ? 'approved' : 'rejected', 'reviewed_by' => $request->user()->id, 'review_note' => $data['review_note'] ?? null, 'reviewed_at' => now()]);
@@ -538,6 +562,7 @@ class ResearchWorkspaceController extends Controller
 
     public function storeDataset(Request $request, ResearchProject $research, MediaSecurityService $media): RedirectResponse
     {
+        $this->assertResearchFeatureEnabled('research_datasets', $request->user());
         $this->authorize('update',$research);abort_unless($request->user()->isAdmin()||$research->owner_id===$request->user()->id||$research->memberRecords()->where('user_id',$request->user()->id)->whereJsonContains('permissions','manage_datasets')->exists(),403);
         $data=$request->validate(['name'=>['required','string','max:255'],'description'=>['nullable','string','max:5000'],'access_level'=>['required','in:project,supervisors,institution,public'],'file'=>['required','file'],'schema_metadata'=>['nullable','array'],'ethics_metadata'=>['nullable','array']]);
         $dataset=DB::transaction(function()use($research,$request,$data,$media){$dataset=$research->datasets()->create(['uploaded_by'=>$request->user()->id,'name'=>$data['name'],'description'=>$data['description']??null,'access_level'=>$data['access_level'],'schema_metadata'=>$data['schema_metadata']??[],'ethics_metadata'=>$data['ethics_metadata']??[]]);$visibility=match($data['access_level']){'public'=>'public','institution'=>'institution',default=>'private'};$asset=$media->store($data['file'],$request->user(),$dataset,$visibility,['research_project_uuid'=>$research->uuid,'dataset_uuid'=>$dataset->uuid,'ethics_controlled'=>true]);$dataset->update(['media_asset_id'=>$asset->id]);return $dataset;});
@@ -546,6 +571,7 @@ class ResearchWorkspaceController extends Controller
 
     public function destroyDataset(Request $request, ResearchProject $research, ResearchDataset $dataset): RedirectResponse
     {
+        $this->assertResearchFeatureEnabled('research_datasets', $request->user());
         $this->authorize('update',$research);abort_unless($dataset->research_project_id===$research->id,404);abort_unless($request->user()->isAdmin()||$dataset->uploaded_by===$request->user()->id||$research->supervisor_id===$request->user()->id,403);
         if($dataset->mediaAsset){Storage::disk($dataset->mediaAsset->disk)->delete($dataset->mediaAsset->path);$dataset->mediaAsset->delete();}$dataset->delete();return back()->with('success','Dataset removed with its stored asset.');
     }
@@ -602,6 +628,16 @@ class ResearchWorkspaceController extends Controller
             ->unique(fn (string $item): string => strtolower($item))
             ->values()
             ->all();
+    }
+
+
+    private function assertResearchFeatureEnabled(string $feature, ?User $user): void
+    {
+        abort_unless(
+            FeatureAccessService::effectiveStatus($feature, $user?->university_id) === FeatureAccessService::STATUS_ENABLED,
+            403,
+            'This Research Studio module is currently disabled by the platform administrator.'
+        );
     }
 
 }

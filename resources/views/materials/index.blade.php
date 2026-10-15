@@ -29,6 +29,8 @@
         <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <span class="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700">Course staff tools</span>
             <a href="{{ route('lecturer.materials.create', $course) }}" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">Upload resource</a>
+            <a href="{{ route('lecturer.materials.create', $course) }}?mode=author" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700">Write material</a>
+            <a href="{{ route('lecturer.ai.drafts', $course) }}" class="rounded-xl border border-indigo-200 px-4 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50">AI draft library</a>
             @can('feature', 'document_generation')
                 <a href="{{ route('materials.export-pdf', $course) }}" target="_blank" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Export materials PDF</a>
             @endcan
@@ -63,11 +65,13 @@
                         <div class="mt-auto pt-5">
                             <div class="flex flex-wrap gap-2 text-xs text-slate-500">
                                 @if($material->topic)<span class="rounded-lg bg-cyan-50 px-2.5 py-1 font-semibold text-cyan-700">{{ $material->topic }}</span>@endif
-                                <span class="rounded-lg bg-slate-50 px-2.5 py-1">{{ $material->file_size ? number_format($material->file_size/1024,1).' KB' : 'Resource' }}</span>
+                                <span class="rounded-lg bg-slate-50 px-2.5 py-1">{{ $material->file_size ? number_format($material->file_size/1024,1).' KB' : ($material->hasContent() ? 'Written content' : 'Resource') }}</span>
                             </div>
                             <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-4">
                                 <a href="{{ route('materials.show', [$course, $material]) }}" class="flex-1 rounded-xl bg-indigo-600 px-3 py-2 text-center text-sm font-bold text-white hover:bg-indigo-700">Open</a>
-                                <a href="{{ route('materials.download', [$course, $material]) }}" class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Download</a>
+                                @if($material->hasFile())
+                                    <a href="{{ route('materials.download', [$course, $material]) }}" class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Download</a>
+                                @endif
                                 @can('update', $material)<a href="{{ route('lecturer.materials.edit', [$course, $material]) }}" class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Edit</a>@endcan
                             </div>
                         </div>

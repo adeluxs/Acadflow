@@ -83,7 +83,7 @@
 
                 <div class="mt-5 space-y-3">
                     @forelse($recentTasks as $task)
-                        <a href="{{ $isEnrolled ? route('submission-tasks.student.show', [$course, $task]) : route('submission-tasks.lecturer.show', [$course, $task]) }}"
+                        <a href="{{ $isEnrolled ? route('submission-tasks.student.show', ['course' => $course ?? $task->course_id, 'task' => $task]) : route('submission-tasks.lecturer.show', ['course' => $course ?? $task->course_id, 'task' => $task]) }}"
                            class="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:bg-indigo-50/40 sm:flex-row sm:items-center sm:justify-between">
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2">
