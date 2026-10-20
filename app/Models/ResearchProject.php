@@ -34,6 +34,7 @@ class ResearchProject extends Model
     public function tasks(): HasMany { return $this->hasMany(ResearchTask::class); }
     public function archives(): HasMany { return $this->hasMany(ResearchArchive::class)->orderByDesc('version'); }
     public function amendments(): HasMany { return $this->hasMany(ResearchAmendment::class); }
+    public function resources(): HasMany { return $this->hasMany(ResearchResource::class); }
     public function datasets(): HasMany { return $this->hasMany(ResearchDataset::class); }
     public function specializedLinks(): HasMany { return $this->hasMany(ResearchSpecializedLink::class); }
     public function siwesPlacement(): HasOne { return $this->hasOne(SiwesPlacement::class); }

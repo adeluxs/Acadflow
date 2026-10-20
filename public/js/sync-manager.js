@@ -1,5 +1,5 @@
 /**
- * AcadFlow PWA Sync Manager
+ * AcadSyntra PWA Sync Manager
  * Handles offline queue, sync, and state management
  */
 

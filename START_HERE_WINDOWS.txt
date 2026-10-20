@@ -1,4 +1,4 @@
-ACADFLOW WINDOWS SETUP
+ACADSYNTRA WINDOWS SETUP
 ======================
 
 For the Composer error:

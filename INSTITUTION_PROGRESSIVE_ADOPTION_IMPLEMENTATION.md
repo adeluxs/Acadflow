@@ -1,6 +1,6 @@
-# AcadFlow Progressive Institution Adoption — Implementation
+# AcadSyntra Progressive Institution Adoption — Implementation
 
-This release implements the Institution Claiming, Independent Adoption & Institutional Migration master plan on top of AcadFlow's existing onboarding, tenant, monetization and AI systems.
+This release implements the Institution Claiming, Independent Adoption & Institutional Migration master plan on top of AcadSyntra's existing onboarding, tenant, monetization and AI systems.
 
 ## Delivered
 
@@ -35,6 +35,6 @@ This release implements the Institution Claiming, Independent Adoption & Institu
 
 ## Important behavior
 
-`universities.is_active` remains a catalogue/workspace usability field for backward compatibility. `universities.adoption_status` is the authoritative answer to whether the institution has officially adopted AcadFlow. This keeps independent users functional while an institution claim is pending or setup is in progress.
+`universities.is_active` remains a catalogue/workspace usability field for backward compatibility. `universities.adoption_status` is the authoritative answer to whether the institution has officially adopted AcadSyntra. This keeps independent users functional while an institution claim is pending or setup is in progress.
 
 Institution sponsorship is intentionally unavailable to self-declared users. Verification never deletes or recreates a user's account, wallet, history, publications, submissions or other personal data.

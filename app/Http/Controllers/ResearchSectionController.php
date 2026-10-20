@@ -20,19 +20,24 @@ class ResearchSectionController extends Controller
         $this->authorize('update', $research);
         abort_unless($section->research_project_id === $research->id, 404);
         $data = $request->validate([
-            'body' => ['nullable', 'string'],
+            'body' => ['nullable', 'string', 'max:300000'],
+            'expected_version' => ['nullable', 'integer', 'min:1'],
             'change_summary' => ['nullable', 'string', 'max:255'],
         ]);
 
-        abort_if($section->locked_at && ! $request->user()->isAdmin(), 423, 'This approved section is locked. Request an amendment to change it.');
-        $before = (string) $section->document->body;
-        $cleanBody = $sanitizer->sanitize((string) ($data['body'] ?? ''));
-        $document = $workspace->autosave($section->document, $request->user(), $cleanBody, $data['change_summary'] ?? null);
-        $bodyText = trim(strip_tags((string) $document->body));
-        $section->update(['status' => $bodyText === '' ? 'draft' : 'in_progress', 'completion_percent' => $bodyText === '' ? 0 : min(95, max(10, str_word_count($bodyText) / max(1, (int) (($research->templateVersion?->template_schema['sections'][$section->position]['min_words'] ?? 1000))) * 100))]);
-        $collaboration->recordEdit($section, $request->user(), $before, (string) $document->body, $document->versions()->latest('version_number')->value('id'));
-        $research->update(['last_activity_at' => now()]);
-        $progress = $projects->recalculateProgress($research);
+        [$document, $progress] = \Illuminate\Support\Facades\DB::transaction(function () use ($request, $research, $section, $data, $workspace, $projects, $collaboration, $sanitizer) {
+            $section = ResearchSection::query()->lockForUpdate()->findOrFail($section->id);
+            abort_if($section->locked_at, 423, 'This approved section is locked. Request an amendment to change it.');
+            $before = (string) $section->document->body;
+            $cleanBody = $sanitizer->sanitize((string) ($data['body'] ?? ''));
+            $document = $workspace->autosave($section->document, $request->user(), $cleanBody, $data['change_summary'] ?? null, $data['expected_version'] ?? null);
+            $bodyText = trim(strip_tags((string) $document->body));
+            $section->update(['status' => $bodyText === '' ? 'draft' : 'in_progress', 'approved_at' => null, 'approved_by' => null,
+                'completion_percent' => $bodyText === '' ? 0 : min(95, max(10, str_word_count($bodyText) / 1000 * 100))]);
+            if ($before !== (string) $document->body) $collaboration->recordEdit($section, $request->user(), $before, (string) $document->body, $document->versions()->latest('version_number')->value('id'));
+            $research->update(['last_activity_at' => now()]);
+            return [$document, $projects->recalculateProgress($research)];
+        });
 
         if ($request->expectsJson()) {
             return response()->json(['saved' => true, 'version' => $document->version_number, 'progress' => $progress, 'autosaved_at' => $document->autosaved_at]);
@@ -59,9 +64,18 @@ class ResearchSectionController extends Controller
     {
         $this->authorize('review', $research);
         abort_unless($section->research_project_id === $research->id, 404);
-        $lock = (bool) ($research->templateVersion?->template_schema['sections'][$section->position]['locked_after_approval'] ?? true);
-        $section->update(['status' => 'approved', 'completion_percent' => 100, 'approved_by' => $request->user()->id, 'approved_at' => now(), 'locked_by' => $lock ? $request->user()->id : null, 'locked_at' => $lock ? now() : null]);
-        $projects->recalculateProgress($research);
+        $data = $request->validate(['expected_version' => ['nullable', 'integer', 'min:1']]);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($section, $research, $request, $data, $projects) {
+            $section = ResearchSection::query()->lockForUpdate()->findOrFail($section->id);
+            $document = \App\Models\ContentDocument::query()->lockForUpdate()->findOrFail($section->content_document_id);
+            abort_if(isset($data['expected_version']) && $document->version_number !== (int) $data['expected_version'], 409, 'This section changed after you opened it. Review the latest version before approval.');
+            abort_if(trim(strip_tags((string) $document->body)) === '', 422, 'Write the section before requesting approval.');
+            $schema = data_get($research->metadata, 'research_setup.section_schema', $research->templateVersion?->template_schema['sections'] ?? []);
+            $definition = collect($schema)->firstWhere('key', $section->key);
+            $lock = (bool) ($definition['locked_after_approval'] ?? true);
+            $section->update(['status' => 'approved', 'completion_percent' => 100, 'approved_by' => $request->user()->id, 'approved_at' => now(), 'locked_by' => $lock ? $request->user()->id : null, 'locked_at' => $lock ? now() : null]);
+            $projects->recalculateProgress($research);
+        });
 
         return back()->with('success', $section->title.' approved.');
     }
@@ -81,7 +95,7 @@ class ResearchSectionController extends Controller
             'assigned_to' => $research->owner_id,
             'status' => 'open',
         ]));
-        $section->update(['status' => 'correction_requested']);
+        $section->update(['status' => 'correction_requested', 'approved_at' => null, 'approved_by' => null, 'locked_at' => null, 'locked_by' => null]);
         $projects->recalculateProgress($research);
 
         return back()->with('success', 'Correction request recorded.');

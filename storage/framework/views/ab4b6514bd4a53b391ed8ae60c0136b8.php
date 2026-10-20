@@ -13,7 +13,7 @@
                 <div>
                     <p class="text-xs font-bold uppercase tracking-[0.24em] text-indigo-100">Central AI Control Plane</p>
                     <h1 class="mt-2 text-3xl font-black tracking-tight">AI Settings</h1>
-                    <p class="mt-2 max-w-3xl text-sm leading-6 text-indigo-100">One runtime configuration for provider routing, models, grounding, guardrails, limits and every AI-powered AcadFlow feature. Changes are database-driven and take effect without rebuilding Laravel config cache.</p>
+                    <p class="mt-2 max-w-3xl text-sm leading-6 text-indigo-100">One runtime configuration for provider routing, models, grounding, guardrails, limits and every AI-powered AcadSyntra feature. Changes are database-driven and take effect without rebuilding Laravel config cache.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <a href="<?php echo e(route('ai.diagnostics')); ?>" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20">AI Diagnostics</a>
@@ -121,7 +121,7 @@
             </div>
 
             <label class="mt-5 block"><span class="text-sm font-bold text-slate-700">Global System Instruction</span><textarea name="ai_global_system_prompt" rows="4" class="mt-1.5 w-full rounded-xl border px-3 py-2.5"><?php echo e(old('ai_global_system_prompt',$settings['ai_global_system_prompt'])); ?></textarea><span class="mt-1 block text-xs text-slate-400">Composed before feature-specific prompt instructions. Retrieved documents remain untrusted data.</span></label>
-            <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>External live-web research:</strong> unavailable in this build. An LLM provider is not treated as a web-search engine, so this setting remains disabled until AcadFlow has a dedicated controlled web research adapter.</div>
+            <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>External live-web research:</strong> unavailable in this build. An LLM provider is not treated as a web-search engine, so this setting remains disabled until AcadSyntra has a dedicated controlled web research adapter.</div>
         </section>
 
         <section id="providers" class="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-7">

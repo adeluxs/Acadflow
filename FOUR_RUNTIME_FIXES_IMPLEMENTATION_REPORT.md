@@ -1,4 +1,4 @@
-# AcadFlow Four Runtime Fixes — Implementation Report
+# AcadSyntra Four Runtime Fixes — Implementation Report
 
 ## Scope
 
@@ -12,7 +12,7 @@ This release fixes the four reported production issues against the latest progre
 ## 1. Institution onboarding search
 
 ### Root cause
-The onboarding page used Alpine directives (`x-data`, `x-model`, `@click`, etc.), but Alpine is not installed or initialized by AcadFlow. The backend search route and adoption service existed, yet the browser-side search state never ran.
+The onboarding page used Alpine directives (`x-data`, `x-model`, `@click`, etc.), but Alpine is not installed or initialized by AcadSyntra. The backend search route and adoption service existed, yet the browser-side search state never ran.
 
 During the fix audit a second issue was caught: the new search module initially had its own auto-initializer while `app.js` also initialized it after lazy import. That would have produced duplicate listeners and requests. The module now has exactly one initializer owned by `app.js`.
 
@@ -104,7 +104,7 @@ The existing assistant UX already preserves the failed question, disables duplic
 The view depended on a Blade-local `$setupCurrency` derived from `$setupInstitutionCurrency`. That made the variable's existence dependent on the exact rendered Blade source/cache path and caused the reported undefined-variable failure.
 
 ### Fix
-`MonetizationController@index` now resolves the authoritative setup currency and passes `$setupCurrency` directly to the view. Currency continues to use AcadFlow's central `SettingService` and commercial-account currency, with the existing platform currency fallback when no institution-specific setting exists.
+`MonetizationController@index` now resolves the authoritative setup currency and passes `$setupCurrency` directly to the view. Currency continues to use AcadSyntra's central `SettingService` and commercial-account currency, with the existing platform currency fallback when no institution-specific setting exists.
 
 ### Primary files
 - `app/Http/Controllers/Admin/MonetizationController.php`
@@ -180,4 +180,4 @@ php artisan test
 
 ## Outcome
 
-The four reported issues are addressed at their application root causes. No vendor code or compiled Blade cache was modified, and the fix remains centralized so all AcadFlow AI features benefit from the safer lifecycle and provider transport behavior.
+The four reported issues are addressed at their application root causes. No vendor code or compiled Blade cache was modified, and the fix remains centralized so all AcadSyntra AI features benefit from the safer lifecycle and provider transport behavior.

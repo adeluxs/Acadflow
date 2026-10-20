@@ -10,9 +10,9 @@ self.addEventListener('push', (event) => {
     let payload = {};
     try { payload = event.data?.json() || {}; } catch (_) { payload = { body: event.data?.text() || '' }; }
     const content = payload.notification || payload;
-    event.waitUntil(self.registration.showNotification(content.title || 'AcadFlow', {
+    event.waitUntil(self.registration.showNotification(content.title || 'AcadSyntra', {
         body: content.body || 'You have a new notification.',
-        icon: '/branding/acadflow-icon-192.png', badge: '/branding/acadflow-mark.png',
+        icon: '/branding/acadsyntra-icon-192.png', badge: '/branding/acadsyntra-mark.png',
         tag: content.tag || 'acadflow-notification',
         data: { url: notificationTarget(content.data?.url) },
     }));

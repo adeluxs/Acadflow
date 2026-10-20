@@ -2,7 +2,7 @@
 
 ## Goal
 
-Make Research Studio useful and professional for independent students/researchers at launch while preserving AcadFlow's institutional research capabilities for later Admin-controlled expansion.
+Make Research Studio useful and professional for independent students/researchers at launch while preserving AcadSyntra's institutional research capabilities for later Admin-controlled expansion.
 
 ## Launch profile
 
@@ -61,7 +61,7 @@ Optional module relations are loaded only when their corresponding Admin feature
 
 ## Literature & Reference Library
 
-Scholarly discovery retains AcadFlow's existing provider architecture:
+Scholarly discovery retains AcadSyntra's existing provider architecture:
 
 - OpenAlex
 - Crossref
@@ -89,7 +89,7 @@ Each saved reference supports structured researcher notes:
 
 Previously saved note fields are prefilled when the library is reopened.
 
-AcadFlow does not bypass publisher/paywall restrictions. Search stores metadata/abstracts returned by scholarly services; opening a paper follows an HTTP(S) provider or DOI URL.
+AcadSyntra does not bypass publisher/paywall restrictions. Search stores metadata/abstracts returned by scholarly services; opening a paper follows an HTTP(S) provider or DOI URL.
 
 ## Web/API parity
 

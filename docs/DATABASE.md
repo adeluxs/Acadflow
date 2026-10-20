@@ -1,4 +1,4 @@
-# AcadFlow Database & Data Model Guide
+# AcadSyntra Database & Data Model Guide
 
 **Current source snapshot:** 2026-08-15  
 **Database target:** MySQL recommended by `.env.example`

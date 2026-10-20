@@ -106,7 +106,7 @@ class PushNotificationController extends Controller
         $count = $this->pushService->send(
             $user,
             'Test Notification',
-            'This is a test push notification from AcadFlow!',
+            'This is a test push notification from AcadSyntra!',
             ['type' => 'test', 'url' => '/dashboard']
         );
 

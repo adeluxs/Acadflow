@@ -1,12 +1,12 @@
-# AcadFlow Centralized Feature / Module / View Management
+# AcadSyntra Centralized Feature / Module / View Management
 
-**Implementation date:** 14 August 2026  
-**Baseline:** `AcadFlow-enhanced-2026-08-14-runtime-community-knowledge-fixed`  
+**Implementation date:** 14 August 2026
+**Baseline:** `AcadSyntra-enhanced-2026-08-14-runtime-community-knowledge-fixed`
 **Objective:** one feature = one authoritative availability state = one centralized access mechanism.
 
 ## Executive summary
 
-AcadFlow now has a centralized runtime availability layer for supported user-facing modules. It reuses the existing `feature_flags` and `feature_flag_overrides` schema, the existing Settings architecture, the existing role system, Laravel middleware, the existing cache layer, and `AuditLog`. No second settings table, permission system, or audit system was introduced.
+AcadSyntra now has a centralized runtime availability layer for supported user-facing modules. It reuses the existing `feature_flags` and `feature_flag_overrides` schema, the existing Settings architecture, the existing role system, Laravel middleware, the existing cache layer, and `AuditLog`. No second settings table, permission system, or audit system was introduced.
 
 A Super Admin can manage supported features from **Admin → Settings → Feature & Module Management** and place each feature into one of three states:
 
@@ -20,7 +20,7 @@ The backend is authoritative. Web menus and dashboards reflect the state, but di
 
 ## 1. Existing functionality discovered during the audit
 
-The audit found that AcadFlow already contained important pieces that should be reused rather than rebuilt:
+The audit found that AcadSyntra already contained important pieces that should be reused rather than rebuilt:
 
 1. **`feature_flags` table** with `name`, `is_enabled`, `description`, `enabled_at`, `enabled_by` and timestamps.
 2. **`feature_flags.settings` JSON column** added by the existing cross-cutting ecosystem migration.
@@ -457,7 +457,7 @@ The implementation intentionally leaves authentication, password reset, authoriz
 ## 20. Remaining limitations / deployment notes
 
 1. The supplied source archive does **not** contain installed `vendor/` or `node_modules/`; therefore a real Laravel HTTP/database PHPUnit run and a real Vite production build could not be executed in this environment. Static tests were run, but deployment should still run the project's normal integration suite.
-2. This source tree is the Laravel web/backend project. If AcadFlow has a separate Flutter/mobile repository, that client must consume the new `features` map to hide/label unavailable screens. The backend already blocks protected feature APIs even if an old mobile build ignores the map.
+2. This source tree is the Laravel web/backend project. If AcadSyntra has a separate Flutter/mobile repository, that client must consume the new `features` map to hide/label unavailable screens. The backend already blocks protected feature APIs even if an old mobile build ignores the map.
 3. The existing `feature_flag_overrides` schema is retained and supported by the service, but this management screen intentionally exposes platform-global Super Admin release state only. If the product later requires per-university release controls, the existing override table/service can be surfaced without creating another architecture.
 4. The registry covers the current major user-facing modules/routes. When a genuinely new module is added in future, its stable identifier and route/API patterns should be added to `config/features.php` rather than creating a standalone switch elsewhere.
 5. External provider outages/configuration are different from module availability. For example, enabling AI Assistant does not guarantee an external AI provider is configured; provider configuration remains under AI Settings.
@@ -494,7 +494,7 @@ Then verify the following from **Admin → Settings → Feature & Module Managem
 
 ## Final architecture rule
 
-AcadFlow now follows this runtime release principle:
+AcadSyntra now follows this runtime release principle:
 
 > **One feature = one authoritative availability setting = one centralized access mechanism.**
 

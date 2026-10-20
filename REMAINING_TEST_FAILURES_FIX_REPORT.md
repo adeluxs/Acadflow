@@ -1,4 +1,4 @@
-# AcadFlow — Remaining PHPUnit Failure Fixes
+# AcadSyntra — Remaining PHPUnit Failure Fixes
 
 Date: 2026-09-02
 

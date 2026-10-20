@@ -1,8 +1,8 @@
-# AcadFlow AI Architecture Audit & Central Provider Routing — 15 Aug 2026
+# AcadSyntra AI Architecture Audit & Central Provider Routing — 15 Aug 2026
 
 ## Scope
 
-This report documents the audit and implementation performed against the latest AcadFlow source used as the baseline for this release. The objective was not to add another AI configuration layer; it was to make the existing AI Settings, provider adapters, rule engine, grounding, AI features, queue jobs, prompts, caching and observability operate through one authoritative runtime path.
+This report documents the audit and implementation performed against the latest AcadSyntra source used as the baseline for this release. The objective was not to add another AI configuration layer; it was to make the existing AI Settings, provider adapters, rule engine, grounding, AI features, queue jobs, prompts, caching and observability operate through one authoritative runtime path.
 
 Final runtime path:
 
@@ -261,7 +261,7 @@ Supported modes:
 
 ## 10. Provider/model management
 
-Providers already present in AcadFlow and retained:
+Providers already present in AcadSyntra and retained:
 
 ```text
 OpenAI
@@ -779,7 +779,7 @@ If the administrator changes Default Provider to OpenAI, future non-cached reque
 These are intentional limitations of the **actual current source**, not hidden simulated capabilities:
 
 1. **No live open-web search adapter exists.** `ai_web_research_enabled` therefore stays disabled. An LLM provider is not described as “web research”.
-2. **No external embedding adapter exists in the supported provider contract.** Current semantic indexing/search uses AcadFlow's existing local deterministic embedding/index approach. It is not falsely labeled as OpenAI/Gemini embeddings.
+2. **No external embedding adapter exists in the supported provider contract.** Current semantic indexing/search uses AcadSyntra's existing local deterministic embedding/index approach. It is not falsely labeled as OpenAI/Gemini embeddings.
 3. **No LLM workflow node currently exists in `WorkflowService`.** A fake Workflow AI implementation was not invented.
 4. **Streaming is not currently implemented by the existing feature response architecture**, so no nonfunctional Streaming switch was added merely to fill the UI.
 5. **Full PHPUnit/Laravel HTTP execution requires Composer dependencies.** The supplied source baseline does not include `vendor/`, and Composer is unavailable in the build environment used for this source regeneration. Tests are included but live framework execution cannot honestly be claimed here.
@@ -807,7 +807,7 @@ php artisan migrate
 php artisan queue:restart
 ```
 
-If using Redis queue workers, ensure the configured workers are running for the AcadFlow queue names used by the application.
+If using Redis queue workers, ensure the configured workers are running for the AcadSyntra queue names used by the application.
 
 ---
 

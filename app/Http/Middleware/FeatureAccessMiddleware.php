@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Global release/maintenance guard for registered AcadFlow routes and APIs.
+ * Global release/maintenance guard for registered AcadSyntra routes and APIs.
  */
 class FeatureAccessMiddleware
 {

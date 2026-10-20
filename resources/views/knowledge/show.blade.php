@@ -232,7 +232,7 @@
                         <p class="mt-0.5 text-xs text-slate-500">No open web. No guessing. Source-backed answers only.</p>
                     </div>
                 </div>
-                <p class="mt-3 text-sm leading-6 text-slate-600">AcadFlow checks whether your question is meaningful, searches only this publication, validates relevance, and rejects unsupported answers instead of inventing a response.</p>
+                <p class="mt-3 text-sm leading-6 text-slate-600">AcadSyntra checks whether your question is meaningful, searches only this publication, validates relevance, and rejects unsupported answers instead of inventing a response.</p>
 
                 @auth
                     @if($hasAccess)

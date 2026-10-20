@@ -4,7 +4,7 @@
 <div class="mx-auto max-w-5xl">
     <div class="rounded-3xl bg-gradient-to-br from-blue-700 to-indigo-800 p-8 text-white shadow-xl">
         <p class="text-sm font-semibold text-blue-100">Onboarding complete</p>
-        <h1 class="mt-2 text-4xl font-black">Your AcadFlow workspace is ready.</h1>
+        <h1 class="mt-2 text-4xl font-black">Your AcadSyntra workspace is ready.</h1>
         <p class="mt-3 max-w-2xl text-blue-100">Start with recommendations based on your interests. Nothing is joined or followed without your action.</p>
         <a href="{{ route('dashboard') }}" class="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 font-bold text-blue-800">Open dashboard</a>
     </div>

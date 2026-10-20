@@ -14,13 +14,16 @@
     $isResultsWritingSection = $activeSection && ($activeKey === 'chapter_4' || str_contains($activeTitle, 'result') || str_contains($activeTitle, 'analysis'));
 @endphp
 
-<div class="space-y-6">
+<div class="studio-shell space-y-6">
     <nav class="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
         <a href="{{ route('research.workspace', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Control center</a>
         <a href="{{ route('research.show', ['research' => $research, 'section' => $activeSection?->uuid]) }}" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Writing workspace</a>
         @if($literatureEnabled)
             <a href="{{ route('research.literature.search', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Literature &amp; references</a>
         @endif
+        <a href="{{ route('research.plan', $research) }}" class="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700">Plan & library</a>
+        <a href="{{ route('research.export.docx', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold">DOCX</a>
+        <a href="{{ route('research.export.pdf', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold">PDF</a>
         <a href="{{ route('research.export.html', $research) }}" class="ml-auto rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Preview / export</a>
     </nav>
 
@@ -97,26 +100,27 @@
                                 <p class="mt-1 text-xs text-slate-500">Version {{ $activeSection->document->version_number }} · {{ ucwords(str_replace('_',' ', $activeSection->status)) }}{{ $activeSection->is_required ? ' · Required' : '' }}</p>
                             </div>
                             @can('review', $research)
-                                <form method="POST" action="{{ route('research.sections.approve', [$research, $activeSection]) }}">@csrf<button class="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Approve section</button></form>
+                                <form method="POST" action="{{ route('research.sections.approve', [$research, $activeSection]) }}">@csrf<input type="hidden" name="expected_version" value="{{ $activeSection->document->version_number }}"><button class="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Approve section</button></form>
                             @endcan
                         </div>
                     </header>
 
                     <div class="p-5">
-                        @can('update', $research)
-                            <form method="POST" action="{{ route('research.sections.save', [$research, $activeSection]) }}" class="space-y-3">@csrf @method('PUT')
+                        @if(auth()->user()->can('update', $research) && !$activeSection->locked_at)
+                            <form method="POST" action="{{ route('research.sections.save', [$research, $activeSection]) }}" class="space-y-3" data-research-autosave>@csrf @method('PUT')<input type="hidden" name="expected_version" value="{{ $activeSection->document->version_number }}">
                                 <textarea id="research-editor-{{ $activeSection->uuid }}" name="body" rows="18" data-rich-editor data-editor-height="560px" data-ai-url="{{ route('ai.writing') }}" data-ai-enabled="{{ \App\Services\SettingService::get('ai_editor_suggestions_enabled', true, auth()->user()?->university_id) ? '1' : '0' }}" data-ai-min-chars="{{ \App\Services\SettingService::get('ai_editor_suggestion_min_chars', 60, auth()->user()?->university_id) }}" data-ai-delay="{{ \App\Services\SettingService::get('ai_editor_suggestion_delay_ms', 1600, auth()->user()?->university_id) }}" class="w-full rounded-xl border-slate-300 font-serif leading-7" placeholder="Write {{ strtolower($activeSection->title) }} here...">{{ old('body', $activeSection->document->body) }}</textarea>
                                 <div class="flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <span class="text-xs leading-5 text-slate-500">Your draft remains editable until you explicitly save a recoverable version.</span>
-                                    <button class="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-black text-white">Save version</button>
+                                    <span data-autosave-status role="status" class="text-xs leading-5 text-slate-500">Changes save automatically as recoverable versions.</span>
+                                    <button type="submit" class="studio-button">Save version</button>
                                 </div>
                             </form>
                         @else
                             <article class="prose max-w-none">{!! app(\App\Services\RichTextSanitizer::class)->sanitize((string) $activeSection->document->body) !!}</article>
-                        @endcan
+                        @endif
                     </div>
                 </section>
 
+                <details class="studio-panel"><summary class="cursor-pointer font-bold text-sm">Section version history</summary><div class="mt-4 space-y-3">@foreach($activeSection->document->versions->sortByDesc('version_number')->take(20) as $version)<details class="rounded-xl border border-slate-200 p-3"><summary class="cursor-pointer text-xs">Version {{ $version->version_number }} · {{ $version->created_at?->format('d M Y H:i') }}</summary><article class="prose mt-3 max-w-none text-sm">{!! app(\App\Services\RichTextSanitizer::class)->sanitize((string) $version->body) !!}</article>@if(auth()->user()->can('update', $research) && !$activeSection->locked_at)<form method="POST" action="{{ route('research.sections.versions.restore', [$research, $activeSection, $version]) }}" class="mt-3">@csrf<button class="studio-button-secondary">Restore as new version</button></form>@endif</details>@endforeach</div></details>
                 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div class="flex items-center justify-between gap-3"><div><h3 class="font-black text-slate-900">Comments and corrections</h3><p class="mt-1 text-xs text-slate-500">Keep feedback attached to the section it applies to.</p></div><span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">{{ $activeSection->document->comments->count() }}</span></div>
                     <div class="mt-4 space-y-3">
@@ -164,7 +168,7 @@
                 @if($literatureEnabled && $isLiteratureWritingSection)
                     <section class="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-4 shadow-sm">
                         <div class="flex items-start justify-between gap-3"><div><p class="text-xs font-black uppercase tracking-[0.14em] text-indigo-600">Insert from your references</p><h3 class="mt-1 font-black text-indigo-950">Reviewed literature</h3></div><span class="rounded-full bg-white px-2.5 py-1 text-xs font-black text-indigo-700">{{ $chapterTwoLiterature->count() }}</span></div>
-                        <p class="mt-2 text-xs leading-5 text-indigo-900/70">Only papers you marked Reviewed are shown. AcadFlow inserts your own review notes with the project citation; verify and rewrite the wording before saving.</p>
+                        <p class="mt-2 text-xs leading-5 text-indigo-900/70">Only papers you marked Reviewed are shown. AcadSyntra inserts your own review notes with the project citation; verify and rewrite the wording before saving.</p>
                         <div class="mt-4 max-h-[480px] space-y-3 overflow-y-auto pr-1">
                             @forelse($chapterTwoLiterature as $literatureRow)
                                 <article class="rounded-xl border border-indigo-100 bg-white p-3">

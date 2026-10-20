@@ -18,7 +18,8 @@ class IndependentFirstLaunchTest extends TestCase
 
     public function test_public_personas_do_not_require_institutional_onboarding(): void
     {
-        $this->assertSame(['student', 'lecturer', 'researcher'], array_keys(OnboardingService::PUBLIC_ACCOUNT_PATHS));
+        $this->assertSame(['student', 'lecturer', 'researcher', 'independent_professional', 'author_publisher', 'other'], array_keys(OnboardingService::PUBLIC_ACCOUNT_PATHS));
+        foreach (array_keys(OnboardingService::PUBLIC_ACCOUNT_PATHS) as $path) $this->assertNotContains($path, OnboardingService::INSTITUTIONAL_PATHS);
         $this->assertNotContains('student', OnboardingService::INSTITUTIONAL_PATHS);
         $this->assertNotContains('lecturer', OnboardingService::INSTITUTIONAL_PATHS);
         $this->assertNotContains('researcher', OnboardingService::INSTITUTIONAL_PATHS);

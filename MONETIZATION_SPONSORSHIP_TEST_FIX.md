@@ -26,7 +26,7 @@ No sponsorship security rule was weakened.
 
 ## Validation
 - Monetization test file passes PHP syntax validation.
-- 18/18 AcadFlow static/preflight checks pass.
+- 18/18 AcadSyntra static/preflight checks pass.
 - 610 PHP files across app/bootstrap/config/database/routes/tests pass `php -l`.
 - Static route-to-controller audit: 507 targets checked, 0 missing.
 

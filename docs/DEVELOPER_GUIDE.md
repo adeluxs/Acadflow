@@ -1,16 +1,34 @@
-# AcadFlow Developer Guide
+# AcadSyntra Developer Guide
+
+## AcadSyntra identity and compatibility
+
+The public product name is **AcadSyntra**. Shared layouts, AI instructions, notification/email copy, PDF/export labels, metadata and manifests use it. Native vector masters and derived icons are in `public/branding/acadsyntra-*`; run `node scripts/generate-brand-assets.mjs` to reproduce PNG, social and favicon outputs. Old public asset URLs remain aliases containing the new artwork. See [BRANDING.md](BRANDING.md) for the palette, migration, verification and intentional technical compatibility names.
+
+Migration `2026_10_20_000005_rebrand_platform_as_acadsyntra.php` updates only known default branding settings/system workspace labels. Shipped active AI prompts get a new version; custom prompts, old instruction text, users, academic records, provider credentials and payment state remain intact. AI prompt composition normalizes the product identity in application instructions, never in retrieved/user context. Existing command names, HTTP correlation headers, JavaScript globals/events, session cookies, cache namespaces, archive schemas and IndexedDB identifiers are retained for compatibility. Do not mass-rename those strings.
+
+## Public website
+
+The public site uses the existing Laravel/Blade routes and account flows. `PublicPageController`, `PublicWebsite`, `config/public_website.php` and the retained `config/public_pages.php` centralize page content, workflows, capabilities and FAQ data. `layouts.public` shares navigation, branding, metadata and the footer. Public pages load only `resources/css/public.css` and `resources/js/public-website.js`; the authenticated app keeps its existing bundle. Build all entries with `npm run build`.
+
+The canonical routes are `/`, `/features`, `/how-it-works`, `/about`, `/contact`, `/faqs`, `/help`, `/privacy`, `/terms`, `/cookies` and `/disclaimer`. Existing `/information/{page}` routes remain available with canonical links where there is a dedicated replacement. Authenticated visits to `/` still redirect to the dashboard. `/sitemap.xml` lists public canonical pages; `/robots.txt` is now a Laravel response that uses the installation URL. Crawling restrictions are advisory and do not replace authorization.
+
+Apply migration `2026_10_20_000004_create_contact_messages.php` before accepting enquiries. Contact POSTs use CSRF, per-IP limits (3/minute and 6/hour), validated lengths/topics/email, a honeypot, and a session-bound form token valid after two seconds and for one day. Five recent forms support multiple tabs. A successful submission stores an enquiry before queuing any email. Super Admin → Website enquiries (`/admin/contact`) provides escaped, paginated open/closed messages; institution administrators cannot access this platform inbox. Closing retains data. Operators need a retention/deletion procedure for enquiries and backups.
+
+`NotifyPublicContact` uses the existing `default` queue and mail configuration. Alerts contain only an enquiry reference and an authenticated inbox link, not the visitor’s message. An actual `support_email` configured through System Settings → General enables email/contact display; known seeded placeholders and reserved example domains are suppressed. Delivery failure cannot remove the saved enquiry. Run a queue worker and configure SMTP for alerts. Website enquiries do not require the optional end-user notification module.
+
+See [PUBLIC_WEBSITE.md](PUBLIC_WEBSITE.md) for modified files, deployment, legal/operator review and browser checks. Public product previews use fictional example content and do not expose live academic records or claim universal feature access.
 
 **Canonical technical guide**  
 **Source snapshot:** 2026-08-20  
 **Framework:** Laravel ^12.40 / PHP ^8.2
 
-This document is the primary orientation for any developer, maintainer, DevOps engineer, reviewer, or coding agent working on AcadFlow. It describes the current implementation rather than an aspirational architecture. Dated audit documents remain useful for history, but this guide and the current source code take precedence.
+This document is the primary orientation for any developer, maintainer, DevOps engineer, reviewer, or coding agent working on AcadSyntra. It describes the current implementation rather than an aspirational architecture. Dated audit documents remain useful for history, but this guide and the current source code take precedence.
 
 ---
 
 ## 1. Product and architecture at a glance
 
-AcadFlow is a multi-role academic platform that combines institutional academic workflows and an open/controlled knowledge ecosystem. Major domains include:
+AcadSyntra is a multi-role academic platform that combines institutional academic workflows and an open/controlled knowledge ecosystem. Major domains include:
 
 - universities, faculties, departments, semesters and courses;
 - course membership, lecturer assignments and student enrolment;
@@ -96,7 +114,7 @@ Feature-specific grounding/validation/guardrails
 
 - MySQL is the recommended database target in `.env.example`
 - Cache supports Laravel's normal stores; database is the template default, Redis is recommended for capable production environments
-- Queue supports database and Redis; queue names used by AcadFlow include `default`, `ai`, `indexing`, and `analytics`
+- Queue supports database and Redis; queue names used by AcadSyntra include `default`, `ai`, `indexing`, and `analytics`
 - Files use Laravel Flysystem; media is delivered through security-aware services and expiring tokens
 - PWA assets and service workers are included
 
@@ -141,7 +159,7 @@ app/
 └── Support/                  infrastructure helpers and DB guards
 
 bootstrap/app.php             route/middleware wiring
-config/                       framework + AcadFlow configuration
+config/                       framework + AcadSyntra configuration
 routes/web.php                browser routes
 routes/api.php                Sanctum REST API v1
 routes/console.php            scheduler + custom Artisan commands
@@ -189,7 +207,7 @@ The canonical role enum is `App\Enums\UserRole`:
 
 ### Authorization layers
 
-Do not treat role middleware as the only security boundary. AcadFlow combines:
+Do not treat role middleware as the only security boundary. AcadSyntra combines:
 
 1. authentication;
 2. email verification;
@@ -296,7 +314,7 @@ Research Studio uses the same central feature service for progressive release. `
 
 Institutional research is not inferred merely because a user has an affiliation. When `research_institutional_expansion` is disabled, normal create/API flows reject institutional mode, department selection, and supervisor assignment/invitation payloads. When enabled, a user may opt a project into institutional mode. Supervisors are invited through `research_project_invitations`; `research_projects.supervisor_id` is not populated until the invited active lecturer accepts. This keeps invitation state explicit and auditable.
 
-Literature discovery is provided by `ScholarlyDiscoveryService` over configured scholarly providers (OpenAlex, Crossref, Semantic Scholar, CORE, DOAJ, PubMed and arXiv). Search results are normalized and deduplicated by DOI or normalized title/year. Saving a result creates/reuses an `AcademicReference` with a stable citation key and links it to the project; structured `ResearchLiteratureNote` records store the user's summary, methodology, findings, limitations, contradictions, research gap and keywords. AcadFlow stores metadata/abstracts returned by providers and follows lawful external source/DOI links; it does not bypass publisher access controls.
+Literature discovery is provided by `ScholarlyDiscoveryService` over configured scholarly providers (OpenAlex, Crossref, Semantic Scholar, CORE, DOAJ, PubMed and arXiv). Search results are normalized and deduplicated by DOI or normalized title/year. Saving a result creates/reuses an `AcademicReference` with a stable citation key and links it to the project; structured `ResearchLiteratureNote` records store the user's summary, methodology, findings, limitations, contradictions, research gap and keywords. AcadSyntra stores metadata/abstracts returned by providers and follows lawful external source/DOI links; it does not bypass publisher access controls.
 
 ## 6. Settings architecture
 
@@ -321,7 +339,7 @@ Current broad setting areas include general platform settings, academic behavior
 
 ### 7.1 Operating modes
 
-AcadFlow supports explicit AI modes through `AiMode`/runtime settings:
+AcadSyntra supports explicit AI modes through `AiMode`/runtime settings:
 
 - Provider AI — configured provider chain; no hidden deterministic fallback
 - Hybrid — rules/retrieval/LLM/validation; deterministic fallback only where explicitly allowed
@@ -377,6 +395,11 @@ Database/admin runtime choices take precedence over `.env` bootstrap defaults. Q
 | `knowledge_publication_validator` |
 | `knowledge_moderation`            |
 | `knowledge_companion`             |
+| `study_planner`                   |
+| `practice_generator`              |
+| `flashcard_generator`             |
+| `reflection_coach`                |
+| `annotation_summary`              |
 
 ### 7.5 User-facing assistant mapping
 
@@ -478,6 +501,13 @@ Groups include membership, invitations/join requests, tasks, resources and colla
 Research is built around `ResearchProject`, workflow definitions/instances/stages, structured `ResearchSection`s, versions/authorship, meetings/reminders, tasks/action items, milestones, literature notes, references, datasets, archives, amendments, corrections and specialized links. SIWES, seminars and project-defense workflows are specialized research workspaces.
 
 Publishing approved research to Knowledge Hub is a separately controllable feature (`research_to_knowledge_hub`).
+
+Research Studio now snapshots one of 41 modular research designs and configurable level/discipline/objectives/reference settings during project creation. `ResearchMethodologyService` builds methodology or five-chapter sections and planning milestones while preserving administrator templates and existing projects. The `research_resources` migration links private library files and versioned planning documents to the existing media/content architecture. CSV summaries and source-bound qualitative coding store real supplied evidence; sample-size planning records assumptions. HTML/PDF and genuine Office Open XML DOCX exports share stored content. See [Research Studio implementation and academic sources](RESEARCH_STUDIO.md).
+
+Research editor autosave sends `expected_version` and checks it under a row lock; HTTP 409 protects newer work. The API section endpoint uses the same save path. Research responses use private/no-store headers. New library uploads always use the private local disk and the existing scanner/extension policies; dataset uploads and CSV analysis retain `research_datasets` checks. AI planning context is added through the existing contextual assistant and central routing, excluding raw coding/consent/ethics records.
+
+Onboarding retains its six saved steps and completed-user bypass. The final step optionally opens the first research/final-year project wizard after normal feature/policy checks. Onboarding web routes now also require the current two-factor session. Password controls expose accessible state and validation associations; auth loading states recover after browser-history navigation. No new account role, feature flag, Composer package or external worker is introduced.
+
 
 ### Knowledge Hub
 
@@ -657,7 +687,7 @@ The source currently contains a large normalized schema across academic, researc
 - avoid destructive `down()` methods where rollback could destroy administrator/user data;
 - use transactions where the database operation supports them and failure semantics are clear.
 
-AcadFlow previously encountered MySQL identifier-length failures, so long autogenerated index names are specifically prohibited.
+AcadSyntra previously encountered MySQL identifier-length failures, so long autogenerated index names are specifically prohibited.
 
 ---
 
@@ -954,7 +984,7 @@ Before changing behavior, search:
 - tests;
 - dated implementation note.
 
-AcadFlow has intentionally centralized several cross-cutting concerns. Bypassing them creates the exact inconsistencies that previous audits fixed. In particular, do not bypass `SettingService`, `FeatureAccessService`, `AiManager`/`AiRouter`, policies, secure media delivery, or the existing queue architecture.
+AcadSyntra has intentionally centralized several cross-cutting concerns. Bypassing them creates the exact inconsistencies that previous audits fixed. In particular, do not bypass `SettingService`, `FeatureAccessService`, `AiManager`/`AiRouter`, policies, secure media delivery, or the existing queue architecture.
 
 ---
 
@@ -1049,7 +1079,7 @@ Google shut down Gemini 1.5 models in 2025 and Gemini 2.0 Flash models in 2026. 
 
 ## 42. Grok (xAI) provider and interaction-performance architecture — 2026-08-20
 
-Grok is integrated as a normal AcadFlow external provider, not as a parallel AI subsystem.
+Grok is integrated as a normal AcadSyntra external provider, not as a parallel AI subsystem.
 
 Runtime path:
 

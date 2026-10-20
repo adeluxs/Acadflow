@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
  * Protocol-only base for external providers.
  *
  * All external provider traffic uses this transport so Test Connection and the
- * real AcadFlow AI runtime have identical timeout, TLS, proxy, DNS, logging and
+ * real AcadSyntra AI runtime have identical timeout, TLS, proxy, DNS, logging and
  * error-classification behaviour. Provider adapters only define protocol data.
  *
  * IMPORTANT: this class deliberately has no RuleEngine dependency and never
@@ -200,7 +200,7 @@ abstract class ExternalProvider implements AiProviderInterface
                 ]);
 
                 if ($fastFailover || ! $this->retryableStatus($response->status()) || $attempt >= $attempts) {
-                    // Interactive AcadFlow requests should reach the centrally
+                    // Interactive AcadSyntra requests should reach the centrally
                     // configured fallback provider quickly. When Fast Failover
                     // is enabled, do not spend another full provider timeout on
                     // the same upstream provider before AiManager advances.
@@ -287,7 +287,7 @@ abstract class ExternalProvider implements AiProviderInterface
         try {
             $payload = [
                 '_prompt' => [
-                    'system_prompt' => 'You are an AcadFlow provider connectivity check. Return valid JSON only.',
+                    'system_prompt' => 'You are an AcadSyntra provider connectivity check. Return valid JSON only.',
                     'user_prompt' => 'Return {"status":"ok"}.',
                 ],
             ];
@@ -508,7 +508,7 @@ abstract class ExternalProvider implements AiProviderInterface
             ->timeout($requestTimeout)
             ->connectTimeout($connectTimeout)
             ->withOptions($options)
-            ->withUserAgent('AcadFlow/1.0 Laravel-AI')
+            ->withUserAgent('AcadSyntra/1.0 Laravel-AI')
             ->withHeaders($this->headers() + [
                 'X-AcadFlow-Request-Id' => $requestId,
             ]);
@@ -540,7 +540,7 @@ abstract class ExternalProvider implements AiProviderInterface
 
     protected function systemPrompt(array $payload): string
     {
-        return (string) data_get($payload, '_prompt.system_prompt', 'You are AcadFlow AI Academic Assistant. Respond only with valid JSON.');
+        return (string) data_get($payload, '_prompt.system_prompt', 'You are AcadSyntra AI Academic Assistant. Respond only with valid JSON.');
     }
 
     protected function userPrompt(string $feature, array $payload): string

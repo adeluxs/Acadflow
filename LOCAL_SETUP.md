@@ -1,4 +1,4 @@
-# AcadFlow local setup notes
+# AcadSyntra local setup notes
 
 This document records the local setup performed for this workspace and the exact reproducible steps.
 
@@ -154,7 +154,7 @@ GET /register -> 200 text/html
 The home page returned title:
 
 ```text
-AcadFlow — Academic Workflow Platform
+AcadSyntra — Academic Workflow Platform
 ```
 
 Frontend production build also completed successfully with Vite.

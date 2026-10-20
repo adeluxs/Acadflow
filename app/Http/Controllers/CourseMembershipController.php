@@ -133,8 +133,8 @@ class CourseMembershipController extends Controller
         if ((bool) SettingService::get('email_notifications_enabled', true, $lecturer->university_id)) {
             try {
                 Mail::raw(
-                    "You have been invited to join {$course->code} — {$course->name} on AcadFlow.\n\nAccept invitation: {$url}\n\nThis invitation expires in {$expiresInDays} day(s).",
-                    fn ($message) => $message->to($data['email'])->subject('AcadFlow course invitation: '.$course->code)
+                    "You have been invited to join {$course->code} — {$course->name} on AcadSyntra.\n\nAccept invitation: {$url}\n\nThis invitation expires in {$expiresInDays} day(s).",
+                    fn ($message) => $message->to($data['email'])->subject('AcadSyntra course invitation: '.$course->code)
                 );
             } catch (\Throwable) {
                 // Invitation remains valid even when outbound mail is unavailable.

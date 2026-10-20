@@ -1,4 +1,4 @@
-AcadFlow Professional Research Studio Dashboard validation
+AcadSyntra Professional Research Studio Dashboard validation
 Date: 2026-09-16
 
 Preflight/regression scripts: 33/33 PASS

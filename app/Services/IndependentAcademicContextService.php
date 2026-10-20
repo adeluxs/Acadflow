@@ -30,7 +30,7 @@ class IndependentAcademicContextService
             $university = University::query()->firstOrCreate(
                 ['code' => self::UNIVERSITY_CODE],
                 [
-                    'name' => 'AcadFlow Independent Workspace',
+                    'name' => 'AcadSyntra Independent Workspace',
                     'short_name' => 'Independent',
                     'email' => null,
                     'timezone' => (string) config('app.timezone', 'Africa/Lagos'),
@@ -102,7 +102,7 @@ class IndependentAcademicContextService
             ['university_id' => null, 'slug' => 'independent-research'],
             [
                 'name' => 'Independent Research Project',
-                'description' => 'Flexible personal or collaborative research workspace for independent AcadFlow users.',
+                'description' => 'Flexible personal or collaborative research workspace for independent AcadSyntra users.',
                 'template_schema' => null,
                 'validation_rules' => null,
                 'similarity_threshold' => 20,

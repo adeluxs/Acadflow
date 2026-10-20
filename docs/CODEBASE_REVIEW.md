@@ -1,6 +1,6 @@
-# AcadFlow — Complete Codebase Review & Documentation
+# AcadSyntra — Complete Codebase Review & Documentation
 
-> **Project:** AcadFlow (UniAcademic) — University Academic Management Platform
+> **Project:** AcadSyntra (UniAcademic) — University Academic Management Platform
 > **Framework:** Laravel 11 + Vue 3 + Tailwind CSS + Vite + MySQL
 > **Review Date:** 2026-07-13
 > **Reviewer:** Kilo (Automated Codebase Analysis)
@@ -31,7 +31,7 @@
 
 ## 1. Executive Summary
 
-AcadFlow is a full-featured Laravel 11 SaaS-style university management system built for FUT (Federal University of Technology) domain. It covers authentication, multi-role dashboards, course management, assignments/submissions, attendance, billing, exams, discussions, departments, notifications, and a subscription/payment layer.
+AcadSyntra is a full-featured Laravel 11 SaaS-style university management system built for FUT (Federal University of Technology) domain. It covers authentication, multi-role dashboards, course management, assignments/submissions, attendance, billing, exams, discussions, departments, notifications, and a subscription/payment layer.
 
 The codebase is **architecturally sound** — it follows Laravel conventions, uses service layers, has rich domain models with relationships, and implements policy-based authorization. However, it has **zero automated tests** and **5 critical bugs** that must be resolved before production deployment. The most severe bug (`SubmissionPolicy::submit` missing) blocks the core student assignment feature.
 
@@ -603,11 +603,11 @@ Policies implement standard `viewAny`, `view`, `create`, `update`, `delete`, `re
 
 | Command | Purpose |
 |---------|---------|
-| `AcadFlow:seed-university` | Seed a new university with defaults |
-| `AcadFlow:clean-audit-logs` | Clean old audit logs |
-| `AcadFlow:generate-transcripts` | Batch generate transcripts |
-| `AcadFlow:send-payment-reminders` | Send overdue payment reminders |
-| `AcadFlow:sync-external-data` | Sync external data source |
+| `AcadSyntra:seed-university` | Seed a new university with defaults |
+| `AcadSyntra:clean-audit-logs` | Clean old audit logs |
+| `AcadSyntra:generate-transcripts` | Batch generate transcripts |
+| `AcadSyntra:send-payment-reminders` | Send overdue payment reminders |
+| `AcadSyntra:sync-external-data` | Sync external data source |
 
 ---
 

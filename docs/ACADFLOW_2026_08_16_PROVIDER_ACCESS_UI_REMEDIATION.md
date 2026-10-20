@@ -1,4 +1,4 @@
-# AcadFlow — 2026-08-16 Provider, Access and Workspace Remediation
+# AcadSyntra — 2026-08-16 Provider, Access and Workspace Remediation
 
 ## Scope
 

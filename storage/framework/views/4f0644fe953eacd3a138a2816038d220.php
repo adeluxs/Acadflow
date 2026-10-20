@@ -3,6 +3,8 @@
 <?php $__env->startSection('page-subtitle', $research->title); ?>
 
 <?php $__env->startSection('content'); ?>
+<nav class="studio-nav mb-6" aria-label="Project workspace"><a href="<?php echo e(route('research.index')); ?>">All projects</a><a href="<?php echo e(route('research.workspace', $research)); ?>" aria-current="page">Overview & timeline</a><a href="<?php echo e(route('research.show', $research)); ?>">Write</a><a href="<?php echo e(route('research.plan', $research)); ?>">Plan & library</a><a href="<?php echo e(route('research.export.docx', $research)); ?>">DOCX</a></nav>
+
 <div class="space-y-6">
     <nav class="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
         <a href="<?php echo e(route('research.workspace', $research)); ?>" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Control center</a>

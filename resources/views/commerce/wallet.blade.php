@@ -21,7 +21,7 @@
     <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Spending balance</p><p class="mt-2 text-3xl font-black text-slate-950">{{ $wallet->currency }} {{ $fmt((int)$wallet->spending_balance_minor) }}</p><p class="mt-2 text-xs text-slate-500">For AI, marketplace and other pay-as-you-use services.</p></div>
     <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Pending earnings</p><p class="mt-2 text-3xl font-black text-slate-950">{{ $wallet->currency }} {{ $fmt((int)$wallet->pending_earnings_minor) }}</p><p class="mt-2 text-xs text-slate-500">Creator revenue still inside the settlement hold.</p></div>
     <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Available earnings</p><p class="mt-2 text-3xl font-black text-slate-950">{{ $wallet->currency }} {{ $fmt((int)$wallet->available_earnings_minor) }}</p><p class="mt-2 text-xs text-slate-500">Verified earnings available for withdrawal.</p></div>
-    <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Lifetime earnings</p><p class="mt-2 text-3xl font-black text-slate-950">{{ $wallet->currency }} {{ $fmt((int)$wallet->lifetime_earnings_minor) }}</p><p class="mt-2 text-xs text-slate-500">Gross creator earnings recorded by AcadFlow.</p></div>
+    <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Lifetime earnings</p><p class="mt-2 text-3xl font-black text-slate-950">{{ $wallet->currency }} {{ $fmt((int)$wallet->lifetime_earnings_minor) }}</p><p class="mt-2 text-xs text-slate-500">Gross creator earnings recorded by AcadSyntra.</p></div>
 </div>
 
 @if($pendingFunding->isNotEmpty())
@@ -47,7 +47,7 @@
         <label class="text-sm font-semibold">Amount ({{ $wallet->currency }})<input required type="number" inputmode="decimal" min="{{ $walletRules['minimum_funding'] }}" step="0.01" name="amount" value="{{ old('amount') }}" class="mt-1 w-full rounded-xl border-slate-300" placeholder="Minimum {{ $walletRules['minimum_funding'] }}"></label>
         <label class="text-sm font-semibold">Payment method<select required name="gateway" class="mt-1 w-full rounded-xl border-slate-300">@forelse($gateways as $gateway)<option value="{{ $gateway->code }}">{{ $gateway->name }}</option>@empty<option disabled>No payment gateway is currently available</option>@endforelse</select></label>
         <button @disabled($gateways->isEmpty()) class="rounded-xl bg-slate-950 px-4 py-2.5 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Continue securely</button>
-        <p class="text-xs text-slate-500">Your balance is credited only after AcadFlow verifies the payment amount and currency directly with the gateway.</p>
+        <p class="text-xs text-slate-500">Your balance is credited only after AcadSyntra verifies the payment amount and currency directly with the gateway.</p>
     </form>
 
     <form method="POST" action="{{ route('commerce.payout-accounts.store') }}" class="grid gap-3 rounded-2xl border bg-white p-5 shadow-sm">

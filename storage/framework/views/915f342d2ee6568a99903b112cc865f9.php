@@ -5,7 +5,7 @@
         <div>
             <p class="text-xs font-semibold uppercase tracking-[.18em] text-indigo-600">Academic directory</p>
             <h1 class="mt-1 text-2xl font-bold text-slate-950">Universities & Polytechnics</h1>
-            <p class="mt-1 text-sm text-slate-500">AcadFlow keeps the existing institution model while supporting NUC and NBTE catalogues in one tenant-safe directory.</p>
+            <p class="mt-1 text-sm text-slate-500">AcadSyntra keeps the existing institution model while supporting NUC and NBTE catalogues in one tenant-safe directory.</p>
         </div>
         <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->check('create', App\Models\University::class)): ?>
             <button type="button" onclick="document.getElementById('createModal').classList.remove('hidden')" class="acad-primary-button">Add institution</button>

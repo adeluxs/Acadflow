@@ -1,4 +1,4 @@
-# AcadFlow PHPUnit Regression Fix — Second Pass (2026-09-10)
+# AcadSyntra PHPUnit Regression Fix — Second Pass (2026-09-10)
 
 ## Scope
 

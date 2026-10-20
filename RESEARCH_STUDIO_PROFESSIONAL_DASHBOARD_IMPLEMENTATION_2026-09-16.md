@@ -1,4 +1,4 @@
-# AcadFlow Research Studio — Professional Dashboard & Chapter Workspace
+# AcadSyntra Research Studio — Professional Dashboard & Chapter Workspace
 
 Date: 2026-09-16
 
@@ -104,7 +104,7 @@ The checks verify:
 
 ## Validation
 
-- 33/33 AcadFlow preflight/regression checks passed.
+- 33/33 AcadSyntra preflight/regression checks passed.
 - 833/833 PHP + Blade files passed `php -l`.
 - 11/11 JavaScript files passed `node --check`.
 - No database migration is required for this UI/workflow release.

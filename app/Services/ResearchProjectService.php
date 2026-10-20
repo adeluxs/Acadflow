@@ -22,6 +22,16 @@ class ResearchProjectService
             $type = ResearchType::query()->with('workflowDefinition.stages')->findOrFail($data['research_type_id']);
 
             $templateVersion = $type->activeTemplateVersion();
+            $methodologies = app(ResearchMethodologyService::class);
+            $setup = $methodologies->snapshot($data);
+            $sectionSchema = $setup && $setup['report_structure'] !== 'institutional'
+                ? $methodologies->sections($setup)
+                : $this->sectionsFor($type, $templateVersion);
+            if ($setup) {
+                $setup['section_schema'] = $sectionSchema;
+                $data['metadata'] = array_merge($data['metadata'] ?? [], ['research_setup' => $setup, 'citation_style' => $setup['citation_style']]);
+            }
+            foreach (array_keys($methodologies->rules()) as $field) unset($data[$field]);
 
             $project = ResearchProject::create(array_merge($data, [
                 'university_id' => $data['university_id'] ?? $owner->university_id,
@@ -39,7 +49,7 @@ class ResearchProjectService
                 'permissions' => ['write', 'comment', 'manage_references'],
             ]);
 
-            foreach ($this->sectionsFor($type, $templateVersion) as $position => $section) {
+            foreach ($sectionSchema as $position => $section) {
                 $document = $this->workspace->create([
                     'document_type' => 'research_section',
                     'title' => $section['title'],
@@ -60,10 +70,22 @@ class ResearchProjectService
                 ]);
             }
 
+            if ($setup) {
+                $stages = $setup['method']['stages'];
+                foreach ($stages as $index => $title) {
+                    $project->milestones()->create([
+                        'title' => $title, 'description' => $setup['method']['decision'],
+                        'weight' => round(100 / count($stages), 2),
+                        'status' => $index === 0 ? 'in_progress' : 'pending',
+                        'due_at' => $project->expected_completion_date
+                            ? now()->addDays(max(0, (int) now()->diffInDays($project->expected_completion_date)) * ($index + 1) / count($stages)) : null,
+                    ]);
+                }
+            }
             if ($type->workflowDefinition) {
                 $stages = $type->workflowDefinition->stages()->orderBy('position')->get();
                 $weight = $stages->isEmpty() ? 0 : round(100 / $stages->count(), 2);
-                foreach ($stages as $stage) {
+                foreach ($setup ? [] : $stages as $stage) {
                     $project->milestones()->create([
                         'workflow_stage_id' => $stage->id,
                         'title' => $stage->name,
@@ -91,8 +113,7 @@ class ResearchProjectService
             return 0.0;
         }
 
-        $weights = ['draft' => 10, 'in_progress' => 40, 'review' => 70, 'correction_requested' => 60, 'approved' => 100];
-        $progress = round($sections->avg(fn ($section) => $weights[$section->status] ?? 0), 2);
+        $progress = round($sections->avg(fn ($section) => $section->status === 'approved' ? 100 : min(99, (float) $section->completion_percent)), 2);
         $project->update(['progress' => $progress]);
 
         return $progress;

@@ -64,6 +64,20 @@ class AcademicReferenceService
         });
     }
 
+    public function formatForProject(AcademicReference $reference, ResearchProject $project, int $number = 1, ?string $style = null): string
+    {
+        $template = trim((string) data_get($project->metadata, 'research_setup.citation_template', ''));
+        if ($template === '' || $style !== null) return $this->format($reference, $style ?? data_get($project->metadata, 'citation_style', $project->templateVersion?->citation_style ?? 'apa'), $number);
+        return strtr($template, [
+            '{authors}' => $this->authors($reference),
+            '{year}' => $reference->publication_year ? (string) $reference->publication_year : 'n.d.',
+            '{title}' => (string) $reference->title,
+            '{container}' => (string) ($reference->journal ?: $reference->publisher),
+            '{identifier}' => $reference->doi ? 'https://doi.org/'.preg_replace('#^https?://(?:dx\.)?doi\.org/#i', '', $reference->doi) : (string) $reference->url,
+            '{number}' => (string) max(1, $number),
+        ]);
+    }
+
     public function inText(AcademicReference $reference, string $style = 'apa', int $number = 1): string
     {
         $style = strtolower($style);

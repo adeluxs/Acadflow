@@ -51,7 +51,7 @@
 
     <div class="footer">
         <p>Generated on {{ $generated_at->format('F d, Y H:i:s') }}</p>
-        <p>{{ \App\Services\SettingService::get('site_name', 'AcadFlow') }} - Academic research, publishing and collaboration platform</p>
+        <p>{{ \App\Services\SettingService::get('site_name', 'AcadSyntra') }} - Academic research, publishing and collaboration platform</p>
     </div>
 </body>
 </html>

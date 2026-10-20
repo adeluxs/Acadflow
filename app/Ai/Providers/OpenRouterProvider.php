@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * OpenRouter adapter using its OpenAI-compatible Chat Completions API.
- * It remains inside AcadFlow's provider registry/router/fallback chain.
+ * It remains inside AcadSyntra's provider registry/router/fallback chain.
  */
 class OpenRouterProvider extends ExternalProvider
 {
@@ -33,7 +33,7 @@ class OpenRouterProvider extends ExternalProvider
         return parent::headers() + array_filter([
             'Authorization' => 'Bearer '.(string) ($this->config['api_key'] ?? ''),
             'HTTP-Referer' => trim((string) ($this->config['site_url'] ?? config('app.url'))),
-            'X-Title' => trim((string) ($this->config['app_name'] ?? config('app.name', 'AcadFlow'))),
+            'X-Title' => trim((string) ($this->config['app_name'] ?? config('app.name', 'AcadSyntra'))),
         ]);
     }
 

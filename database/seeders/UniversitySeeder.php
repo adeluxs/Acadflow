@@ -226,6 +226,6 @@ class UniversitySeeder extends Seeder
             'student003@student.futo.edu.ng',
         ])->whereNull('email_verified_at')->update(['email_verified_at' => $verifiedAt]);
 
-        $this->command?->info('AcadFlow demo tenant and role accounts ensured without overwriting existing rows.');
+        $this->command?->info('AcadSyntra demo tenant and role accounts ensured without overwriting existing rows.');
     }
 }

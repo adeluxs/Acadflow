@@ -1,4 +1,4 @@
-AcadFlow Chapter Two literature insertion validation — 2026-09-16
+AcadSyntra Chapter Two literature insertion validation — 2026-09-16
 
 Root cause fixed:
 - Literature buttons dispatched acadflow:editor-insert to the textarea.

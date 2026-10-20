@@ -1,0 +1,4 @@
+<div class="faq-list" data-search-items>
+<?php $__currentLoopData = $faqs; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $faq): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><details class="faq-item" data-search-item data-category="<?php echo e($faq['topic']); ?>"><summary><span><?php if($showTopics ?? false): ?><small><?php echo e($faq['topic']); ?></small><?php endif; ?><?php echo e($faq['question']); ?></span><span class="faq-plus" aria-hidden="true">+</span></summary><div class="faq-answer"><p><?php echo e($faq['answer']); ?></p></div></details><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+</div>
+<?php /**PATH /Users/user/Desktop/acadflow/acadflow-web/resources/views/public/partials/faqs.blade.php ENDPATH**/ ?>

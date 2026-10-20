@@ -35,7 +35,7 @@
                 <div>
                     <p class="text-xs font-bold uppercase tracking-[.16em] text-indigo-600">Paid feature access</p>
                     <h2 class="mt-1 text-xl font-black text-slate-900">Add or update a feature price</h2>
-                    <p class="mt-1 max-w-xl text-sm leading-6 text-slate-500">Choose a real AcadFlow feature and enter its price. Technical rule keys and names are created automatically.</p>
+                    <p class="mt-1 max-w-xl text-sm leading-6 text-slate-500">Choose a real AcadSyntra feature and enter its price. Technical rule keys and names are created automatically.</p>
                 </div>
                 <span class="hidden rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 sm:inline-flex"><?php echo e($displayCurrency); ?></span>
             </div>
@@ -43,7 +43,7 @@
             <div class="mt-5 grid gap-5">
                 <label class="block">
                     <span class="text-sm font-bold text-slate-800">Feature to charge for</span>
-                    <span class="mt-1 block text-xs text-slate-500">Only features that are connected to AcadFlow's entitlement checks appear here.</span>
+                    <span class="mt-1 block text-xs text-slate-500">Only features that are connected to AcadSyntra's entitlement checks appear here.</span>
                     <select name="target" id="pricing-feature-select" class="mt-2 w-full rounded-xl border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-indigo-500" required>
                         <option value="">Select a feature or AI assistant…</option>
                         <?php $__currentLoopData = $pricingFeatureGroups; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $category => $features): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
@@ -77,7 +77,7 @@
 
                 <div class="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-xs leading-5 text-blue-900">
                     <p class="font-black">How this works</p>
-                    <p class="mt-1">AcadFlow derives the safe pricing mode from the selected runtime target: fixed access creates an entitlement, pay-per-use reserves and settles around the operation, and AI usage applies a per-assistant free allowance/request price. Publishing creates a new immutable rule version and preserves older versions for audit.</p>
+                    <p class="mt-1">AcadSyntra derives the safe pricing mode from the selected runtime target: fixed access creates an entitlement, pay-per-use reserves and settles around the operation, and AI usage applies a per-assistant free allowance/request price. Publishing creates a new immutable rule version and preserves older versions for audit.</p>
                 </div>
 
                 <label class="flex items-start gap-3 rounded-2xl border border-slate-200 p-4">
@@ -159,7 +159,7 @@
                         </label>
                         <label class="text-sm font-bold text-slate-800">Student semester fee (<?php echo e($setupCurrency); ?>) <span class="font-normal text-slate-400">(optional)</span>
                             <input name="student_semester_fee" value="<?php echo e(old('student_semester_fee', data_get($setupChanges,'student_semester_fee_minor')!==null ? \App\Support\Money::fromMinor((int)data_get($setupChanges,'student_semester_fee_minor')) : (data_get($setupMetadata,'student_semester_fee_minor')!==null ? \App\Support\Money::fromMinor((int)data_get($setupMetadata,'student_semester_fee_minor')) : ''))); ?>" class="mt-2 w-full rounded-xl border-slate-300" placeholder="Example: 2500.00">
-                            <span class="mt-1 block text-xs font-normal text-slate-500">Leave empty if AcadFlow should not generate institution semester invoices from this commercial account.</span>
+                            <span class="mt-1 block text-xs font-normal text-slate-500">Leave empty if AcadSyntra should not generate institution semester invoices from this commercial account.</span>
                         </label>
                         <label class="text-sm font-bold text-slate-800">Invoice grace period
                             <input type="number" min="0" max="90" name="invoice_grace_days" value="<?php echo e(old('invoice_grace_days',data_get($setupChanges,'invoice_grace_days',data_get($setupMetadata,'invoice_grace_days',7)))); ?>" class="mt-2 w-full rounded-xl border-slate-300">
@@ -266,7 +266,7 @@
 
                         <?php if($refund->reconciliation_required): ?>
                             <div class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
-                                The provider outcome was uncertain. Verify this refund in the payment-provider dashboard before choosing an outcome. AcadFlow will not send a second provider refund automatically.
+                                The provider outcome was uncertain. Verify this refund in the payment-provider dashboard before choosing an outcome. AcadSyntra will not send a second provider refund automatically.
                             </div>
                             <form method="POST" action="<?php echo e(route('commerce.refunds.reconcile',$refund)); ?>" class="mt-3 grid gap-2"><?php echo csrf_field(); ?>
                                 <input name="provider_reference" class="rounded-lg border-slate-300 text-xs" placeholder="Provider refund reference (required if confirmed)">

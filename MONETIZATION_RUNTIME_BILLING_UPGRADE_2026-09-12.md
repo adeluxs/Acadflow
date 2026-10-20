@@ -1,4 +1,4 @@
-# AcadFlow Runtime Monetization & Billing Upgrade — 2026-09-12
+# AcadSyntra Runtime Monetization & Billing Upgrade — 2026-09-12
 
 ## Scope completed
 

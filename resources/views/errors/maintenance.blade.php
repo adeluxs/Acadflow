@@ -17,11 +17,9 @@
             We're currently performing scheduled maintenance. Please check back soon.
         </p>
         
-        <p class="text-sm text-gray-500">
-            Contact <a href="mailto:{{ \App\Services\SettingService::get('support_email', 'support@example.com') }}" class="text-blue-600 hover:underline">
-                {{ \App\Services\SettingService::get('support_email', 'support') }}
-            </a> if you need immediate assistance.
-        </p>
+        @if($supportEmail = \App\Services\PublicWebsite::supportEmail())
+        <p class="text-sm text-gray-500">Contact <a href="mailto:{{ $supportEmail }}" class="text-blue-600 hover:underline">{{ $supportEmail }}</a> for support.</p>
+        @endif
     </div>
 </div>
 @endsection

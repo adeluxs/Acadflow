@@ -80,7 +80,7 @@ class InstitutionAdoptionService
     public function createClaim(User $requester, University $university, array $data): InstitutionOnboardingRequest
     {
         if ($this->institutionState($university) === 'active') {
-            throw ValidationException::withMessages(['university_id'=>['This institution already uses AcadFlow. Request institution access instead.']]);
+            throw ValidationException::withMessages(['university_id'=>['This institution already uses AcadSyntra. Request institution access instead.']]);
         }
         if (InstitutionOnboardingRequest::query()->where('university_id',$university->id)->whereIn('status',['pending','in_review'])->exists()) {
             throw ValidationException::withMessages(['university_id'=>['An onboarding claim for this institution is already under review.']]);
@@ -149,7 +149,7 @@ class InstitutionAdoptionService
             if ($department) $updates += ['department_id'=>$department->id,'faculty_id'=>$department->faculty_id];
             $subject->forceFill($updates)->save();
             $this->audit('institution_affiliation_verified',$reviewer,$subject,['university_id'=>$university->id,'department_id'=>$department?->id,'type'=>$type]);
-            $this->notifications->send($subject,'institution_affiliation_verified','Institution affiliation verified',"Your AcadFlow account is now verified with {$university->name}.",['university_id'=>$university->id,'department_id'=>$department?->id]);
+            $this->notifications->send($subject,'institution_affiliation_verified','Institution affiliation verified',"Your AcadSyntra account is now verified with {$university->name}.",['university_id'=>$university->id,'department_id'=>$department?->id]);
             return $affiliation;
         },3);
     }
@@ -173,7 +173,7 @@ class InstitutionAdoptionService
     public function createDepartmentAdoption(User $requester, University $university, ?Faculty $faculty, ?Department $department, array $data): DepartmentAdoptionRequest
     {
         if ($department && (int)$department->faculty?->university_id !== (int)$university->id) throw ValidationException::withMessages(['department_id'=>['Department does not belong to the selected institution.']]);
-        if ($department && in_array($department->adoption_status,['independent_active','institution_managed'],true)) throw ValidationException::withMessages(['department_id'=>['This department is already active on AcadFlow.']]);
+        if ($department && in_array($department->adoption_status,['independent_active','institution_managed'],true)) throw ValidationException::withMessages(['department_id'=>['This department is already active on AcadSyntra.']]);
         $pending=DepartmentAdoptionRequest::query()->where('university_id',$university->id)->when($department,fn($q)=>$q->where('department_id',$department->id))->whereIn('status',['pending','in_review'])->exists();
         if($pending) throw ValidationException::withMessages(['department_id'=>['A department adoption request is already under review.']]);
         return DepartmentAdoptionRequest::create([

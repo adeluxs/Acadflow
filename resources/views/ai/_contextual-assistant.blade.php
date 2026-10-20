@@ -1,7 +1,7 @@
 @php
     $profile = (array) config('ai.assistant_profiles.'.$assistantFeature, []);
     $assistantTitle = $assistantTitle ?? ($profile['label'] ?? str($assistantFeature)->headline());
-    $assistantDescription = $assistantDescription ?? ($profile['description'] ?? 'Context-aware academic assistance through AcadFlow central AI routing.');
+    $assistantDescription = $assistantDescription ?? ($profile['description'] ?? 'Context-aware academic assistance through AcadSyntra central AI routing.');
     $assistantSuggestions = $assistantSuggestions ?? ($profile['suggestions'] ?? []);
     $assistantId = $assistantId ?? ('acadflow-ai-'.substr(sha1($assistantFeature.'|'.$assistantEndpoint), 0, 12));
     $assistantUser = auth()->user();
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const retry = root.querySelector('[data-ai-retry]');
             if (!answer || root.dataset.bound === '1') return;
             result?.classList.remove('hidden');
-            answer.textContent = 'The AI assistant script did not finish loading. Refresh this page to load the latest AcadFlow assets.';
+            answer.textContent = 'The AI assistant script did not finish loading. Refresh this page to load the latest AcadSyntra assets.';
             retry?.classList.remove('hidden');
         });
     }, 5000);

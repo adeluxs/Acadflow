@@ -1,8 +1,8 @@
-# AcadFlow Specialized AI Assistants — Implementation Report
+# AcadSyntra Specialized AI Assistants — Implementation Report
 
 **Date:** 2026-08-15  
 **Architecture:** Existing centralized `AiManager` → `AiRouter` → runtime-selected provider/model  
-**Goal:** Turn the previously dormant module-specific assistant concepts into real, permission-scoped AcadFlow features without creating a second AI architecture.
+**Goal:** Turn the previously dormant module-specific assistant concepts into real, permission-scoped AcadSyntra features without creating a second AI architecture.
 
 ## Final AI capability map
 
@@ -40,7 +40,7 @@ Discussions
 └── Discussion Assistant           discussion_assistant
 ```
 
-AcadFlow therefore exposes **16 centrally registered AI feature keys**. Six contextual assistants were activated in this change; the existing ten AI capabilities remain in place.
+AcadSyntra therefore exposes **16 centrally registered AI feature keys**. Six contextual assistants were activated in this change; the existing ten AI capabilities remain in place.
 
 ## Central routing rule
 
@@ -68,7 +68,7 @@ Fallback provider/model
 Secondary fallback
 ```
 
-This means changing the Default Provider, Default Model, AI Mode, fallback chain, or a feature-specific route in **Admin → AI Settings** affects these assistants through the same runtime used by the rest of AcadFlow.
+This means changing the Default Provider, Default Model, AI Mode, fallback chain, or a feature-specific route in **Admin → AI Settings** affects these assistants through the same runtime used by the rest of AcadSyntra.
 
 ## Six activated assistants
 
@@ -88,7 +88,7 @@ Guardrails prohibit fabricated sources, data, findings, citations and experiment
 **Endpoint:** `POST /ai/context/assignments/{course}/{task}`  
 **UI:** Student and lecturer assignment pages.
 
-Context includes assignment description/instructions, dates, requirements, rubric, bounded text from authorized clean assignment attachments, and authorized course search context. For a student, AcadFlow may additionally include only that student's own latest submission/draft text; it never loads another student's work into this assistant. Lecturer usage remains task/rubric/course scoped unless the lecturer intentionally enters the separate authorized submission-review workflow.
+Context includes assignment description/instructions, dates, requirements, rubric, bounded text from authorized clean assignment attachments, and authorized course search context. For a student, AcadSyntra may additionally include only that student's own latest submission/draft text; it never loads another student's work into this assistant. Lecturer usage remains task/rubric/course scoped unless the lecturer intentionally enters the separate authorized submission-review workflow.
 
 Student mode focuses on explanation, hints, planning, concept learning and self-checking. It explicitly avoids producing a ready-to-submit final answer for graded work. Lecturer mode focuses on instruction clarity, rubric alignment, likely misunderstandings and educational feedback without inventing student work or grades.
 

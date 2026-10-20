@@ -1,5 +1,5 @@
 /**
- * AcadFlow interaction performance helpers.
+ * AcadSyntra interaction performance helpers.
  *
  * Goals:
  * - one click should always start navigation immediately;

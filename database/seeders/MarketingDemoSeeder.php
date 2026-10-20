@@ -27,9 +27,9 @@ use Illuminate\Support\Str;
  *     php artisan migrate:fresh --seed --seeder=MarketingDemoSeeder
  *
  * Demo accounts (password: "password"):
- *   demo.student@acadflow.test  (student)
- *   demo.lecturer@acadflow.test (lecturer)
- *   demo.admin@acadflow.test    (university admin)
+ *   demo.student@acadsyntra.test  (student)
+ *   demo.lecturer@acadsyntra.test (lecturer)
+ *   demo.admin@acadsyntra.test    (university admin)
  */
 class MarketingDemoSeeder extends Seeder
 {
@@ -71,7 +71,7 @@ class MarketingDemoSeeder extends Seeder
         $student = User::factory()->create([
             'first_name' => 'Amara',
             'last_name' => 'Okafor',
-            'email' => 'demo.student@acadflow.test',
+            'email' => 'demo.student@acadsyntra.test',
             'username' => 'amara',
             'role' => 'student',
             'account_type' => 'student',
@@ -86,7 +86,7 @@ class MarketingDemoSeeder extends Seeder
         $lecturer = User::factory()->create([
             'first_name' => 'Dr. Ade',
             'last_name' => 'Bello',
-            'email' => 'demo.lecturer@acadflow.test',
+            'email' => 'demo.lecturer@acadsyntra.test',
             'username' => 'drbello',
             'role' => 'lecturer',
             'account_type' => 'lecturer',
@@ -99,7 +99,7 @@ class MarketingDemoSeeder extends Seeder
         $admin = User::factory()->create([
             'first_name' => 'Ijeoma',
             'last_name' => 'Nwosu',
-            'email' => 'demo.admin@acadflow.test',
+            'email' => 'demo.admin@acadsyntra.test',
             'username' => 'ijeoma',
             'role' => 'university_admin',
             'account_type' => 'admin',
@@ -262,12 +262,16 @@ class MarketingDemoSeeder extends Seeder
             'adminId' => $admin->id,
             'courseIds' => $courses->pluck('id')->all(),
             'databaseCourseId' => $databaseCourse->id,
+            'databaseCourseKey' => $databaseCourse->getRouteKey(),
             'aiCourseId' => $courses[2]->id,
+            'aiCourseKey' => $courses[2]->getRouteKey(),
             'taskIds' => [
                 'essay' => $essay->id,
                 'lab' => $lab->id,
             ],
             'gradedSubmissionId' => $graded->id,
+            'labTaskKey' => $lab->getRouteKey(),
+            'gradedSubmissionKey' => $graded->getRouteKey(),
         ];
         file_put_contents(
             storage_path('app/marketing-demo.json'),
@@ -275,8 +279,8 @@ class MarketingDemoSeeder extends Seeder
         );
 
         $this->command?->info('Marketing demo data seeded.');
-        $this->command?->line('  student: demo.student@acadflow.test / password');
-        $this->command?->line('  lecturer: demo.lecturer@acadflow.test / password');
-        $this->command?->line('  admin: demo.admin@acadflow.test / password');
+        $this->command?->line('  student: demo.student@acadsyntra.test / password');
+        $this->command?->line('  lecturer: demo.lecturer@acadsyntra.test / password');
+        $this->command?->line('  admin: demo.admin@acadsyntra.test / password');
     }
 }

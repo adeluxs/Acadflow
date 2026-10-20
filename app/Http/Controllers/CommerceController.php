@@ -25,7 +25,7 @@ class CommerceController extends Controller
     public function subscriptionRetired(): RedirectResponse
     {
         return redirect()->route('commerce.wallet')
-            ->with('info', 'Subscriptions have been retired. AcadFlow now uses wallet, usage and entitlement based access.');
+            ->with('info', 'Subscriptions have been retired. AcadSyntra now uses wallet, usage and entitlement based access.');
     }
 
     public function orders(Request $request): View

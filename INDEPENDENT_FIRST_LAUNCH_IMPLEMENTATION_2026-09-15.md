@@ -1,8 +1,8 @@
-# AcadFlow Independent-First Launch Implementation — 2026-09-15
+# AcadSyntra Independent-First Launch Implementation — 2026-09-15
 
 ## Objective
 
-AcadFlow now launches bottom-up for individual **Students**, **Lecturers / Supervisors**, and **Researchers** while retaining the existing institution/enterprise architecture for later department, faculty and full-institution adoption.
+AcadSyntra now launches bottom-up for individual **Students**, **Lecturers / Supervisors**, and **Researchers** while retaining the existing institution/enterprise architecture for later department, faculty and full-institution adoption.
 
 No institutional module was deleted or rebuilt. Non-core launch modules remain registered in centralized **Admin → Feature & Module Management** and can be re-enabled by Super Admin.
 
@@ -24,7 +24,7 @@ New course fields:
 - `access_mode`: `institutional` or `independent`
 - `owner_user_id`: independent classroom owner
 
-For an independent classroom AcadFlow creates/uses an internal system-managed academic context only to satisfy existing semester-dependent foreign keys. Students and lecturers keep `university_id = null` unless they voluntarily connect a real institution.
+For an independent classroom AcadSyntra creates/uses an internal system-managed academic context only to satisfy existing semester-dependent foreign keys. Students and lecturers keep `university_id = null` unless they voluntarily connect a real institution.
 
 Lecturers can create an independent classroom and share the existing join-link flow. Independent student enrollment bypasses university/department matching while institutional classes keep the existing scope rules.
 

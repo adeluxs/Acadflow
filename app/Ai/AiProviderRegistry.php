@@ -20,7 +20,7 @@ use App\Services\Ai\AiRuntimeConfigService;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Single registry/factory for every provider supported by the current AcadFlow
+ * Single registry/factory for every provider supported by the current AcadSyntra
  * codebase. Provider adapters contain protocol details only; feature/business
  * logic stays in AiManager and feature services.
  */

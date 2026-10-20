@@ -1,4 +1,4 @@
-# AcadFlow Monetization Blade Parse Fix — 2026-09-11
+# AcadSyntra Monetization Blade Parse Fix — 2026-09-11
 
 ## Reported failure
 Three `MonetizationPageRegressionTest` cases returned HTTP 500 because Laravel compiled `resources/views/admin/monetization/index.blade.php` to invalid PHP with `unexpected token "endif"`.

@@ -16,7 +16,7 @@ class MediaSecurityService
 {
     public function __construct(private readonly MalwareScannerInterface $scanner) {}
 
-    public function store(UploadedFile $file, User $owner, ?Model $attachable = null, string $visibility = 'private', array $metadata = []): MediaAsset
+    public function store(UploadedFile $file, User $owner, ?Model $attachable = null, string $visibility = 'private', array $metadata = [], ?string $diskOverride = null): MediaAsset
     {
         $this->validateUpload($file);
 
@@ -29,7 +29,7 @@ class MediaSecurityService
         $this->assertSafeScanResult($scanResult);
         $sha256 = hash_file('sha256', $temporaryPath) ?: null;
 
-        $disk = (string) SettingService::get('storage_provider', config('filesystems.default', 'local'));
+        $disk = $diskOverride ?? (string) SettingService::get('storage_provider', config('filesystems.default', 'local'));
         if (! array_key_exists($disk, config('filesystems.disks', []))) {
             $disk = (string) config('filesystems.default', 'local');
         }

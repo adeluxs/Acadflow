@@ -66,7 +66,7 @@ export async function initBrowserPush() {
             } finally { form.dataset.pushCleaned = 'true'; form.requestSubmit(); }
         });
     });
-    if (!supported) { show('Browser notifications require HTTPS and a supported browser. On iPhone or iPad, add AcadFlow to your Home Screen first.'); updateButtons(null); return; }
+    if (!supported) { show('Browser notifications require HTTPS and a supported browser. On iPhone or iPad, add AcadSyntra to your Home Screen first.'); updateButtons(null); return; }
     try {
         const accountId = document.querySelector('meta[name="push-account-id"]')?.content;
         const previousId = localStorage.getItem('acadflow_push_account');
@@ -90,7 +90,7 @@ export async function initBrowserPush() {
                 await registration();
                 await api('/browser-push/subscribe', subscription.toJSON());
             }
-            show(Notification.permission === 'denied' ? 'Notifications are blocked in browser settings. Allow them there before enabling this device.' : subscription ? 'This browser is enrolled for notifications.' : 'Enable this browser to receive notifications when AcadFlow is closed.');
+            show(Notification.permission === 'denied' ? 'Notifications are blocked in browser settings. Allow them there before enabling this device.' : subscription ? 'This browser is enrolled for notifications.' : 'Enable this browser to receive notifications when AcadSyntra is closed.');
         } catch (_) { show('This browser needs to reconnect. Use Enable this browser to try again.'); }
         updateButtons(await existing());
     }

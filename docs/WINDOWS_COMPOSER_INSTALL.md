@@ -18,7 +18,7 @@ Composer 2.10 disables automatic source fallback after a distribution download f
 3. The installer automatically relocates projects extracted under `Downloads` to:
 
    ```text
-   %USERPROFILE%\Projects\AcadFlow
+   %USERPROFILE%\Projects\AcadSyntra
    ```
 
 4. It clears read-only attributes, restores the current user's Modify permission, removes the incomplete `vendor` folder, verifies `vendor/composer` is writable, clears Composer's cache, and runs `composer install`.
@@ -30,7 +30,7 @@ From a normal PowerShell window:
 
 ```powershell
 $source = "$env:USERPROFILE\Downloads\Acadflow-enterprise-regenerated-source\Acadflow-main"
-$target = "$env:USERPROFILE\Projects\AcadFlow"
+$target = "$env:USERPROFILE\Projects\AcadSyntra"
 New-Item -ItemType Directory -Force $target | Out-Null
 robocopy $source $target /E /XD vendor node_modules .git
 Set-Location $target

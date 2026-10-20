@@ -1,5 +1,5 @@
 /**
- * AcadFlow PWA Service Worker
+ * AcadSyntra PWA Service Worker
  *
  * Performance/correctness rules:
  * - never cache authenticated HTML navigations;
@@ -9,18 +9,18 @@
  * - preserve offline write queue/background sync support.
  */
 
-const CACHE_NAME = 'acadflow-pwa-v6-auth-network-first';
-const STATIC_CACHE = 'acadflow-static-v6-auth-network-first';
-const API_CACHE = 'acadflow-api-v6-auth-network-first';
+const CACHE_NAME = 'acadflow-pwa-v7-acadsyntra-branding';
+const STATIC_CACHE = 'acadflow-static-v7-acadsyntra-branding';
+const API_CACHE = 'acadflow-api-v7-acadsyntra-branding';
 
 // Only stable public files belong in the install cache. Vite assets are hashed
 // and are cached lazily when requested; /css/app.css and /js/app.js are not
 // stable paths in a Vite production build.
 const STATIC_ASSETS = [
     '/manifest.webmanifest',
-    '/branding/acadflow-icon-192.png',
-    '/branding/acadflow-icon-512.png',
-    '/branding/acadflow-mark.png',
+    '/branding/acadsyntra-icon-192.png',
+    '/branding/acadsyntra-icon-512.png',
+    '/branding/acadsyntra-mark.png',
     '/offline.html',
 ];
 
@@ -146,7 +146,7 @@ async function handleStaticAsset(request) {
         return response;
     } catch (_) {
         if (request.destination === 'image') {
-            return (await caches.match('/branding/acadflow-icon-192.png')) || new Response('', { status: 503 });
+            return (await caches.match('/branding/acadsyntra-icon-192.png')) || new Response('', { status: 503 });
         }
         return new Response('Asset not available offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
     }

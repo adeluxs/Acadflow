@@ -20,7 +20,7 @@ class AzureOpenAiProvider extends ExternalProvider
         if ($endpoint === '' || $this->model() === null) return null;
 
         // Azure's current v1 endpoint can be configured directly as
-        // https://<resource>.openai.azure.com/openai/v1. Existing AcadFlow
+        // https://<resource>.openai.azure.com/openai/v1. Existing AcadSyntra
         // installations using deployment + api-version remain supported.
         if (preg_match('~/openai/v1$~i', $endpoint)) {
             return $endpoint.'/chat/completions';

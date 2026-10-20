@@ -38,18 +38,18 @@ class ContentWorkspaceService
         });
     }
 
-    public function autosave(ContentDocument $document, User $author, string $body, ?string $summary = null): ContentDocument
+    public function autosave(ContentDocument $document, User $author, string $body, ?string $summary = null, ?int $expectedVersion = null): ContentDocument
     {
         $body = $this->html->sanitize($body);
 
-        if ((string) $document->body === $body) {
-            $document->forceFill(['autosaved_at' => now()])->save();
-
-            return $document;
-        }
-
-        return DB::transaction(function () use ($document, $author, $body, $summary) {
-            $document->refresh();
+        return DB::transaction(function () use ($document, $author, $body, $summary, $expectedVersion) {
+            $document = ContentDocument::query()->lockForUpdate()->findOrFail($document->id);
+            abort_if($expectedVersion !== null && $expectedVersion !== (int) $document->version_number, 409,
+                'This document changed in another session. Copy your draft before reloading to compare versions.');
+            if ((string) $document->body === $body) {
+                $document->forceFill(['autosaved_at' => now()])->save();
+                return $document;
+            }
             $nextVersion = $document->version_number + 1;
 
             ContentVersion::create([

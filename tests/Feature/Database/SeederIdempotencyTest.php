@@ -51,7 +51,7 @@ class SeederIdempotencyTest extends TestCase
         }
 
         $siteName = Setting::query()->where('key', 'site_name')->firstOrFail();
-        $siteName->forceFill(['value' => 'My Existing AcadFlow'])->save();
+        $siteName->forceFill(['value' => 'My Existing AcadSyntra'])->save();
 
         $feature = FeatureFlag::query()->where('name', 'research_studio')->firstOrFail();
         $feature->forceFill([
@@ -84,7 +84,7 @@ class SeederIdempotencyTest extends TestCase
         }
 
         $this->assertSame(
-            'My Existing AcadFlow',
+            'My Existing AcadSyntra',
             (string) Setting::query()->where('key', 'site_name')->value('value')
         );
 

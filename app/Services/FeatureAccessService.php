@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Authoritative runtime availability service for AcadFlow user-facing modules.
+ * Authoritative runtime availability service for AcadSyntra user-facing modules.
  *
  * Runtime state lives in the existing feature_flags table. Metadata and route
  * mapping live in config/features.php. Other settings may configure how a

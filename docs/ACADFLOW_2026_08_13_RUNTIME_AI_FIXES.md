@@ -1,4 +1,4 @@
-# AcadFlow runtime and AI Assistant fixes — 2026-08-13
+# AcadSyntra runtime and AI Assistant fixes — 2026-08-13
 
 ## Runtime errors fixed
 
@@ -24,7 +24,7 @@
 
 ## Dedicated AI Academic Assistant
 
-AcadFlow now has a real assistant workspace instead of sending the AI Assistant navigation item to Knowledge Hub search or lecturer layout preferences.
+AcadSyntra now has a real assistant workspace instead of sending the AI Assistant navigation item to Knowledge Hub search or lecturer layout preferences.
 
 Routes:
 - `GET /ai-assistant` → `ai.assistant`
@@ -41,7 +41,7 @@ The page supports:
 
 ## How AI requests work
 
-The assistant reuses AcadFlow's existing architecture; it does not introduce a separate AI stack.
+The assistant reuses AcadSyntra's existing architecture; it does not introduce a separate AI stack.
 
 1. The user sends a request from the AI Assistant page.
 2. The selected course is authorization-checked with `User::canAccessCourse()`.
@@ -50,7 +50,7 @@ The assistant reuses AcadFlow's existing architecture; it does not introduce a s
 5. Retrieved text is treated as untrusted source data and prompt-injection-like instructions are removed before AI use.
 6. The request flows through the existing centralized `AiManager`.
 7. `AiManager` enforces institution feature switches, mode, provider settings, budget/request limits, caching, prompts, rule packs and analytics.
-8. If external AI is configured and enabled, the configured provider can answer. If external AI is disabled, AcadFlow uses its local rule engine; when authorized indexed sources exist the assistant returns a grounded extractive answer with `[S#]` citations.
+8. If external AI is configured and enabled, the configured provider can answer. If external AI is disabled, AcadSyntra uses its local rule engine; when authorized indexed sources exist the assistant returns a grounded extractive answer with `[S#]` citations.
 9. Writing and citation tools continue to use the existing `WritingAssistantModule` and `CitationAssistantModule`.
 
 ## AI settings scoping

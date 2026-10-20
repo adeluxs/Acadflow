@@ -1,4 +1,4 @@
-# AcadFlow Institution Onboarding Release
+# AcadSyntra Institution Onboarding Release
 
 ## Implemented journey
 1. University Representative submits an institution onboarding request.

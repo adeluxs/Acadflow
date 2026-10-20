@@ -17,7 +17,7 @@ function updateLabel(message) {
     if (label && message) label.textContent = message;
 }
 
-function reveal(message = 'Loading AcadFlow…') {
+function reveal(message = 'Loading AcadSyntra…') {
     const loader = loaderElement();
     if (!loader) return;
     updateLabel(message);
@@ -34,7 +34,7 @@ function conceal() {
     delete document.documentElement.dataset.acadflowLoading;
 }
 
-function begin(message = 'Loading AcadFlow…', options = {}) {
+function begin(message = 'Loading AcadSyntra…', options = {}) {
     const token = `acadflow-loader-${++tokenSequence}`;
     const delay = Number.isFinite(options.delay) ? Math.max(0, options.delay) : 160;
     activeTokens.set(token, { message });

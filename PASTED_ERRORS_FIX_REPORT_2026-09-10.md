@@ -1,8 +1,8 @@
-# AcadFlow — Pasted PHPUnit Errors Fix Report
+# AcadSyntra — Pasted PHPUnit Errors Fix Report
 
 Date: 2026-09-10
 
-This patch targets the failures supplied in `Pasted text (2).txt` against the uploaded AcadFlow source.
+This patch targets the failures supplied in `Pasted text (2).txt` against the uploaded AcadSyntra source.
 
 ## Fixed failures
 

@@ -20,7 +20,7 @@
         <div class="absolute -bottom-24 left-20 h-72 w-72 rounded-full bg-fuchsia-400/10 blur-3xl"></div>
         <div class="relative grid gap-7 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
             <div>
-                <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-indigo-100">✦ AcadFlow AI</div>
+                <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-indigo-100">✦ AcadSyntra AI</div>
                 <h1 class="mt-4 max-w-3xl text-3xl font-black tracking-tight sm:text-5xl">{{ $personaTitle }}</h1>
                 <p class="mt-4 max-w-3xl text-sm leading-7 text-indigo-100 sm:text-base">{{ $personaIntro }}</p>
                 @if(!empty($assistantChips))
@@ -58,8 +58,8 @@
 
             <div id="assistantThread" class="max-h-[620px] min-h-[430px] space-y-4 overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.08),transparent_34%),linear-gradient(to_bottom,#ffffff,#f8fafc)] p-5 sm:p-7" aria-live="polite">
                 <div class="max-w-3xl rounded-3xl border border-indigo-100 bg-white p-5 text-sm leading-7 text-slate-700 shadow-sm">
-                    <div class="mb-2 flex items-center gap-2 font-black text-slate-950"><span class="flex h-8 w-8 items-center justify-center rounded-2xl bg-indigo-600 text-white">AI</span>{{ $assistantExperience['ready_heading'] ?? 'AcadFlow Assistant' }}</div>
-                    <p>{{ $assistantExperience['ready_text'] ?? 'I can provide role-aware academic assistance using AcadFlow AI.' }}</p>
+                    <div class="mb-2 flex items-center gap-2 font-black text-slate-950"><span class="flex h-8 w-8 items-center justify-center rounded-2xl bg-indigo-600 text-white">AI</span>{{ $assistantExperience['ready_heading'] ?? 'AcadSyntra Assistant' }}</div>
+                    <p>{{ $assistantExperience['ready_text'] ?? 'I can provide role-aware academic assistance using AcadSyntra AI.' }}</p>
                 </div>
             </div>
 
@@ -104,7 +104,7 @@
                 </div>
 
                 <label class="mt-4 block text-xs font-semibold text-slate-600">{{ $assistantExperience['request_label'] ?? 'Your request' }}
-                    <textarea id="assistantMessage" name="message" rows="5" maxlength="50000" required class="mt-1.5 w-full resize-y rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 outline-none transition hover:border-indigo-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20" placeholder="{{ $assistantExperience['placeholder'] ?? 'Ask AcadFlow AI for academic assistance…' }}"></textarea>
+                    <textarea id="assistantMessage" name="message" rows="5" maxlength="50000" required class="mt-1.5 w-full resize-y rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 outline-none transition hover:border-indigo-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20" placeholder="{{ $assistantExperience['placeholder'] ?? 'Ask AcadSyntra AI for academic assistance…' }}"></textarea>
                 </label>
 
                 <div class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -250,11 +250,11 @@
     }
 
     function appendAnswer(data) {
-        const meta = [data.provider || 'AcadFlow AI', data.model, data.fallback_used ? 'fallback used' : null, data.cached ? 'cached' : null].filter(Boolean).map(esc).join(' · ');
+        const meta = [data.provider || 'AcadSyntra AI', data.model, data.fallback_used ? 'fallback used' : null, data.cached ? 'cached' : null].filter(Boolean).map(esc).join(' · ');
         const sources = Array.isArray(data.sources) && data.sources.length
             ? `<div class="mt-4 rounded-2xl bg-white/70 p-3 text-[11px] leading-5 text-slate-500"><strong>Sources:</strong> ${data.sources.map(source => `${esc(source.label)} ${esc(source.title)}${source.locator ? ` (${esc(source.locator)})` : ''}`).join(' · ')}</div>`
             : '';
-        thread.insertAdjacentHTML('beforeend', `<article class="max-w-3xl rounded-3xl border border-indigo-100 bg-indigo-50 p-5 text-sm leading-7 text-slate-700 shadow-sm"><div class="mb-2 flex items-center gap-2 font-black text-slate-950"><span class="flex h-8 w-8 items-center justify-center rounded-2xl bg-indigo-600 text-white">AI</span>AcadFlow response</div><div class="prose prose-sm max-w-none prose-slate">${paragraphHtml(data.answer || data.message || 'No response was returned.')}</div>${sources}<div class="mt-3 flex flex-wrap items-center justify-between gap-2"><div class="text-[10px] font-bold uppercase tracking-wide text-slate-400">${meta}</div><button type="button" data-save-note class="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100">Save as note</button></div></article>`);
+        thread.insertAdjacentHTML('beforeend', `<article class="max-w-3xl rounded-3xl border border-indigo-100 bg-indigo-50 p-5 text-sm leading-7 text-slate-700 shadow-sm"><div class="mb-2 flex items-center gap-2 font-black text-slate-950"><span class="flex h-8 w-8 items-center justify-center rounded-2xl bg-indigo-600 text-white">AI</span>AcadSyntra response</div><div class="prose prose-sm max-w-none prose-slate">${paragraphHtml(data.answer || data.message || 'No response was returned.')}</div>${sources}<div class="mt-3 flex flex-wrap items-center justify-between gap-2"><div class="text-[10px] font-bold uppercase tracking-wide text-slate-400">${meta}</div><button type="button" data-save-note class="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100">Save as note</button></div></article>`);
         const article = thread.lastElementChild;
         const saveButton = article?.querySelector('[data-save-note]');
         saveButton?.addEventListener('click', async () => {
@@ -334,7 +334,7 @@
             });
 
             const raw = await response.text();
-            try { data = raw ? JSON.parse(raw) : {}; } catch (_) { data = { success: false, message: 'AcadFlow received an unreadable AI response. Please try again.' }; }
+            try { data = raw ? JSON.parse(raw) : {}; } catch (_) { data = { success: false, message: 'AcadSyntra received an unreadable AI response. Please try again.' }; }
             if (!response.ok || data.success === false) {
                 const requestError = new Error(data.message || data.answer || 'AI assistance is currently unavailable.');
                 requestError.data = data;
@@ -351,7 +351,7 @@
             if (!message.value.trim()) message.value = text;
             appendFailure(detail, text);
             setStatus('Needs attention', 'error');
-            console.warn('[AcadFlow AI] Assistant request did not complete successfully.', { status: error?.status || response?.status || null, requestId: detail.requestId || data.request_id || null });
+            console.warn('[AcadSyntra AI] Assistant request did not complete successfully.', { status: error?.status || response?.status || null, requestId: detail.requestId || data.request_id || null });
         } finally {
             window.clearTimeout(timeoutId);
             submit.disabled = false;

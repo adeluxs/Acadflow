@@ -1,0 +1,1 @@
+<section class="page-heading site-container"><div class="breadcrumb"><a href="{{ route('home') }}">Home</a><span aria-hidden="true">/</span><span>{{ ucfirst(str_replace('-', ' ', $slug)) }}</span></div><p class="eyebrow">{{ $eyebrow ?? 'THE ACADSYNTRA WORKSPACE' }}</p><h1>{{ $page['title'] }}</h1><p class="page-intro">{{ $page['intro'] }}</p></section>

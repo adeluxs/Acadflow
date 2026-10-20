@@ -1,11 +1,29 @@
 ## [Unreleased]
 
+### Changed
+
+- Rebranded the platform as AcadSyntra across public/authenticated pages, academic assistants, exports, email/notification copy, manifests, settings defaults and documentation.
+- Added reproducible violet/navy vector branding, PNG icons, favicons and social artwork; legacy asset URLs serve the new graphics. Refreshed demo screenshot capture and bumped PWA asset caches while preserving offline databases, session identifiers, API headers and existing commands.
+- Added a non-destructive branding migration that updates known defaults, preserves institution customizations and academic records, and versions shipped AI instructions without rewriting prompt history. Fixed the dynamic manifest’s string-helper import and missing icon fallbacks.
+
 ### Added
 
+- Added 41 modular research designs with saved setup plans, methodology-based or five-chapter structures, ND-to-doctoral project context, instruments/analysis guidance, milestones and scoped official reporting-standard links.
+- Added a private, versioned research planning library, reviewed institutional guideline extraction/heading application, source-bound qualitative coding/theme summaries, reproducible descriptive CSV analysis and assumption-preserving sample-size planning.
+- Added genuine DOCX export, configurable document formatting, contents generation and resource-to-section insertion; retained existing PDF/HTML, scholarly discovery, AI, supervision and institutional workflows.
+- Added responsive research setup/planning interfaces and refreshed AcadSyntra authentication/onboarding, accessible password/validation states, resumable setup and optional first-project entry.
+
+- Rebuilt the public website around actual AcadSyntra learning, research and publishing workflows, with shared responsive navigation/footer, interactive illustrative previews, searchable features/help, About/Contact and expanded policy pages.
+- Added a validated, throttled contact form with CSRF, honeypot and session form timing checks, durable Super Admin enquiry inbox, and optional queued email alerts through the configured support channel.
+- Added unique public metadata, canonical links, structured data and dynamic sitemap/robots routes, plus isolated responsive browser and backend regression coverage.
 - Added a platform-wide Email Verification Enabled switch under Super Admin → System Settings → Security. The existing requirement remains enabled by default; disabling it permits access without falsely marking addresses as verified. Web/API registration, sign-in, onboarding and publishing/community policies use the same runtime rule.
 - Added browser push enrollment, per-device disable/test controls, and Super Admin setup for stable encrypted delivery keys. Environment-supplied VAPID keys are also supported.
 
 ### Fixed
+
+- Implemented actual research editor autosave with optimistic version checks and recoverable conflicts, stable no-op saves and visible offline/session/permission states. Shared web/API saves, table sanitisation, restore progress and approval/correction locks preserve research history.
+- Fixed rich-content sanitisation of nested unknown wrappers so active attributes cannot survive unwrapping.
+- Required two-factor authentication for onboarding and prevented caching of Research Studio responses. New library files always use private storage and current project permissions.
 
 - Prevented academic starter-template seeding from failing on short SQLite write contention: enabled configurable WAL/busy waiting, acquired the writer before catalogue reads, and retried transactions with fresh state and counters. Added `acadflow:sync-nigeria-catalog --templates-only` to resume safely without a registry refresh.
 - Replaced placeholder push HTTP requests with encrypted `aes128gcm` payloads and signed VAPID delivery using `minishlink/web-push`. Added active-worker push display and safe same-origin click handling, including a standalone worker when PWA caching is disabled.
@@ -37,7 +55,7 @@
 - Bounded provider Test Connection health checks to a 12-second total budget with 6-second request and 3-second connect defaults, including IPv4 fallback.
 - Prevented Gemini and other provider connectivity tests from reaching PHP's common 30-second fatal execution limit.
 - Bounded OpenRouter model discovery and stopped persisting the oversized full model catalog in the generic settings table.
-- Persist only the OpenRouter model IDs required by AcadFlow runtime; cache the full discovery payload for short-lived diagnostics.
+- Persist only the OpenRouter model IDs required by AcadSyntra runtime; cache the full discovery payload for short-lived diagnostics.
 - Added cleanup migration for the obsolete `ai_provider_openrouter_model_catalog` setting and a regression preflight.
 
 ## 2026-09-16 — Research Studio chapter guidance runtime fix
@@ -67,13 +85,13 @@
 
 ## 2026-09-16 — Literature Review Workspace and Chapter Two integration
 
-## 2026-09-16 — Scholarly timeout fix + AcadFlow global branding/loading
+## 2026-09-16 — Scholarly timeout fix + AcadSyntra global branding/loading
 
 - Replaced sequential Research Studio scholarly-provider calls with bounded Laravel HTTP pooling and partial-provider resilience.
 - Added 5s request / 2s connect defaults and removed retry chains from interactive literature discovery.
 - Added short query/filter caching without caching total provider outages.
 - Replaced per-result scholarly `updateOrCreate()` persistence with stable-UUID batch upserts.
-- Added generated AcadFlow brand assets, favicon/PWA icons, and shared logo treatment across app/auth/onboarding/landing/public layouts.
+- Added generated AcadSyntra brand assets, favicon/PWA icons, and shared logo treatment across app/auth/onboarding/landing/public layouts.
 - Added global branded loader for page navigation, form submissions, foreground fetch/Axios mutations, AI actions, and Research Studio operations while excluding background sync/polling.
 - Added `scripts/check-scholarly-timeout-and-branding.php`.
 
@@ -132,7 +150,7 @@
 - Added `RESET_LOCAL_LARAVEL_CACHES.bat` for one-time recovery from pre-existing generated bootstrap caches without requiring Laravel to boot first.
 - Clarified that route caching is an optional production optimization and should only be enabled where PHP memory headroom has been verified.
 
-# AcadFlow Changelog
+# AcadSyntra Changelog
 
 ## 2026-09-12 — Codebase-wide performance optimization
 
@@ -177,7 +195,7 @@
 - Added `scripts/check-pasted-test-regressions.php` to guard the four supplied PHPUnit regressions without requiring a booted Laravel runtime.
 - Replaced the institution-onboarding Alpine-only search UI with a dependency-free vanilla browser implementation including partial/case-insensitive search, debounce, abortable stale requests, loading/empty/error/retry states and correct claim/access continuation.
 - Made institution catalogue search portable across MySQL/PostgreSQL/SQLite using normalized `LOWER(... LIKE ...)` matching for names, short names, codes, states and regulators.
-- Added an end-to-end AI lifecycle budget and post-provider reserve so a provider attempt/retry cannot consume the entire PHP execution window before AcadFlow can parse and return the answer.
+- Added an end-to-end AI lifecycle budget and post-provider reserve so a provider attempt/retry cannot consume the entire PHP execution window before AcadSyntra can parse and return the answer.
 - Preserved one logical AI request ID through assistant context building, AiManager, provider transport, parser and response lifecycle logging.
 - Hardened Gemini HTTP-200 parsing with explicit empty, blocked and malformed-response categories.
 - Made AI cache writes, usage counters, analytics and post-provider billing settlement failure-tolerant so non-critical bookkeeping cannot discard a valid generated answer.
@@ -205,7 +223,7 @@
 - Added `scripts/check-pricing-rule-ux.php` to prevent regressions between runtime entitlement checks and the Admin dropdown.
 
 
-All notable product, architecture, security, data and operations changes should be recorded here. AcadFlow currently uses date-based release headings because a formal semantic version has not yet been established.
+All notable product, architecture, security, data and operations changes should be recorded here. AcadSyntra currently uses date-based release headings because a formal semantic version has not yet been established.
 
 ## [2026-08-28]
 
@@ -280,7 +298,7 @@ All notable product, architecture, security, data and operations changes should 
 - Made scheduled `acadflow:ai-health` observational by default so an upstream provider outage does not make Laravel report the scheduler itself as failed; `--strict` remains available for CI/manual health gates.
 - Modernized the student My Courses experience, individual course workspace, materials, assignments, discussions and attendance pages while preserving the separate lecturer My Courses page.
 - Modernized communities, groups, learning paths, reading lists, events, challenges, leaderboard and creator profile experiences with responsive, interactive academic workspace layouts.
-- Replaced the default Laravel-oriented root README with an AcadFlow-specific project entry point and current quick-start instructions.
+- Replaced the default Laravel-oriented root README with an AcadSyntra-specific project entry point and current quick-start instructions.
 - Refreshed the current Tech Stack, Architecture, Structure, Roles, API, Frontend, Security and Database references so older planning assumptions do not mislead developers.
 - Updated the in-application public Documentation/Changelog summaries to reflect centralized AI assistants and central Feature Management.
 - Established a mandatory rule that every future functional change updates canonical documentation and `CHANGELOG.md` in the same release.

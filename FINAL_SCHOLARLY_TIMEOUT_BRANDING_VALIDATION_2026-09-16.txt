@@ -1,7 +1,7 @@
-AcadFlow scholarly timeout + branding validation — 2026-09-16
+AcadSyntra scholarly timeout + branding validation — 2026-09-16
 
 RESULTS
-- AcadFlow preflight/regression checks: 31/31 PASS
+- AcadSyntra preflight/regression checks: 31/31 PASS
 - PHP + Blade lexical checks: 830/830 PASS
 - JavaScript syntax checks: PASS
 - PWA manifest JSON validation: PASS
@@ -21,7 +21,7 @@ IMPLEMENTED
 - partial provider failure tolerance
 - successful query cache; total outage not cached
 - batch scholarly record upsert in chunks of 25 with stable UUID preservation
-- AcadFlow brand assets + favicon/PWA integration
+- AcadSyntra brand assets + favicon/PWA integration
 - global branded loader for navigation/forms/foreground fetch/Axios actions
 - background sync/polling excluded from blocking loader
 

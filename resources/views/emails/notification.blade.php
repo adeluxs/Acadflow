@@ -14,7 +14,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>{{ \App\Services\SettingService::get('site_name', 'AcadFlow') }} Notification</h1>
+            <h1>{{ \App\Services\SettingService::get('site_name', 'AcadSyntra') }} Notification</h1>
         </div>
         <div class="content">
             <h2>{{ $title }}</h2>
@@ -24,9 +24,11 @@
             @endif
         </div>
         <div class="footer">
-            <p>This is an automated message from {{ \App\Services\SettingService::get('site_name', 'AcadFlow') }}.</p>
+            <p>This is an automated message from {{ \App\Services\SettingService::get('site_name', 'AcadSyntra') }}.</p>
             <p>To manage your notification preferences, visit your <a href="{{ config('app.url') }}/settings">account settings</a>.</p>
-            <p>Contact us: <a href="mailto:{{ \App\Services\SettingService::get('support_email', 'support@example.com') }}">{{ \App\Services\SettingService::get('support_email', 'support@example.com') }}</a></p>
+            @if($supportEmail = \App\Services\PublicWebsite::supportEmail())
+            <p>Contact us: <a href="mailto:{{ $supportEmail }}">{{ $supportEmail }}</a></p>
+            @endif
         </div>
     </div>
 </body>

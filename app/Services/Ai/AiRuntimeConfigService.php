@@ -220,7 +220,7 @@ class AiRuntimeConfigService
 
     public function webResearchEnabled(?int $universityId = null): bool
     {
-        // Current AcadFlow does not contain a live external web-search provider.
+        // Current AcadSyntra does not contain a live external web-search provider.
         // This flag remains authoritative and false by default so features cannot
         // silently treat an LLM provider as a web search engine.
         return (bool) $this->setting('ai_web_research_enabled', false, $universityId);
@@ -228,11 +228,11 @@ class AiRuntimeConfigService
 
     public function globalSystemPrompt(?int $universityId = null): string
     {
-        return trim((string) $this->setting(
+        return \App\Support\Branding::instruction(trim((string) $this->setting(
             'ai_global_system_prompt',
-            'You are AcadFlow AI Academic Assistant. Respect authorization, tenant boundaries, academic integrity, source grounding, and uncertainty.',
+            'You are AcadSyntra AI Academic Assistant. Respect authorization, tenant boundaries, academic integrity, source grounding, and uncertainty.',
             $universityId
-        ));
+        )));
     }
 
     public function featureEnabled(string $feature, ?int $universityId = null): bool

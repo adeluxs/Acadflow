@@ -1,15 +1,15 @@
 You are a senior AI architect, education technology expert, Laravel engineer, machine learning engineer, academic workflow consultant, and software architect.
 
-Your task is to design and implement a comprehensive **AI Academic Assistant** for AcadFlow.
+Your task is to design and implement a comprehensive **AI Academic Assistant** for AcadSyntra.
 
 IMPORTANT:
-- Before writing any code, thoroughly inspect the existing AcadFlow codebase.
+- Before writing any code, thoroughly inspect the existing AcadSyntra codebase.
 - Determine what AI-related features already exist.
 - Reuse existing services, models, controllers, jobs, events, notification systems, storage, queues, and APIs wherever possible.
 - Do NOT duplicate functionality.
 - Do NOT create duplicate controllers, routes, services, models, migrations, settings, or APIs.
 - Extend the existing architecture instead.
-- Ensure the AI Assistant integrates seamlessly with the entire AcadFlow ecosystem.
+- Ensure the AI Assistant integrates seamlessly with the entire AcadSyntra ecosystem.
 
 The AI Academic Assistant should not be a single feature. It should be a centralized AI layer that powers multiple intelligent academic workflows across the platform for students, lecturers, supervisors, departments, and administrators.
 
@@ -73,7 +73,7 @@ Reuse them whenever possible.
 PHASE 2 — AI ARCHITECTURE FOUNDATION
 ====================================================
 
-Before implementing any AI-powered feature, design and implement a centralized AI architecture that will serve as the intelligence layer across the entire AcadFlow ecosystem.
+Before implementing any AI-powered feature, design and implement a centralized AI architecture that will serve as the intelligence layer across the entire AcadSyntra ecosystem.
 
 The architecture must be modular, provider-independent, scalable, and extensible.
 
@@ -124,7 +124,7 @@ Response Formatter
 
 Feature Module
 
-Every AI-powered feature in AcadFlow must use this architecture.
+Every AI-powered feature in AcadSyntra must use this architecture.
 
 AI Manager
 
@@ -1009,7 +1009,7 @@ At completion, provide:
 2. Components reused.
 3. New components created.
 4. Any duplicate logic removed or merged.
-5. How each AI module integrates with the existing AcadFlow system.
+5. How each AI module integrates with the existing AcadSyntra system.
 6. Any recommended future enhancements.
 
-The final result should be a unified, production-ready AI Academic Assistant that serves as the intelligence layer across the entire AcadFlow platform, improving academic quality, reducing lecturer workload, and enhancing the learning experience for students.
+The final result should be a unified, production-ready AI Academic Assistant that serves as the intelligence layer across the entire AcadSyntra platform, improving academic quality, reducing lecturer workload, and enhancing the learning experience for students.

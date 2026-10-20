@@ -1,4 +1,4 @@
-# AcadFlow — Password Policy & Rate-Limit UX Remediation
+# AcadSyntra — Password Policy & Rate-Limit UX Remediation
 
 **Date:** 2026-08-20  
 **Scope:** Password-strength guidance, existing Security Settings consistency, existing auth/security rate-limit UX, 429 responses, and minor login feedback only.

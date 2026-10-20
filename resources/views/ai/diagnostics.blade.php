@@ -9,7 +9,7 @@
             <div>
                 <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold">AI runtime observability</div>
                 <h1 class="mt-3 text-3xl font-bold tracking-tight">AI Diagnostics</h1>
-                <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Verify the configuration AcadFlow will actually use at runtime. Credentials and secret values are never displayed here.</p>
+                <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-300">Verify the configuration AcadSyntra will actually use at runtime. Credentials and secret values are never displayed here.</p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('ai.settings') }}" class="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold hover:bg-white/20">← AI Settings</a>
@@ -117,7 +117,7 @@
     </section>
 
     <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
-        <strong>Deliberate capability boundary:</strong> this AcadFlow source does not include a live open-web search adapter or an external embedding-provider adapter. Provider AI is used for supported reasoning/generation requests; indexed semantic retrieval continues to use AcadFlow's existing local index. No provider is presented as live web research unless a real search adapter is implemented later.
+        <strong>Deliberate capability boundary:</strong> this AcadSyntra source does not include a live open-web search adapter or an external embedding-provider adapter. Provider AI is used for supported reasoning/generation requests; indexed semantic retrieval continues to use AcadSyntra's existing local index. No provider is presented as live web research unless a real search adapter is implemented later.
     </div>
 </div>
 @endsection

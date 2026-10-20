@@ -36,7 +36,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Central AcadFlow AI controller.
+ * Central AcadSyntra AI controller.
  *
  * Configuration and provider routing are intentionally managed in this single
  * AI Settings area; normal System Settings no longer exposes AI runtime knobs.

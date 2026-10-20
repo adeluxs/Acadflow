@@ -83,6 +83,10 @@ class AppServiceProvider extends ServiceProvider
                 ->by((string) ($request->user()?->id ?? $request->ip()));
         });
 
+        RateLimiter::for('public-contact', fn (Request $request) => [
+            Limit::perMinute(3)->by('contact-minute:'.$request->ip()),
+            Limit::perHour(6)->by('contact-hour:'.$request->ip()),
+        ]);
         RateLimiter::for('challenge-votes', fn (Request $request) => Limit::perMinute(20)->by((string) ($request->user()?->id ?? $request->ip())));
         RateLimiter::for('secure-downloads', function (Request $request): Limit {
             return Limit::perMinute(30)
@@ -166,7 +170,7 @@ class AppServiceProvider extends ServiceProvider
             $notificationsVisible = (bool) $user?->isAdmin() || $notificationStatus !== FeatureAccessService::STATUS_DISABLED;
 
             $view->with([
-                'siteName' => (string) ($platform['site_name'] ?? 'AcadFlow'),
+                'siteName' => (string) ($platform['site_name'] ?? 'AcadSyntra'),
                 'siteFavicon' => $platform['site_favicon'] ?? null,
                 'primaryColor' => $primaryColor,
                 'primaryR' => (int) $primaryR,
@@ -180,14 +184,14 @@ class AppServiceProvider extends ServiceProvider
         });
 
         View::composer(['layouts.auth', 'layouts.onboarding'], function ($view): void {
-            $view->with('siteName', (string) SettingService::get('site_name', 'AcadFlow'));
+            $view->with('siteName', (string) SettingService::get('site_name', 'AcadSyntra'));
         });
 
         // Dynamically set app name from settings
         try {
-            Config::set('app.name', SettingService::get('site_name', 'AcadFlow'));
+            Config::set('app.name', SettingService::get('site_name', 'AcadSyntra'));
         } catch (\Throwable $e) {
-            Config::set('app.name', 'AcadFlow');
+            Config::set('app.name', 'AcadSyntra');
         }
     }
 }

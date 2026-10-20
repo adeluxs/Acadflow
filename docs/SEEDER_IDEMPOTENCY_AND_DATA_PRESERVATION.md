@@ -1,8 +1,8 @@
-# AcadFlow Seeder Idempotency and Data Preservation
+# AcadSyntra Seeder Idempotency and Data Preservation
 
 ## Purpose
 
-AcadFlow seeders are designed to be safe to run more than once on an existing installation.
+AcadSyntra seeders are designed to be safe to run more than once on an existing installation.
 
 The rule is:
 

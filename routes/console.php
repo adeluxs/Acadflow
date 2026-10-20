@@ -117,7 +117,7 @@ Artisan::command('acadflow:ai-health {--force : Check now even when scheduled he
     // not make Laravel report the scheduler itself as failed. Operators can use
     // --strict in CI/manual monitoring when a non-zero exit code is desired.
     return ($failed && $this->option('strict')) ? self::FAILURE : self::SUCCESS;
-})->purpose('Check configured AcadFlow AI providers and refresh cached health status');
+})->purpose('Check configured AcadSyntra AI providers and refresh cached health status');
 
 Schedule::command('acadflow:ai-health')
     ->hourly()

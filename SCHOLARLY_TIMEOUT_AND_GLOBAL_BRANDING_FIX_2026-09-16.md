@@ -1,4 +1,4 @@
-# Scholarly Search Timeout + Global AcadFlow Branding Fix — 2026-09-16
+# Scholarly Search Timeout + Global AcadSyntra Branding Fix — 2026-09-16
 
 ## Why the 30-second fatal error returned
 
@@ -28,18 +28,18 @@ SCHOLARLY_SEARCH_CACHE_SECONDS=300
 
 The application no longer depends on increasing PHP's 30-second execution limit for normal literature discovery.
 
-## AcadFlow brand implementation
+## AcadSyntra brand implementation
 
-Generated and installed a new AcadFlow identity based on an academic-book / rising-learning-path mark.
+Generated and installed a new AcadSyntra identity based on an academic-book / rising-learning-path mark.
 
 Assets:
 
-- `public/branding/acadflow-logo.png`
-- `public/branding/acadflow-mark.png`
-- `public/branding/acadflow-icon-32.png`
-- `public/branding/acadflow-icon-180.png`
-- `public/branding/acadflow-icon-192.png`
-- `public/branding/acadflow-icon-512.png`
+- `public/branding/acadsyntra-logo.png`
+- `public/branding/acadsyntra-mark.png`
+- `public/branding/acadsyntra-icon-32.png`
+- `public/branding/acadsyntra-icon-180.png`
+- `public/branding/acadsyntra-icon-192.png`
+- `public/branding/acadsyntra-icon-512.png`
 - `public/favicon.ico`
 
 The mark is now used in the main application shell, auth layout, onboarding layout, landing page, public information pages, PWA manifest, favicon, Apple touch icon, and service-worker offline image fallback.
@@ -52,7 +52,7 @@ A centralized global loader is implemented through:
 - `resources/js/global-loader.js`
 - shared styles in `resources/css/app.css`
 
-It uses the AcadFlow mark inside an animated orbit and appears automatically for:
+It uses the AcadSyntra mark inside an animated orbit and appears automatically for:
 
 - same-origin page navigation;
 - normal GET search/filter form submissions;
@@ -65,7 +65,7 @@ Background sync, offline replay, and QR/heartbeat-style polling are excluded so 
 
 ## PWA changes
 
-The manifest now uses the AcadFlow PNG icons. Service-worker cache version was advanced to v3 and pre-caches the new mark/icons. Old hard-coded `/icons/icon-192x192.png` and `/icons/icon-512x512.png` runtime references were removed.
+The manifest now uses the AcadSyntra PNG icons. Service-worker cache version was advanced to v3 and pre-caches the new mark/icons. Old hard-coded `/icons/icon-192x192.png` and `/icons/icon-512x512.png` runtime references were removed.
 
 ## Verification
 

@@ -1,4 +1,4 @@
-AcadFlow Monetization + OpenRouter Rebuild — Release Validation
+AcadSyntra Monetization + OpenRouter Rebuild — Release Validation
 Date: 2026-08-28
 
 PASS: 764 PHP files passed php -l syntax validation.

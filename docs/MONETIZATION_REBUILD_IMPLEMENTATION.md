@@ -1,11 +1,11 @@
-# AcadFlow Monetization Rebuild — Implementation & Deployment Guide
+# AcadSyntra Monetization Rebuild — Implementation & Deployment Guide
 
 **Release date:** 2026-08-28  
 **Scope:** Nigeria-first monetization rebuild, subscription retirement, wallet/ledger, user earnings, B2B commercial accounts, AI usage billing and OpenRouter integration.
 
 ## 1. What changed
 
-AcadFlow no longer relies on recurring subscription plans as the normal runtime access model. Historical subscription, invoice, payment and transaction records are retained for audit and migration, but core academic/API access no longer depends on an active subscription.
+AcadSyntra no longer relies on recurring subscription plans as the normal runtime access model. Historical subscription, invoice, payment and transaction records are retained for audit and migration, but core academic/API access no longer depends on an active subscription.
 
 The new commercial architecture introduces:
 
@@ -18,7 +18,7 @@ The new commercial architecture introduces:
 - Versioned pricing rules and independent feature entitlements.
 - Institution/B2B commercial accounts with prepaid balances and commercial metadata.
 - Central Admin **Monetization** area for pricing, wallet, commissions, earnings, withdrawals, payout verification, refund reconciliation, AI billing and institutional commercial controls.
-- OpenRouter as a first-class AI provider inside the existing AcadFlow AI provider registry/router/fallback system.
+- OpenRouter as a first-class AI provider inside the existing AcadSyntra AI provider registry/router/fallback system.
 - Central AI usage charging at the AI manager boundary, with free allowance, reservation, settlement/release, provider-cost capture and margin reporting.
 - Dry-run-first legacy monetization migration command.
 
@@ -140,7 +140,7 @@ php artisan acadflow:release-creator-earnings
 
 ## 6. OpenRouter configuration
 
-OpenRouter is integrated into the existing AI provider architecture. Configure it through AcadFlow AI Settings and/or the application's normal environment/bootstrap configuration.
+OpenRouter is integrated into the existing AI provider architecture. Configure it through AcadSyntra AI Settings and/or the application's normal environment/bootstrap configuration.
 
 `.env.example` includes:
 
@@ -228,7 +228,7 @@ The migration is additive and historical data is retained. If the release must b
 
 ## Pricing Rule Admin UX
 
-The Admin Monetization page exposes pricing only for runtime entitlement features that AcadFlow actually checks. Super Admins select a human-readable feature from a grouped dropdown and enter a fixed price in the platform currency. The backend derives the immutable pricing key (`feature.<feature>`) and display name from `config/monetization.php`; arbitrary feature keys, names, currencies and percentage fields are not trusted from the browser.
+The Admin Monetization page exposes pricing only for runtime entitlement features that AcadSyntra actually checks. Super Admins select a human-readable feature from a grouped dropdown and enter a fixed price in the platform currency. The backend derives the immutable pricing key (`feature.<feature>`) and display name from `config/monetization.php`; arbitrary feature keys, names, currencies and percentage fields are not trusted from the browser.
 
 Current admin-selectable entitlement features include group submissions, rubric-based grading, attendance tracking, protected document/PDF generation and Knowledge Hub premium access. New runtime entitlement features should be registered in `config/monetization.php`, and `scripts/check-pricing-rule-ux.php` verifies that runtime `hasFeature()` checks are represented in the dropdown.
 

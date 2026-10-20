@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-echo Starting the AcadFlow Windows Composer repair installer...
+echo Starting the AcadSyntra Windows Composer repair installer...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-windows.ps1"
 set EXIT_CODE=%ERRORLEVEL%
 echo.

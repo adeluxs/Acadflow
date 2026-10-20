@@ -1,18 +1,18 @@
-# AcadFlow Queue, Scheduler & Redis Operations Guide
+# AcadSyntra Queue, Scheduler & Redis Operations Guide
 ## Local Development and Production Shared Hosting (cPanel)
 
-**Project:** AcadFlow  
+**Project:** AcadSyntra
 **Recommended production queue backend:** Redis
 
-> The current `.env.example` keeps `QUEUE_CONNECTION=database` as a safe bootstrap/local default. This operations guide documents the recommended Redis production configuration where the host provides Redis.  
-**Applies to:** Current AcadFlow Laravel source  
-**Document purpose:** Configure and operate AcadFlow queues and scheduler locally and on production shared hosting without using the database as the active queue backend.
+> The current `.env.example` keeps `QUEUE_CONNECTION=database` as a safe bootstrap/local default. This operations guide documents the recommended Redis production configuration where the host provides Redis.
+**Applies to:** Current AcadSyntra Laravel source
+**Document purpose:** Configure and operate AcadSyntra queues and scheduler locally and on production shared hosting without using the database as the active queue backend.
 
 ---
 
 # 1. Overview
 
-AcadFlow uses Laravel queues for background work that should not block normal web requests. In the current AcadFlow source, the explicitly used queue names are:
+AcadSyntra uses Laravel queues for background work that should not block normal web requests. In the current AcadSyntra source, the explicitly used queue names are:
 
 - `default`
 - `ai`
@@ -27,7 +27,7 @@ Examples of work placed on these queues include:
 - Creator/reputation recalculation
 - Other jobs that use the application's default queue
 
-AcadFlow also uses Laravel's scheduler for recurring application tasks. The scheduler is separate from the queue worker. **Both must be running**.
+AcadSyntra also uses Laravel's scheduler for recurring application tasks. The scheduler is separate from the queue worker. **Both must be running**.
 
 For this deployment design:
 
@@ -35,7 +35,7 @@ For this deployment design:
 Web Request
     |
     v
-Laravel / AcadFlow
+Laravel / AcadSyntra
     |
     +----------------------+
     |                      |
@@ -59,9 +59,9 @@ The database may still be used for `failed_jobs` and `job_batches`. That does **
 
 ---
 
-# 2. Current AcadFlow Queue Configuration
+# 2. Current AcadSyntra Queue Configuration
 
-The current AcadFlow source already contains a Redis queue connection in `config/queue.php`, so you do not need to invent another queue architecture.
+The current AcadSyntra source already contains a Redis queue connection in `config/queue.php`, so you do not need to invent another queue architecture.
 
 The relevant environment variables are:
 
@@ -75,7 +75,7 @@ REDIS_QUEUE_RETRY_AFTER=360
 QUEUE_FAILED_DRIVER=database-uuids
 ```
 
-AcadFlow's Redis connection is configured through `config/database.php` using variables such as:
+AcadSyntra's Redis connection is configured through `config/database.php` using variables such as:
 
 ```env
 REDIS_CLIENT=phpredis
@@ -111,8 +111,8 @@ REDIS_CACHE_DB=1
 Conceptually:
 
 ```text
-Redis DB 0 -> AcadFlow queue/general Redis connection
-Redis DB 1 -> AcadFlow cache
+Redis DB 0 -> AcadSyntra queue/general Redis connection
+Redis DB 1 -> AcadSyntra cache
 ```
 
 Do not run `FLUSHALL` or `FLUSHDB` casually on production Redis because it can remove queued jobs or application cache data.
@@ -121,7 +121,7 @@ Do not run `FLUSHALL` or `FLUSHDB` casually on production Redis because it can r
 
 # 4. Recommended Queue Timing Values
 
-AcadFlow contains AI and indexing tasks that can take longer than ordinary jobs.
+AcadSyntra contains AI and indexing tasks that can take longer than ordinary jobs.
 
 Recommended:
 
@@ -144,7 +144,7 @@ This provides a safety gap so a frozen job is terminated before Redis makes it a
 
 # 5. LOCAL DEVELOPMENT — WINDOWS
 
-AcadFlow is commonly developed on Windows. Redis must be available before you switch:
+AcadSyntra is commonly developed on Windows. Redis must be available before you switch:
 
 ```env
 QUEUE_CONNECTION=redis
@@ -299,7 +299,7 @@ REDIS_QUEUE_CONNECTION=default
 REDIS_QUEUE=default
 REDIS_QUEUE_RETRY_AFTER=360
 
-# AcadFlow AI should use the same Redis queue connection.
+# AcadSyntra AI should use the same Redis queue connection.
 AI_QUEUE_CONNECTION=redis
 ```
 
@@ -319,7 +319,7 @@ php artisan optimize:clear
 
 # 8. LOCAL DATABASE PREPARATION
 
-Even though Redis stores active queued jobs, AcadFlow should still have its Laravel queue support tables because failed jobs and batches may be recorded in the database.
+Even though Redis stores active queued jobs, AcadSyntra should still have its Laravel queue support tables because failed jobs and batches may be recorded in the database.
 
 Run:
 
@@ -333,7 +333,7 @@ Do **not** create duplicate queue migrations if the project's migrations already
 - `job_batches`
 - `failed_jobs`
 
-The current AcadFlow source already has queue infrastructure; migration status should be checked before generating anything new.
+The current AcadSyntra source already has queue infrastructure; migration status should be checked before generating anything new.
 
 Check migration status:
 
@@ -390,9 +390,9 @@ exit
 
 ---
 
-# 10. RUN ACADFLOW LOCALLY
+# 10. RUN ACADSYNTRA LOCALLY
 
-AcadFlow needs three processes during normal local development:
+AcadSyntra needs three processes during normal local development:
 
 ## Terminal 1 — Laravel Application
 
@@ -410,7 +410,7 @@ php artisan queue:work redis --queue=default,ai,indexing,analytics --sleep=2 --t
 
 Because native Windows PHP normally does not provide PCNTL, do not depend on `--timeout` locally on Windows.
 
-If you are running AcadFlow inside WSL/Linux and PCNTL is installed:
+If you are running AcadSyntra inside WSL/Linux and PCNTL is installed:
 
 ```bash
 php artisan queue:work redis --queue=default,ai,indexing,analytics --sleep=2 --tries=3 --timeout=300 -v
@@ -431,14 +431,14 @@ queue:work
     Processes jobs already waiting in Redis.
 
 schedule:work
-    Checks AcadFlow's schedule and dispatches/runs work when it becomes due.
+    Checks AcadSyntra's schedule and dispatches/runs work when it becomes due.
 ```
 
 ---
 
-# 11. ACADFLOW SCHEDULED TASKS
+# 11. ACADSYNTRA SCHEDULED TASKS
 
-The current AcadFlow scheduler includes recurring work such as:
+The current AcadSyntra scheduler includes recurring work such as:
 
 - Publishing scheduled Knowledge Hub publications
 - Research meeting reminders
@@ -520,7 +520,7 @@ Every time you start development:
 ```text
 1. Start MySQL
 2. Start Redis
-3. Start AcadFlow
+3. Start AcadSyntra
 4. Start Redis queue worker
 5. Start Laravel scheduler
 ```
@@ -558,7 +558,7 @@ On normal cPanel hosting you usually cannot:
 - Keep arbitrary background daemons permanently running
 - Modify system services
 
-Therefore, before configuring AcadFlow for Redis, confirm that the hosting provider gives you **Redis access**.
+Therefore, before configuring AcadSyntra for Redis, confirm that the hosting provider gives you **Redis access**.
 
 The provider may supply:
 
@@ -749,11 +749,11 @@ or:
 /opt/cpanel/ea-php84/root/usr/bin/php -v
 ```
 
-Use the same PHP major/minor version that AcadFlow uses on the website.
+Use the same PHP major/minor version that AcadSyntra uses on the website.
 
 ---
 
-# 20. FIND THE ACADFLOW PRODUCTION PATH
+# 20. FIND THE ACADSYNTRA PRODUCTION PATH
 
 In cPanel Terminal, enter the project folder:
 
@@ -779,7 +779,7 @@ Use the actual path returned by your server in all cron commands.
 
 # 21. PRODUCTION DEPLOYMENT COMMANDS
 
-From the AcadFlow application root:
+From the AcadSyntra application root:
 
 ```bash
 composer install --no-dev --optimize-autoloader
@@ -840,7 +840,7 @@ If this fails, do **not** start the queue cron yet. Correct Redis connectivity f
 
 # 23. PRODUCTION SHARED HOSTING — SCHEDULER CRON
 
-AcadFlow's scheduler should be called **every minute**.
+AcadSyntra's scheduler should be called **every minute**.
 
 In cPanel:
 
@@ -906,7 +906,7 @@ This means:
 
 ```text
 Every minute:
-    Start an AcadFlow Redis worker.
+    Start an AcadSyntra Redis worker.
     Process waiting jobs.
     Exit when Redis has no more matching jobs.
 ```
@@ -971,7 +971,7 @@ Cron:
 * * * * * cd /home/CPANEL_USERNAME/path/to/acadflow && /usr/local/bin/php artisan queue:work redis --queue=default,ai,indexing,analytics --stop-when-empty --sleep=1 --tries=3 --max-time=50 >> /dev/null 2>&1
 ```
 
-However, if AcadFlow AI jobs themselves regularly take longer than your host permits a PHP CLI process to run, ordinary shared hosting may not be suitable for those background jobs.
+However, if AcadSyntra AI jobs themselves regularly take longer than your host permits a PHP CLI process to run, ordinary shared hosting may not be suitable for those background jobs.
 
 In that situation you need a hosting plan that allows longer worker processes or a server with a proper process manager.
 
@@ -979,7 +979,7 @@ In that situation you need a hosting plan that allows longer worker processes or
 
 # 27. OPTIONAL: SPLIT AI FROM OTHER QUEUES
 
-AcadFlow's `ai` queue can contain slower jobs than `default`, `indexing`, or `analytics`.
+AcadSyntra's `ai` queue can contain slower jobs than `default`, `indexing`, or `analytics`.
 
 On a shared host with enough process allowance, you may use two cron workers.
 
@@ -1011,7 +1011,7 @@ For a small installation, the single worker is simpler.
 
 # 28. PRODUCTION CRON SUMMARY
 
-For a normal shared-hosting AcadFlow installation, the minimum recommended cron configuration is:
+For a normal shared-hosting AcadSyntra installation, the minimum recommended cron configuration is:
 
 ## Scheduler
 
@@ -1025,7 +1025,7 @@ For a normal shared-hosting AcadFlow installation, the minimum recommended cron 
 * * * * * cd /home/CPANEL_USERNAME/path/to/acadflow && /usr/local/bin/php artisan queue:work redis --queue=default,ai,indexing,analytics --stop-when-empty --sleep=1 --tries=3 --timeout=300 >> /dev/null 2>&1
 ```
 
-That is the main production setup for AcadFlow on shared hosting with Redis.
+That is the main production setup for AcadSyntra on shared hosting with Redis.
 
 ---
 
@@ -1053,7 +1053,7 @@ the worker:
 
 1. Starts.
 2. Connects to Redis.
-3. Processes available AcadFlow jobs.
+3. Processes available AcadSyntra jobs.
 4. Exits when the selected queues are empty.
 5. Starts again on the next cron invocation.
 
@@ -1067,7 +1067,7 @@ Do not use:
 php artisan queue:listen
 ```
 
-for production AcadFlow.
+for production AcadSyntra.
 
 Use:
 
@@ -1275,7 +1275,7 @@ Flush failed-job records:
 php artisan queue:flush
 ```
 
-AcadFlow's scheduler already includes pruning of old failed queue-job records.
+AcadSyntra's scheduler already includes pruning of old failed queue-job records.
 
 ---
 
@@ -1519,7 +1519,7 @@ QUEUE_CONNECTION=redis
 
 new queued jobs are stored in Redis.
 
-AcadFlow is **not** using the `jobs` database table as its active queue.
+AcadSyntra is **not** using the `jobs` database table as its active queue.
 
 The database can still contain:
 
@@ -1552,7 +1552,7 @@ Leave the existing queue migrations intact.
 
 ---
 
-# 48. SHOULD ACADFLOW USE REDIS FOR CACHE TOO?
+# 48. SHOULD ACADSYNTRA USE REDIS FOR CACHE TOO?
 
 Recommended for production when Redis is reliable:
 
@@ -1560,7 +1560,7 @@ Recommended for production when Redis is reliable:
 CACHE_STORE=redis
 ```
 
-AcadFlow's feature/module management caching and Laravel cache operations benefit from Redis.
+AcadSyntra's feature/module management caching and Laravel cache operations benefit from Redis.
 
 Keep:
 
@@ -1575,7 +1575,7 @@ If your managed Redis service does not support multiple numbered databases, use 
 
 ---
 
-# 49. SHOULD ACADFLOW USE HORIZON ON SHARED HOSTING?
+# 49. SHOULD ACADSYNTRA USE HORIZON ON SHARED HOSTING?
 
 Not by default.
 
@@ -1789,7 +1789,7 @@ Windows
 Browser / Mobile App
         |
         v
-     AcadFlow
+     AcadSyntra
         |
         +--------------------+
         |                    |
@@ -1861,13 +1861,13 @@ Illuminate\Support\Facades\Redis::connection()->ping();
 
 # 55. Final Recommendations
 
-For AcadFlow:
+For AcadSyntra:
 
 1. Use **Redis** as the active queue backend in both local and production environments.
 2. Use **Redis cache** when the production Redis service is stable.
 3. Keep failed-job records in MySQL using `database-uuids`.
 4. Keep the existing `jobs`, `job_batches`, and `failed_jobs` migrations.
-5. Run all four current AcadFlow queues:
+5. Run all four current AcadSyntra queues:
    - `default`
    - `ai`
    - `indexing`
@@ -1880,7 +1880,7 @@ For AcadFlow:
 11. Do not enable production Redis until Laravel can successfully ping it.
 12. Keep `APP_DEBUG=false` in production.
 13. Use a `REDIS_QUEUE_RETRY_AFTER` value longer than the Linux worker timeout.
-14. If shared-hosting process limits prevent AcadFlow AI jobs from completing, move the queue worker to hosting that supports persistent background processes rather than weakening the queue architecture.
+14. If shared-hosting process limits prevent AcadSyntra AI jobs from completing, move the queue worker to hosting that supports persistent background processes rather than weakening the queue architecture.
 
 ---
 

@@ -185,7 +185,7 @@ function bindContextualAssistant(root) {
         clearChildren(sources);
         sourceRows.forEach((source) => {
             const row = document.createElement('div');
-            row.textContent = `${source?.label || 'S'} · ${source?.title || 'AcadFlow source'}${source?.locator ? ` · ${source.locator}` : ''}`;
+            row.textContent = `${source?.label || 'S'} · ${source?.title || 'AcadSyntra source'}${source?.locator ? ` · ${source.locator}` : ''}`;
             sources.appendChild(row);
         });
         setHidden(sourcesWrap, false);
@@ -198,7 +198,7 @@ function bindContextualAssistant(root) {
         showMetadata(errorData);
         showRequestId(extractRequestId(response, errorData, detail));
         if (detail.retryable && retry) setHidden(retry, false);
-        console.warn('[AcadFlow AI] Contextual assistant request did not render a successful answer.', {
+        console.warn('[AcadSyntra AI] Contextual assistant request did not render a successful answer.', {
             status: error?.status || response?.status || null,
             requestId: extractRequestId(response, errorData, detail),
             error,
@@ -248,7 +248,7 @@ function bindContextualAssistant(root) {
             } catch (_) {
                 data = {
                     success: false,
-                    message: 'AcadFlow received an unreadable AI response. Please try again.',
+                    message: 'AcadSyntra received an unreadable AI response. Please try again.',
                     raw: rawText,
                 };
             }
@@ -260,12 +260,12 @@ function bindContextualAssistant(root) {
                 throw requestError;
             }
 
-            answer.textContent = textOf(data.answer, 'AcadFlow received a successful AI response, but it contained no displayable answer.');
+            answer.textContent = textOf(data.answer, 'AcadSyntra received a successful AI response, but it contained no displayable answer.');
             showMetadata(data);
             // Source labels and request IDs are intentionally hidden from the
             // user-facing assistant card. They remain available in logs/network
             // responses for diagnostics without cluttering the answer.
-            console.info('[AcadFlow AI] Contextual assistant response rendered.', {
+            console.info('[AcadSyntra AI] Contextual assistant response rendered.', {
                 requestId: data.request_id || null,
                 provider: data.provider || null,
                 model: data.model || null,
@@ -283,7 +283,7 @@ function bindContextualAssistant(root) {
             answer.textContent = 'The AI request did not complete in the page. Please try again; if it keeps happening, refresh the page to load the latest assistant script.';
             setHidden(retry, false);
             releaseBusyState();
-            console.warn('[AcadFlow AI] Recovered stale contextual assistant busy state.');
+            console.warn('[AcadSyntra AI] Recovered stale contextual assistant busy state.');
         }
     }, Math.max(8000, Number(root.dataset.aiTimeout || 28000) + 1500));
 

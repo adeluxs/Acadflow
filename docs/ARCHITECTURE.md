@@ -1,9 +1,9 @@
-# AcadFlow Architecture
+# AcadSyntra Architecture
 
 **Current source snapshot:** 2026-08-15  
 **Canonical deep guide:** `DEVELOPER_GUIDE.md`
 
-AcadFlow is a Laravel modular monolith. Domain boundaries are expressed through models, controllers, services, policies, jobs/events/listeners and central cross-cutting services rather than separate deployable microservices.
+AcadSyntra is a Laravel modular monolith. Domain boundaries are expressed through models, controllers, services, policies, jobs/events/listeners and central cross-cutting services rather than separate deployable microservices.
 
 ## Runtime layers
 

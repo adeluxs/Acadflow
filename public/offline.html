@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offline</title>
+    <title>AcadSyntra · Offline</title>
+    <link rel="icon" href="/branding/acadsyntra-icon-192.png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #4f46e5 0%, #322884 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -67,7 +68,7 @@
 </head>
 <body>
     <div class="container">
-        <div class="icon">📴</div>
+        <div class="icon"><img src="/branding/acadsyntra-mark.png" width="64" height="64" alt="AcadSyntra" style="margin:auto"></div>
         <h1>You're Offline</h1>
         <p id="offline-message">Don't worry! You can still access previously loaded content. We will automatically sync when your connection returns.</p>
         
@@ -89,13 +90,13 @@
         fetch('/api/v1/settings/public')
             .then(res => res.json())
             .then(data => {
-                const siteName = data.site_name || 'UniAcademic';
+                const siteName = data.site_name || 'AcadSyntra';
                 document.title = siteName + ' - Offline';
                 document.getElementById('offline-message').textContent = 
                     "Don't worry! You can still access previously loaded content. " + siteName + " will automatically sync when your connection returns.";
             })
             .catch(() => {
-                document.title = 'UniAcademic - Offline';
+                document.title = 'AcadSyntra - Offline';
             });
 
         // Check connection status

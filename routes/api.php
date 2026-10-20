@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Route;
 | API Routes
 |--------------------------------------------------------------------------
 |
-| All API routes for the AcadFlow platform
+| All API routes for the AcadSyntra platform
 | Version: v1
 |
 */

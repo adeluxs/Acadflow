@@ -23,21 +23,21 @@ function Fail([string]$Message) {
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ProjectRoot
 
-Write-Host "AcadFlow Windows Composer installer" -ForegroundColor Green
+Write-Host "AcadSyntra Windows Composer installer" -ForegroundColor Green
 Write-Host "Project: $ProjectRoot"
 
 # Downloads is frequently watched by antivirus/Controlled Folder Access and can
 # lock Composer's vendor/composer/tmp-*.zip files. Work from a user-owned project
 # directory instead of repeatedly failing in Downloads.
 if (-not $Relocated -and $ProjectRoot -match '[\\/]Downloads[\\/]') {
-    $SafeRoot = Join-Path $env:USERPROFILE 'Projects\AcadFlow'
+    $SafeRoot = Join-Path $env:USERPROFILE 'Projects\AcadSyntra'
     Write-Step "Relocating the project from Downloads to $SafeRoot"
 
     New-Item -ItemType Directory -Force -Path $SafeRoot | Out-Null
 
     $robocopy = Get-Command robocopy.exe -ErrorAction SilentlyContinue
     if (-not $robocopy) {
-        Fail 'robocopy.exe is unavailable. Move the project manually to %USERPROFILE%\Projects\AcadFlow and run this script again.'
+        Fail 'robocopy.exe is unavailable. Move the project manually to %USERPROFILE%\Projects\AcadSyntra and run this script again.'
     }
 
     # /E copies source files; partial dependency folders are deliberately omitted.
@@ -128,7 +128,7 @@ foreach ($Directory in $LaravelWritableDirectories) {
         [IO.File]::WriteAllText($DirectoryWriteTest, 'ok')
         Remove-Item -LiteralPath $DirectoryWriteTest -Force
     } catch {
-        Fail "Laravel requires $Directory to exist and be writable. Close programs using the project, disable Controlled Folder Access for this project or move it to %USERPROFILE%\Projects\AcadFlow, then retry. Details: $($_.Exception.Message)"
+        Fail "Laravel requires $Directory to exist and be writable. Close programs using the project, disable Controlled Folder Access for this project or move it to %USERPROFILE%\Projects\AcadSyntra, then retry. Details: $($_.Exception.Message)"
     }
 }
 

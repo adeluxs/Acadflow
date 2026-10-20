@@ -230,6 +230,7 @@ function initQuill(source, Quill) {
         theme: 'snow',
         placeholder: source.placeholder || 'Start writing…',
         modules: {
+            table: true,
             toolbar: [
                 [{ header: [1, 2, 3, false] }],
                 [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
@@ -242,6 +243,13 @@ function initQuill(source, Quill) {
             ],
         },
     });
+    if (source.closest('[data-research-autosave]')) {
+        const tableButton = document.createElement('button');
+        tableButton.type = 'button'; tableButton.className = 'studio-button-secondary my-2';
+        tableButton.textContent = 'Insert 3 × 3 table';
+        tableButton.addEventListener('click', () => { quill.focus(); quill.getModule('table')?.insertTable(3, 3); });
+        container.insertBefore(tableButton, editor);
+    }
     quill.root.innerHTML = source.value || '';
     quill.root.style.minHeight = source.dataset.editorHeight || '300px';
 
@@ -261,7 +269,9 @@ function initQuill(source, Quill) {
     };
     const suggest = buildSuggestionBox(source, api);
     const sync = () => {
+        const previous = source.value;
         source.value = quill.root.innerHTML;
+        if (previous !== source.value) source.dispatchEvent(new Event('input', { bubbles: true }));
         status.querySelector('[data-word-count]').textContent = `${plainText(source.value).split(/\s+/).filter(Boolean).length} words`;
     };
     const syncAndSuggest = debounce(() => { sync(); suggest(); }, 250);

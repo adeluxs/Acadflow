@@ -682,7 +682,7 @@ class KnowledgeEcosystemController extends Controller
             $questions->clearPatternCache($subject);
         }
 
-        return back()->with('success', 'Thanks. Your feedback will help AcadFlow improve future grounded retrieval patterns for this publication.');
+        return back()->with('success', 'Thanks. Your feedback will help AcadSyntra improve future grounded retrieval patterns for this publication.');
     }
 
     public function commentPublication(Request $request, KnowledgePublication $publication, EngagementService $engagement): RedirectResponse

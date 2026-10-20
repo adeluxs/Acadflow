@@ -1,6 +1,6 @@
 # PHP 8.5 and Laravel framework upgrade
 
-AcadFlow now targets Laravel `^12.40` so the framework itself uses the namespaced PDO MySQL constants required by PHP 8.5. The application-level `config/database.php` also resolves `Pdo\Mysql::ATTR_SSL_CA` safely and falls back only when the legacy constant actually exists. MySQL SSL options are omitted when `pdo_mysql` or the CA path is unavailable.
+AcadSyntra now targets Laravel `^12.40` so the framework itself uses the namespaced PDO MySQL constants required by PHP 8.5. The application-level `config/database.php` also resolves `Pdo\Mysql::ATTR_SSL_CA` safely and falls back only when the legacy constant actually exists. MySQL SSL options are omitted when `pdo_mysql` or the CA path is unavailable.
 
 The old Laravel 11 lock file is intentionally not shipped because restoring it would restore the deprecated framework code. A fresh lock file must be generated from `composer.json` on a connected installation machine.
 

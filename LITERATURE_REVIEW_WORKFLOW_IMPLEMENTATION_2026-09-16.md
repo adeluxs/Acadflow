@@ -1,4 +1,4 @@
-# AcadFlow Literature Review Workflow Implementation — 2026-09-16
+# AcadSyntra Literature Review Workflow Implementation — 2026-09-16
 
 ## Purpose
 
@@ -36,7 +36,7 @@ The Research Studio continues to use the project/template citation style (APA, M
 
 ## Academic integrity behavior
 
-- Search results do not imply AcadFlow possesses full-text access.
+- Search results do not imply AcadSyntra possesses full-text access.
 - Opening a paper follows lawful provider/DOI links and does not bypass publisher restrictions.
 - Synthesis is deterministic and uses only researcher-entered structured notes from papers marked Reviewed.
 - Chapter Two insertion does not silently save or rewrite the section. Inserted text remains editable until the researcher deliberately saves a new version.

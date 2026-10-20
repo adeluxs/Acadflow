@@ -371,7 +371,7 @@ class AdminController extends Controller
             ],
         };
 
-        $filename = sprintf('acadflow-%s-%s.csv', $type, now()->format('Ymd-His'));
+        $filename = sprintf('acadsyntra-%s-%s.csv', $type, now()->format('Ymd-His'));
 
         return response()->streamDownload(function () use ($headers, $query, $rowMapper): void {
             $stream = fopen('php://output', 'wb');

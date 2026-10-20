@@ -3,7 +3,7 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | AcadFlow AI bootstrap defaults
+    | AcadSyntra AI bootstrap defaults
     |--------------------------------------------------------------------------
     |
     | These values are installation/bootstrap fallbacks. Once AI Settings exist
@@ -65,7 +65,7 @@ return [
         'verify_tls' => env('AI_HTTP_VERIFY_TLS', true),
     ],
 
-    // Feature keys currently present in the AcadFlow AI architecture.
+    // Feature keys currently present in the AcadSyntra AI architecture.
     // Runtime-configurable AI features that have actual application entry
     // points in this build. Do not add dormant/future labels here: every item
     // shown in AI Settings must have a real consumer.
@@ -323,7 +323,7 @@ return [
             'models' => ['openai/gpt-4o-mini', 'openai/gpt-4o', 'anthropic/claude-sonnet-5', 'anthropic/claude-3.7-sonnet', 'google/gemini-2.5-flash', 'deepseek/deepseek-chat', 'x-ai/grok-4'],
             'temperature' => env('OPENROUTER_TEMPERATURE', 0.2),
             'site_url' => env('OPENROUTER_SITE_URL', env('APP_URL')),
-            'app_name' => env('OPENROUTER_APP_NAME', env('APP_NAME', 'AcadFlow')),
+            'app_name' => env('OPENROUTER_APP_NAME', env('APP_NAME', 'AcadSyntra')),
             // OpenRouter can return usage.cost. Static rates are only a fallback.
             'input_cost_per_million' => env('OPENROUTER_INPUT_COST_PER_MILLION', 0),
             'output_cost_per_million' => env('OPENROUTER_OUTPUT_COST_PER_MILLION', 0),

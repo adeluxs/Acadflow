@@ -1,6 +1,6 @@
-# AcadFlow Runtime, Community & Knowledge Hub Fixes — 2026-08-14
+# AcadSyntra Runtime, Community & Knowledge Hub Fixes — 2026-08-14
 
-This patch builds on the existing AcadFlow architecture. It does not replace the media, notifications, Knowledge Hub, community, or Research Studio subsystems.
+This patch builds on the existing AcadSyntra architecture. It does not replace the media, notifications, Knowledge Hub, community, or Research Studio subsystems.
 
 ## Runtime fixes
 

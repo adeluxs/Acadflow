@@ -1,20 +1,24 @@
-# AcadFlow Environment Configuration
+# AcadSyntra Environment Configuration
 
-AcadFlow now ships with a complete root `.env.example` intended to be copied to `.env` for each deployment.
+For new installations use `APP_NAME=AcadSyntra`; mail/OpenRouter display names can inherit it. On an existing installation, keep the current `SESSION_COOKIE`, `CACHE_PREFIX` and `REDIS_PREFIX` when updating the display name so active sessions and shared cache/queue keys keep working. If a prefix was previously derived from `APP_NAME`, make that old prefix explicit first. Never change database names, URLs, payment/provider credentials or registered SMS sender IDs merely because the brand changed. Register/approve AcadSyntra with an SMS provider before replacing an already active sender identifier; unused/new-install defaults use AcadSyntra.
+
+AcadSyntra now ships with a complete root `.env.example` intended to be copied to `.env` for each deployment.
 
 ## Coverage
 
 The example contains every environment key referenced through `env()` by the current PHP source, including Laravel framework configuration, database/cache/session/queue/broadcasting, storage, logging, mail, media security, submissions, academic catalogue synchronization, AI providers and limits, scholarly integrations, reputation configuration, API authentication and development seeding.
 
-Deployment-sensitive values that had previously been hardcoded in AcadFlow-specific config files were moved behind environment variables, including submission limits and notification defaults, submission storage settings, academic catalogue source URLs, and reputation point/level defaults.
+Deployment-sensitive values that had previously been hardcoded in AcadSyntra-specific config files were moved behind environment variables, including submission limits and notification defaults, submission storage settings, academic catalogue source URLs, and reputation point/level defaults.
 
 ## Deliberate exclusions
 
 Not every literal inside `config/*.php` should become an environment variable. Static application metadata and code-level enumerations remain in source, including the centralized feature registry metadata, supported citation/document types, provider identifiers, MIME type maps, reputation level display names, framework driver definitions and dependency mappings.
 
-Feature/module availability is deliberately **not** controlled by `.env`. Runtime feature status remains authoritative in AcadFlow's centralized Feature & Module Management system/database. Duplicating those switches in `.env` would violate the project's single-source-of-truth architecture.
+Feature/module availability is deliberately **not** controlled by `.env`. Runtime feature status remains authoritative in AcadSyntra's centralized Feature & Module Management system/database. Duplicating those switches in `.env` would violate the project's single-source-of-truth architecture.
 
 ## Validation
+
+Existing AI transport settings are represented explicitly in the example: `AI_CONTEXTUAL_UI_TIMEOUT_MS=28000` bounds foreground contextual UI waits, `AI_DEFER_ANALYTICS_AFTER_RESPONSE=true` defers observability work, and `AI_HEALTH_CHECK_BUDGET_SECONDS=12`, `AI_HEALTH_CHECK_TIMEOUT=6`, `AI_HEALTH_CHECK_CONNECT_TIMEOUT=3` bound administrator provider checks. These document existing runtime defaults; the public website introduces no additional environment variables.
 
 Run:
 

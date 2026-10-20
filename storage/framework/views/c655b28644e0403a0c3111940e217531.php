@@ -1,7 +1,7 @@
 <?php
     $profile = (array) config('ai.assistant_profiles.'.$assistantFeature, []);
     $assistantTitle = $assistantTitle ?? ($profile['label'] ?? str($assistantFeature)->headline());
-    $assistantDescription = $assistantDescription ?? ($profile['description'] ?? 'Context-aware academic assistance through AcadFlow central AI routing.');
+    $assistantDescription = $assistantDescription ?? ($profile['description'] ?? 'Context-aware academic assistance through AcadSyntra central AI routing.');
     $assistantSuggestions = $assistantSuggestions ?? ($profile['suggestions'] ?? []);
     $assistantId = $assistantId ?? ('acadflow-ai-'.substr(sha1($assistantFeature.'|'.$assistantEndpoint), 0, 12));
     $assistantUser = auth()->user();
@@ -71,7 +71,7 @@
 </section>
 <?php endif; ?>
 
-<?php if (! $__env->hasRenderedOnce('e52fd984-7fbd-4900-a1aa-849983295d2d')): $__env->markAsRenderedOnce('e52fd984-7fbd-4900-a1aa-849983295d2d'); ?>
+<?php if (! $__env->hasRenderedOnce('a9ec0976-4593-415a-bcbd-f51b62967561')): $__env->markAsRenderedOnce('a9ec0976-4593-415a-bcbd-f51b62967561'); ?>
 <?php $__env->startPush('scripts'); ?>
 <script>
 // Contextual assistant behavior is loaded from resources/js/contextual-assistant.js
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const retry = root.querySelector('[data-ai-retry]');
             if (!answer || root.dataset.bound === '1') return;
             result?.classList.remove('hidden');
-            answer.textContent = 'The AI assistant script did not finish loading. Refresh this page to load the latest AcadFlow assets.';
+            answer.textContent = 'The AI assistant script did not finish loading. Refresh this page to load the latest AcadSyntra assets.';
             retry?.classList.remove('hidden');
         });
     }, 5000);

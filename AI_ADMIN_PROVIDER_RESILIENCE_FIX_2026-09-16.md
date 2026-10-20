@@ -1,4 +1,4 @@
-# AcadFlow AI Admin Provider Resilience Fix — 2026-09-16
+# AcadSyntra AI Admin Provider Resilience Fix — 2026-09-16
 
 ## Problems fixed
 
@@ -6,7 +6,7 @@
    Health checks inherited the normal generation timeout and could perform an IPv4 fallback, allowing the Admin POST request to consume almost the entire PHP execution window inside Guzzle/cURL.
 
 2. **OpenRouter model discovery could exceed `settings.value`.**
-   The complete catalog includes names, context windows and pricing metadata and can exceed MySQL `TEXT` capacity. AcadFlow runtime only needs the discovered model IDs.
+   The complete catalog includes names, context windows and pricing metadata and can exceed MySQL `TEXT` capacity. AcadSyntra runtime only needs the discovered model IDs.
 
 ## Implementation
 
@@ -18,7 +18,7 @@
 - Admin `Test Connection` explicitly uses the bounded health-check profile and disables generation retry settings.
 - Normal AI generation keeps its existing lifecycle and request timeout configuration.
 - OpenRouter `/models` discovery is bounded to a short interactive timeout.
-- AcadFlow persists only `ai_provider_openrouter_models` (the model IDs used by runtime/UI).
+- AcadSyntra persists only `ai_provider_openrouter_models` (the model IDs used by runtime/UI).
 - The complete OpenRouter discovery payload is stored only in a six-hour cache entry for diagnostics.
 - A cleanup migration removes the obsolete `ai_provider_openrouter_model_catalog` settings row from older deployments.
 

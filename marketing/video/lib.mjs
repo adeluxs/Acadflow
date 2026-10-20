@@ -1,4 +1,4 @@
-// Shared helpers for the AcadFlow screenshot → video pipeline.
+// Shared helpers for the AcadSyntra screenshot → video pipeline.
 //
 //   MARKETING_BASE_URL       base URL of the running demo app (default http://127.0.0.1:8123)
 //   MARKETING_RUN_ID         run folder name (default: ISO timestamp)
@@ -20,7 +20,7 @@ export const runId =
   process.env.MARKETING_RUN_ID || new Date().toISOString().replace(/[:.]/g, '-');
 export const artifactsDir = path.join(here, 'artifacts', runId);
 export const framesDir = path.join(here, 'frames', runId);
-export const authDir = path.join(here, '.auth');
+export const authDir = process.env.MARKETING_AUTH_DIR || path.join(here, '.auth');
 export const videoDir = here;
 
 export const viewports = {
@@ -31,7 +31,7 @@ export const viewports = {
 };
 
 export function demoIds() {
-  const file = path.join(root, 'storage', 'app', 'marketing-demo.json');
+  const file = process.env.MARKETING_FIXTURE_FILE || path.join(root, 'storage', 'app', 'marketing-demo.json');
   if (!fs.existsSync(file)) {
     throw new Error(
       `Demo ids not found at ${file}. Run "npm run video:demo" first (seeds the demo database).`
@@ -57,9 +57,9 @@ export async function launch() {
 }
 
 export const ROLES = {
-  student: ['demo.student@acadflow.test', 'password'],
-  lecturer: ['demo.lecturer@acadflow.test', 'password'],
-  admin: ['demo.admin@acadflow.test', 'password'],
+  student: ['demo.student@acadsyntra.test', 'password'],
+  lecturer: ['demo.lecturer@acadsyntra.test', 'password'],
+  admin: ['demo.admin@acadsyntra.test', 'password'],
 };
 
 /** Log in each demo role and persist its storage state for reuse. */
@@ -69,7 +69,7 @@ export async function buildAuthStates(browser) {
   // Each role gets its own isolated context: reusing one context would keep a
   // session and redirect /login away before the next role can sign in.
   for (const [role, [email, password]] of Object.entries(ROLES)) {
-    const context = await browser.newContext();
+    const context = await browser.newContext({ serviceWorkers: 'block' });
     const page = await context.newPage();
     await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded' });
     await page.fill('input[name="email"]', email);
@@ -93,6 +93,7 @@ export const FREEZE_CSS = `
   *, *::before, *::after { animation-duration: 0s !important; animation-delay: 0s !important;
     transition-duration: 0s !important; transition-delay: 0s !important; caret-color: transparent !important; }
   html { scroll-behavior: auto !important; }
+  [data-reveal] { opacity: 1 !important; transform: none !important; }
   ::-webkit-scrollbar { display: none !important; }
 `;
 

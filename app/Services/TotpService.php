@@ -26,8 +26,8 @@ class TotpService
 
     public function provisioningUri(User $user, string $secret): string
     {
-        $issuer = rawurlencode((string) config('app.name', 'AcadFlow'));
-        $label = rawurlencode((string) config('app.name', 'AcadFlow').':'.$user->email);
+        $issuer = rawurlencode((string) config('app.name', 'AcadSyntra'));
+        $label = rawurlencode((string) config('app.name', 'AcadSyntra').':'.$user->email);
 
         return "otpauth://totp/{$label}?secret={$secret}&issuer={$issuer}&algorithm=SHA1&digits=6&period=30";
     }

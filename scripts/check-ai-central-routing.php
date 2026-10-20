@@ -152,7 +152,7 @@ if ((! str_contains($grounded, 'AiMode::PROVIDER') && ! str_contains($grounded, 
     $errors[] = 'Grounded Companion does not visibly enforce Provider-vs-Hybrid deterministic fallback behavior.';
 }
 if (! str_contains($grounded, 'GroundedAnswerValidator')) $errors[] = 'Grounded Companion is missing answer/source validation.';
-if (! str_contains($promptService, 'contextLimit(') || ! str_contains($promptService, 'boundContext(') || ! str_contains($promptService, 'context shortened by AcadFlow')) $errors[] = 'Configured AI context limit is not actively enforced by AiPromptService.';
+if (! str_contains($promptService, 'contextLimit(') || ! str_contains($promptService, 'boundContext(') || ! str_contains($promptService, 'context shortened by AcadSyntra')) $errors[] = 'Configured AI context limit is not actively enforced by AiPromptService.';
 
 // Every provider must implement the one internal contract.
 foreach ($providerClasses as $class) {
@@ -174,12 +174,12 @@ $notes[] = 'Provider adapters checked: '.count($providerClasses);
 $notes[] = 'Legacy runtime provider flags checked: '.count($legacyKeys);
 
 if ($errors !== []) {
-    fwrite(STDERR, "AcadFlow central AI routing audit: FAILED\n\n");
+    fwrite(STDERR, "AcadSyntra central AI routing audit: FAILED\n\n");
     foreach ($errors as $error) fwrite(STDERR, " - {$error}\n");
     exit(1);
 }
 
-echo "AcadFlow central AI routing audit: PASS\n";
+echo "AcadSyntra central AI routing audit: PASS\n";
 foreach ($notes as $note) echo " - {$note}\n";
 echo " - Default Provider routing is centralized\n";
 echo " - Provider mode contains no silent RuleEngine fallback\n";

@@ -7,7 +7,7 @@ namespace App\Support;
 /**
  * Conservative allowlist HTML sanitizer for user-authored rich content.
  *
- * Lecturers can author course material directly in AcadFlow with a rich editor.
+ * Lecturers can author course material directly in AcadSyntra with a rich editor.
  * That HTML is untrusted and must never be persisted verbatim. This sanitizer
  * is deliberately restrictive:
  *

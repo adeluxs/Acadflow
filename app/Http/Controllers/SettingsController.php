@@ -12,7 +12,7 @@ use App\Services\SettingService;
 use App\Services\FeatureAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Str;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -284,9 +284,9 @@ class SettingsController extends Controller
     public function publicSettings()
     {
         $settings = [
-            'site_name' => SettingService::get('site_name', 'AcadFlow'),
+            'site_name' => SettingService::get('site_name', 'AcadSyntra'),
             'site_tagline' => SettingService::get('site_tagline', 'Academic research, publishing and collaboration platform'),
-            'support_email' => SettingService::get('support_email', 'support@example.com'),
+            'support_email' => SettingService::get('support_email', ''),
             'timezone' => SettingService::get('timezone', 'UTC'),
             'site_logo' => SettingService::get('site_logo'),
             'site_favicon' => SettingService::get('site_favicon'),
@@ -324,7 +324,7 @@ class SettingsController extends Controller
      */
     public function pwaManifest()
     {
-        $siteName = SettingService::get('site_name', 'AcadFlow');
+        $siteName = SettingService::get('site_name', 'AcadSyntra');
         $shortName = Str::limit($siteName, 12, '');
         $themeColor = SettingService::get('pwa_theme_color', '#4f46e5');
         $backgroundColor = SettingService::get('pwa_background_color', '#ffffff');
@@ -340,13 +340,13 @@ class SettingsController extends Controller
             'orientation' => SettingService::get('pwa_orientation', 'portrait-primary'),
             'icons' => [
                 [
-                    'src' => SettingService::get('site_logo') ?: '/icons/icon-192x192.png',
+                    'src' => '/branding/acadsyntra-icon-192.png',
                     'sizes' => '192x192',
                     'type' => 'image/png',
                     'purpose' => 'any maskable'
                 ],
                 [
-                    'src' => SettingService::get('site_logo') ?: '/icons/icon-512x512.png',
+                    'src' => '/branding/acadsyntra-icon-512.png',
                     'sizes' => '512x512',
                     'type' => 'image/png',
                     'purpose' => 'any maskable'

@@ -1,4 +1,4 @@
-# AcadFlow Monetization Blade Compiler Fix — 2026-09-11
+# AcadSyntra Monetization Blade Compiler Fix — 2026-09-11
 
 ## Failure reproduced from supplied test output
 

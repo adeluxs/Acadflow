@@ -1,4 +1,4 @@
-AcadFlow PHPUnit Vite Isolation Final Validation
+AcadSyntra PHPUnit Vite Isolation Final Validation
 Date: 2026-09-16
 
 Problem addressed:

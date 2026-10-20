@@ -29,7 +29,7 @@
                 </label>
                 <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 hover:border-indigo-300 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50/60">
                     <input type="radio" name="mode" value="author" @checked($selectedMode === 'author') class="mt-1">
-                    <span><span class="block text-sm font-bold text-slate-900">Write in AcadFlow</span><span class="mt-0.5 block text-xs text-slate-500">Compose the material with the rich editor and optional AI help.</span></span>
+                    <span><span class="block text-sm font-bold text-slate-900">Write in AcadSyntra</span><span class="mt-0.5 block text-xs text-slate-500">Compose the material with the rich editor and optional AI help.</span></span>
                 </label>
             </div>
         </div>

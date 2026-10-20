@@ -56,7 +56,7 @@ class InternalSimilarityProvider implements SimilarityProviderInterface
             'score' => round($score, 2),
             'summary' => $matches === [] ? 'No meaningful internal matches were detected.' : count($matches).' internal source match(es) were detected.',
             'matches' => $matches,
-            'metadata' => ['corpus' => 'authorized AcadFlow search index', 'algorithm' => 'five-word-shingle-overlap'],
+            'metadata' => ['corpus' => 'authorized AcadSyntra search index', 'algorithm' => 'five-word-shingle-overlap'],
         ];
     }
 

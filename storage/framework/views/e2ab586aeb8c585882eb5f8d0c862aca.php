@@ -1,0 +1,4 @@
+<section class="closing-section">
+    <div class="site-container closing-card" data-reveal><div class="closing-orbit" aria-hidden="true"></div><p class="eyebrow">YOUR NEXT CHAPTER</p><h2>Make space for the work<br>you came here to do.</h2><p>One account. A connected academic workspace.<br>A clearer place to begin.</p><div class="button-row"><?php if(auth()->guard()->check()): ?><a class="button button-white" href="<?php echo e(route('dashboard')); ?>">Open your dashboard <span aria-hidden="true">↗</span></a><?php else: ?><a class="button button-white" href="<?php echo e(route('register')); ?>">Get started <span aria-hidden="true">↗</span></a><?php endif; ?><a class="button button-ghost" href="<?php echo e(route('public.contact')); ?>">Let’s talk</a></div><small>Available tools depend on your role and platform settings.</small></div>
+</section>
+<?php /**PATH /Users/user/Desktop/acadflow/acadflow-web/resources/views/public/partials/cta.blade.php ENDPATH**/ ?>

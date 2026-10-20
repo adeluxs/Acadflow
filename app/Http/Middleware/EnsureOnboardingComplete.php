@@ -23,7 +23,7 @@ class EnsureOnboardingComplete
             }
 
             return redirect()->route('onboarding.show')
-                ->with('info', 'Complete your profile so AcadFlow can personalize your workspace.');
+                ->with('info', 'Complete your profile so AcadSyntra can personalize your workspace.');
         }
 
         return $next($request);

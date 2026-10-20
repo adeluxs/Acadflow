@@ -2,7 +2,9 @@
 <?php $__env->startSection('page-title', 'Research Studio'); ?>
 <?php $__env->startSection('page-subtitle', 'Plan, write, review literature and manage research progress in one workspace'); ?>
 <?php $__env->startSection('content'); ?>
-<div class="space-y-6">
+<div class="studio-shell space-y-6">
+    <section class="studio-banner"><p class="studio-eyebrow">Your research, connected</p><h1>Good research starts with<br>a well-asked question.</h1><p>Plan your approach, build your evidence and bring a clear contribution into focus. A workspace for every discipline, from first proposal to final defence.</p><?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->check('create', App\Models\ResearchProject::class)): ?><a href="<?php echo e(route('research.create', ['studio_mode' => 'final_year'])); ?>" class="mt-5 inline-flex rounded-xl bg-white px-5 py-3 text-sm font-bold text-indigo-900">Open Final-Year Project Studio ↗</a><?php endif; ?></section>
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4"><div class="studio-metric"><strong><?php echo e($projects->total()); ?></strong><span>Projects in this view</span></div><div class="studio-metric"><strong><?php echo e($projects->count()); ?></strong><span>On this page</span></div><div class="studio-metric"><strong><?php echo e($projects->sum('reference_links_count')); ?></strong><span>References on this page</span></div><div class="studio-metric"><strong><?php echo e($projects->filter(fn($p) => $p->expected_completion_date && $p->expected_completion_date->isPast() && !in_array($p->status, ['approved','archived']))->count()); ?></strong><span>Past deadline on this page</span></div></div>
     <?php if($institutionExpansionEnabled && $pendingInvitations->isNotEmpty()): ?>
         <section class="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-5 shadow-sm">
             <div class="flex items-start justify-between gap-4">
@@ -63,7 +65,7 @@
         <?php $__empty_1 = true; $__currentLoopData = $projects; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $project): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
             <a href="<?php echo e(route('research.show', $project)); ?>" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                 <div class="flex items-start justify-between gap-3">
-                    <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"><?php echo e($project->researchType?->name ?? 'Research'); ?></span>
+                    <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"><?php echo e(data_get($project->metadata, 'research_setup.method.label', $project->researchType?->name ?? 'Research')); ?></span>
                     <span class="text-xs font-medium text-slate-500"><?php echo e(number_format((float)$project->progress)); ?>%</span>
                 </div>
                 <h3 class="mt-4 text-lg font-semibold text-slate-900"><?php echo e($project->title); ?></h3>

@@ -53,12 +53,12 @@ if (! str_contains($attendanceController, "with('course')->withCount('records')"
 if (! str_contains($queue, "env('REDIS_QUEUE_BLOCK_FOR', 2)")) $errors[] = 'Redis queue blocking pop optimization is missing.';
 
 if ($errors !== []) {
-    fwrite(STDERR, "AcadFlow Grok/performance preflight: FAILED\n\n");
+    fwrite(STDERR, "AcadSyntra Grok/performance preflight: FAILED\n\n");
     foreach ($errors as $error) fwrite(STDERR, " - {$error}\n");
     exit(1);
 }
 
-echo "AcadFlow Grok/performance preflight: PASS\n";
+echo "AcadSyntra Grok/performance preflight: PASS\n";
 echo " - Grok (xAI) uses the existing central provider registry/router and shared transport\n";
 echo " - Fast provider failover avoids repeated interactive waits before central fallback\n";
 echo " - Vue components are lazy-loaded only on pages that actually mount Vue\n";

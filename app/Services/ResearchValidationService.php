@@ -33,12 +33,12 @@ class ResearchValidationService
         try {
             $sections = $project->sections->map(fn ($section) => ['key' => $section->key, 'title' => $section->title, 'status' => $section->status, 'content' => strip_tags((string) $section->document?->body)]);
             $text = $sections->map(fn ($section) => $section['title']."\n".$section['content'])->implode("\n\n");
-            $requirements = $project->templateVersion?->template_schema ?? $project->researchType?->template_schema ?? [];
+            $requirements = data_get($project->metadata, 'research_setup.section_schema') ? ['sections' => data_get($project->metadata, 'research_setup.section_schema')] : $project->templateVersion?->template_schema ?? $project->researchType?->template_schema ?? [];
             $payload = [
                 'type' => 'research', 'text' => $text, 'word_count' => str_word_count($text), 'sections' => $sections->all(),
                 'research_requirements' => ['required_sections' => collect($requirements['sections'] ?? [])->where('required', true)->values()->all()],
                 'open_corrections' => $project->corrections->where('status', 'open')->count(), 'project_title' => $project->title,
-                'citation_style' => $project->templateVersion?->citation_style ?? $project->metadata['citation_style'] ?? 'apa',
+                'citation_style' => $project->metadata['citation_style'] ?? $project->templateVersion?->citation_style ?? 'apa',
             ];
 
             $validation = $this->ai->analyze('research_validator', $payload, $actor, 'research:'.$project->uuid);

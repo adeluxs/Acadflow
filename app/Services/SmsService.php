@@ -16,7 +16,7 @@ class SmsService
     public function __construct()
     {
         $this->baseUrl = config('services.sms.base_url', 'https://api.sms-provider.com/v1');
-        $this->senderId = config('services.sms.sender_id', 'AcadFlow');
+        $this->senderId = config('services.sms.sender_id', 'AcadSyntra');
         $this->apiKey = config('services.sms.api_key', '');
     }
 

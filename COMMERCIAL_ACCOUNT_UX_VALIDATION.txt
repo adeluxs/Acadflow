@@ -1,4 +1,4 @@
-AcadFlow Institution Commercial Account UX Validation
+AcadSyntra Institution Commercial Account UX Validation
 Date: 2026-08-31
 
 Implementation scope

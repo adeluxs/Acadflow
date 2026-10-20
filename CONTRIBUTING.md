@@ -1,6 +1,6 @@
-# Contributing to AcadFlow
+# Contributing to AcadSyntra
 
-This guide applies to developers, maintainers and coding agents changing the AcadFlow source.
+This guide applies to developers, maintainers and coding agents changing the AcadSyntra source.
 
 ## 1. Read before modifying
 
@@ -11,7 +11,7 @@ Start with:
 3. `CHANGELOG.md`
 4. the relevant specialist/detailed audit document
 
-Search the codebase before creating a new service, setting, route, feature flag, provider adapter or database table. AcadFlow intentionally centralizes cross-cutting behavior; duplicate implementations are a regression.
+Search the codebase before creating a new service, setting, route, feature flag, provider adapter or database table. AcadSyntra intentionally centralizes cross-cutting behavior; duplicate implementations are a regression.
 
 ## 2. Local setup
 

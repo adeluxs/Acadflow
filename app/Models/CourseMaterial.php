@@ -85,7 +85,7 @@ class CourseMaterial extends Model
     public function sourceLabel(): string
     {
         return match ($this->source) {
-            'authored' => 'Written in AcadFlow',
+            'authored' => 'Written in AcadSyntra',
             'ai_assisted' => 'AI-assisted draft',
             default => 'Uploaded file',
         };

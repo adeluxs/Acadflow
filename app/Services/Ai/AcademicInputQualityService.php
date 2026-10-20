@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 /**
- * Fast local quality gate shared by user-facing AcadFlow assistants.
+ * Fast local quality gate shared by user-facing AcadSyntra assistants.
  * Obvious noise is rejected before retrieval or a paid provider request.
  */
 class AcademicInputQualityService

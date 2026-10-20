@@ -52,7 +52,7 @@ $must('resources/js/global-loader.js', [
 
 $must('resources/views/partials/global-loader.blade.php', [
     'acadflow-global-loader',
-    "branding/acadflow-mark.png",
+    "branding/acadsyntra-mark.png",
     'data-acadflow-loader-label',
 ], 'Global loader markup');
 
@@ -62,10 +62,10 @@ $must('resources/js/app.js', [
 ], 'Global loader bootstrap');
 
 foreach ([
-    'public/branding/acadflow-logo.png',
-    'public/branding/acadflow-mark.png',
-    'public/branding/acadflow-icon-192.png',
-    'public/branding/acadflow-icon-512.png',
+    'public/branding/acadsyntra-logo.png',
+    'public/branding/acadsyntra-mark.png',
+    'public/branding/acadsyntra-icon-192.png',
+    'public/branding/acadsyntra-icon-512.png',
 ] as $asset) {
     if (! is_file($root.'/'.$asset) || filesize($root.'/'.$asset) < 1000) {
         $errors[] = "Brand asset missing or invalid: {$asset}.";
@@ -76,10 +76,12 @@ foreach ([
     'resources/views/layouts/app.blade.php',
     'resources/views/layouts/auth.blade.php',
     'resources/views/layouts/onboarding.blade.php',
-    'resources/views/landing.blade.php',
 ] as $layout) {
-    $must($layout, ["partials.global-loader", "branding/acadflow-mark.png"], 'Shared branding');
+    $must($layout, ["partials.global-loader", "branding/acadsyntra-mark.png"], 'Shared branding');
 }
+
+$must('resources/views/landing.blade.php', ["layouts.public"], 'Public branding shell');
+$must('resources/views/layouts/public.blade.php', ["branding/acadsyntra-mark.png", "branding/acadsyntra-social.png"], 'Public branding assets');
 
 if ($errors !== []) {
     fwrite(STDERR, "Scholarly timeout + branding preflight FAILED:\n - ".implode("\n - ", array_unique($errors))."\n");

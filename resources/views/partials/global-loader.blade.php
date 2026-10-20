@@ -3,13 +3,13 @@
      data-state="hidden"
      aria-hidden="true"
      aria-live="polite"
-     aria-label="AcadFlow is loading">
+     aria-label="AcadSyntra is loading">
     <div class="acadflow-loader-card" role="status">
         <div class="acadflow-loader-emblem" aria-hidden="true">
             <span class="acadflow-loader-orbit"></span>
-            <img src="{{ asset('branding/acadflow-mark.png') }}" alt="" class="acadflow-loader-mark">
+            <img src="{{ asset('branding/acadsyntra-mark.png') }}" alt="" class="acadflow-loader-mark">
         </div>
-        <p class="acadflow-loader-label" data-acadflow-loader-label>Loading AcadFlow…</p>
+        <p class="acadflow-loader-label" data-acadflow-loader-label>Loading AcadSyntra…</p>
         <p class="acadflow-loader-subtitle">Preparing your workspace</p>
     </div>
 </div>

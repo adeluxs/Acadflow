@@ -51,7 +51,7 @@ class PushNotificationService
         try {
             $payload = json_encode([
                 'title' => mb_substr($title, 0, 150), 'body' => mb_substr($body, 0, 500),
-                'icon' => '/branding/acadflow-icon-192.png', 'badge' => '/branding/acadflow-mark.png',
+                'icon' => '/branding/acadsyntra-icon-192.png', 'badge' => '/branding/acadsyntra-mark.png',
                 'tag' => 'acadflow-'.($data['notification_id'] ?? $data['type'] ?? 'notification'),
                 'data' => ['url' => $data['url'] ?? '/notifications'],
             ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);

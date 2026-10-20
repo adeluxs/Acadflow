@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $__env->yieldContent('title', $siteName); ?></title>
+    <title><?php echo $__env->yieldContent('title', 'Workspace'); ?> · <?php echo e($siteName); ?></title>
 
     <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
 
@@ -24,8 +24,8 @@
     <?php if($siteFavicon): ?>
         <link rel="icon" type="image/png" sizes="192x192" href="<?php echo e($siteFavicon); ?>">
     <?php else: ?>
-        <link rel="icon" type="image/png" sizes="192x192" href="<?php echo e(asset('branding/acadflow-icon-192.png')); ?>">
-    <link rel="apple-touch-icon" sizes="180x180" href="<?php echo e(asset('branding/acadflow-icon-180.png')); ?>">
+        <link rel="icon" type="image/png" sizes="192x192" href="<?php echo e(asset('branding/acadsyntra-icon-192.png')); ?>">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?php echo e(asset('branding/acadsyntra-icon-180.png')); ?>">
     <?php endif; ?>
 
     
@@ -55,7 +55,7 @@
             <div class="flex items-start justify-between gap-4 mb-4">
                 <div class="flex items-center gap-3">
                     <div class="h-11 w-11 rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
-                        <img src="<?php echo e(asset('branding/acadflow-mark.png')); ?>" alt="" class="h-full w-full object-contain">
+                        <img src="<?php echo e(asset('branding/acadsyntra-mark.png')); ?>" alt="" class="h-full w-full object-contain">
                     </div>
                     <div>
                         <h3 class="font-semibold text-sm">Install <?php echo e($siteName); ?></h3>
@@ -103,7 +103,7 @@
 
                 <a href="<?php echo e(route('dashboard')); ?>" class="flex items-center gap-2">
                     <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-white p-0.5 shadow-sm ring-1 ring-slate-200">
-                        <img src="<?php echo e(asset('branding/acadflow-mark.png')); ?>" alt="" class="h-full w-full object-contain">
+                        <img src="<?php echo e(asset('branding/acadsyntra-mark.png')); ?>" alt="" class="h-full w-full object-contain">
                     </span>
                     <span class="font-bold text-lg text-slate-950"><?php echo e($siteName); ?></span>
                 </a>
@@ -138,7 +138,7 @@
                 <div class="px-5 py-5 border-b border-slate-100">
                     <a href="<?php echo e(route('dashboard')); ?>" class="flex items-center gap-2.5">
                         <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-white p-0.5 shadow-sm ring-1 ring-slate-200">
-                            <img src="<?php echo e(asset('branding/acadflow-mark.png')); ?>" alt="" class="h-full w-full object-contain">
+                            <img src="<?php echo e(asset('branding/acadsyntra-mark.png')); ?>" alt="" class="h-full w-full object-contain">
                         </span>
                         <h1 class="text-lg font-black tracking-tight text-slate-950"><?php echo e($siteName); ?></h1>
                     </a>

@@ -7,19 +7,12 @@
 @php
     $oldInstitutional = old('institutional_project') === '1' || old('workspace_mode') === 'institutional';
 @endphp
-<div class="mx-auto max-w-5xl space-y-5">
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex items-start gap-3">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">01</div>
-            <div>
-                <h2 class="font-bold text-slate-950">Research workspace</h2>
-                <p class="mt-1 text-sm leading-6 text-slate-600">Start with the academic essentials. You can develop the title, literature base, sections, milestones and evidence progressively inside Research Studio.</p>
-            </div>
-        </div>
-    </div>
-
-    <form method="POST" action="{{ route('research.store') }}" class="space-y-6">
+<div class="studio-shell mx-auto max-w-5xl space-y-5">
+    <div class="studio-banner"><p class="studio-eyebrow">AcadSyntra / New workspace</p><h1>Start with a question.<br>Build a defensible contribution.</h1><p>From your first idea to your final submission, keep the decisions and evidence together.</p></div>
+    <form method="POST" action="{{ route('research.store') }}" class="space-y-6" data-research-setup>
         @csrf
+        <div data-setup-progress class="studio-stepper" aria-live="polite"></div>
+        @include('research.partials.setup')
 
         @if($institutionExpansionEnabled && auth()->user()->university_id)
             <section class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-5 shadow-sm">
@@ -70,7 +63,7 @@
             </section>
         @endif
 
-        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section class="studio-panel" data-setup-step="Define your project"><p class="studio-eyebrow">02 / Focus and feasibility</p><h2 class="studio-heading mb-6">What will your research contribute?</h2>
             <div class="grid gap-5 md:grid-cols-2">
                 <label class="block">
                     <span class="text-sm font-semibold text-slate-800">Research type</span>
@@ -105,6 +98,7 @@
                 </label>
             </div>
 
+            <label class="mt-5 block"><span class="text-sm font-semibold text-slate-800">Objectives and research questions</span><textarea name="objectives" rows="4" maxlength="6000" class="mt-2 w-full rounded-xl border-slate-300" placeholder="Describe the aim, specific objectives and questions. Add hypotheses only where the design calls for them.">{{ old('objectives') }}</textarea></label>
             <label class="mt-5 block">
                 <span class="text-sm font-semibold text-slate-800">Proposal summary / abstract</span>
                 <span class="mt-1 block text-xs text-slate-500">Describe the problem, purpose, intended approach and expected contribution. A rough draft is fine.</span>
@@ -112,9 +106,11 @@
             </label>
         </section>
 
+        <section class="studio-panel" data-setup-step="Review and create"><p class="studio-eyebrow">03 / Ready to begin</p><h2 class="studio-heading">Your research, your evidence.</h2><p class="studio-muted">Your workspace includes a writing journey, milestones, planning worksheets and a reference library. Upload institutional guidelines from Plan & library after creation to review headings and formatting. Supervisor invitations and dataset tools depend on your administrator’s module settings.</p><label class="mt-5 block text-sm font-semibold">Institutional citation instructions<textarea name="citation_instructions" rows="3" maxlength="3000" class="mt-2 w-full rounded-xl border-slate-300" placeholder="Record required variations to your chosen style.">{{ old('citation_instructions') }}</textarea></label><p class="studio-callout mt-5">AcadSyntra supports your decisions. It does not create research evidence, certify originality or issue institutional or ethics approval.</p></section>
+        <div class="flex items-center justify-between gap-3" data-setup-controls hidden><button type="button" data-setup-back class="studio-button-secondary">Back</button><span data-setup-position class="text-sm text-slate-500"></span><button type="button" data-setup-next class="studio-button">Continue</button></div>
         <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <a href="{{ route('research.index') }}" class="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-slate-700">Cancel</a>
-            <button class="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700">Create research workspace</button>
+            <button type="submit" data-setup-submit class="studio-button">Create research workspace</button>
         </div>
     </form>
 </div>

@@ -11,9 +11,9 @@ class SettingsSeeder extends Seeder
     {
         $settings = [
             // General Settings
-            'site_name' => ['value' => 'AcadFlow', 'type' => 'string', 'group' => 'general', 'description' => 'Platform display name'],
+            'site_name' => ['value' => 'AcadSyntra', 'type' => 'string', 'group' => 'general', 'description' => 'Platform display name'],
             'site_tagline' => ['value' => 'Academic research, publishing and collaboration platform', 'type' => 'string', 'group' => 'general', 'description' => 'Tagline or slogan'],
-            'support_email' => ['value' => 'support@uniflow.edu', 'type' => 'string', 'group' => 'general', 'description' => 'Support contact email'],
+            'support_email' => ['value' => '', 'type' => 'string', 'group' => 'general', 'description' => 'Configured support contact email'],
             'timezone' => ['value' => 'UTC', 'type' => 'string', 'group' => 'general', 'description' => 'Default timezone'],
             'maintenance_mode' => ['value' => false, 'type' => 'boolean', 'group' => 'general', 'description' => 'Enable maintenance mode'],
             'maintenance_mode_bypass_routes' => ['value' => 'login,logout,api/*', 'type' => 'string', 'group' => 'general', 'description' => 'Comma-separated routes allowed during maintenance mode'],
@@ -157,7 +157,7 @@ class SettingsSeeder extends Seeder
             'ai_context_limit' => ['value' => config('ai.context_limit', 16000), 'type' => 'integer', 'group' => 'ai', 'description' => 'Global AI context budget'],
             'ai_grounding_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Enable grounded AI where supported'],
             'ai_web_research_enabled' => ['value' => false, 'type' => 'boolean', 'group' => 'ai', 'description' => 'Live external web research is unavailable until a dedicated web-search adapter is configured'],
-            'ai_global_system_prompt' => ['value' => 'You are AcadFlow AI Academic Assistant. Respect authorization, tenant boundaries, academic integrity, source grounding, and uncertainty.', 'type' => 'string', 'group' => 'ai', 'description' => 'Global instruction composed before feature prompts'],
+            'ai_global_system_prompt' => ['value' => 'You are AcadSyntra AI Academic Assistant. Respect authorization, tenant boundaries, academic integrity, source grounding, and uncertainty.', 'type' => 'string', 'group' => 'ai', 'description' => 'Global instruction composed before feature prompts'],
             'ai_rate_limit_per_minute' => ['value' => config('ai.rate_limit_per_minute', 20), 'type' => 'integer', 'group' => 'ai', 'description' => 'Per-user AI requests per minute'],
         ];
 

@@ -19,7 +19,7 @@ class RichTextSanitizer
 {
     private const ALLOWED_TAGS = [
         'p','br','strong','b','em','i','u','s','h1','h2','h3','h4',
-        'blockquote','pre','code','ul','ol','li','a','span','sub','sup',
+        'blockquote','pre','code','ul','ol','li','a','span','sub','sup','table','thead','tbody','tfoot','tr','th','td',
     ];
 
     private const ALLOWED_ATTRIBUTES = ['href','target','rel','class','style','data-list'];
@@ -63,7 +63,7 @@ class RichTextSanitizer
         $html = preg_replace('#<!--.*?-->#s', '', $html) ?? '';
         $html = preg_replace('#<(script|style|iframe|object|embed|svg|math|form|input|button|textarea|select)[^>]*>.*?</\1\s*>#is', '', $html) ?? '';
         $html = preg_replace('#<(script|style|iframe|object|embed|svg|math|form|input|button|textarea|select)\b[^>]*/?>#is', '', $html) ?? '';
-        $html = strip_tags($html, '<p><br><strong><b><em><i><u><s><h1><h2><h3><h4><blockquote><pre><code><ul><ol><li><a><span><sub><sup>');
+        $html = strip_tags($html, '<p><br><strong><b><em><i><u><s><h1><h2><h3><h4><blockquote><pre><code><ul><ol><li><a><span><sub><sup><table><thead><tbody><tfoot><tr><th><td>');
 
         $html = preg_replace_callback('/<([a-z0-9]+)\b([^>]*)>/i', function (array $match): string {
             $tag = strtolower($match[1]);
@@ -129,6 +129,12 @@ class RichTextSanitizer
             if ($node instanceof DOMElement) {
                 $tag = strtolower($node->tagName);
                 if (! in_array($tag, self::ALLOWED_TAGS, true)) {
+                    if (in_array($tag, ['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math', 'form', 'input', 'button', 'textarea', 'select'], true)) {
+                        $parent->removeChild($node);
+                        $node = $next;
+                        continue;
+                    }
+                    $this->cleanChildren($node);
                     while ($node->firstChild) {
                         $parent->insertBefore($node->firstChild, $node);
                     }

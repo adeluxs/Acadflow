@@ -1,4 +1,4 @@
-# AcadFlow Codebase Structure
+# AcadSyntra Codebase Structure
 
 **Current source snapshot:** 2026-08-15
 

@@ -3,7 +3,7 @@
 namespace App\Ai\Contracts;
 
 /**
- * Provider-independent contract for every AcadFlow AI engine.
+ * Provider-independent contract for every AcadSyntra AI engine.
  *
  * Feature modules never depend on concrete provider SDKs. Provider-specific
  * networking belongs in adapters and provider selection belongs in AiRouter.

@@ -1,9 +1,9 @@
-# AcadFlow Technology Stack
+# AcadSyntra Technology Stack
 
 **Current source snapshot:** 2026-08-15  
 **Canonical overview:** `DEVELOPER_GUIDE.md`
 
-This file documents the stack actually present in the current AcadFlow source. It replaces older planning assumptions.
+This file documents the stack actually present in the current AcadSyntra source. It replaces older planning assumptions.
 
 ## Backend
 
@@ -29,7 +29,7 @@ This file documents the stack actually present in the current AcadFlow source. I
 
 - Laravel cache supports database and Redis among normal framework stores.
 - Queue connections include sync, database, Redis, Beanstalkd and SQS through Laravel configuration.
-- AcadFlow actively uses `default`, `ai`, `indexing`, and `analytics` queues.
+- AcadSyntra actively uses `default`, `ai`, `indexing`, and `analytics` queues.
 - Production Redis is recommended where hosting supports it; Horizon is **not** installed in the current Composer dependencies.
 
 ## Frontend
@@ -43,7 +43,7 @@ This file documents the stack actually present in the current AcadFlow source. I
 | Vue | Vue `^3.4.0` for selected components |
 | Rich editor | Lazy-loaded Quill 2.0.3 + fallback editor |
 
-AcadFlow is not currently an Inertia/Livewire SPA architecture. Do not add those assumptions to documentation unless the source changes.
+AcadSyntra is not currently an Inertia/Livewire SPA architecture. Do not add those assumptions to documentation unless the source changes.
 
 ## Files/media
 

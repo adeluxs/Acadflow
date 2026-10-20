@@ -1,6 +1,6 @@
 <?php $__env->startSection('title', 'Learning preferences'); ?>
 <?php $__env->startSection('page-title', 'Learning preferences'); ?>
-<?php $__env->startSection('page-subtitle', 'Tell AcadFlow AI how you learn best'); ?>
+<?php $__env->startSection('page-subtitle', 'Tell AcadSyntra AI how you learn best'); ?>
 
 <?php $__env->startSection('content'); ?>
 <div class="mx-auto max-w-3xl space-y-6">

@@ -1,4 +1,4 @@
-# AcadFlow Unified Implementation Audit and Completion Report
+# AcadSyntra Unified Implementation Audit and Completion Report
 
 **Audit date:** 2026-08-02  
 **Authoritative specification:** `acadflow-unified-master-prompt(1).md`  

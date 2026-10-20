@@ -27,7 +27,7 @@
                 @endif
             </div>
             <h1 class="mt-3 text-2xl font-black tracking-tight text-slate-950">Grounded answer</h1>
-            <p class="mt-1 text-sm text-slate-500">AcadFlow evaluates the question, retrieves only this publication, and validates source support before showing an answer.</p>
+            <p class="mt-1 text-sm text-slate-500">AcadSyntra evaluates the question, retrieves only this publication, and validates source support before showing an answer.</p>
         </div>
         @if($publication)
             <a href="{{ route('knowledge.show', $publication) }}" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 shadow-sm hover:border-indigo-200 hover:text-indigo-700">← Back to publication</a>
@@ -56,7 +56,7 @@
                 <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl {{ $guarded ? 'bg-amber-500' : 'bg-indigo-600' }} font-black text-white">✦</span>
                 <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center justify-between gap-2">
-                        <p class="text-sm font-black text-slate-950">AcadFlow Grounded AI</p>
+                        <p class="text-sm font-black text-slate-950">AcadSyntra Grounded AI</p>
                         <div class="flex items-center gap-2 text-xs text-slate-400">
                             <span>{{ str_replace('_',' ',ucwords((string)($session->provider ?: 'grounded'))) }}</span>
                             @if(!$guarded)<span>·</span><span>{{ number_format($confidence,1) }}% confidence</span>@endif

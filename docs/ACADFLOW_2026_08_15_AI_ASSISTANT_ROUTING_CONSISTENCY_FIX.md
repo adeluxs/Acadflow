@@ -1,4 +1,4 @@
-# AcadFlow AI Assistant Routing Consistency Fix
+# AcadSyntra AI Assistant Routing Consistency Fix
 
 ## Problem
 

@@ -1,5 +1,5 @@
 /**
- * UniFlow Offline Sync Manager
+ * AcadSyntra Offline Sync Manager
  * Handles offline actions, IndexedDB storage, and background sync
  */
 

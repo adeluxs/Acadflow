@@ -211,8 +211,7 @@ class ResearchWorkspaceController extends Controller
         $this->authorize('transition', $research); abort_unless($milestone->research_project_id === $research->id, 404);
         $data = $request->validate(['status' => ['required','in:pending,in_progress,completed,blocked'], 'due_at' => ['nullable','date']]);
         $milestone->update($data + ['completed_at' => $data['status'] === 'completed' ? now() : null, 'completed_by' => $data['status'] === 'completed' ? $request->user()->id : null]);
-        $completed = (float) $research->milestones()->where('status','completed')->sum('weight');
-        $research->update(['progress' => min(100, $completed)]);
+        app(\App\Services\ResearchProjectService::class)->recalculateProgress($research);
         return back()->with('success', 'Milestone updated.');
     }
 
@@ -297,15 +296,16 @@ class ResearchWorkspaceController extends Controller
         $notesByReference = $research->literatureNotes()->where('created_by', $request->user()->id)->get()->keyBy('academic_reference_id');
         $savedCitationKeys = $referenceLinks->pluck('reference.citation_key')->filter()->flip();
         $providers = collect(config('scholarly.providers', []))->keys()->values();
-        $citationStyle = strtolower((string) ($data['style'] ?? $research->templateVersion?->citation_style ?? data_get($research->metadata, 'citation_style', 'apa')));
+        $citationStyle = strtolower((string) ($data['style'] ?? data_get($research->metadata, 'citation_style', $research->templateVersion?->citation_style ?? 'apa')));
         if (! in_array($citationStyle, $citationStyles, true)) {
             $citationStyle = 'apa';
         }
 
+        $explicitCitationStyle = $request->filled('style') ? $citationStyle : null;
         $libraryRows = $referenceLinks
             ->filter(fn ($link): bool => (bool) $link->reference)
             ->values()
-            ->map(function ($link, int $index) use ($notesByReference, $referenceService, $citationStyle): array {
+            ->map(function ($link, int $index) use ($notesByReference, $referenceService, $citationStyle, $research, $explicitCitationStyle): array {
                 $reference = $link->reference;
                 $note = $notesByReference->get($reference->id);
                 $readingStatus = $note?->reading_status ?: 'saved';
@@ -333,7 +333,7 @@ class ResearchWorkspaceController extends Controller
                     'contradictions' => $note?->contradictions,
                     'research_gap' => $note?->research_gap,
                     'in_text_citation' => $referenceService->inText($reference, $citationStyle, $index + 1),
-                    'bibliography' => $referenceService->format($reference, $citationStyle, $index + 1),
+                    'bibliography' => $referenceService->formatForProject($reference, $research, $index + 1, $explicitCitationStyle),
                 ];
             });
 
@@ -548,7 +548,18 @@ class ResearchWorkspaceController extends Controller
 
     public function restoreSectionVersion(Request $request, ResearchProject $research, ResearchSection $section, ContentVersion $version, ContentWorkspaceService $workspace): RedirectResponse
     {
-        $this->authorize('update',$research);abort_unless($section->research_project_id===$research->id,404);abort_if($section->locked_at,423,'This section is locked.');$workspace->restore($section->document,$version,$request->user());$section->update(['status'=>'draft','approved_by'=>null,'approved_at'=>null,'completion_percent'=>min(99,(float)$section->completion_percent)]);
+        $this->authorize('update', $research);
+        abort_unless($section->research_project_id === $research->id, 404);
+        DB::transaction(function () use ($research, $section, $version, $workspace, $request) {
+            $section = $research->sections()->lockForUpdate()->findOrFail($section->id);
+            abort_if($section->locked_at, 423, 'This section is locked.');
+            $before = (string) $section->document->body;
+            $document = $workspace->restore($section->document, $version, $request->user());
+            $section->update(['status' => 'draft', 'approved_by' => null, 'approved_at' => null,
+                'completion_percent' => trim(strip_tags((string) $document->body)) === '' ? 0 : min(95, max(10, str_word_count(strip_tags($document->body)) / 10))]);
+            app(ResearchCollaborationService::class)->recordEdit($section, $request->user(), $before, $document->body, $document->versions()->latest('version_number')->value('id'));
+            app(\App\Services\ResearchProjectService::class)->recalculateProgress($research);
+        });
         return back()->with('success','Section version restored as a new auditable version.');
     }
 
@@ -586,6 +597,16 @@ class ResearchWorkspaceController extends Controller
     public function exportPdf(ResearchProject $research)
     {
         $this->authorize('view',$research);$research->load(['sections.document','owner','supervisor','department','university','referenceLinks.reference']);$pdf=Pdf::loadView('research.export',compact('research'))->setPaper('a4','portrait');return $pdf->download(str($research->title)->slug().'.pdf');
+    }
+
+    public function exportDocx(ResearchProject $research, \App\Services\ResearchDocumentExportService $exporter)
+    {
+        $this->authorize('view', $research);
+        $path = $exporter->docx($research);
+        return response()->download($path, (str($research->title)->slug()->limit(120, '')->toString() ?: 'research').'.docx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Cache-Control' => 'private, no-store',
+        ])->deleteFileAfterSend(true);
     }
 
     public function exportHtml(ResearchProject $research): Response

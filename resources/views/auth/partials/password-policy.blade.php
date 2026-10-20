@@ -17,7 +17,7 @@
     <div class="flex items-start justify-between gap-3">
         <div>
             <p class="text-sm font-bold text-slate-800">Password requirements</p>
-            <p class="mt-1 text-xs leading-5 text-slate-500">These match the password policy currently configured by AcadFlow.</p>
+            <p class="mt-1 text-xs leading-5 text-slate-500">These match the password policy currently configured by AcadSyntra.</p>
         </div>
         <span class="shrink-0 rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-600" data-password-policy-status aria-live="polite">Not ready</span>
     </div>

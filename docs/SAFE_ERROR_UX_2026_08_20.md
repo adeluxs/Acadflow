@@ -1,4 +1,4 @@
-# AcadFlow Safe Error UX Remediation — 2026-08-20
+# AcadSyntra Safe Error UX Remediation — 2026-08-20
 
 ## Scope
 

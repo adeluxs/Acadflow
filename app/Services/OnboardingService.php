@@ -45,11 +45,14 @@ class OnboardingService
         'student' => 'Student',
         'lecturer' => 'Lecturer or supervisor',
         'researcher' => 'Researcher',
+        'independent_professional' => 'Independent professional',
+        'author_publisher' => 'Author or publisher',
+        'other' => 'Other academic participant',
     ];
 
     // These paths represent an institution itself and therefore require an
     // institutional affiliation. Students, lecturers and researchers may use
-    // AcadFlow independently and can attach an institution later.
+    // AcadSyntra independently and can attach an institution later.
     public const INSTITUTIONAL_PATHS = [
         'university_representative', 'department_representative',
         'academic_staff', 'non_academic_staff',
@@ -208,7 +211,7 @@ class OnboardingService
             $this->institutionAdoption->recordSelfDeclared($fresh, 'onboarding');
         }
 
-        $this->notifications->send($fresh, 'onboarding_completed', 'Welcome to AcadFlow', 'Your profile and workspace setup are complete.', ['account_type' => $user->account_type]);
+        $this->notifications->send($fresh, 'onboarding_completed', 'Welcome to AcadSyntra', 'Your profile and workspace setup are complete.', ['account_type' => $user->account_type]);
 
         return $fresh;
     }

@@ -1,4 +1,4 @@
-# AcadFlow Test Failure Fix Report — 2026-09-02
+# AcadSyntra Test Failure Fix Report — 2026-09-02
 
 The reported PHPUnit run contained 13 failures and 120 passes. The failures were caused by tests/fixtures that had not been updated after the centralized AI runtime, enterprise onboarding, tenant-safe submission workflow, and institutional routing changes.
 

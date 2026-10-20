@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
 use function Illuminate\Support\defer;
 
 /**
- * The single runtime gateway for AcadFlow AI operations.
+ * The single runtime gateway for AcadSyntra AI operations.
  *
  * Runtime contract:
  *   AI Settings -> AiRuntimeConfigService -> AiRouter -> provider adapter.

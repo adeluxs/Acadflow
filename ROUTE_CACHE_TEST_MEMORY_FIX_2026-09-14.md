@@ -6,7 +6,7 @@ On Windows with PHP `memory_limit=128M`, running PHPUnit after generating Larave
 
 `Allowed memory size of 134217728 bytes exhausted ... bootstrap/cache/routes-v7.php`
 
-AcadFlow has a large legitimate route table. PHPUnit, Collision, Laravel and the hydrated compiled route collection can together exceed 128 MB even though the uncached test suite runs successfully.
+AcadSyntra has a large legitimate route table. PHPUnit, Collision, Laravel and the hydrated compiled route collection can together exceed 128 MB even though the uncached test suite runs successfully.
 
 ## Fix implemented
 

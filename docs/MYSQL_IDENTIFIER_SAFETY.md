@@ -1,9 +1,9 @@
 # MySQL Migration Identifier Safety
 
 MySQL limits schema identifiers such as index, unique-key, and foreign-key names to 64 characters.
-Laravel normally generates names from the table and column names, which can exceed that limit for long AcadFlow schema names.
+Laravel normally generates names from the table and column names, which can exceed that limit for long AcadSyntra schema names.
 
-## Protection included in AcadFlow
+## Protection included in AcadSyntra
 
 1. All migration identifiers currently capable of exceeding 64 characters use explicit short names.
 2. `scripts/check-mysql-identifiers.php` statically checks all migrations without requiring a database connection.

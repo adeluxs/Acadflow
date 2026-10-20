@@ -4,7 +4,7 @@
 The Research Studio displayed **Insert citation**, **Insert evidence**, **Methodology**, and **Research gap** actions beside Chapter Two, and the button briefly changed to "Inserted", but the selected text did not appear in the visible editor.
 
 ## Root cause
-AcadFlow dispatches literature insertions to the hidden `textarea[data-rich-editor]`. The fallback rich-text editor listened for `acadflow:editor-insert`, but the normal Quill editor path did not. Because Quill is normally available, the visible editor never received the insertion event.
+AcadSyntra dispatches literature insertions to the hidden `textarea[data-rich-editor]`. The fallback rich-text editor listened for `acadflow:editor-insert`, but the normal Quill editor path did not. Because Quill is normally available, the visible editor never received the insertion event.
 
 The rich-editor module is also dynamically imported, so a very fast click could occur before either editor finished initialization and the event would be lost.
 

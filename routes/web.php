@@ -69,6 +69,12 @@ Route::get('/manifest.webmanifest', [SettingsController::class, 'pwaManifest'])-
 // Public routes
 Route::get('/information/{page}', [PublicPageController::class, 'show'])->whereIn('page', ['help','documentation','status','about','careers','api','source','changelog','security','terms','privacy','cookies','licenses'])->name('public.page');
 Route::get('/', [PublicPageController::class, 'home'])->name('home');
+foreach (\App\Services\PublicWebsite::PATHS as $slug => $path) {
+    Route::get('/'.$path, [PublicPageController::class, 'show'])->defaults('page', $slug)->name('public.'.$slug);
+}
+Route::post('/contact', [\App\Http\Controllers\PublicContactController::class, 'store'])->middleware('throttle:public-contact')->name('public.contact.store');
+Route::get('/sitemap.xml', [PublicPageController::class, 'sitemap'])->name('public.sitemap');
+Route::get('/robots.txt', [PublicPageController::class, 'robots'])->name('public.robots');
 Route::get('/knowledge-hub', [KnowledgeHubController::class, 'index'])
     ->middleware('feature.flag:knowledge_hub')
     ->name('knowledge.index');
@@ -118,7 +124,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [WebAuthController::class, 'logout'])->name('logout');
 });
 
-Route::middleware(['auth', 'verified'])->prefix('onboarding')->name('onboarding.')->group(function () {
+Route::middleware(['auth', 'verified', 'two-factor.authenticated'])->prefix('onboarding')->name('onboarding.')->group(function () {
     Route::get('/', [OnboardingController::class, 'show'])->name('show');
     Route::post('/back', [OnboardingController::class, 'back'])->name('back');
     Route::post('/complete', [OnboardingController::class, 'complete'])->name('complete');
@@ -134,6 +140,10 @@ Route::post('/webhook/payment/{gateway}', [CommerceController::class, 'webhook']
 
 // Protected application routes require verified identity and completed onboarding.
 Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.complete'])->group(function () {
+    Route::middleware('role:super_admin')->group(function () {
+        Route::get('/admin/contact', [\App\Http\Controllers\Admin\ContactInboxController::class, 'index'])->name('admin.contact.index');
+        Route::patch('/admin/contact/{contactMessage}', [\App\Http\Controllers\Admin\ContactInboxController::class, 'update'])->name('admin.contact.update');
+    });
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/browser-push/configuration', [\App\Http\Controllers\Api\PushNotificationController::class, 'vapidPublicKey'])->name('browser-push.configuration');
     Route::post('/browser-push/subscribe', [\App\Http\Controllers\Api\PushNotificationController::class, 'subscribe'])->middleware('throttle:30,1')->name('browser-push.subscribe');
@@ -175,7 +185,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
     // Research Studio: shared formal research workspace and workflow
-    Route::prefix('research-studio')->name('research.')->middleware('feature.flag:research_studio')->group(function () {
+    Route::prefix('research-studio')->name('research.')->middleware(['feature.flag:research_studio', \App\Http\Middleware\PreventResearchCaching::class])->group(function () {
         Route::get('/', [ResearchProjectController::class, 'index'])->name('index');
         Route::get('/configuration', [ResearchConfigurationController::class, 'index'])->name('configuration.index');
         Route::post('/configuration/workflows', [ResearchConfigurationController::class, 'storeWorkflow'])->name('configuration.workflows.store');
@@ -218,6 +228,19 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::get('/{research}/archives/{archive}', [ResearchWorkspaceController::class, 'downloadArchive'])->name('archives.download');
         Route::post('/{research}/amendments', [ResearchWorkspaceController::class, 'requestAmendment'])->name('amendments.store');
         Route::post('/{research}/amendments/{amendment}/review', [ResearchWorkspaceController::class, 'reviewAmendment'])->name('amendments.review');
+        Route::get('/{research}/plan', [\App\Http\Controllers\ResearchPlanController::class, 'show'])->name('plan');
+        Route::put('/{research}/plan', [\App\Http\Controllers\ResearchPlanController::class, 'update'])->name('plan.update');
+        Route::post('/{research}/resources', [\App\Http\Controllers\ResearchPlanController::class, 'storeResource'])->name('resources.store');
+        Route::put('/{research}/resources/{resource}', [\App\Http\Controllers\ResearchPlanController::class, 'saveResource'])->name('resources.save');
+        Route::get('/{research}/resources/{resource}/download', [\App\Http\Controllers\ResearchPlanController::class, 'download'])->name('resources.download');
+        Route::post('/{research}/resources/{resource}/restore/{version}', [\App\Http\Controllers\ResearchPlanController::class, 'restoreResource'])->name('resources.restore');
+        Route::post('/{research}/resources/{resource}/structure', [\App\Http\Controllers\ResearchPlanController::class, 'applyGuideline'])->name('resources.structure');
+        Route::post('/{research}/resources/{resource}/insert', [\App\Http\Controllers\ResearchPlanController::class, 'insertResource'])->name('resources.insert');
+        Route::patch('/{research}/resources/{resource}/archive', [\App\Http\Controllers\ResearchPlanController::class, 'archiveResource'])->name('resources.archive');
+        Route::post('/{research}/analysis/coding', [\App\Http\Controllers\ResearchPlanController::class, 'codeExcerpt'])->name('analysis.coding');
+        Route::post('/{research}/analysis/describe', [\App\Http\Controllers\ResearchPlanController::class, 'analyse'])->middleware('throttle:10,1')->name('analysis.describe');
+        Route::post('/{research}/analysis/sample-size', [\App\Http\Controllers\ResearchPlanController::class, 'sampleSize'])->middleware('throttle:10,1')->name('analysis.sample-size');
+        Route::get('/{research}/export/docx', [ResearchWorkspaceController::class, 'exportDocx'])->name('export.docx');
         Route::get('/{research}/export/html', [ResearchWorkspaceController::class, 'exportHtml'])->name('export.html');
         Route::get('/{research}/export/pdf', [ResearchWorkspaceController::class, 'exportPdf'])->name('export.pdf');
         Route::post('/{research}/sections', [ResearchWorkspaceController::class, 'storeSection'])->name('sections.store');

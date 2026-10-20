@@ -1,4 +1,4 @@
-AcadFlow Pricing Rule UX Update — 2026-08-31
+AcadSyntra Pricing Rule UX Update — 2026-08-31
 
 Implemented:
 - Human-readable feature dropdown for pricing rules.

@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "laravel/laravel",
     "type": "project",
-    "description": "AcadFlow enterprise academic collaboration, research, publishing, learning, events and knowledge platform.",
+    "description": "AcadSyntra enterprise academic collaboration, research, publishing, learning, events and knowledge platform.",
     "keywords": [
         "laravel",
         "framework"

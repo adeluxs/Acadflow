@@ -12,7 +12,7 @@
             <div class="max-w-xl">
                 <p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Independent classroom</p>
                 <h2 class="mt-2 text-lg font-black text-slate-950">Create a class without waiting for institution setup</h2>
-                <p class="mt-2 text-sm leading-6 text-slate-600">Create the course, then share its join link. AcadFlow keeps the normal assignment, material, grading and enrollment workflows while your personal institution affiliation remains optional.</p>
+                <p class="mt-2 text-sm leading-6 text-slate-600">Create the course, then share its join link. AcadSyntra keeps the normal assignment, material, grading and enrollment workflows while your personal institution affiliation remains optional.</p>
             </div>
             <form method="POST" action="{{ route('lecturer.courses.independent.store') }}" class="grid w-full gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 lg:max-w-xl sm:grid-cols-2">
                 @csrf
@@ -79,7 +79,7 @@
                         <form method="POST" action="{{ route('lecturer.courses.students.enroll', $course) }}" class="rounded-xl border border-slate-200 bg-white p-4">
                             @csrf
                             <p class="text-xs font-bold text-slate-900">Enroll existing student</p>
-                            <p class="mt-1 text-[10px] leading-4 text-slate-500">Use email, student ID, or username. Institutional restrictions apply only to institutional courses; independent classrooms can enroll any AcadFlow student.</p>
+                            <p class="mt-1 text-[10px] leading-4 text-slate-500">Use email, student ID, or username. Institutional restrictions apply only to institutional courses; independent classrooms can enroll any AcadSyntra student.</p>
                             <label class="mt-3 block text-[10px] font-semibold uppercase tracking-wide text-slate-500" for="student-{{ $course->id }}">Student</label>
                             <input id="student-{{ $course->id }}" name="student" value="{{ old('student') }}" required autocomplete="off" placeholder="student@example.edu.ng" class="mt-1 w-full rounded-xl px-3 py-2 text-xs">
                             <button class="mt-3 w-full rounded-xl border border-slate-200 bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800">Enroll student</button>
@@ -88,7 +88,7 @@
                         <form method="POST" action="{{ route('lecturer.courses.students.invite', $course) }}" class="rounded-xl border border-slate-200 bg-white p-4">
                             @csrf
                             <p class="text-xs font-bold text-slate-900">Invite by email</p>
-                            <p class="mt-1 text-[10px] leading-4 text-slate-500">AcadFlow creates a single-recipient, expiring invitation and sends it when email delivery is configured.</p>
+                            <p class="mt-1 text-[10px] leading-4 text-slate-500">AcadSyntra creates a single-recipient, expiring invitation and sends it when email delivery is configured.</p>
                             <label class="mt-3 block text-[10px] font-semibold uppercase tracking-wide text-slate-500" for="invite-{{ $course->id }}">Email</label>
                             <input id="invite-{{ $course->id }}" type="email" name="email" value="{{ old('email') }}" required autocomplete="email" placeholder="student@example.edu.ng" class="mt-1 w-full rounded-xl px-3 py-2 text-xs">
                             <button class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50">Create invitation</button>

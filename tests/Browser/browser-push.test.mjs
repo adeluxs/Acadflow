@@ -39,7 +39,7 @@ test('worker tolerates empty or non-JSON push data', async () => {
     assert.equal(shown[0].options.body, 'Plain text');
     events.push({ waitUntil: (task) => { pending = task; } });
     await pending;
-    assert.equal(shown[1].title, 'AcadFlow');
+    assert.equal(shown[1].title, 'AcadSyntra');
 });
 
 async function pageFixture({ available = true, permission = 'default', failSubscribe = false, subscribed = false, previousAccount = null } = {}) {

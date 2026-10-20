@@ -2,7 +2,7 @@
 
 @section('title', 'Learning preferences')
 @section('page-title', 'Learning preferences')
-@section('page-subtitle', 'Tell AcadFlow AI how you learn best')
+@section('page-subtitle', 'Tell AcadSyntra AI how you learn best')
 
 @section('content')
 <div class="mx-auto max-w-3xl space-y-6">

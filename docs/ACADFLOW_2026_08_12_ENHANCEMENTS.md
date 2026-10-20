@@ -1,6 +1,6 @@
-# AcadFlow Enhancement Pack — 2026-08-12
+# AcadSyntra Enhancement Pack — 2026-08-12
 
-This source keeps AcadFlow's existing Laravel models, controllers, routes and Blade structure and extends them rather than replacing the application architecture.
+This source keeps AcadSyntra's existing Laravel models, controllers, routes and Blade structure and extends them rather than replacing the application architecture.
 
 ## Implemented
 
@@ -11,7 +11,7 @@ This source keeps AcadFlow's existing Laravel models, controllers, routes and Bl
 - Visible default form borders with primary-color hover/focus states across the application.
 - Quill-based rich editor (with no-CDN fallback) in Research Studio and Knowledge Hub, plus reviewable AI suggestions while typing and server-side HTML sanitization.
 - Lecturer/student dashboards rebuilt around the supplied visual references; member dashboard rebuilt in the same design language.
-- Landing page rebuilt around the supplied AcadFlow visual reference with responsive hero/dashboard preview, role cards and feature strip.
+- Landing page rebuilt around the supplied AcadSyntra visual reference with responsive hero/dashboard preview, role cards and feature strip.
 - Security hardening for course/discussion/submission boundaries, rich HTML, invitation tokens, production demo seeding, assignment semester/rubric integrity and global maintenance controls.
 - Performance work including cached settings, reduced admin settings queries and high-use academic/submission database indexes.
 - Front-end stability fix preventing Vue from mounting when a Blade page has no Vue root.

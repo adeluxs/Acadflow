@@ -1,4 +1,4 @@
-# AcadFlow Documentation Index
+# AcadSyntra Documentation Index
 
 **Canonical documentation date:** 2026-08-20
 

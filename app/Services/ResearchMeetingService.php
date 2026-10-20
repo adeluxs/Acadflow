@@ -126,6 +126,6 @@ class ResearchMeetingService
     {
         $start = $meeting->scheduled_at->utc()->format('Ymd\THis\Z');
         $end = $meeting->scheduled_at->copy()->addMinutes($meeting->duration_minutes)->utc()->format('Ymd\THis\Z');
-        return implode("\r\n", ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//AcadFlow//Research Studio//EN','BEGIN:VEVENT','UID:'.$meeting->calendar_uid,'DTSTAMP:'.now()->utc()->format('Ymd\THis\Z'),'DTSTART:'.$start,'DTEND:'.$end,'SUMMARY:'.addcslashes($meeting->project->title.' Research Meeting', ',;'),'DESCRIPTION:'.addcslashes((string) $meeting->agenda, "\n,;"),'LOCATION:'.addcslashes((string) ($meeting->online_url ?: $meeting->location), ',;'),'END:VEVENT','END:VCALENDAR','']);
+        return implode("\r\n", ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//AcadSyntra//Research Studio//EN','BEGIN:VEVENT','UID:'.$meeting->calendar_uid,'DTSTAMP:'.now()->utc()->format('Ymd\THis\Z'),'DTSTART:'.$start,'DTEND:'.$end,'SUMMARY:'.addcslashes($meeting->project->title.' Research Meeting', ',;'),'DESCRIPTION:'.addcslashes((string) $meeting->agenda, "\n,;"),'LOCATION:'.addcslashes((string) ($meeting->online_url ?: $meeting->location), ',;'),'END:VEVENT','END:VCALENDAR','']);
     }
 }

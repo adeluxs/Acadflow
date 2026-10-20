@@ -96,12 +96,12 @@ if (! str_contains($promptBaselineMigration, "->exists()")) $errors[] = 'Prompt 
 if (! str_contains($promptBaselineMigration, 'Production-safe rollback: do not delete prompts')) $errors[] = 'Prompt baseline migration down() is not explicitly non-destructive.';
 
 if ($errors !== []) {
-    fwrite(STDERR, "AcadFlow specialized AI assistants preflight: FAILED\n\n");
+    fwrite(STDERR, "AcadSyntra specialized AI assistants preflight: FAILED\n\n");
     foreach ($errors as $error) fwrite(STDERR, " - {$error}\n");
     exit(1);
 }
 
-echo "AcadFlow specialized AI assistants preflight: PASS\n";
+echo "AcadSyntra specialized AI assistants preflight: PASS\n";
 echo " - 6 specialized contextual assistants are active\n";
 echo " - all provider/model execution delegates to central AiManager/AiRouter\n";
 echo " - model authorization + module Feature Management + per-AI-feature HTTP gates are present\n";

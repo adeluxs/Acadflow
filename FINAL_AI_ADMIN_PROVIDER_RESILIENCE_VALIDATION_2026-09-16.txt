@@ -1,4 +1,4 @@
-AcadFlow AI Admin Provider Resilience Validation — 2026-09-16
+AcadSyntra AI Admin Provider Resilience Validation — 2026-09-16
 
 Issues fixed:
 - Gemini/provider Admin Test Connection could exceed PHP 30-second execution time inside Guzzle/cURL.

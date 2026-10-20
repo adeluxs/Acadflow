@@ -43,7 +43,7 @@ class InstitutionAccessController extends Controller
         $method=$data['verification_method']??'admin_review';
         if($method==='institution_email' && !$this->adoption->emailMatchesVerifiedDomain($request->user(),$university)) return back()->withErrors(['verification_method'=>'Your account email does not match a Platform-verified domain for this institution.'])->withInput();
         $this->adoption->requestAffiliationVerification($request->user(),$university,$department,$data['requested_role'],$data['identifier']??null,$method);
-        return back()->with('success','Institution access request submitted. Your existing AcadFlow account and history will be preserved after verification.');
+        return back()->with('success','Institution access request submitted. Your existing AcadSyntra account and history will be preserved after verification.');
     }
 
     public function adminIndex(Request $request): View

@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 // installations with SESSION_COOKIE= continue to work safely.
 $sessionCookie = trim((string) env('SESSION_COOKIE', ''));
 if ($sessionCookie === '') {
-    $appSlug = Str::slug((string) (env('APP_NAME', 'AcadFlow') ?: 'AcadFlow'), '_');
+    $appSlug = Str::slug((string) (env('APP_NAME', 'AcadSyntra') ?: 'AcadSyntra'), '_');
     $sessionCookie = ($appSlug !== '' ? $appSlug : 'acadflow').'_session';
 }
 

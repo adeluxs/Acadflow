@@ -44,7 +44,7 @@ return [
         'knowledge_hub_premium' => [
             'title' => 'Knowledge Hub Premium Access',
             'category' => 'Knowledge Hub',
-            'description' => 'Unlocks premium Knowledge Hub discovery/content protected by AcadFlow commercial entitlements.',
+            'description' => 'Unlocks premium Knowledge Hub discovery/content protected by AcadSyntra commercial entitlements.',
             'pricing_type' => 'fixed_access',
             'default_duration_days' => 30,
             'unit_label' => 'access period',

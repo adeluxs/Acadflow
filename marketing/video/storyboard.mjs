@@ -8,7 +8,7 @@
 // on-screen caption / lower third.
 
 export const brand = {
-  name: 'AcadFlow',
+  name: 'AcadSyntra',
   url: 'acadflow.app',
   tagline: 'Academic work, finally under control',
   primary: '#4f46e5',
@@ -97,7 +97,7 @@ export const storyboard = [
     id: 'cta',
     dur: 6,
     kind: 'cta',
-    text: 'Bring your courses onto AcadFlow',
+    text: 'Bring your courses onto AcadSyntra',
     url: brand.url,
     bg: 'brand',
   },

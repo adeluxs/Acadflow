@@ -1,6 +1,6 @@
 # Nigeria Academic Catalog Integration
 
-AcadFlow keeps the existing `universities -> faculties -> departments -> courses` structure. The enhancement does not introduce a parallel academic model.
+AcadSyntra keeps the existing `universities -> faculties -> departments -> courses` structure. The enhancement does not introduce a parallel academic model.
 
 ## Registry sync
 
@@ -16,7 +16,7 @@ The normal database seeder runs this sync when `ACADEMIC_CATALOG_REMOTE_SYNC=tru
 
 ## Curriculum accuracy
 
-There is no single regulator page in this project that provides the exact faculty, department and course curriculum for every Nigerian institution. AcadFlow therefore does **not** label a generic curriculum as institution-approved. Starter rows are saved with:
+There is no single regulator page in this project that provides the exact faculty, department and course curriculum for every Nigerian institution. AcadSyntra therefore does **not** label a generic curriculum as institution-approved. Starter rows are saved with:
 
 - `catalog_source = starter_template`
 - `is_catalog_template = true`

@@ -4,6 +4,8 @@
 @section('page-subtitle', $research->title)
 
 @section('content')
+<nav class="studio-nav mb-6" aria-label="Project workspace"><a href="{{ route('research.index') }}">All projects</a><a href="{{ route('research.workspace', $research) }}" aria-current="page">Overview & timeline</a><a href="{{ route('research.show', $research) }}">Write</a><a href="{{ route('research.plan', $research) }}">Plan & library</a><a href="{{ route('research.export.docx', $research) }}">DOCX</a></nav>
+
 <div class="space-y-6">
     <nav class="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
         <a href="{{ route('research.workspace', $research) }}" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Control center</a>

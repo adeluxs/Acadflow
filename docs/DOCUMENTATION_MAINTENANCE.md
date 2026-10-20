@@ -1,8 +1,8 @@
-# AcadFlow Documentation & Changelog Maintenance Policy
+# AcadSyntra Documentation & Changelog Maintenance Policy
 
 **Effective:** 2026-08-15
 
-Documentation is part of the AcadFlow implementation. A feature is not considered complete when code works but the canonical documentation still describes the old behavior.
+Documentation is part of the AcadSyntra implementation. A feature is not considered complete when code works but the canonical documentation still describes the old behavior.
 
 ## 1. Mandatory rule
 
@@ -14,7 +14,7 @@ Implementation
 + developer documentation
 + user documentation when user-visible
 + changelog
-= complete AcadFlow change
+= complete AcadSyntra change
 ```
 
 ## 2. Canonical documents
@@ -138,4 +138,4 @@ If the answer is “no documentation change required”, the PR should explain w
 
 ## 9. Future coding-agent instruction
 
-Any developer or AI coding agent working on AcadFlow must treat this policy as a standing requirement. When implementing new functionality, update canonical documentation and the changelog before generating the final source archive/release.
+Any developer or AI coding agent working on AcadSyntra must treat this policy as a standing requirement. When implementing new functionality, update canonical documentation and the changelog before generating the final source archive/release.

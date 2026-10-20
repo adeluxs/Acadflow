@@ -1,6 +1,6 @@
-# AcadFlow screenshot → launch video pipeline
+# AcadSyntra screenshot → launch video pipeline
 
-Automated, repeatable capture of every curated AcadFlow page, cleaned into
+Automated, repeatable capture of every curated AcadSyntra page, cleaned into
 consistent branded frames, driven by a data storyboard that can be rendered into
 a marketing video.
 
@@ -67,7 +67,7 @@ storage/app/marketing-demo.json  # demo entity ids for dynamic URLs
 ```
 
 Demo accounts (password `password`):
-`demo.student@acadflow.test`, `demo.lecturer@acadflow.test`, `demo.admin@acadflow.test`.
+`demo.student@acadsyntra.test`, `demo.lecturer@acadsyntra.test`, `demo.admin@acadsyntra.test`.
 
 ## How capture works
 
@@ -88,7 +88,7 @@ Demo accounts (password `password`):
 ## Cleanup (clean.mjs)
 
 Each raw shot is resized to a consistent width, rounded, given a soft drop
-shadow and placed on the AcadFlow brand gradient; the run also produces
+shadow and placed on the AcadSyntra brand gradient; the run also produces
 `contact-sheet.png` (a 4-column grid of thumbnails) for a fast visual review.
 
 ## Storyboard → video

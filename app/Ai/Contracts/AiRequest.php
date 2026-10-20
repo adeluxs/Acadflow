@@ -5,7 +5,7 @@ namespace App\Ai\Contracts;
 use App\Models\User;
 
 /**
- * Normalized internal request envelope for AcadFlow AI operations.
+ * Normalized internal request envelope for AcadSyntra AI operations.
  *
  * Feature services provide business context only. Provider/model routing is not
  * accepted from arbitrary callers; it is resolved centrally from AI Settings so

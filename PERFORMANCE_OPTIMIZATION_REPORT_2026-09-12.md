@@ -1,8 +1,8 @@
-# AcadFlow Performance Optimization Report — 2026-09-12
+# AcadSyntra Performance Optimization Report — 2026-09-12
 
 ## Scope
 
-This pass optimized the existing AcadFlow application incrementally. It did not rebuild the project, remove product functionality, weaken authentication/authorization, or replace the AI/monetization architecture. The baseline was the latest source containing the AI post-provider resilience fix and complete runtime monetization.
+This pass optimized the existing AcadSyntra application incrementally. It did not rebuild the project, remove product functionality, weaken authentication/authorization, or replace the AI/monetization architecture. The baseline was the latest source containing the AI post-provider resilience fix and complete runtime monetization.
 
 ## Major bottlenecks found
 

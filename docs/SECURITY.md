@@ -1,4 +1,4 @@
-# AcadFlow Security Architecture
+# AcadSyntra Security Architecture
 
 **Current source snapshot:** 2026-08-15  
 **Canonical engineering guide:** `DEVELOPER_GUIDE.md`
@@ -26,7 +26,7 @@ Current named rate limits include:
 
 ## Authorization
 
-AcadFlow uses layered authorization:
+AcadSyntra uses layered authorization:
 
 1. role middleware;
 2. permission enum mapping;
@@ -80,6 +80,8 @@ Payment/refund POSTs have bounded timeouts and are never automatically retried. 
 - no truncation/reset of administrator settings/credentials during upgrades
 
 ## Logging/privacy
+
+Public enquiries use the normal web CSRF protection, session-bound expiring form tokens (including a minimum fill time), a honeypot and per-IP rate limits. Stored fields are limited to reference, name, email, topic, message, status and timestamps; no separate contact IP field is collected. The platform inbox requires Super Admin authorization on both reads and status changes, escapes visitor content and sends `Cache-Control: no-store`. Alerts include no visitor message content. Queue failures retain the original enquiry. The operator must manage retention/deletion and abuse monitoring; honeypots and rate limits do not guarantee all spam will be blocked.
 
 Do not log passwords, recovery codes, API keys, access tokens or payment secrets. AI usage logs should store routing/usage metadata without leaking provider credentials. Be conservative when storing prompts/responses containing student/research content.
 

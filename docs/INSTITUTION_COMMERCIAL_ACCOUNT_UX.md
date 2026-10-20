@@ -2,7 +2,7 @@
 
 ## Purpose
 
-AcadFlow separates commercial **requests** from commercial **authority**. University/institution administrators can understand their institution's approved commercial arrangement and ask for changes, but they cannot directly change prepaid balances, pricing, sponsorship or platform financial terms. Platform/Super Admin remains the authoritative commercial operator.
+AcadSyntra separates commercial **requests** from commercial **authority**. University/institution administrators can understand their institution's approved commercial arrangement and ask for changes, but they cannot directly change prepaid balances, pricing, sponsorship or platform financial terms. Platform/Super Admin remains the authoritative commercial operator.
 
 ## Institution Admin flow
 
@@ -27,7 +27,7 @@ AcadFlow separates commercial **requests** from commercial **authority**. Univer
 
 1. Open **Admin → Monetization**.
 2. Review the **Commercial requests awaiting review** queue.
-3. Choose **Review & apply terms**. AcadFlow locks the institution context so the request cannot accidentally update another institution.
+3. Choose **Review & apply terms**. AcadSyntra locks the institution context so the request cannot accidentally update another institution.
 4. Review the guided sections:
    - Institution & account status;
    - Prepaid budget & limits;

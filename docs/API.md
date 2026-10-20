@@ -1,4 +1,4 @@
-# AcadFlow API v1
+# AcadSyntra API v1
 
 **Current source snapshot:** 2026-08-15  
 **Base path:** `/api/v1`  
@@ -140,3 +140,11 @@ Public settings expose `email_verification_enabled`. Auth registration/login/acc
 Browser session endpoints: `GET /browser-push/configuration` returns availability and the public key only; `POST /browser-push/subscribe` accepts a browser subscription (`endpoint`, `keys.p256dh`, `keys.auth`, optional `expirationTime` in milliseconds); `POST /browser-push/unsubscribe` removes the authenticated user's matching device; `POST /browser-push/test` reports accepted delivery count or an actionable failure. Mutations require CSRF. `enablePreference=true` is reserved for explicit enrollment, which also opts the user into push delivery; automatic subscription reconciliation does not change preferences.
 
 Existing `/api/v1/push/*` routes support Sanctum clients. `POST` and `DELETE /api/v1/push/unsubscribe` remain available with an authenticated account even when push is disabled. Subscription/list/test routes retain protected-account checks and module controls. Supported HTTPS browser push-service endpoints and valid P-256/auth keys are required.
+
+### Research setup and save concurrency (2026-10-20)
+
+`POST /api/v1/research-projects` additionally accepts optional `methodology`, `research_level`, `discipline`, `objectives`, `institution_name`, `studio_mode` (`research`/`final_year`), `report_structure` (`methodology`/`five_chapter`/`institutional`), `citation_style`, `citation_instructions` and optional `citation_template` (supported bibliography placeholders only). Values are validated against `config/research_methodologies.php`. Omit methodology to retain the research-type template contract. Selected setup is snapshotted in project metadata; existing projects are not recreated.
+
+The existing section update endpoint accepts `expected_version`. A mismatched version returns 409 and preserves both the current document and its history. Locked sections return 423. API and web section saves share sanitisation, authorship and progress handling.
+
+The session-authenticated Research Studio UI also provides project-scoped `/research-studio/{research}/plan`, `/resources`, `/analysis/{describe,sample-size,coding}` and `/export/{html,pdf,docx}` routes, declared in `routes/web.php`. They require authentication, applicable verification/2FA/onboarding checks, the Research Studio feature and model permissions. Mutation forms require CSRF. Dataset tools require the separately managed `research_datasets` feature; these session routes are not new public Sanctum API endpoints. See [Research Studio](RESEARCH_STUDIO.md) for resource versioning, private delivery, analysis limits and deployment.

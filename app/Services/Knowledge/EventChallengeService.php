@@ -340,7 +340,7 @@ class EventChallengeService
         if (in_array($challenge->participation_mode,['team','both'],true)) {
             abort_if($challenge->max_team_members&&$memberIds->count()>$challenge->max_team_members,422,'The team exceeds the maximum size.');
             $members=User::query()->whereIn('id',$memberIds)->where('is_active',true)->get()->keyBy('id');
-            abort_unless($members->count()===$memberIds->count(),422,'Every teammate must be an active AcadFlow user.');
+            abort_unless($members->count()===$memberIds->count(),422,'Every teammate must be an active AcadSyntra user.');
             foreach ($members as $member) {
                 if ($challenge->university_id) abort_unless($member->university_id===$challenge->university_id,422,'All teammates must belong to the eligible institution.');
                 $this->assertEligibility($challenge,$member);

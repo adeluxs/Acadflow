@@ -1,4 +1,4 @@
-# AcadFlow Frontend / Page Map
+# AcadSyntra Frontend / Page Map
 
 **Current source snapshot:** 2026-08-15
 

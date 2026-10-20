@@ -1,6 +1,6 @@
 # Payment gateways
 
-AcadFlow currently implements **Paystack**. Stripe and Flutterwave are placeholders in older comments, not usable adapters. Gateway credentials and mode are managed by Super Admin in Payment Gateways.
+AcadSyntra currently implements **Paystack**. Stripe and Flutterwave are placeholders in older comments, not usable adapters. Gateway credentials and mode are managed by Super Admin in Payment Gateways.
 
 ## Architecture and boundaries
 

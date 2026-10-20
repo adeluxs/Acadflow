@@ -1,4 +1,4 @@
-AcadFlow Material Upload + Research Assistant Delivery Fix
+AcadSyntra Material Upload + Research Assistant Delivery Fix
 Validation date: 2026-09-17
 
 Preflight/regression checks: 35/35 PASS

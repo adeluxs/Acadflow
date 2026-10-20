@@ -79,6 +79,16 @@ class OnboardingController extends Controller
             ['current_step' => 1, 'started_at' => now(), 'data' => []]
         );
 
+        if ($step === 'interests') {
+            $fields = ['research_interests', 'skills', 'topic_interests', 'community_interests', 'event_interests'];
+            $text = $request->validate(collect($fields)->mapWithKeys(fn($field) => [$field.'_text' => ['nullable', 'string', 'max:3000']])->all());
+            foreach ($fields as $field) {
+                if (array_key_exists($field.'_text', $text)) {
+                    $request->merge([$field => array_values(array_filter(array_map('trim', explode(',', (string) $text[$field.'_text']))))]);
+                }
+            }
+        }
+
         $validated = match ($step) {
             'path' => $request->validate([
                 'path' => ['required', Rule::in(array_keys($this->accountPaths()))],
@@ -185,10 +195,17 @@ class OnboardingController extends Controller
 
     public function complete(Request $request, OnboardingService $onboarding): RedirectResponse
     {
+        $data = $request->validate(['next_action' => ['nullable', Rule::in(['dashboard', 'research', 'final_year'])]]);
         $onboarding->complete($request->user());
+        if (in_array($data['next_action'] ?? '', ['research', 'final_year'], true)
+            && $request->user()->can('create', \App\Models\ResearchProject::class)
+            && \App\Services\FeatureAccessService::effectiveStatus('research_studio', $request->user()->university_id) === \App\Services\FeatureAccessService::STATUS_ENABLED) {
+            return redirect()->route('research.create', ['studio_mode' => $data['next_action'] === 'final_year' ? 'final_year' : 'research'])
+                ->with('success', 'Your profile is ready. Create your first research workspace.');
+        }
 
         return redirect()->route('onboarding.recommendations')
-            ->with('success', 'Your AcadFlow workspace is ready.');
+            ->with('success', 'Your AcadSyntra workspace is ready.');
     }
 
     public function recommendations(Request $request): View

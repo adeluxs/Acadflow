@@ -1,7 +1,7 @@
 <?php
 
 /**
- * PHPUnit bootstrap for AcadFlow.
+ * PHPUnit bootstrap for AcadSyntra.
  *
  * Production optimization caches (especially Laravel's compiled route cache)
  * can be large enough to push a 128 MB PHPUnit process over its memory limit.

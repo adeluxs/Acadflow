@@ -4,8 +4,8 @@
 <div class="mx-auto max-w-6xl space-y-6">
     <div>
         <p class="text-xs font-semibold uppercase tracking-[.18em] text-indigo-600">Progressive institution adoption</p>
-        <h1 class="mt-1 text-3xl font-bold text-slate-950">Bring your institution or department to AcadFlow</h1>
-        <p class="mt-2 max-w-3xl text-sm text-slate-600">Search the catalogue first. Existing institutions are claimed instead of recreated. Departments can also adopt AcadFlow independently while the wider institution is not ready.</p>
+        <h1 class="mt-1 text-3xl font-bold text-slate-950">Bring your institution or department to AcadSyntra</h1>
+        <p class="mt-2 max-w-3xl text-sm text-slate-600">Search the catalogue first. Existing institutions are claimed instead of recreated. Departments can also adopt AcadSyntra independently while the wider institution is not ready.</p>
     </div>
     @if(session('success'))<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{{ session('success') }}</div>@endif
     @if($errors->any())<div class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
@@ -57,7 +57,7 @@
     @endif
 
     @if(auth()->user()->account_type === 'department_representative' || in_array(auth()->user()->account_type,['lecturer','academic_staff'],true) || auth()->user()->isDepartmentAdmin())
-    <section class="acad-card p-6"><h2 class="text-xl font-bold">Department-first adoption</h2><p class="mt-1 text-sm text-slate-500">Your department can use AcadFlow before the whole institution adopts it. Platform Admin verifies the department and representative.</p>
+    <section class="acad-card p-6"><h2 class="text-xl font-bold">Department-first adoption</h2><p class="mt-1 text-sm text-slate-500">Your department can use AcadSyntra before the whole institution adopts it. Platform Admin verifies the department and representative.</p>
         <form method="POST" action="{{ route('institution.onboarding.department.store') }}" class="mt-5 grid gap-4 sm:grid-cols-2">@csrf
             <label class="text-sm font-medium">Institution ID<input name="university_id" required value="{{ old('university_id',auth()->user()->university_id) }}" class="mt-1 w-full rounded-xl border-slate-300" placeholder="Select/search institution ID"></label>
             <label class="text-sm font-medium">Faculty ID<input name="faculty_id" value="{{ old('faculty_id',auth()->user()->faculty_id) }}" class="mt-1 w-full rounded-xl border-slate-300"></label>

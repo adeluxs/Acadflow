@@ -65,6 +65,7 @@ class SafeHtmlService
                         continue;
                     }
 
+                    $this->cleanChildren($node);
                     while ($node->firstChild) {
                         $parent->insertBefore($node->firstChild, $node);
                     }

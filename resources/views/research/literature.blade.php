@@ -85,7 +85,7 @@
                             </label>
                         @endforeach
                     </div>
-                    <p class="mt-3 text-xs leading-5 text-slate-500">AcadFlow searches scholarly metadata/index services. Opening a paper follows the provider or DOI destination and does not bypass publisher or access restrictions.</p>
+                    <p class="mt-3 text-xs leading-5 text-slate-500">AcadSyntra searches scholarly metadata/index services. Opening a paper follows the provider or DOI destination and does not bypass publisher or access restrictions.</p>
                 </div>
             </form>
         </section>
@@ -381,7 +381,7 @@
             </div>
 
             @if($synthesis['reviewed_count'] === 0)
-                <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center"><h2 class="text-lg font-black text-slate-900">Synthesis begins after paper review</h2><p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">Mark references as Reviewed after completing their structured notes. AcadFlow will aggregate only what you recorded—it will not invent findings for unread papers.</p></div>
+                <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center"><h2 class="text-lg font-black text-slate-900">Synthesis begins after paper review</h2><p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">Mark references as Reviewed after completing their structured notes. AcadSyntra will aggregate only what you recorded—it will not invent findings for unread papers.</p></div>
             @else
                 <div class="grid gap-5 xl:grid-cols-2">
                     <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

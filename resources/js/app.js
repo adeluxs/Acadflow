@@ -4,7 +4,7 @@ import { initGlobalLoader } from './global-loader';
 import './bootstrap';
 
 /**
- * Most AcadFlow screens are Blade-rendered. Vue and its component bundle are
+ * Most AcadSyntra screens are Blade-rendered. Vue and its component bundle are
  * loaded only when a page actually renders a #app Vue mount point. This keeps
  * normal course/knowledge/community navigation lightweight.
  */
@@ -32,13 +32,13 @@ function boot() {
     if (document.querySelector('[data-contextual-ai]')) {
         import('./contextual-assistant')
             .then(({ initContextualAssistants }) => initContextualAssistants())
-            .catch((error) => console.error('AcadFlow contextual assistant failed to initialize:', error));
+            .catch((error) => console.error('AcadSyntra contextual assistant failed to initialize:', error));
     }
 
     if (document.querySelector('[data-rich-editor]')) {
         import('./rich-editor')
             .then(({ initRichEditors }) => initRichEditors())
-            .catch((error) => console.error('AcadFlow rich editor failed to initialize:', error));
+            .catch((error) => console.error('AcadSyntra rich editor failed to initialize:', error));
     }
 
     if (document.querySelector('[data-lecturer-ai]')) {
@@ -47,26 +47,26 @@ function boot() {
         import('./rich-editor')
             .then(() => import('./lecturer-ai'))
             .then(({ initLecturerAi }) => initLecturerAi())
-            .catch((error) => console.error('AcadFlow Lecturer AI Studio failed to initialize:', error));
+            .catch((error) => console.error('AcadSyntra Lecturer AI Studio failed to initialize:', error));
     }
 
     if (document.querySelector('[data-password-policy]')) {
         import('./password-policy')
             .then(({ initPasswordPolicies }) => initPasswordPolicies())
-            .catch((error) => console.error('AcadFlow password policy UI failed to initialize:', error));
+            .catch((error) => console.error('AcadSyntra password policy UI failed to initialize:', error));
     }
 
     if (document.querySelector('[data-rate-limit-countdown]')) {
         import('./rate-limit-feedback')
             .then(({ initRateLimitFeedback }) => initRateLimitFeedback())
-            .catch((error) => console.error('AcadFlow rate-limit feedback failed to initialize:', error));
+            .catch((error) => console.error('AcadSyntra rate-limit feedback failed to initialize:', error));
     }
 
     if (document.querySelector('meta[name="push-config-url"]')) {
         import('./browser-push').then(({ initBrowserPush }) => initBrowserPush()).catch(() => {});
     }
 
-    initVueRoot().catch((error) => console.error('AcadFlow Vue initialization failed:', error));
+    initVueRoot().catch((error) => console.error('AcadSyntra Vue initialization failed:', error));
 
     if (window.OfflineSync) {
         window.OfflineSync.init();
@@ -78,4 +78,8 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot, { once: true });
 } else {
     boot();
+}
+
+if (document.querySelector('[data-research-setup], [data-research-autosave]')) {
+    import('./research-studio').catch(() => { /* Standard forms remain available if the module cannot load. */ });
 }

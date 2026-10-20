@@ -5,7 +5,7 @@ namespace App\Ai\Contracts;
 use Illuminate\Support\Str;
 
 /**
- * Provider-independent response contract used by every AcadFlow AI feature.
+ * Provider-independent response contract used by every AcadSyntra AI feature.
  *
  * `source` describes how the answer was produced (provider, rule_engine,
  * rule_engine_fallback, disabled, etc.). `provider` and `model` record the

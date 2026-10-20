@@ -391,9 +391,9 @@ class SettingService
     public static function getPlatformSettings(): array
     {
         return self::getMany([
-            'site_name' => 'AcadFlow',
+            'site_name' => 'AcadSyntra',
             'site_tagline' => 'Academic research, publishing and collaboration platform',
-            'support_email' => 'support@example.com',
+            'support_email' => '',
             'timezone' => 'Africa/Lagos',
             'maintenance_mode' => false,
             'site_logo' => null,

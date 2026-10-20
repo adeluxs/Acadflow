@@ -1,4 +1,4 @@
-// Capture every curated page of the AcadFlow demo as PNG screenshots.
+// Capture every curated page of the AcadSyntra demo as PNG screenshots.
 //
 //   node marketing/video/capture.mjs
 //
@@ -24,8 +24,8 @@ import {
 } from './lib.mjs';
 
 const ids = demoIds();
-const course = ids.databaseCourseId;
-const aiCourse = ids.aiCourseId;
+const course = ids.databaseCourseKey ?? ids.databaseCourseId;
+const aiCourse = ids.aiCourseKey ?? ids.aiCourseId;
 const essay = ids.taskIds.essay;
 const lab = ids.taskIds.lab;
 
@@ -41,7 +41,7 @@ const MANIFEST = [
   { section: 'student', name: 'courses', path: '/courses', role: 'student', viewports: ['desktop'], folds: ['full'], waitFor: 'body' },
   { section: 'student', name: 'course-detail', path: `/courses/${course}`, role: 'student', viewports: ['desktop'], folds: ['full'], waitFor: 'body' },
   { section: 'student', name: 'assignments-list', path: `/courses/${course}/assignments/stdview`, role: 'student', viewports: ['desktop', 'mobile'], folds: ['full'], waitFor: 'body' },
-  { section: 'student', name: 'assignment-detail', path: `/courses/${course}/assignments/${lab}/showForStudent`, role: 'student', viewports: ['desktop'], folds: ['full'], waitFor: 'body' },
+  { section: 'student', name: 'assignment-detail', path: `/courses/${course}/assignments/${ids.labTaskKey ?? lab}/showForStudent`, role: 'student', viewports: ['desktop'], folds: ['full'], waitFor: 'body' },
   { section: 'student', name: 'submission-create-text', path: `/submissions/create?task_id=${essay}`, role: 'student', viewports: ['desktop', 'mobile'], folds: ['full'], waitFor: 'form#submissionForm' },
   { section: 'student', name: 'submission-create-file', path: `/submissions/create?task_id=${lab}`, role: 'student', viewports: ['desktop'], folds: ['full'], waitFor: 'form#submissionForm' },
   { section: 'student', name: 'submissions-dashboard', path: '/submissions/dashboard', role: 'student', viewports: ['desktop'], folds: ['full'], waitFor: 'body' },
@@ -61,7 +61,7 @@ const MANIFEST = [
   { section: 'lecturer', name: 'assignment-manage', path: `/courses/${course}/assignments`, role: 'lecturer', viewports: ['desktop'], folds: ['full'], waitFor: 'body' },
   { section: 'lecturer', name: 'assignment-create', path: `/courses/${course}/assignments/create`, role: 'lecturer', viewports: ['desktop'], folds: ['full'], waitFor: 'form' },
   { section: 'lecturer', name: 'submissions-index', path: '/lecturer/submissions', role: 'lecturer', viewports: ['desktop'], folds: ['full'], waitFor: 'body' },
-  { section: 'lecturer', name: 'submission-review', path: `/lecturer/submissions/${ids.gradedSubmissionId}/review`, role: 'lecturer', viewports: ['desktop'], folds: ['full'], waitFor: 'body' },
+  { section: 'lecturer', name: 'submission-review', path: `/lecturer/submissions/${ids.gradedSubmissionKey ?? ids.gradedSubmissionId}/review`, role: 'lecturer', viewports: ['desktop'], folds: ['full'], waitFor: 'body' },
 
   // Admin
   { section: 'admin', name: 'settings', path: '/admin/settings', role: 'admin', viewports: ['desktop'], folds: ['full'], waitFor: 'body' },
@@ -73,7 +73,7 @@ function sha256(file) {
 
 async function main() {
   ensureDir(artifactsDir);
-  console.log(`AcadFlow capture → ${baseUrl}`);
+  console.log(`AcadSyntra capture → ${baseUrl}`);
   console.log(`Run: ${runId}\n`);
 
   const browser = await launch();
@@ -86,8 +86,8 @@ async function main() {
   for (const role of ['public', ...Object.keys(ROLES)]) {
     contexts[role] =
       role === 'public'
-        ? await browser.newContext()
-        : await browser.newContext({ storageState: path.join(authDir, `${role}.json`) });
+        ? await browser.newContext({ serviceWorkers: 'block' })
+        : await browser.newContext({ serviceWorkers: 'block', storageState: path.join(authDir, `${role}.json`) });
   }
 
   const records = [];
@@ -95,20 +95,14 @@ async function main() {
     for (const viewportName of shot.viewports) {
       for (const fold of shot.folds) {
         const record = { ...shot, viewport: viewportName, fold, file: null, status: 'ok' };
+        let page;
         try {
           const viewport = viewports[viewportName];
           const context = contexts[shot.role];
-          const page = await context.newPage();
+          page = await context.newPage();
           await page.setViewportSize(viewport);
-          await page.addInitScript(() => {
-            try {
-              Object.defineProperty(window, 'navigator', {
-                value: { ...window.navigator, serviceWorker: undefined },
-                configurable: true,
-              });
-            } catch {}
-          });
-          await page.goto(`${baseUrl}${shot.path}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          const response = await page.goto(`${baseUrl}${shot.path}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          if (response && response.status() >= 400) throw new Error(`HTTP ${response.status()} at ${shot.path}`);
           await page.addStyleTag({ content: FREEZE_CSS }).catch(() => {});
           await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
           if (shot.waitFor) {
@@ -120,6 +114,11 @@ async function main() {
           }
           await page.waitForTimeout(400);
           await page.evaluate(() => document.fonts?.ready);
+
+          const visibleText = await page.locator('body').innerText();
+          if (/\b(?:AcadFlow|UniFlow|ACADFLOW)\b/.test(visibleText)) {
+            throw new Error(`Outdated display branding at ${shot.path}`);
+          }
 
           const dir = path.join(artifactsDir, 'raw', shot.section);
           ensureDir(dir);
@@ -135,19 +134,17 @@ async function main() {
           record.bytes = fs.statSync(file).size;
           record.hash = sha256(file);
           console.log(`  ✓ ${record.file}`);
-          await page.close();
         } catch (error) {
           record.status = 'failed';
           record.error = String(error).split('\n')[0];
           console.log(`  ✗ ${shot.section}/${shot.name} (${viewportName}/${fold}): ${record.error}`);
+        } finally {
+          if (page) await page.close().catch(() => {});
         }
         records.push(record);
       }
     }
   }
-
-  for (const ctx of Object.values(contexts)) await ctx.close();
-  await browser.close();
 
   const manifest = {
     runId,
@@ -163,6 +160,8 @@ async function main() {
 
   console.log(`\nDone: ${manifest.count} captured, ${manifest.failed} failed.`);
   console.log(`Manifest: ${path.relative(process.cwd(), path.join(artifactsDir, 'manifest.json'))}`);
+  await Promise.all(Object.values(contexts).map((ctx) => ctx.close()));
+  await browser.close();
   if (manifest.failed > 0) process.exitCode = 1;
 }
 

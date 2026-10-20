@@ -1,5 +1,5 @@
 /**
- * UniFlow Main JavaScript
+ * AcadSyntra Main JavaScript
  * Handles offline sync, PWA install prompts, and UI enhancements
  */
 

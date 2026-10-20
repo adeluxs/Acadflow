@@ -1,4 +1,4 @@
-# AcadFlow Cache Lock Configuration Fix
+# AcadSyntra Cache Lock Configuration Fix
 
 ## Problem
 

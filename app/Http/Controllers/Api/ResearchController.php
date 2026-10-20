@@ -86,7 +86,7 @@ class ResearchController extends Controller
             'supervisor_message' => 'nullable|string|max:1000',
             'co_supervisor_id' => 'nullable|integer|exists:users,id',
             'expected_completion_date' => 'nullable|date|after_or_equal:today',
-        ]);
+        ] + app(\App\Services\ResearchMethodologyService::class)->rules());
 
         $institutionExpansionEnabled = FeatureAccessService::effectiveStatus(
             'research_institutional_expansion',
@@ -218,12 +218,10 @@ class ResearchController extends Controller
 
     public function updateSection(Request $request, ResearchProject $research, ResearchSection $section, ContentWorkspaceService $workspace)
     {
-        $this->authorize('update', $research);
-        abort_unless($section->research_project_id === $research->id && ! $section->locked_at, 423, 'This section is locked or outside the project.');
-        $data = $request->validate(['body' => 'required|string|max:2000000', 'summary' => 'nullable|string|max:255']);
-        $workspace->autosave($section->document, $request->user(), $data['body'], $data['summary'] ?? 'API section autosave');
-        $section->update(['status' => $section->status === 'approved' ? 'approved' : 'in_progress', 'completion_percent' => trim(strip_tags($data['body'])) === '' ? 0 : 50]);
-        app(ResearchProjectService::class)->recalculateProgress($research);
+        if ($request->filled('summary')) $request->merge(['change_summary' => $request->input('summary')]);
+        app()->call([app(\App\Http\Controllers\ResearchSectionController::class), 'save'], [
+            'request' => $request, 'research' => $research, 'section' => $section,
+        ]);
         return response()->json($section->fresh('document.versions'));
     }
 

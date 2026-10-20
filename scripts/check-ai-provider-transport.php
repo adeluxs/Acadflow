@@ -76,12 +76,12 @@ if (! str_contains($retiredMigration, 'ai_provider_gemini_model') || ! str_conta
 }
 
 if ($errors !== []) {
-    fwrite(STDERR, "AcadFlow AI provider/access regression preflight: FAILED\n\n");
+    fwrite(STDERR, "AcadSyntra AI provider/access regression preflight: FAILED\n\n");
     foreach ($errors as $error) fwrite(STDERR, " - {$error}\n");
     exit(1);
 }
 
-echo "AcadFlow AI provider/access regression preflight: PASS\n";
+echo "AcadSyntra AI provider/access regression preflight: PASS\n";
 echo " - Test Connection and real runtime share ExternalProvider transport\n";
 echo " - TLS/DNS/refused/timeout/network/API errors are distinguished and safely logged\n";
 echo " - OpenAI/provider POST bodies are sent as explicit JSON with safe payload-shape diagnostics\n";

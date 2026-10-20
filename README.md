@@ -1,6 +1,6 @@
-# AcadFlow
+# AcadSyntra
 
-AcadFlow is a Laravel-based academic collaboration platform for universities, lecturers, students, independent platform members, research teams, knowledge creators, and administrators. It brings course workflows, assignments and submissions, attendance, research supervision, Knowledge Hub publishing, academic communities, events, AI assistance, notifications, subscriptions, commerce, documents, and reporting into one application.
+AcadSyntra is a Laravel-based academic collaboration platform for universities, lecturers, students, independent platform members, research teams, knowledge creators, and administrators. It brings course workflows, assignments and submissions, attendance, research supervision, Knowledge Hub publishing, academic communities, events, AI assistance, notifications, subscriptions, commerce, documents, and reporting into one application.
 
 > **Canonical documentation:** Start with [`docs/README.md`](docs/README.md). The older dated documents in `docs/` are implementation-history records; the current developer and user guides are the primary source for how the present codebase works.
 
@@ -22,6 +22,7 @@ AcadFlow is a Laravel-based academic collaboration platform for universities, le
 |---|---|
 | [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md) | Canonical technical guide for developers working on the codebase |
 | [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) | End-user guide for every supported role and major feature |
+| [`docs/RESEARCH_STUDIO.md`](docs/RESEARCH_STUDIO.md) | Methodology setup, private research library, analysis, exports and onboarding |
 | [`docs/DOCUMENTATION_MAINTENANCE.md`](docs/DOCUMENTATION_MAINTENANCE.md) | Mandatory documentation/changelog update policy |
 | [`CHANGELOG.md`](CHANGELOG.md) | Human-readable history of product and technical changes |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Development workflow, quality gates, migration/seeding rules, and PR checklist |
@@ -59,7 +60,7 @@ php artisan migrate
 php artisan db:seed
 ```
 
-Normal AcadFlow seeders are designed to be idempotent and preserve matching existing records. **Never use `migrate:fresh --seed` against an existing production database.**
+Normal AcadSyntra seeders are designed to be idempotent and preserve matching existing records. **Never use `migrate:fresh --seed` against an existing production database.**
 
 5. Start the application:
 
@@ -89,7 +90,7 @@ php artisan queue:restart
 
 ## Quality checks
 
-AcadFlow includes project-specific preflight checks:
+AcadSyntra includes project-specific preflight checks:
 
 ```bash
 php scripts/check-documentation.php
@@ -118,4 +119,4 @@ npm run build
 
 ## Documentation rule
 
-Every functional change to AcadFlow must update the relevant canonical documentation and `CHANGELOG.md` in the same change. New roles, feature flags, AI capabilities, or major modules are checked by `scripts/check-documentation.php` so they cannot quietly appear without documentation.
+Every functional change to AcadSyntra must update the relevant canonical documentation and `CHANGELOG.md` in the same change. New roles, feature flags, AI capabilities, or major modules are checked by `scripts/check-documentation.php` so they cannot quietly appear without documentation.

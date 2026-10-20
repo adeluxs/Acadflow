@@ -138,7 +138,7 @@ class ResearchProjectController extends Controller
             'supervisor_message' => ['nullable', 'string', 'max:1000'],
             'co_supervisor_id' => ['nullable', 'integer', 'different:supervisor_id', 'exists:users,id'],
             'expected_completion_date' => ['nullable', 'date', 'after_or_equal:today'],
-        ]);
+        ] + app(\App\Services\ResearchMethodologyService::class)->rules());
 
         $type = ResearchType::findOrFail($data['research_type_id']);
         abort_unless($type->university_id === null || $type->university_id === $user->university_id || $user->isSuperAdmin(), 403);
@@ -269,7 +269,7 @@ class ResearchProjectController extends Controller
         $writingGuidance = $writing->guidance($activeSection);
         $nextWritingAction = $writing->nextAction($research);
 
-        $citationStyle = strtolower((string) ($research->templateVersion?->citation_style ?? data_get($research->metadata, 'citation_style', 'apa')));
+        $citationStyle = strtolower((string) (data_get($research->metadata, 'citation_style', $research->templateVersion?->citation_style ?? 'apa')));
         $chapterTwoLiterature = collect();
         if ($literatureEnabled) {
             $linkedReferenceIds = $research->referenceLinks->pluck('academic_reference_id')->flip();
@@ -277,13 +277,13 @@ class ResearchProjectController extends Controller
                 ->where('created_by', auth()->id())
                 ->filter(fn ($note) => ($note->reading_status ?? 'saved') === 'reviewed' && $note->reference && $linkedReferenceIds->has($note->academic_reference_id))
                 ->values()
-                ->map(function ($note, int $index) use ($referenceService, $citationStyle): array {
+                ->map(function ($note, int $index) use ($referenceService, $citationStyle, $research): array {
                     $reference = $note->reference;
                     return [
                         'reference' => $reference,
                         'note' => $note,
                         'citation' => $referenceService->inText($reference, $citationStyle, $index + 1),
-                        'bibliography' => $referenceService->format($reference, $citationStyle, $index + 1),
+                        'bibliography' => $referenceService->formatForProject($reference, $research, $index + 1),
                     ];
                 });
         }

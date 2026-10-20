@@ -8,7 +8,7 @@ use App\Ai\Contracts\AiResponse;
  * xAI Grok adapter.
  *
  * xAI exposes an OpenAI-compatible Chat Completions endpoint. This adapter is
- * intentionally protocol-only and inherits AcadFlow's shared HTTP transport,
+ * intentionally protocol-only and inherits AcadSyntra's shared HTTP transport,
  * diagnostics, retries, TLS/proxy settings and normalized error handling from
  * ExternalProvider.
  */

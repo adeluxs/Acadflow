@@ -1,4 +1,4 @@
-AcadFlow route-cache/PHPUnit memory fix final validation
+AcadSyntra route-cache/PHPUnit memory fix final validation
 Date: 2026-09-14
 
 Project preflight/regression checks: 25/25 PASS

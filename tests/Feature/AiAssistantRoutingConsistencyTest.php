@@ -119,7 +119,7 @@ class AiAssistantRoutingConsistencyTest extends TestCase
     /** @return array{0:Course,1:User,2:User,3:Semester} */
     private function courseWithStudentAndLecturer(): array
     {
-        $university = University::query()->create(['name' => 'AcadFlow University', 'short_name' => 'AFU', 'code' => 'AFU', 'domain' => 'afu.test', 'is_active' => true]);
+        $university = University::query()->create(['name' => 'AcadSyntra University', 'short_name' => 'AFU', 'code' => 'AFU', 'domain' => 'afu.test', 'is_active' => true]);
         $faculty = Faculty::query()->create(['university_id' => $university->id, 'name' => 'Science', 'short_name' => 'SCI', 'code' => 'SCI', 'is_active' => true]);
         $department = Department::query()->create(['faculty_id' => $faculty->id, 'name' => 'Computer Science', 'short_name' => 'CSC', 'code' => 'CSC', 'is_active' => true]);
         $session = AcademicSession::query()->create(['university_id' => $university->id, 'name' => '2026/2027', 'start_date' => now(), 'end_date' => now()->addYear(), 'is_current' => true, 'is_active' => true]);

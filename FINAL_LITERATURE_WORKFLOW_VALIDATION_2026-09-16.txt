@@ -1,4 +1,4 @@
-AcadFlow Literature Review Workspace + Chapter Two Integration
+AcadSyntra Literature Review Workspace + Chapter Two Integration
 Validation date: 2026-09-16
 
 Preflight/regression scripts: 30/30 PASS

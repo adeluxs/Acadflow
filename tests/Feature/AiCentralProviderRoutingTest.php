@@ -278,7 +278,7 @@ class AiCentralProviderRoutingTest extends TestCase
         $this->assertSame(1000, $meta['limit_tokens']);
         $this->assertLessThan($meta['chars_before'], $meta['chars_after']);
         $this->assertLessThanOrEqual(4500, strlen($payload['_prompt']['user_prompt']));
-        $this->assertStringContainsString('context shortened by AcadFlow', $payload['_prompt']['user_prompt']);
+        $this->assertStringContainsString('context shortened by AcadSyntra', $payload['_prompt']['user_prompt']);
     }
 
     public function test_provider_mode_does_not_silently_fall_back_to_rule_engine(): void

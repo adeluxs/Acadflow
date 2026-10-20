@@ -1,7 +1,7 @@
-# AcadFlow — Four Critical Fixes Implementation Report
+# AcadSyntra — Four Critical Fixes Implementation Report
 
 **Release date:** 2026-09-10  
-**Base source:** `AcadFlow-progressive-institution-adoption-monetization-test-fixed-2026-09-03.zip`
+**Base source:** `AcadSyntra-progressive-institution-adoption-monetization-test-fixed-2026-09-03.zip`
 
 ## Scope completed
 
@@ -11,7 +11,7 @@ This release addresses the four reported areas: institution onboarding search, A
 
 ### Root cause
 
-The search route and backend service already existed, but `resources/views/institution/onboarding-request.blade.php` used Alpine directives (`x-data`, `x-model`, `@click`, etc.). AcadFlow's frontend bundle does not load Alpine, so the browser never initialized the search behavior. The backend search also relied on database collation behavior for `LIKE`, which was less predictable across database engines.
+The search route and backend service already existed, but `resources/views/institution/onboarding-request.blade.php` used Alpine directives (`x-data`, `x-model`, `@click`, etc.). AcadSyntra's frontend bundle does not load Alpine, so the browser never initialized the search behavior. The backend search also relied on database collation behavior for `LIKE`, which was less predictable across database engines.
 
 ### Fix
 
@@ -40,7 +40,7 @@ The logged `CurlFactory.php` location was not treated as defective vendor code. 
 
 This meant PHP could hit its execution ceiling while Guzzle/cURL happened to be running, even though another provider request had previously returned HTTP 200 successfully.
 
-A second observability problem made diagnosis harder: `ExternalProvider` generated a new UUID rather than inheriting AcadFlow's HTTP request correlation ID. Therefore provider logs and controller/safe-error logs could show different request IDs for one logical lifecycle.
+A second observability problem made diagnosis harder: `ExternalProvider` generated a new UUID rather than inheriting AcadSyntra's HTTP request correlation ID. Therefore provider logs and controller/safe-error logs could show different request IDs for one logical lifecycle.
 
 ### Fix
 
@@ -59,7 +59,7 @@ A second observability problem made diagnosis harder: `ExternalProvider` generat
   - `AI_RESPONSE_PARSE_FAILED`
 - Added friendly mappings for these errors and `AI_REQUEST_TIMEOUT`.
 - Cache read/write failure, usage-counter failure and analytics failure are non-critical and cannot discard a valid answer.
-- If provider output is valid but billing settlement fails afterward, AcadFlow preserves the answer, safely attempts reservation release and marks the response for billing reconciliation rather than turning it into `AI_REQUEST_FAILED`.
+- If provider output is valid but billing settlement fails afterward, AcadSyntra preserves the answer, safely attempts reservation release and marks the response for billing reconciliation rather than turning it into `AI_REQUEST_FAILED`.
 - `_ai_deadline_at` is excluded from AI cache fingerprints so the lifecycle deadline does not destroy cache hits.
 
 ### What happens after Gemini HTTP 200 now

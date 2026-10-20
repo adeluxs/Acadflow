@@ -20,11 +20,11 @@ use Throwable;
 
 /**
  * Synchronises the Nigerian higher-institution registry without replacing the
- * existing AcadFlow tenant/faculty/department/course data model.
+ * existing AcadSyntra tenant/faculty/department/course data model.
  *
  * Institution rows come from regulator-maintained registries where possible.
  * Faculty/department/course rows can then be imported from an exact CSV export.
- * When no exact institutional catalogue is available, AcadFlow can create a
+ * When no exact institutional catalogue is available, AcadSyntra can create a
  * clearly-marked starter template so lecturers/admins have a usable structure
  * that can be verified and edited instead of pretending generic rows are official.
  */
@@ -292,7 +292,7 @@ class NigeriaAcademicCatalogService
     private function http(): PendingRequest
     {
         return Http::accept('*/*')
-            ->withHeaders(['User-Agent' => 'AcadFlow Academic Catalog Sync/1.0'])
+            ->withHeaders(['User-Agent' => 'AcadSyntra Academic Catalog Sync/1.0'])
             ->timeout((int) config('academic_catalog.http_timeout', 20))
             ->retry(2, 500, throw: false);
     }

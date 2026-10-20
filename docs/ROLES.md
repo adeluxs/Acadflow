@@ -1,4 +1,4 @@
-# AcadFlow Roles and Permission Model
+# AcadSyntra Roles and Permission Model
 
 **Current source snapshot:** 2026-08-15  
 **User instructions:** `USER_GUIDE.md`

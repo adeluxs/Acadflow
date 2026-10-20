@@ -1,17 +1,25 @@
-# AcadFlow User Guide
+# AcadSyntra User Guide
+
+The platform is now named **AcadSyntra**. The new name and violet book/connection symbol appear on public pages, account screens, dashboards, notifications, emails and new exports. Your account, institution membership, coursework, research and payment history carry over. Existing authenticator-app labels and previously exported documents may retain their historical names; no keys or academic files are replaced as part of the name change. Installed PWA names/icons may require a browser refresh or app update before the device shows the new identity.
 
 **Audience:** students, lecturers, platform members, department administrators, university administrators, super administrators, supervisors, group leaders, creators and support staff  
 **Product snapshot:** 2026-08-20
 
-AcadFlow brings academic coursework, submissions, attendance, research, publishing, communities, AI assistance and university administration together in one platform. What you can see depends on your role, university/department/course membership, subscription/entitlement, and whether an administrator has enabled the feature.
+AcadSyntra brings academic coursework, submissions, attendance, research, publishing, communities, AI assistance and university administration together in one platform. What you can see depends on your role, university/department/course membership, subscription/entitlement, and whether an administrator has enabled the feature.
 
 ---
 
 ## 1. Before you start
 
+### Explore the public website
+
+Use **Features** to search capabilities by topic and **How it works** for registration, course learning, research and publishing journeys. **FAQs** and **Help center** have searchable, expandable answers. Product previews are illustrations with fictional content; the tools available to you still depend on your role, institution and enabled modules. The mobile Menu opens above the page and can be closed with its close button or Escape.
+
+Use **Contact us** for account help, institution enquiries or privacy/security questions. Complete the fields, acknowledge the Privacy Policy and keep the reference shown after submission. Do not include credentials, card details or confidential academic records. The form saves your enquiry in a restricted platform inbox; it does not sign you up for marketing or promise a response time. Super Administrators manage it under **Website enquiries**, with Open and Closed views. Closing a message retains it. Policy pages identify any operator-specific information still requiring confirmation.
+
 ### Supported account roles
 
-AcadFlow has six main account roles:
+AcadSyntra has six main account roles:
 
 | Role key | Display meaning | Typical purpose |
 |---|---|---|
@@ -31,7 +39,7 @@ Some responsibilities are not separate account roles:
 
 ### Availability can differ
 
-AcadFlow administrators can place features in:
+AcadSyntra administrators can place features in:
 
 - **Enabled** — normal use;
 - **Maintenance** — temporarily unavailable to normal users;
@@ -49,7 +57,7 @@ If self-registration is enabled, choose **Register**, provide the required accou
 
 ### Login
 
-Use your email/username and password. AcadFlow applies login rate limits and may require email verification or two-factor authentication before full access.
+Use your email/username and password. AcadSyntra applies login rate limits and may require email verification or two-factor authentication before full access.
 
 ### Forgot password
 
@@ -57,13 +65,15 @@ Use **Forgot password** on the login screen. Follow the reset link sent to your 
 
 ### Email verification
 
-If the account is not verified, AcadFlow can show the verification screen and allow another verification email to be requested.
+If the account is not verified, AcadSyntra can show the verification screen and allow another verification email to be requested.
 
 ### Two-factor authentication
 
 If 2FA is required/enabled, complete the challenge after login. You can manage 2FA and recovery codes from **Account Security**.
 
 ### Onboarding
+
+Choose a student, lecturer/supervisor, researcher, independent professional, author/publisher or other academic path. Existing account-role permissions still apply. Progress saves after each step and resumes when you return. The last step can open a first Research Studio or Final-Year Project Studio wizard after completing your profile; creation remains your explicit choice. Completed users continue through normal login without repeating setup. Research discipline, level and interests help personalise the workspace. If you use two-factor authentication, complete that challenge before onboarding.
 
 Before normal application routes are available, new accounts complete role-aware onboarding. Depending on your account, onboarding can collect institution, faculty/department, programme/academic level, research/topic interests, skills, notification preferences and other profile information. Some optional steps can be skipped.
 
@@ -102,7 +112,7 @@ Open **Courses** to view courses available to you. Depending on institutional se
 - view enrolled course details;
 - access assignments, materials, discussions and attendance for enrolled courses.
 
-Course access is not granted just because you know a course URL; AcadFlow checks active enrolment.
+Course access is not granted just because you know a course URL; AcadSyntra checks active enrolment.
 
 ### Lecturers
 
@@ -173,7 +183,7 @@ Open assignment
 → final result
 ```
 
-AcadFlow can keep submission versions, comments and extension information. Late submissions/resubmissions depend on academic settings and task rules.
+AcadSyntra can keep submission versions, comments and extension information. Late submissions/resubmissions depend on academic settings and task rules.
 
 ### Lecturer review workflow
 
@@ -219,7 +229,7 @@ It does not impersonate participants or invent a consensus that is not present i
 
 ## 10. Groups and collaboration
 
-AcadFlow groups support collaborative work beyond a single post/thread. Depending on permissions, users can create or join groups, invite/request members, manage tasks/resources and collaborate.
+AcadSyntra groups support collaborative work beyond a single post/thread. Depending on permissions, users can create or join groups, invite/request members, manage tasks/resources and collaborate.
 
 ### Group Leader
 
@@ -229,7 +239,19 @@ A group leader can manage the group according to group policy, membership rules 
 
 ## 11. Research Studio
 
-Research Studio is AcadFlow's focused workspace for planning, writing and managing a research project. It is designed to work for an independent student/researcher first; institution-specific controls appear only when an administrator enables **Research Institutional Expansion** and the user has an institution affiliation.
+Research Studio is AcadSyntra's focused workspace for planning, writing and managing a research project. It is designed to work for an independent student/researcher first; institution-specific controls appear only when an administrator enables **Research Institutional Expansion** and the user has an institution affiliation.
+
+### Create a methodology-specific project
+
+Choose **New research project** or **Final-Year Project Studio**. The setup wizard collects your level, discipline, working title, objectives, methodology, institution when relevant and reference style. Choose a methodology-based report, the common Nigerian five-chapter format or your administrator's template. Quantitative, qualitative, mixed, review, legal/humanities, engineering/software, clinical/laboratory, field and creative designs have appropriate planning guidance. Your existing projects keep their sections and data.
+
+Open **Plan & library** to create recoverable proposal, topic/gap, instrument, sampling, consent/ethics, analysis-plan, manuscript and defence worksheets. They start with prompts for you to complete. Add private documents or upload your institution's PDF/DOCX/TXT guideline, where permitted by administrator upload settings. Compare the extracted text with the original before confirming headings. Existing sections and writing are retained. Configure font, size, spacing, margins, citation instructions and an optional institutional bibliography pattern using saved reference fields, then export PDF, HTML or DOCX. Update the contents field in your word processor and check institutional formatting before submission.
+
+The rich editor saves automatically and shows whether the save succeeded. If another tab saved a newer version, your save pauses: copy your unsaved draft, reload and compare versions. Keep the tab open when offline. Open **Section version history** to restore an earlier version as a new snapshot. Locked sections require an authorised correction/amendment. Basic tables are supported.
+
+The sample-size planner records assumptions for estimating one proportion under simple random sampling; it is not a universal power calculator. With Dataset Management enabled, upload an anonymised CSV to compute descriptive summaries and a completeness chart. The analysis tool retains summaries and a checksum, not raw CSV rows. Use **Qualitative coding & themes** to connect real excerpts with source locators, code definitions, themes and interpretive memos. Saved resources can be inserted into an unlocked section. Archive superseded resources without deleting their history.
+
+Reporting-framework links lead to the complete official PRISMA, CONSORT/SPIRIT, STROBE, COREQ and SRQR guidance where relevant. Confirm applicability with a supervisor or journal. These tools never issue ethics approval, authenticate findings or replace human academic review. Advanced statistical modelling, meta-analysis, simulation and model training require appropriate external analytical tools; record their actual outputs as evidence in your project. See [the detailed research guide](RESEARCH_STUDIO.md) for limits and academic sources.
 
 ### Core workspace
 
@@ -263,7 +285,7 @@ If institutional expansion is disabled, normal users do not see the institutiona
 
 ### Literature discovery and Project Reference Library
 
-Open **Literature & references** from the research project. Enter a topic, research question or keywords, optionally filter by year and choose scholarly sources. AcadFlow can search configured scholarly indexes including OpenAlex, Crossref, Semantic Scholar, CORE, DOAJ, PubMed and arXiv.
+Open **Literature & references** from the research project. Enter a topic, research question or keywords, optionally filter by year and choose scholarly sources. AcadSyntra can search configured scholarly indexes including OpenAlex, Crossref, Semantic Scholar, CORE, DOAJ, PubMed and arXiv.
 
 Search results are scholarly metadata/abstract results. You can compare multiple papers, select several results and choose **Save selected papers**, or save one paper at a time. Duplicate results are reduced using DOI or normalized title/year matching.
 
@@ -279,11 +301,11 @@ A saved paper appears in the **Project Library**. For every saved reference you 
 
 These notes reopen with the previously saved content so the Project Library becomes a working literature-review evidence base rather than a bookmark list.
 
-**Open paper** follows the scholarly source or DOI link. AcadFlow does not bypass publisher subscriptions/paywalls and does not claim to store the full paper unless a lawful file has separately been added through an authorized workflow.
+**Open paper** follows the scholarly source or DOI link. AcadSyntra does not bypass publisher subscriptions/paywalls and does not claim to store the full paper unless a lawful file has separately been added through an authorized workflow.
 
 ### Research Assistant and sources
 
-The Research Assistant can use authorized project context and research evidence/notes available to AcadFlow. A search result or abstract is not the same as the full paper. Users should read the actual source when available, record evidence accurately, and avoid treating AI-generated explanations as a substitute for the publication.
+The Research Assistant can use authorized project context and research evidence/notes available to AcadSyntra. A search result or abstract is not the same as the full paper. Users should read the actual source when available, record evidence accurately, and avoid treating AI-generated explanations as a substitute for the publication.
 
 ### Researcher/student/member
 
@@ -331,7 +353,7 @@ The **Project Assistant** can help with structure critique, methodology reasonin
 
 ## 15. Knowledge Hub
 
-Knowledge Hub is AcadFlow's publishing and discovery ecosystem.
+Knowledge Hub is AcadSyntra's publishing and discovery ecosystem.
 
 Users may be able to:
 
@@ -377,7 +399,7 @@ your question
 → check that the question is meaningful
 → search the current publication's indexed content
 → check evidence relevance
-→ use the configured AcadFlow AI provider/rules
+→ use the configured AcadSyntra AI provider/rules
 → verify source citations
 → answer from the publication or say evidence is insufficient
 ```
@@ -416,7 +438,7 @@ Each feature is routed through the same central AI settings. An administrator ca
 
 ### Other contextual AI capabilities
 
-AcadFlow also has centrally registered AI capabilities for:
+AcadSyntra also has centrally registered AI capabilities for:
 
 ```text
 submission_validator
@@ -431,9 +453,16 @@ discussion_assistant
 knowledge_publication_validator
 knowledge_moderation
 knowledge_companion
+study_planner
+practice_generator
+flashcard_generator
+reflection_coach
+annotation_summary
 ```
 
 AI availability depends on AI Mode, feature-specific enablement, provider credentials and the central Feature Management state.
+
+Personal study tools use `study_planner` for study plans and deadline guidance, `practice_generator` for practice questions, `flashcard_generator` for flashcards, `reflection_coach` for study reflection assistance, and `annotation_summary` for material annotation summaries. They operate on content the account is authorized to access and remain subject to availability and AI settings.
 
 ---
 
@@ -502,9 +531,9 @@ Feature access depends on configured entitlements, usage pricing and institution
 
 ## 26. Marketplace, wallet, payouts and refunds
 
-When commerce is enabled, eligible Knowledge Hub/learning resources can be purchased. AcadFlow tracks orders/entitlements and can provide creator wallet/payout/refund workflows.
+When commerce is enabled, eligible Knowledge Hub/learning resources can be purchased. AcadSyntra tracks orders/entitlements and can provide creator wallet/payout/refund workflows.
 
-Never send money based on information outside the official AcadFlow payment/commerce screens. Payment callbacks/webhooks are processed by the server.
+Never send money based on information outside the official AcadSyntra payment/commerce screens. Payment callbacks/webhooks are processed by the server.
 
 If checkout times out or a balance has not updated, open Wallet → Payments awaiting confirmation or Orders → Check payment status before paying again. The server checks the payment reference, amount and currency. Repeated verification does not credit the same payment twice.
 
@@ -516,7 +545,7 @@ Super Admin gateway setup: select one environment, enter its secret key, select 
 
 ## 27. Documents, exports and reports
 
-Depending on your role and plan, AcadFlow can generate/download documents and academic exports such as reports, transcripts/grade reports or research PDFs/HTML.
+Depending on your role and plan, AcadSyntra can generate/download documents and academic exports such as reports, transcripts/grade reports or research PDFs/HTML.
 
 Administrators and lecturers can access reporting appropriate to their scope. Super Admin can access broader subscription analytics.
 
@@ -524,7 +553,7 @@ Administrators and lecturers can access reporting appropriate to their scope. Su
 
 ## 28. PWA / installable web app
 
-If the PWA feature is enabled and your browser supports it, AcadFlow may offer installation as an app-like web experience and service-worker/offline support. If an administrator disables PWA, the normal website remains available.
+If the PWA feature is enabled and your browser supports it, AcadSyntra may offer installation as an app-like web experience and service-worker/offline support. If an administrator disables PWA, the normal website remains available.
 
 ---
 
@@ -633,7 +662,7 @@ Your role, tenant, course membership, entitlement or policy does not permit the 
 
 ### Session expired
 
-Log in again. AcadFlow converts CSRF/session-expiration failures into a login redirect with an explanatory message for the web UI.
+Log in again. AcadSyntra converts CSRF/session-expiration failures into a login redirect with an explanatory message for the web UI.
 
 ### A file will not preview/download
 
@@ -641,7 +670,7 @@ The file may be unavailable, blocked by security scanning, expired-token protect
 
 ---
 
-## 35. Good AI usage in AcadFlow
+## 35. Good AI usage in AcadSyntra
 
 - Give a clear academic question instead of random text.
 - When using Grounded Companion, ask about the publication you are viewing.
@@ -711,16 +740,16 @@ Super Admins managing provider configuration can use **AI Settings → Test Conn
 
 ## AI provider connection diagnostics (updated 2026-08-18)
 
-When an administrator uses **AI Settings → Providers → Test Connection**, AcadFlow now records a safe request ID and diagnostic in `storage/logs/ai-provider.log`. Network failures, TLS problems, provider authentication/model errors and rate limits are shown separately. Provider request payloads are sent as explicit JSON. If an installation still contains a Gemini 1.5/2.0 model ID that Google has already retired, AcadFlow maps that retired ID to a supported replacement while leaving other administrator model choices unchanged.
+When an administrator uses **AI Settings → Providers → Test Connection**, AcadSyntra now records a safe request ID and diagnostic in `storage/logs/ai-provider.log`. Network failures, TLS problems, provider authentication/model errors and rate limits are shown separately. Provider request payloads are sent as explicit JSON. If an installation still contains a Gemini 1.5/2.0 model ID that Google has already retired, AcadSyntra maps that retired ID to a supported replacement while leaving other administrator model choices unchanged.
 
 
 ## 38. Grok (xAI) and faster interaction behavior — 2026-08-20
 
 Platform administrators can configure **Grok (xAI)** from **Admin → AI Settings → Providers** in the same way as the other supported providers. Configure or preserve the xAI API credential, choose an allowed Grok model, enable the provider, then use **Test Connection** before selecting it as Default Provider, Fallback Provider or a feature-specific provider.
 
-Grok does not create a separate assistant. Existing AcadFlow assistants continue to decide the academic feature/context first; the central AI router then selects Grok when the saved routing says to use it.
+Grok does not create a separate assistant. Existing AcadSyntra assistants continue to decide the academic feature/context first; the central AI router then selects Grok when the saved routing says to use it.
 
-AcadFlow now also gives faster feedback during ordinary navigation. A normal link should start loading on the first click, likely same-site pages may be prefetched conservatively, and accidental double submission of write forms is blocked. AI Fast Interactive Failover can move to the configured fallback provider sooner when an upstream provider is temporarily unreachable instead of repeatedly waiting on the same provider.
+AcadSyntra now also gives faster feedback during ordinary navigation. A normal link should start loading on the first click, likely same-site pages may be prefetched conservatively, and accidental double submission of write forms is blocked. AI Fast Interactive Failover can move to the configured fallback provider sooner when an upstream provider is temporarily unreachable instead of repeatedly waiting on the same provider.
 
 Actual AI generation time still depends on the selected external provider, model, network quality and size of the authorized academic context. The interface optimization reduces avoidable local delays; it does not fake an instant provider response.
 
@@ -729,7 +758,7 @@ Actual AI generation time still depends on the selected external provider, model
 
 ### Creating or resetting a password
 
-On registration and password-reset pages, AcadFlow now shows the password conditions that are **actually configured by the administrator**. The list updates immediately as you type, so you can see which conditions are complete and whether the confirmation matches.
+On registration and password-reset pages, AcadSyntra now shows the password conditions that are **actually configured by the administrator**. The list updates immediately as you type, so you can see which conditions are complete and whether the confirmation matches.
 
 A typical policy may look like:
 
@@ -742,11 +771,11 @@ Password requirements
 ○ Password confirmation matches
 ```
 
-Only rules that are genuinely enabled are shown. For example, if special characters are not required, AcadFlow does not tell you that they are required. The current platform does not separately require a lowercase letter unless the underlying policy is extended in a future release.
+Only rules that are genuinely enabled are shown. For example, if special characters are not required, AcadSyntra does not tell you that they are required. The current platform does not separately require a lowercase letter unless the underlying policy is extended in a future release.
 
 ### Login feedback
 
-A normal failed login still behaves normally, but when temporary failed-attempt protection is approaching its limit, AcadFlow can tell you how many attempts remain before lockout. When the account/email-and-IP combination is temporarily locked, the message tells you the real remaining wait time rather than displaying a generic error.
+A normal failed login still behaves normally, but when temporary failed-attempt protection is approaching its limit, AcadSyntra can tell you how many attempts remain before lockout. When the account/email-and-IP combination is temporarily locked, the message tells you the real remaining wait time rather than displaying a generic error.
 
 ### Too many requests
 
@@ -786,4 +815,4 @@ For browser notifications, Super Admin opens **Notification Management**, genera
 
 Users open **Notification Preferences**, choose **Enable this browser**, and approve the browser prompt. **Send test notification** checks the current enrollment; **Disable this browser** removes only that device. The push preference below controls delivery to all enrolled devices. Unchecking and saving a channel or notification type now disables it.
 
-Browser notifications require HTTPS, permission in the browser and permission in operating-system notification settings. On supported iPhone/iPad versions, install AcadFlow on the Home Screen first. A blocked permission must be changed in browser settings; the application cannot override it. Push can work while offline/PWA caching is disabled, but an internet connection is needed to receive delivery.
+Browser notifications require HTTPS, permission in the browser and permission in operating-system notification settings. On supported iPhone/iPad versions, install AcadSyntra on the Home Screen first. A blocked permission must be changed in browser settings; the application cannot override it. Push can work while offline/PWA caching is disabled, but an internet connection is needed to receive delivery.

@@ -1,4 +1,4 @@
-# AcadFlow — Grok (xAI) Provider & Performance Upgrade
+# AcadSyntra — Grok (xAI) Provider & Performance Upgrade
 
 **Date:** 2026-08-20
 
@@ -16,7 +16,7 @@ This release adds Grok/xAI through the existing centralized AI provider architec
 - Authentication: Bearer API key
 - Bootstrap environment: `XAI_API_KEY`, `XAI_BASE_URL`, `XAI_MODEL`, `XAI_TEMPERATURE`
 - Default bootstrap model: `grok-4.5`
-- Cost tracking defaults to zero unless current pricing is explicitly configured; AcadFlow does not invent cost data.
+- Cost tracking defaults to zero unless current pricing is explicitly configured; AcadSyntra does not invent cost data.
 
 Grok uses the existing `ExternalProvider` transport for JSON encoding, TLS/CA bundle, proxy, IPv4 options, timeouts, safe logs, request IDs and normalized failures. It is automatically included in Default/Fallback/Secondary Fallback and per-feature routing because the existing UI/controller iterate `AiProviderName`.
 

@@ -62,6 +62,12 @@ class ResearchWritingExperienceService
             ];
         }
 
+        $configured = app(ResearchMethodologyService::class)->guidance($section->project, $section->key);
+        if ($configured && ! empty($configured['guidance'])) {
+            return $this->pack('Methodology guidance', $section->title,
+                (string) data_get($section->project->metadata, 'research_setup.method.decision', 'Follow your institutional requirements.'),
+                $configured['guidance'], ['Review this section against my methodology and objectives.', 'Identify unsupported claims and missing evidence.']);
+        }
         $group = $this->sectionGroup($section);
 
         return match ($group) {

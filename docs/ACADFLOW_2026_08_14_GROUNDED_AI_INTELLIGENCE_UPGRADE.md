@@ -1,4 +1,4 @@
-# AcadFlow Grounded AI Companion Intelligence Upgrade
+# AcadSyntra Grounded AI Companion Intelligence Upgrade
 
 ## Purpose
 
@@ -22,7 +22,7 @@ Publication relevance/evidence gate
    ├─ unrelated / unsupported → reject
    ├─ not indexed → queue indexing job + ask user to retry
    ↓
-Existing AcadFlow AiManager
+Existing AcadSyntra AiManager
    ├─ rule based
    └─ configured external provider / hybrid
    ↓
@@ -95,7 +95,7 @@ Specific questions must have real evidence in the current publication. The gate 
 - local semantic similarity;
 - stricter coverage requirements for short/specific questions.
 
-If evidence is weak, AcadFlow replies that the publication does not support the question instead of generating a generic response.
+If evidence is weak, AcadSyntra replies that the publication does not support the question instead of generating a generic response.
 
 ## 5. No open web
 
@@ -131,7 +131,7 @@ and requires JSON fields:
 - `human_review_required`
 - optional `reason`
 
-If a provider decides the evidence cannot answer the question, AcadFlow accepts the abstention instead of forcing an answer.
+If a provider decides the evidence cannot answer the question, AcadSyntra accepts the abstention instead of forcing an answer.
 
 Institution-specific custom prompts are not overwritten by the migration.
 
@@ -147,7 +147,7 @@ A response is no longer accepted merely because it contains one `[S1]` marker.
 - unsupported URLs are not introduced;
 - the response does not claim to have searched the web or used outside publication knowledge.
 
-If validation fails, the fluent external-provider response is discarded and AcadFlow returns a directly source-backed extractive fallback.
+If validation fails, the fluent external-provider response is discarded and AcadSyntra returns a directly source-backed extractive fallback.
 
 ## 8. Adaptive pattern learning
 
@@ -155,7 +155,7 @@ The companion now has conservative **pattern learning**.
 
 This is not foundation-model training and it does not send previous user questions to the open web for training.
 
-For each publication, AcadFlow builds a cached pattern profile from previous successful grounded sessions. It learns signals such as:
+For each publication, AcadSyntra builds a cached pattern profile from previous successful grounded sessions. It learns signals such as:
 
 - common successful academic intents;
 - recurring valid topic terms;
@@ -364,7 +364,7 @@ This architecture is safer than asking a language model to decide everything its
 
 ### Legacy/custom prompt fail-safe
 
-`AiPromptService` now enforces the Grounded Companion contract even when an older or institution-specific custom prompt is active. If a `knowledge_companion` prompt omits `{{context_json}}`, AcadFlow appends the authorized publication context automatically. It also appends a non-negotiable grounding policy to the system prompt: publication context only, no open web/general model knowledge, abstain when unsupported, and cite substantive claims. This closes the grounding gap without deleting an institution's custom prompt history.
+`AiPromptService` now enforces the Grounded Companion contract even when an older or institution-specific custom prompt is active. If a `knowledge_companion` prompt omits `{{context_json}}`, AcadSyntra appends the authorized publication context automatically. It also appends a non-negotiable grounding policy to the system prompt: publication context only, no open web/general model knowledge, abstain when unsupported, and cite substantive claims. This closes the grounding gap without deleting an institution's custom prompt history.
 
 ### Production-safe settings migration
 

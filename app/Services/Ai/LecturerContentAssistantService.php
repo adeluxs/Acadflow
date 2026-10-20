@@ -129,7 +129,7 @@ class LecturerContentAssistantService
 
         return [
             'success' => (bool) $response->success,
-            'answer' => $answer !== '' ? $answer : ($response->success ? 'AcadFlow could not produce a usable draft.' : 'AI assistance is currently unavailable.'),
+            'answer' => $answer !== '' ? $answer : ($response->success ? 'AcadSyntra could not produce a usable draft.' : 'AI assistance is currently unavailable.'),
             'action' => $action,
             'feature' => self::FEATURE,
             'provider' => $response->provider ?: $response->source,
