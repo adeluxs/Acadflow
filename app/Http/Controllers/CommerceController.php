@@ -63,40 +63,70 @@ class CommerceController extends Controller
     public function callback(Request $request,Transaction $transaction,CommerceService $commerce): RedirectResponse
     {
         $this->assertTransactionAccess($request,$transaction);
-        $order=$commerce->verify($transaction);
+        try { $order=$commerce->verify($transaction); }
+        catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+            if (! in_array($exception->getStatusCode(), [422, 503], true)) throw $exception;
+            return redirect()->route('commerce.orders')->with('error', 'Payment is not yet confirmed. Check its status again before starting another payment.');
+        }
         return redirect()->route('commerce.orders')->with('success','Payment confirmed. Your access entitlement is active for order '.$order->order_number.'.');
     }
 
     public function walletFundingCallback(Request $request,Transaction $transaction,CommerceService $commerce): RedirectResponse
     {
         $this->assertTransactionAccess($request,$transaction);
-        $commerce->verifyWalletFunding($transaction);
+        try { $commerce->verifyWalletFunding($transaction); }
+        catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+            if (! in_array($exception->getStatusCode(), [422, 503], true)) throw $exception;
+            return redirect()->route('commerce.wallet')->with('error', 'Wallet funding is not yet confirmed. Check its status again before starting another payment.');
+        }
         return redirect()->route('commerce.wallet')->with('success','Wallet funding confirmed and your spending balance has been updated.');
     }
 
     public function webhook(Request $request,string $gateway,PaymentGatewayManager $gateways,CommerceService $commerce)
     {
-        $model=PaymentGateway::query()->where('code',$gateway)->where('is_active',true)->firstOrFail(); $adapter=$gateways->gateway($gateway); $payload=$request->all();
-        $signature=$request->header('X-Paystack-Signature')??$request->header('X-Webhook-Signature')??$request->header('X-Signature'); abort_unless($adapter->validateWebhook($payload,$signature),401,'Invalid webhook signature.');
-        $reference=(string)data_get($payload,'data.reference',''); $transaction=Transaction::query()->where('payment_gateway_id',$model->id)->where('gateway_transaction_id',$reference)->first();
-        if(!$transaction)return response()->json(['received'=>true,'matched'=>false]);
-        try{
-            if($transaction->type==='wallet_funding')$commerce->verifyWalletFunding($transaction); else $commerce->verify($transaction);
-        }catch(\Throwable $e){Log::warning('Commerce webhook verification deferred',['transaction_id'=>$transaction->id,'message'=>$e->getMessage()]);return response()->json(['received'=>true,'verified'=>false],202);}
-        return response()->json(['received'=>true,'verified'=>true]);
+        $model = PaymentGateway::query()->where('code', $gateway)->firstOrFail();
+        $adapter = $gateways->gateway($gateway);
+        abort_unless($adapter->validateWebhook($request->getContent(), $request->header('X-Paystack-Signature')), 403, 'Invalid webhook signature.');
+        $payload = $request->json()->all();
+        $event = $payload['event'] ?? '';
+        try {
+            if (is_string($event) && str_starts_with($event, 'refund.')) {
+                return response()->json(['received' => true, 'matched' => $commerce->handleRefundWebhook($model, $payload)]);
+            }
+            if ($event !== 'charge.success') return response()->json(['received' => true, 'ignored' => true]);
+            $reference = data_get($payload, 'data.reference');
+            if (! is_string($reference) || $reference === '') return response()->json(['received' => true, 'matched' => false]);
+            $transaction = Transaction::query()->where('payment_gateway_id', $model->id)->where('gateway_transaction_id', $reference)->first();
+            if ($transaction) {
+                if ($transaction->type === 'wallet_funding') $commerce->verifyWalletFunding($transaction);
+                elseif ($transaction->transactionable_type === CommerceOrder::class) $commerce->verify($transaction);
+                else return app(SubscriptionController::class)->webhook($request, $gateway);
+            } else {
+                $payment = \App\Models\Payment::query()->where('reference', $reference)->first();
+                $metadata = $payment ? (json_decode((string) $payment->notes, true) ?: []) : [];
+                if (! $payment || ($metadata['gateway'] ?? null) !== $gateway) return response()->json(['received' => true, 'matched' => false]);
+                app(\App\Services\PaymentService::class)->verifyGatewayPayment($payment);
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('Payment webhook settlement deferred', ['gateway_id' => $model->id, 'exception_class' => $exception::class]);
+            // No durable inbox exists here: request provider redelivery until settlement succeeds.
+            return response()->json(['received' => true, 'verified' => false], 503);
+        }
+        return response()->json(['received' => true, 'verified' => true]);
     }
 
     public function wallet(Request $request,WalletService $wallets): View
     {
         $wallet=$wallets->account($request->user()); $wallet->load(['entries'=>fn($q)=>$q->latest()->limit(100),'withdrawals.payoutAccount']); $accounts=$request->user()->payoutAccounts()->latest()->get();
         $allocations=\App\Models\CommerceRevenueAllocation::query()->with('orderItem.order')->where('beneficiary_user_id',$request->user()->id)->latest()->paginate(25);
-        $gateways=PaymentGateway::query()->where('is_active',true)->orderBy('sort_order')->get();
+        $gateways=app(PaymentGatewayManager::class)->getCheckoutGateways();
         $walletRules=[
             'minimum_funding'=>Money::fromMinor(Money::toMinor((string)SettingService::getGlobal('wallet_minimum_funding_amount','500'))),
             'minimum_withdrawal'=>Money::fromMinor(Money::toMinor((string)SettingService::getGlobal('minimum_withdrawal_amount','1000'))),
             'withdrawal_fee'=>(string)SettingService::getGlobal('withdrawal_fee_percentage','0'),
         ];
-        return view('commerce.wallet',compact('wallet','accounts','allocations','gateways','walletRules'));
+        $pendingFunding = \App\Models\WalletFundingRequest::query()->with('transaction')->where('user_id', $request->user()->id)->where('status', 'pending')->latest()->limit(20)->get();
+        return view('commerce.wallet',compact('wallet','accounts','allocations','gateways','walletRules','pendingFunding'));
     }
 
     public function fundWallet(Request $request,CommerceService $commerce): RedirectResponse

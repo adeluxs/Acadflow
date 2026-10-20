@@ -67,7 +67,9 @@ Feature status is centrally enforced for web/API. Admins can preview restricted 
 
 ## Webhooks/payments
 
-Payment/commerce webhooks are intentionally outside signed-in browser auth and use webhook verification middleware. Keep them CSRF-exempt only where verified by gateway signature logic.
+Payment/commerce webhooks are intentionally outside signed-in browser auth and use webhook verification middleware. Keep them CSRF-exempt only where verified by gateway signature logic. Paystack signatures are SHA-512 HMACs over the exact raw body using saved test/live secret keys; no separate webhook secret is used. Settlement independently checks the original transaction environment, reference, integer minor amount and currency through the provider API. An event alone never credits a wallet or grants access.
+
+Payment/refund POSTs have bounded timeouts and are never automatically retried. Unknown results retain their references for reconciliation. Provider refund acceptance does not confirm completion. Refund events trigger a read of the specific stored refund ID before any local reversal. Payment credentials are encrypted in text storage, hidden from model serialization and excluded from validation session flashes.
 
 ## Database/seeding safety
 

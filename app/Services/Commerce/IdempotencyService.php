@@ -16,6 +16,7 @@ class IdempotencyService
         return DB::transaction(function() use($operation,$key,$hash,$user,$callback){
             $row=MonetizationIdempotencyKey::query()->where('operation',$operation)->where('idempotency_key',$key)->lockForUpdate()->first();
             if($row){
+                abort_unless($row->user_id === $user?->id, 403, 'This idempotency key belongs to another account.');
                 if($row->request_hash && !hash_equals($row->request_hash,$hash)) throw ValidationException::withMessages(['idempotency_key'=>'This idempotency key was already used for a different request.']);
                 if($row->status==='completed') return $row->response;
                 if($row->status==='processing' && $row->updated_at?->gt(now()->subMinutes(5))) throw ValidationException::withMessages(['idempotency_key'=>'This request is already being processed.']);

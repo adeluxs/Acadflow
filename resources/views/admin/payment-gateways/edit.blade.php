@@ -21,6 +21,14 @@
         </div>
     @endif
 
+    @if($errors->any())
+        <div class="mb-6 rounded-lg bg-red-50 p-4 text-red-700" role="alert">{{ $errors->first() }}</div>
+    @endif
+    <div class="mb-6 rounded-lg bg-slate-50 p-4 text-sm">
+        <p>Save configuration before testing. Use this webhook URL in your Paystack dashboard for both test and live mode:</p>
+        <code class="break-all">{{ route('commerce.webhook', ['gateway' => $paymentGateway->code]) }}</code>
+        <p class="mt-2">Webhook signatures use the secret key for the selected environment.</p>
+    </div>
     <div class="bg-white rounded-lg shadow p-6">
         <form method="POST" action="{{ route('admin.payment-gateways.update', $paymentGateway) }}">
             @csrf
@@ -37,14 +45,6 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">Gateway Name</label>
                     <input type="text" value="{{ $paymentGateway->name }}" disabled 
                            class="w-full border-gray-200 bg-gray-50 rounded-lg shadow-sm">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Environment</label>
-                    <select name="is_test_mode" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="1" {{ $paymentGateway->is_test_mode ? 'selected' : '' }}>Test Mode (Sandbox)</option>
-                        <option value="0" {{ !$paymentGateway->is_test_mode ? 'selected' : '' }}>Live Mode (Production)</option>
-                    </select>
                 </div>
 
                 <div>
@@ -67,13 +67,6 @@
                 <h3 class="text-lg font-bold mb-4">API Credentials</h3>
                 <p class="text-sm text-gray-600 mb-4">These credentials are encrypted and stored securely.</p>
                 
-                @php
-                    $gatewayManager = app(\App\Services\PaymentGateway\PaymentGatewayManager::class);
-                    $gateway = $gatewayManager->gateway($paymentGateway->code);
-                    $configFields = $gateway->getConfigFields();
-                    $credentials = $paymentGateway->credentials ?? [];
-                @endphp
-
                 @foreach($configFields as $fieldKey => $field)
                     @if($field['type'] === 'password')
                         <div class="mb-4">
@@ -93,7 +86,7 @@
                             <select name="{{ $fieldKey }}" 
                                     class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                 @foreach($field['options'] as $value => $label)
-                                    <option value="{{ $value }}" {{ (old($fieldKey, $paymentGateway->settings[$fieldKey] ?? $field['default'] ?? null) == $value) ? 'selected' : '' }}>
+                                    <option value="{{ $value }}" {{ (old($fieldKey, ($fieldKey === 'environment' ? ($paymentGateway->is_test_mode ? 'test' : 'live') : ($paymentGateway->settings[$fieldKey] ?? $field['default'] ?? null))) == $value) ? 'selected' : '' }}>
                                         {{ $label }}
                                     </option>
                                 @endforeach
@@ -167,8 +160,9 @@ async function testGatewayConnection(gatewayId) {
     render('Testing gateway connection…');
 
     try {
-        const response = await fetch(`/admin/payment-gateways/${gatewayId}/test`, {
-            headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
+        const response = await fetch(@json(route('admin.payment-gateways.test-connection', $paymentGateway)), {
+            method: 'POST',
+            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok || data.status !== 'success') {

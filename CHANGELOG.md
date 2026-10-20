@@ -1,3 +1,15 @@
+## [Unreleased]
+
+### Fixed
+
+- Hardened Paystack wallet, marketplace and invoice payments: validate raw webhook signatures and exact successful references, amounts and currencies before granting value.
+- Fixed gateway credential saving, blank-secret preservation, test/live selection and the admin connection-test POST; credentials remain encrypted and are excluded from validation session flashes and model serialization.
+- Persist payment references before provider requests, serialize checkout creation, reuse pending checkout URLs and preserve uncertain outcomes without automatically repeating payment/refund POSTs.
+- Unified both payment webhook URLs across commerce, invoices and legacy payments; transient settlement failures request redelivery, while deactivated gateways can still settle earlier payments.
+- Added the missing authenticated invoice return route and payment-status links for pending wallet funding and marketplace orders.
+- Keep pending refunds reserved until provider processing is verified; prevent duplicate refunds, verify refund events against the stored provider refund ID, and expose administrator reconciliation controls.
+- Added a non-destructive migration for encrypted gateway credential storage and MySQL wallet-funding transaction types; added payment-flow regression tests and a gateway operations guide.
+
 ## 2026-09-17 — Lecturer material upload + Research Assistant delivery fix
 
 - Normalized material visibility/enrollment checkboxes before Laravel boolean validation so native browser values such as `on` no longer fail `boolean` rules.

@@ -122,3 +122,12 @@ subscription.feature:allow_api_access
 - Do not expose provider/payment credentials in responses.
 
 When adding/changing an endpoint, update this file, `DEVELOPER_GUIDE.md`, `USER_GUIDE.md` when user-visible, and `CHANGELOG.md`.
+
+
+## Payment verification and browser return
+
+`POST /api/v1/payments/initiate` accepts a payable `invoice_id`, optional configured active `gateway`, and optional `payment_method` (`card` or `bank_transfer`). It returns `payment_url` and `verification_reference`; repeating a pending checkout reuses its URL/reference. If the provider result is unknown, the payment remains pending and another initialize request is blocked until its status is checked. Manual bank-transfer references are verified by authorized administrators, not through the gateway verify endpoint.
+
+`POST /api/v1/payments/verify` accepts `reference`, enforces invoice ownership/tenant access, and verifies the stored gateway/environment, reference, amount and currency. Pending provider status returns 202; unavailable verification returns 503 when retryable; mismatches return 422. A verified payment can safely be checked again.
+
+`GET /billing/payment-return?reference=...` is an authenticated browser route for the payment owner. It performs server-side invoice verification and returns to the wallet with confirmation or a pending message. Public signature-verified `POST /commerce/webhook/{gateway}` and the compatibility URL `POST /webhook/payment/{gateway}` settle supported payment types even if the payer never returns to the browser. Non-payment event types are ignored; temporary settlement failures return 503 for provider redelivery.

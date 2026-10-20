@@ -26,7 +26,7 @@ class VerifyPaymentWebhook
         $signature = $request->header('X-Paystack-Signature')
             ?? $request->header('X-Webhook-Signature')
             ?? $request->header('X-Signature');
-        if (!$gateway->validateWebhook($request->all(), $signature)) {
+        if (!$gateway->validateWebhook($request->getContent(), $signature)) {
             return response()->json(['error' => 'Invalid signature'], 403);
         }
 

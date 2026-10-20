@@ -29,15 +29,22 @@ class SubscriptionController extends Controller
     public function paymentCallback(string $transactionUuid)
     {
         $transaction = Transaction::query()->where('uuid', $transactionUuid)->firstOrFail();
-        abort_unless($transaction->user_id === auth()->id() || auth()->user()?->isAdmin(), 403);
+        $actor = auth()->user();
+        if ($transaction->user_id !== $actor?->id) {
+            abort_unless($actor?->isAdmin(), 403);
+            abort_unless($actor->isSuperAdmin() || $transaction->user?->university_id === $actor->university_id, 403);
+        }
 
+        if ($transaction->status === 'completed' && ($transaction->metadata['legacy_entitlements_migrated'] ?? false)) {
+            return redirect()->route('commerce.wallet')->with('success', 'This payment is already verified.');
+        }
         $gateway = $this->paymentGatewayManager->gatewayForTransaction($transaction);
         $verification = $gateway->verifyPayment((string) $transaction->gateway_transaction_id);
 
         if (! $this->verifiedForTransaction($transaction, $verification)) {
             $gatewayStatus=strtolower((string)data_get($verification,'data.status','pending'));
             $definitive=in_array($gatewayStatus,['failed','abandoned','reversed','cancelled','canceled'],true);
-            $transaction->update([
+            Transaction::query()->whereKey($transaction->id)->where('status', '!=', 'completed')->update([
                 'status' => $definitive ? 'failed' : 'processing',
                 'gateway_status' => $gatewayStatus,
             ]);
@@ -61,12 +68,13 @@ class SubscriptionController extends Controller
             ?? $request->header('X-Webhook-Signature')
             ?? $request->header('X-Signature');
 
-        if (! $gateway->validateWebhook($request->all(), $signature)) {
+        if (! $gateway->validateWebhook($request->getContent(), $signature)) {
             return response()->json(['status' => 'error', 'message' => 'Invalid signature'], 401);
         }
 
         $reference = (string) $request->input('data.reference', '');
-        $transaction = Transaction::query()->where('gateway_transaction_id', $reference)->first();
+        $gatewayModel = \App\Models\PaymentGateway::query()->where('code', $gatewayCode)->firstOrFail();
+        $transaction = Transaction::query()->where('payment_gateway_id', $gatewayModel->id)->where('gateway_transaction_id', $reference)->first();
         if (! $transaction) return response()->json(['status' => 'received', 'matched' => false]);
 
         // This endpoint is retained only for historical subscription payments.
@@ -78,9 +86,10 @@ class SubscriptionController extends Controller
             return response()->json(['status' => 'received', 'matched' => false]);
         }
 
+        $gateway = $this->paymentGatewayManager->gatewayForTransaction($transaction);
         $verification = $gateway->verifyPayment($reference);
         if (! $this->verifiedForTransaction($transaction, $verification)) {
-            return response()->json(['status' => 'received', 'verified' => false], 202);
+            return response()->json(['status' => 'received', 'verified' => false], 503);
         }
 
         $this->settleLegacyPayment($transaction, $verification);
@@ -90,16 +99,8 @@ class SubscriptionController extends Controller
 
     private function verifiedForTransaction(Transaction $transaction, array $verification): bool
     {
-        if (! ($verification['status'] ?? false) || ! ($verification['paid'] ?? false)) return false;
-
-        $expectedMinor = $transaction->amount_minor !== null
-            ? (int) $transaction->amount_minor
-            : Money::toMinor((string) $transaction->amount);
-        $providerMinor = (int) data_get($verification, 'data.amount', -1);
-        $providerCurrency = strtoupper((string) data_get($verification, 'data.currency', ''));
-        $expectedCurrency = strtoupper((string) ($transaction->currency ?: 'NGN'));
-
-        return $providerMinor === $expectedMinor && $providerCurrency === $expectedCurrency;
+        $expectedMinor = $transaction->amount_minor !== null ? (int) $transaction->amount_minor : Money::toMinor((string) $transaction->amount);
+        return \App\Services\PaymentGateway\PaymentVerification::matches($verification, (string) $transaction->gateway_transaction_id, $expectedMinor, (string) ($transaction->currency ?: 'NGN'));
     }
 
     private function settleLegacyPayment(Transaction $transaction, array $verification): void

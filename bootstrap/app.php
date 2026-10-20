@@ -75,6 +75,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(TwoFactorMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->dontFlash(['secret_key_test', 'secret_key_live', 'webhook_secret']);
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             $headers = $e->getHeaders();
             $retryAfter = RetryAfter::secondsFromHeaders($headers);

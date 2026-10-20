@@ -64,22 +64,7 @@
                     <p class="text-xs text-gray-500 mt-1">Lower numbers appear first</p>
                 </div>
 
-                <div class="md:col-span-2">
-                    <label class="flex items-center">
-                        <input type="checkbox" name="is_active" value="1" checked class="h-4 w-4 text-indigo-600 rounded">
-                        <span class="ml-2 text-sm text-gray-700">Activate gateway immediately</span>
-                    </label>
-                </div>
-            </div>
-
-            <div class="mt-6 pt-6 border-t">
-                <h3 class="text-lg font-bold mb-4">Credentials</h3>
-                <p class="text-sm text-gray-600 mb-4">Enter your gateway credentials. These will be encrypted in the database.</p>
-                
-                <!-- Credentials will be populated dynamically based on gateway type -->
-                <div id="gateway-credentials-content">
-                    <p class="text-sm text-gray-500">Select a gateway type above to see configuration options.</p>
-                </div>
+                <p class="md:col-span-2 text-sm text-gray-600">The gateway starts inactive. Configure credentials and activate it on the next page.</p>
             </div>
 
             <div class="flex justify-end space-x-4 mt-6">

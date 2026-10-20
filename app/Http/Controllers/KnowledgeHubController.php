@@ -41,7 +41,7 @@ class KnowledgeHubController extends Controller
         $comments = $engagement->commentsFor($publication, 30);
         $reactionCounts = \App\Models\EngagementReaction::query()->where('reactable_type',$publication->getMorphClass())->where('reactable_id',$publication->id)->selectRaw('reaction, COUNT(*) as total')->groupBy('reaction')->pluck('total','reaction');
         $related = KnowledgePublication::query()->with(['creator','category'])->where('status','published')->where('id', '!=', $publication->id)->where(function($q)use($publication){$q->where('category_id',$publication->category_id)->orWhere('department_id',$publication->department_id);})->where(function($q)use($user){$q->where('visibility','public');if($user)$q->orWhere(fn($i)=>$i->where('visibility','institution')->where('university_id',$user->university_id));})->limit(6)->get();
-        $gateways = \App\Models\PaymentGateway::query()->where('is_active', true)->orderBy('sort_order')->get();
+        $gateways = app(\App\Services\PaymentGateway\PaymentGatewayManager::class)->getCheckoutGateways();
 
         return view('knowledge.show', compact('publication', 'bookmarked', 'following', 'hasAccess', 'comments', 'reactionCounts', 'related', 'gateways'));
     }

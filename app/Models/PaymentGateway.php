@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PaymentGateway extends Model
 {
+    protected $hidden = ['credentials'];
+
     protected $fillable = [
         'code',
         'name',

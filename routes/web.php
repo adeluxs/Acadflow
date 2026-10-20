@@ -127,7 +127,7 @@ Route::middleware(['auth', 'verified'])->prefix('onboarding')->name('onboarding.
 });
 
 // Payment gateway webhooks must be reachable without a signed-in browser session.
-Route::post('/webhook/payment/{gateway}', [SubscriptionController::class, 'webhook'])
+Route::post('/webhook/payment/{gateway}', [CommerceController::class, 'webhook'])
     ->middleware(['throttle:commerce-webhooks','webhook.verify'])
     ->name('webhook.payment');
 
@@ -337,6 +337,8 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     // Shared media security and secure delivery.
     Route::post('/media', [MediaController::class, 'store'])->name('media.store');
     Route::post('/media/{asset}/token', [MediaController::class, 'token'])->middleware('throttle:secure-downloads')->name('media.token');
+
+    Route::get('/billing/payment-return', [BillingController::class, 'paymentReturn'])->name('billing.payment-return');
 
     // Knowledge marketplace, entitlements, refunds and creator payouts.
     Route::get('/commerce/orders', [CommerceController::class, 'orders'])->name('commerce.orders');

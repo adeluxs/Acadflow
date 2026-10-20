@@ -20,6 +20,19 @@ use Illuminate\View\View;
 
 class BillingController extends Controller
 {
+    public function paymentReturn(Request $request, PaymentService $payments): RedirectResponse
+    {
+        $data = $request->validate(['reference' => ['required', 'string', 'max:100']]);
+        $payment = Payment::query()->where('reference', $data['reference'])->firstOrFail();
+        abort_unless($payment->user_id === $request->user()->id, 403);
+        try {
+            $payments->verifyGatewayPayment($payment);
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            return redirect()->route('commerce.wallet')->with('error', $exception->validator->errors()->first('payment'));
+        }
+        return redirect()->route('commerce.wallet')->with('success', 'Invoice payment confirmed.');
+    }
+
     public function myInvoices(Request $request): View
     {
         Gate::authorize('viewAny', Invoice::class);

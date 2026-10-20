@@ -29,6 +29,8 @@ interface GatewayInterface
      */
     public function refund(string $transactionId, ?int $amountMinor = null): array;
 
+    public function verifyRefund(string $refundId): array;
+
     /**
      * Get payment status
      */
@@ -37,7 +39,7 @@ interface GatewayInterface
     /**
      * Validate webhook
      */
-    public function validateWebhook(array $payload, ?string $signature = null): bool;
+    public function validateWebhook(string $payload, ?string $signature = null): bool;
 
     /**
      * Get configuration form fields
@@ -48,6 +50,8 @@ interface GatewayInterface
      * Set credentials
      */
     public function setCredentials(array $credentials): void;
+
+    public function setSettings(array $settings): void;
 
     /**
      * Check if gateway is configured

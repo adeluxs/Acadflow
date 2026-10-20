@@ -26,14 +26,28 @@ class PaystackGateway extends AbstractGateway
         return 'Paystack';
     }
 
+    public function getSupportedCurrencies(): array
+    {
+        return ['NGN', 'USD', 'GHS', 'ZAR', 'KES', 'XOF'];
+    }
+
     public function initializePayment(array $data): array
     {
-        $response = $this->client()
+        if (! $this->isConfigured()) return $this->failure('PAYMENT_GATEWAY_NOT_CONFIGURED', false);
+        $currency = strtoupper((string) ($data['currency'] ?? 'NGN'));
+        $amountMinor = isset($data['amount_minor']) ? (int) $data['amount_minor'] : \App\Support\Money::toMinor((string) $data['amount']);
+        if ($amountMinor <= 0 || ($currency === 'XOF' && $amountMinor % 100 !== 0)
+            || ! in_array($currency, $this->getSupportedCurrencies(), true)
+            || ! in_array($currency, $this->settings['supported_currencies'] ?? $this->getSupportedCurrencies(), true)) {
+            return $this->failure('PAYMENT_INVALID_AMOUNT_OR_CURRENCY', false);
+        }
+        try {
+            $response = $this->client()
             ->post($this->baseUrl . '/transaction/initialize', [
                 'email' => $data['email'],
                 'amount' => isset($data['amount_minor']) ? (int) $data['amount_minor'] : \App\Support\Money::toMinor((string) $data['amount']),
                 'reference' => $data['reference'],
-                'currency' => $data['currency'] ?? 'NGN',
+                'currency' => $currency,
                 'callback_url' => $data['callback_url'] ?? null,
                 'metadata' => $data['metadata'] ?? [
                     'user_id' => $data['user_id'] ?? null,
@@ -42,11 +56,13 @@ class PaystackGateway extends AbstractGateway
                 ],
                 'channels' => $data['channels'] ?? ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer']
             ]);
+        } catch (ConnectionException $exception) {
+            return $this->failure('PAYMENT_INITIALIZATION_OUTCOME_UNKNOWN', false, true);
+        }
 
         if ($response->failed()) {
             Log::error('Paystack initialization failed', [
-                'response' => $response->json(),
-                'request' => $data
+                'http_status' => $response->status(),
             ]);
             
             return [
@@ -55,11 +71,19 @@ class PaystackGateway extends AbstractGateway
                     ? 'The payment service is temporarily busy. Please try again shortly.'
                     : 'We could not start the payment right now. Please try again.',
                 'code' => $response->status() === 429 ? 'PAYMENT_GATEWAY_RATE_LIMITED' : 'PAYMENT_GATEWAY_REJECTED',
-                'retryable' => $response->status() === 429 || $response->serverError(),
+                'retryable' => false,
+                'outcome_unknown' => $response->serverError(),
             ];
         }
 
         $responseData = $response->json();
+        if (data_get($responseData, 'status') !== true
+            || data_get($responseData, 'data.reference') !== ($data['reference'] ?? null)
+            || ! is_string(data_get($responseData, 'data.access_code'))
+            || ! is_string(data_get($responseData, 'data.authorization_url'))
+            || ! str_starts_with(data_get($responseData, 'data.authorization_url', ''), 'https://checkout.paystack.com/')) {
+            return $this->failure('PAYMENT_INITIALIZATION_INVALID_RESPONSE', false, true);
+        }
 
         return [
             'status' => true,
@@ -71,13 +95,18 @@ class PaystackGateway extends AbstractGateway
 
     public function verifyPayment(string $reference): array
     {
-        $response = $this->client()
-            ->get($this->baseUrl . '/transaction/verify/' . $reference);
+        if (! $this->isConfigured() || $reference === '') return $this->failure('PAYMENT_GATEWAY_NOT_CONFIGURED', false);
+        try {
+            $response = $this->client()
+                ->get($this->baseUrl . '/transaction/verify/' . rawurlencode($reference));
+        } catch (ConnectionException $exception) {
+            return $this->failure('PAYMENT_VERIFICATION_UNAVAILABLE', true);
+        }
 
         if ($response->failed()) {
             Log::error('Paystack verification failed', [
                 'reference' => $reference,
-                'response' => $response->json(),
+                'http_status' => $response->status(),
             ]);
             
             return [
@@ -91,6 +120,14 @@ class PaystackGateway extends AbstractGateway
         }
 
         $responseData = $response->json();
+        if (data_get($responseData, 'status') !== true || ! is_array(data_get($responseData, 'data'))
+            || data_get($responseData, 'data.reference') !== $reference
+            || ! is_string(data_get($responseData, 'data.status'))
+            || ! is_int(data_get($responseData, 'data.amount'))
+            || data_get($responseData, 'data.amount') <= 0
+            || ! is_string(data_get($responseData, 'data.currency'))) {
+            return $this->failure('PAYMENT_VERIFICATION_INVALID_RESPONSE', true);
+        }
 
         return [
             'status' => true,
@@ -101,6 +138,9 @@ class PaystackGateway extends AbstractGateway
 
     public function refund(string $transactionId, ?int $amountMinor = null): array
     {
+        if (! $this->isConfigured() || $transactionId === '' || ($amountMinor !== null && $amountMinor <= 0)) {
+            return $this->failure('REFUND_INVALID_REQUEST', false);
+        }
         $payload = [
             'transaction' => $transactionId,
             'reason' => 'Refund requested',
@@ -118,7 +158,7 @@ class PaystackGateway extends AbstractGateway
         } catch (ConnectionException $exception) {
             Log::warning('Paystack refund outcome is unknown after a transport failure', [
                 'transactionId' => $transactionId,
-                'exception' => $exception->getMessage(),
+                'exception_class' => $exception::class,
             ]);
 
             return [
@@ -134,7 +174,6 @@ class PaystackGateway extends AbstractGateway
             Log::error('Paystack refund failed', [
                 'transactionId' => $transactionId,
                 'http_status' => $response->status(),
-                'response' => $response->json(),
             ]);
 
             return [
@@ -142,12 +181,14 @@ class PaystackGateway extends AbstractGateway
                 'message' => 'Paystack rejected the refund request. No local refund was posted.',
                 'code' => 'REFUND_REQUEST_FAILED',
                 'retryable' => false,
-                'outcome_unknown' => false,
-                'data' => $response->json(),
+                'outcome_unknown' => $response->serverError(),
             ];
         }
 
         $data = (array) ($response->json('data') ?? []);
+        if ($response->json('status') !== true || $data === []) {
+            return $this->failure('REFUND_INVALID_RESPONSE', false, true);
+        }
 
         return [
             'status' => true,
@@ -158,25 +199,36 @@ class PaystackGateway extends AbstractGateway
 
     public function getStatus(string $reference): string
     {
-        $response = $this->client()
-            ->get($this->baseUrl . '/transaction/verify/' . $reference);
-
-        if ($response->failed()) {
-            return 'failed';
-        }
-
-        return $response->json('data.status', 'failed');
+        $result = $this->verifyPayment($reference);
+        return ($result['status'] ?? false) ? $result['data']['status'] : 'unknown';
     }
 
-    public function validateWebhook(array $payload, ?string $signature = null): bool
+    public function verifyRefund(string $refundId): array
     {
-        if (empty($signature) || empty($this->getSecretKey())) {
-            return false;
+        if (! $this->isConfigured() || ! ctype_digit($refundId)) return $this->failure('REFUND_INVALID_REFERENCE', false);
+        try {
+            $response = $this->client()->get($this->baseUrl.'/refund/'.rawurlencode($refundId));
+        } catch (ConnectionException $exception) {
+            return $this->failure('REFUND_VERIFICATION_UNAVAILABLE', true);
         }
+        if (! $response->successful() || $response->json('status') !== true || ! is_array($response->json('data'))
+            || (string) $response->json('data.id') !== $refundId) {
+            return $this->failure('REFUND_VERIFICATION_INVALID_RESPONSE', true);
+        }
+        return ['status' => true, 'data' => $response->json('data')];
+    }
 
-        $computedSignature = hash_hmac('sha512', json_encode($payload), $this->getSecretKey());
-        
-        return hash_equals($computedSignature, $signature);
+    public function validateWebhook(string $payload, ?string $signature = null): bool
+    {
+        if (! is_string($signature) || ! preg_match('/^[a-f0-9]{128}$/', $signature)) return false;
+        // Outstanding payments keep their original environment after an admin
+        // switches modes. Settlement still verifies the saved reference/mode.
+        foreach (['test', 'live'] as $mode) {
+            $key = $this->credentials['secret_key_'.$mode] ?? '';
+            if (is_string($key) && str_starts_with($key, 'sk_'.$mode.'_')
+                && hash_equals(hash_hmac('sha512', $payload, $key), $signature)) return true;
+        }
+        return false;
     }
 
     public function getConfigFields(): array
@@ -216,12 +268,6 @@ class PaystackGateway extends AbstractGateway
                 'placeholder' => 'sk_live_XXXXXXXXXXXXXX',
                 'required' => false,
             ],
-            'webhook_secret' => [
-                'type' => 'password',
-                'label' => 'Webhook Secret',
-                'hint' => 'Found in Paystack dashboard under Settings → Webhooks',
-                'required' => false,
-            ],
             'supported_currencies' => [
                 'type' => 'multiselect',
                 'label' => 'Supported Currencies',
@@ -246,7 +292,7 @@ class PaystackGateway extends AbstractGateway
 
     public function getSecretKey(): string
     {
-        $isLive = $this->settings['environment'] ?? 'live';
+        $isLive = $this->settings['environment'] ?? 'test';
         $keyField = $isLive === 'live' ? 'secret_key_live' : 'secret_key_test';
         
         return $this->credentials[$keyField] ?? '';
@@ -254,9 +300,30 @@ class PaystackGateway extends AbstractGateway
 
     public function getPublicKey(): string
     {
-        $isLive = $this->settings['environment'] ?? 'live';
+        $isLive = $this->settings['environment'] ?? 'test';
         $keyField = $isLive === 'live' ? 'public_key_live' : 'public_key_test';
         
         return $this->credentials[$keyField] ?? '';
+    }
+
+    public function isConfigured(): bool
+    {
+        $mode = $this->settings['environment'] ?? 'test';
+        return in_array($mode, ['test', 'live'], true)
+            && str_starts_with($this->getSecretKey(), 'sk_'.$mode.'_')
+            && strlen($this->getSecretKey()) > strlen('sk_'.$mode.'_');
+    }
+
+    private function failure(string $code, bool $retryable, bool $unknown = false): array
+    {
+        return [
+            'status' => false,
+            'code' => $code,
+            'message' => $unknown
+                ? 'The payment provider returned no conclusive result. Check this payment before starting another attempt.'
+                : 'The payment service could not complete this request. Please check the configuration or try verification again shortly.',
+            'retryable' => $retryable,
+            'outcome_unknown' => $unknown,
+        ];
     }
 }

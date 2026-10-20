@@ -49,7 +49,7 @@
                             </span>
                         </td>
                         <td class="px-6 py-4">
-                            @if($gateway->credentials)
+                            @if($gateway->is_configured)
                                 <span class="text-green-600">✓ Configured</span>
                             @else
                                 <span class="text-red-600">✗ Not Configured</span>

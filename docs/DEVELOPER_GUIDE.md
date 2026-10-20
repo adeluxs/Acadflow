@@ -493,6 +493,13 @@ Institutional billing uses invoices/payments/subscriptions. Subscription plans c
 
 Do not mix payment webhook verification with normal browser authentication; webhook routes are deliberately separate.
 
+Payment hardening (2026-10-20): `PaymentVerification::matches` requires successful provider verification with the exact reference, integer amount in minor units, and currency. Both `/commerce/webhook/{gateway}` and `/webhook/payment/{gateway}` dispatch wallet, marketplace, invoice and historical subscription payments through signature-verified public routes. HMAC validation uses the original body bytes. Inconclusive settlement returns 503 for provider redelivery; duplicate confirmed settlements are idempotent. Deactivating a gateway prevents new checkout while retaining verification of earlier payments.
+
+Gateway configuration uses `is_test_mode` as the authoritative mode. New payments snapshot that environment so switching modes does not change which credentials verify an outstanding transaction. Credentials use the model's encrypted array cast, and the new migration widens their storage to text and the historical transaction type enum to a string (including `wallet_funding`). Blank passwords preserve saved keys. Secrets are excluded from model serialization and validation flashes.
+
+References are committed before external initialization. Marketplace/invoice preparation locks the order/invoice; funding idempotency prepares only local records and executes the provider POST after that transaction commits. Unknown outcomes remain pending for verification. Refund acceptance is distinct from completion: only a processed provider refund or an explicit authorized reconciliation permits local reversal. Refund webhook handling reads the stored API refund ID from Paystack before finalization. See [Payment gateway operations](PAYMENT_GATEWAYS.md) for setup, deployment and validation.
+
+
 ### Documents and exports
 
 Generated documents, templates, reports, transcripts/grade exports and research exports use the document/PDF services and secure download policies. Treat generated/exported data as tenant-sensitive.

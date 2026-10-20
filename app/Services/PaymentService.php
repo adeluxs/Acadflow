@@ -77,33 +77,42 @@ class PaymentService
         return $count;
     }
 
-    public function initiatePayment(Invoice $invoice, string $paymentMethod): Payment
+    public function initiatePayment(Invoice $invoice, string $paymentMethod, ?string $gatewayCode = null): Payment
     {
-        $existing=Payment::query()->where('invoice_id',$invoice->id)->where('payment_method',$paymentMethod)->where('status',PaymentStatus::PENDING->value)
-            ->where('created_at','>=',now()->subMinutes(30))->latest()->first();
-        if($existing) return $existing;
+        return DB::transaction(function () use ($invoice, $paymentMethod, $gatewayCode): Payment {
+            $invoice = Invoice::query()->whereKey($invoice->id)->lockForUpdate()->firstOrFail();
+            abort_unless(in_array($invoice->status, ['pending', 'overdue'], true), 422, 'This invoice is not payable.');
+            $existing=Payment::query()->where('invoice_id',$invoice->id)->where('status',PaymentStatus::PENDING->value)
+                ->whereNotNull('reference')->latest()->first();
+            if ($existing) {
+                $metadata = json_decode((string) $existing->notes, true) ?: [];
+                if (($metadata['gateway'] ?? null) === $gatewayCode) return $existing;
+                throw ValidationException::withMessages(['payment' => 'Another payment already awaits verification for this invoice.']);
+            }
 
-        $reference = $this->generatePaymentReference();
-        $amountMinor = $invoice->amount_minor !== null ? (int) $invoice->amount_minor : Money::toMinor((string) $invoice->amount);
-        $invoice->loadMissing('user');
-        $universityId = $invoice->user?->university_id;
-        $account = $universityId ? CommercialAccount::query()->where('university_id', $universityId)->first() : null;
-        $currency = strtoupper((string) ($invoice->currency ?: $account?->currency ?: SettingService::get('currency', 'NGN', $universityId)));
+            $reference = $this->generatePaymentReference();
+            $amountMinor = $invoice->amount_minor !== null ? (int) $invoice->amount_minor : Money::toMinor((string) $invoice->amount);
+            $invoice->loadMissing('user');
+            $universityId = $invoice->user?->university_id;
+            $account = $universityId ? CommercialAccount::query()->where('university_id', $universityId)->first() : null;
+            $currency = strtoupper((string) ($invoice->currency ?: $account?->currency ?: SettingService::get('currency', 'NGN', $universityId)));
 
-        return Payment::query()->create([
-            'invoice_id' => $invoice->id,
-            'user_id' => $invoice->user_id,
-            'amount_minor' => $amountMinor,
-            'amount' => Money::fromMinor($amountMinor),
-            'currency' => $currency,
-            'payment_method' => $paymentMethod,
-            'transaction_ref' => $this->generateTransactionRef(),
-            'reference' => $reference,
-            'status' => PaymentStatus::PENDING->value,
-        ]);
+            return Payment::query()->create([
+                'invoice_id' => $invoice->id,
+                'user_id' => $invoice->user_id,
+                'amount_minor' => $amountMinor,
+                'amount' => Money::fromMinor($amountMinor),
+                'currency' => $currency,
+                'payment_method' => $paymentMethod,
+                'transaction_ref' => $this->generateTransactionRef(),
+                'reference' => $reference,
+                'status' => PaymentStatus::PENDING->value,
+                'notes' => $gatewayCode ? json_encode(['gateway' => $gatewayCode, 'gateway_environment' => \App\Models\PaymentGateway::where('code', $gatewayCode)->value('is_test_mode') ? 'test' : 'live'], JSON_THROW_ON_ERROR) : null,
+            ]);
+        }, 3);
     }
 
-    public function verifyPayment(Payment $payment, User $verifiedBy): Payment
+    public function verifyPayment(Payment $payment, ?User $verifiedBy): Payment
     {
         return DB::transaction(function () use ($payment,$verifiedBy): Payment {
             $locked=Payment::query()->with('invoice.user')->whereKey($payment->id)->lockForUpdate()->firstOrFail();
@@ -111,6 +120,10 @@ class PaymentService
             $invoice=Invoice::query()->whereKey($locked->invoice_id)->lockForUpdate()->firstOrFail();
             $amountMinor=$locked->amount_minor!==null?(int)$locked->amount_minor:Money::toMinor((string)$locked->amount);
             if($amountMinor<=0) throw ValidationException::withMessages(['payment'=>'Verified payment amount must be greater than zero.']);
+            $invoiceMinor = $invoice->amount_minor !== null ? (int) $invoice->amount_minor : Money::toMinor((string) $invoice->amount);
+            if ($invoiceMinor !== $amountMinor || $invoice->status === InvoiceStatus::WAIVED->value) {
+                throw ValidationException::withMessages(['payment' => 'Payment does not match a payable invoice.']);
+            }
             $universityId=$locked->invoice?->user?->university_id;
             $account=$universityId?CommercialAccount::query()->where('university_id',$universityId)->first():null;
             $currency=strtoupper((string)($locked->currency ?: $invoice->currency ?: $account?->currency ?: SettingService::get('currency','NGN',$universityId)));
@@ -125,7 +138,7 @@ class PaymentService
                 'currency' => $currency,
                 'status' => PaymentStatus::VERIFIED->value,
                 'verified_at' => now(),
-                'verified_by' => $verifiedBy->id,
+                'verified_by' => $verifiedBy?->id,
             ]);
 
             $invoice->update([
@@ -140,7 +153,7 @@ class PaymentService
                 ['account_code'=>'institution_payment_clearing','direction'=>'debit','amount_minor'=>$amountMinor],
                 ['account_code'=>'institution_billing_payable:'.($universityId?:'unassigned'),'direction'=>'credit','amount_minor'=>$amountMinor],
             ],$locked->user,[
-                'payment_uuid'=>$locked->uuid,'invoice_uuid'=>$invoice->uuid,'university_id'=>$universityId,'verified_by'=>$verifiedBy->id,
+                'payment_uuid'=>$locked->uuid,'invoice_uuid'=>$invoice->uuid,'university_id'=>$universityId,'verified_by'=>$verifiedBy?->id,
             ]);
 
             return $locked->fresh(['invoice']);
@@ -152,7 +165,24 @@ class PaymentService
         $payment = Payment::query()->where('reference', $reference)->first();
         if (! $payment || $payment->status === PaymentStatus::VERIFIED->value) return $payment;
 
-        return $this->verifyPayment($payment, $payment->user);
+        return $this->verifyGatewayPayment($payment);
+    }
+
+    public function verifyGatewayPayment(Payment $payment): Payment
+    {
+        if ($payment->status === PaymentStatus::VERIFIED->value) return $payment;
+        $metadata = json_decode((string) $payment->notes, true) ?: [];
+        $code = $metadata['gateway'] ?? null;
+        if (! is_string($code) || $code === '') {
+            throw ValidationException::withMessages(['payment' => 'This payment requires administrator verification.']);
+        }
+        $verification = app(\App\Services\PaymentGateway\PaymentGatewayManager::class)->gateway($code, $metadata['gateway_environment'] ?? null)->verifyPayment((string) $payment->reference);
+        $amountMinor = $payment->amount_minor !== null ? (int) $payment->amount_minor : Money::toMinor((string) $payment->amount);
+        $currency = (string) ($payment->currency ?: $payment->invoice?->currency ?: 'NGN');
+        if (! \App\Services\PaymentGateway\PaymentVerification::matches($verification, (string) $payment->reference, $amountMinor, $currency)) {
+            throw ValidationException::withMessages(['payment' => 'Payment has not been confirmed with the expected reference, amount and currency. Check again shortly.']);
+        }
+        return $this->verifyPayment($payment, null);
     }
 
     public function canSubmit(User $user, Semester $semester): bool

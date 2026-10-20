@@ -494,9 +494,9 @@ Notification availability can include in-app, email and push depending on system
 
 Students/users can view eligible invoices, payments and subscriptions. Payment methods depend on gateways configured by administrators.
 
-Admins can manage invoices/verification/waivers within their scope. University Admins can generate semester invoices. Super Admins manage subscription plans and platform-level payment gateways.
+Admins can manage invoices/verification/waivers within their scope. University Admins can generate semester invoices. Super Admins manage platform-level payment gateways. New recurring subscription purchases are retired; earlier paid access is preserved as non-recurring entitlements.
 
-If your subscription does not include a feature, AcadFlow can block that feature even when the module itself is enabled.
+Feature access depends on configured entitlements, usage pricing and institution sponsorship. The browser return page checks invoice payments with the gateway before marking them paid.
 
 ---
 
@@ -505,6 +505,12 @@ If your subscription does not include a feature, AcadFlow can block that feature
 When commerce is enabled, eligible Knowledge Hub/learning resources can be purchased. AcadFlow tracks orders/entitlements and can provide creator wallet/payout/refund workflows.
 
 Never send money based on information outside the official AcadFlow payment/commerce screens. Payment callbacks/webhooks are processed by the server.
+
+If checkout times out or a balance has not updated, open Wallet → Payments awaiting confirmation or Orders → Check payment status before paying again. The server checks the payment reference, amount and currency. Repeated verification does not credit the same payment twice.
+
+Refunds remain processing while the provider completes them. Administrators can reconcile an uncertain or failed provider outcome from the order after checking the provider dashboard; a provider reference and evidence note are required to confirm an external refund. Processing refunds reserve their amount against further refund requests.
+
+Super Admin gateway setup: select one environment, enter its secret key, select the currencies enabled for the Paystack account, save, and use Test Connection. Blank secret fields keep existing keys. The configuration page displays the webhook URL to enter in the Paystack dashboard. New gateways remain inactive until credentials are configured. Deactivate gateways instead of deleting payment history.
 
 ---
 

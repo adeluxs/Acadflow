@@ -70,38 +70,54 @@ class CommerceService
 
     public function initialize(CommerceOrder $order, string $gatewayCode): array
     {
-        $order->loadMissing('transaction.paymentGateway');
-        if ($order->payment_status==='unpaid' && $order->status==='payment_pending' && $order->transaction?->status==='processing') {
-            $existingUrl=(string)($order->transaction->metadata['authorization_url']??'');
-            $existingGateway=$order->transaction->paymentGateway?->code;
-            if ($existingUrl!=='' && $existingGateway===$gatewayCode) {
-                return ['order'=>$order,'transaction'=>$order->transaction,'authorization_url'=>$existingUrl];
+        $gatewayModel = PaymentGateway::query()->where('code', $gatewayCode)->where('is_active', true)->firstOrFail();
+        $gateway = $this->gateways->gateway($gatewayCode);
+        abort_unless($gateway->isConfigured(), 503, 'The selected payment gateway is not configured.');
+        $preparation = DB::transaction(function () use ($order, $gatewayCode, $gatewayModel): array {
+            $locked = CommerceOrder::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $locked->load('transaction.paymentGateway');
+            if ($locked->status === 'payment_pending') {
+                $existing = $locked->transaction;
+                $url = $existing?->metadata['authorization_url'] ?? null;
+                if ($existing?->paymentGateway?->code === $gatewayCode && $url) {
+                    return ['order' => $locked, 'transaction' => $existing, 'authorization_url' => $url];
+                }
+                abort(409, 'This payment is already being initialized or awaits verification. Check its status before paying again.');
             }
-        }
-        abort_unless($order->payment_status==='unpaid' && $order->status==='pending',422,'This order cannot be paid.');
-        $gatewayModel=PaymentGateway::query()->where('code',$gatewayCode)->where('is_active',true)->firstOrFail();
-        $gateway=$this->gateways->gateway($gatewayCode);
-        abort_unless($gateway->isConfigured(),503,'The selected payment gateway is not configured.');
-        $amountMinor=$this->orderMinor($order);
-
-        $transaction=Transaction::create([
-            'uuid'=>(string)Str::uuid(),'user_id'=>$order->buyer_id,'payment_gateway_id'=>$gatewayModel->id,'transactionable_type'=>$order->getMorphClass(),'transactionable_id'=>$order->id,
-            'amount'=>Money::fromMinor($amountMinor),'amount_minor'=>$amountMinor,'currency'=>$order->currency,'type'=>'payment','status'=>'pending','gateway_transaction_id'=>'AFC-'.strtoupper(Str::random(18)),
-            'metadata'=>['order_number'=>$order->order_number,'payment_source'=>'gateway'],
-        ]);
-        $order->update(['transaction_id'=>$transaction->id,'status'=>'payment_pending']);
+            abort_unless($locked->payment_status === 'unpaid' && in_array($locked->status, ['pending', 'payment_failed'], true), 422, 'This order cannot be paid.');
+            $amountMinor = $this->orderMinor($locked);
+            $transaction = Transaction::create([
+                'uuid' => (string) Str::uuid(), 'user_id' => $locked->buyer_id, 'payment_gateway_id' => $gatewayModel->id,
+                'transactionable_type' => $locked->getMorphClass(), 'transactionable_id' => $locked->id,
+                'amount' => Money::fromMinor($amountMinor), 'amount_minor' => $amountMinor, 'currency' => $locked->currency,
+                'type' => 'payment', 'status' => 'pending', 'gateway_transaction_id' => 'AFC-'.strtoupper(Str::random(18)),
+                'metadata' => ['order_number' => $locked->order_number, 'payment_source' => 'gateway', 'gateway_environment' => $gatewayModel->is_test_mode ? 'test' : 'live'],
+            ]);
+            $locked->update(['transaction_id' => $transaction->id, 'status' => 'payment_pending']);
+            return ['order' => $locked, 'transaction' => $transaction];
+        }, 3);
+        if (isset($preparation['authorization_url'])) return $preparation;
+        $order = $preparation['order'];
+        $transaction = $preparation['transaction'];
+        $amountMinor = (int) $transaction->amount_minor;
 
         $result=$gateway->initializePayment([
             'email'=>$order->buyer->email,'amount_minor'=>$amountMinor,'amount'=>Money::fromMinor($amountMinor),'reference'=>$transaction->gateway_transaction_id,'currency'=>$order->currency,
             'callback_url'=>route('commerce.callback',$transaction),'user_id'=>$order->buyer_id,'order_id'=>$order->id,'type'=>'knowledge_marketplace',
             'metadata'=>['order_uuid'=>$order->uuid,'transaction_uuid'=>$transaction->uuid],
         ]);
-        if(!($result['status']??false)){
-            $transaction->update(['status'=>'failed','gateway_status'=>'initialization_failed','notes'=>$result['message']??'Gateway initialization failed.']);
-            $order->update(['status'=>'payment_failed']);
-            throw ValidationException::withMessages(['payment'=>$result['message']??'Payment initialization failed.']);
-        }
-        $transaction->update(['status'=>'processing','gateway_status'=>'initialized','metadata'=>array_merge($transaction->metadata??[],['access_code'=>$result['access_code']??null,'authorization_url'=>$result['authorization_url']??null])]);
+        DB::transaction(function () use ($transaction, $order, $result): void {
+            $locked = Transaction::query()->whereKey($transaction->id)->lockForUpdate()->firstOrFail();
+            if (! in_array($locked->status, ['pending', 'processing'], true)) return;
+            if (! ($result['status'] ?? false)) {
+                $unknown = (bool) ($result['outcome_unknown'] ?? false);
+                $locked->update(['status' => $unknown ? 'processing' : 'failed', 'gateway_status' => $unknown ? 'initialization_unknown' : 'initialization_failed']);
+                CommerceOrder::query()->whereKey($order->id)->where('transaction_id', $locked->id)->where('payment_status', 'unpaid')->update(['status' => $unknown ? 'payment_pending' : 'payment_failed']);
+                return;
+            }
+            $locked->update(['status' => 'processing', 'gateway_status' => 'initialized', 'metadata' => array_merge($locked->metadata ?? [], ['access_code' => $result['access_code'] ?? null, 'authorization_url' => $result['authorization_url']])]);
+        }, 3);
+        if (! ($result['status'] ?? false)) throw ValidationException::withMessages(['payment' => $result['message'] ?? 'Payment initialization failed.']);
         return ['order'=>$order->fresh(),'transaction'=>$transaction->fresh(),'authorization_url'=>$result['authorization_url']??null];
     }
 
@@ -135,13 +151,11 @@ class CommerceService
         abort_unless($transaction->type==='payment' && $transaction->transactionable instanceof CommerceOrder,422);
         if($transaction->status==='completed') return $transaction->transactionable->fresh('items');
         abort_unless($transaction->paymentGateway,422,'This transaction does not use an external gateway.');
-        $gateway=$this->gateways->gateway($transaction->paymentGateway->code);
+        $gateway=$this->gateways->gatewayForTransaction($transaction);
         $result=$gateway->verifyPayment((string)$transaction->gateway_transaction_id);
         abort_unless(($result['status']??false)&&($result['paid']??false),422,'Payment has not been confirmed by the gateway.');
         $data=$result['data']??[];
-        $paidMinor=isset($data['amount'])?(int)$data['amount']:(int)$transaction->amount_minor;
-        abort_unless($paidMinor===(int)$transaction->amount_minor,422,'Gateway amount does not match the order total.');
-        abort_unless(strtoupper((string)($data['currency']??$transaction->currency))===strtoupper($transaction->currency),422,'Gateway currency does not match the order.');
+        abort_unless(\App\Services\PaymentGateway\PaymentVerification::matches($result, (string) $transaction->gateway_transaction_id, (int) $transaction->amount_minor, $transaction->currency),422,'Gateway confirmation does not match the reference, amount and currency.');
         return $this->complete($transaction,$data);
     }
 
@@ -151,6 +165,8 @@ class CommerceService
             $transaction=Transaction::query()->whereKey($transaction->id)->lockForUpdate()->firstOrFail();
             $order=CommerceOrder::query()->whereKey($transaction->transactionable_id)->lockForUpdate()->firstOrFail();
             if($transaction->status==='completed') return $order->fresh(['items.entitlements','transaction']);
+            abort_if($order->payment_status !== 'unpaid', 409, 'This order already has a settled payment. Reconciliation is required.');
+            abort_unless($order->transaction_id === $transaction->id, 409, 'This payment is no longer the active order payment. Reconciliation is required.');
             $paymentSource=(string)($transaction->metadata['payment_source']??'gateway');
             if($paymentSource!=='wallet'){
                 $amountMinor=$this->orderMinor($order);
@@ -183,20 +199,44 @@ class CommerceService
         $wallet=$this->wallets->account($user,$currency);
         abort_unless(strtoupper((string)$wallet->currency)===$currency,422,'Your wallet currency does not match the institution commercial currency.');
 
-        return $this->idempotency->execute('wallet.fund',$idempotencyKey,['amount_minor'=>$amountMinor,'gateway'=>$gatewayCode],$user,function() use($user,$amountMinor,$gatewayModel,$gateway,$wallet,$idempotencyKey){
-            $funding=WalletFundingRequest::create(['user_id'=>$user->id,'wallet_account_id'=>$wallet->id,'amount_minor'=>$amountMinor,'currency'=>$wallet->currency,'status'=>'pending','idempotency_key'=>$idempotencyKey]);
-            $transaction=Transaction::create([
-                'uuid'=>(string)Str::uuid(),'user_id'=>$user->id,'payment_gateway_id'=>$gatewayModel->id,'transactionable_type'=>$funding->getMorphClass(),'transactionable_id'=>$funding->id,
-                'amount'=>Money::fromMinor($amountMinor),'amount_minor'=>$amountMinor,'currency'=>$wallet->currency,'type'=>'wallet_funding','status'=>'pending','gateway_transaction_id'=>'AFW-'.strtoupper(Str::random(18)),
-                'metadata'=>['payment_source'=>'gateway','wallet_funding_uuid'=>$funding->uuid],
+        $created = false;
+        $preparation = $this->idempotency->execute('wallet.fund', $idempotencyKey, ['amount_minor' => $amountMinor, 'gateway' => $gatewayCode], $user, function () use ($user, $amountMinor, $gatewayModel, $wallet, $idempotencyKey, &$created) {
+            $created = true;
+            $funding = WalletFundingRequest::create(['user_id' => $user->id, 'wallet_account_id' => $wallet->id, 'amount_minor' => $amountMinor, 'currency' => $wallet->currency, 'status' => 'pending', 'idempotency_key' => $idempotencyKey]);
+            $transaction = Transaction::create([
+                'uuid' => (string) Str::uuid(), 'user_id' => $user->id, 'payment_gateway_id' => $gatewayModel->id,
+                'transactionable_type' => $funding->getMorphClass(), 'transactionable_id' => $funding->id,
+                'amount' => Money::fromMinor($amountMinor), 'amount_minor' => $amountMinor, 'currency' => $wallet->currency,
+                'type' => 'wallet_funding', 'status' => 'pending', 'gateway_transaction_id' => 'AFW-'.strtoupper(Str::random(18)),
+                'metadata' => ['payment_source' => 'gateway', 'wallet_funding_uuid' => $funding->uuid, 'gateway_environment' => $gatewayModel->is_test_mode ? 'test' : 'live'],
             ]);
-            $funding->update(['transaction_id'=>$transaction->id,'gateway_reference'=>$transaction->gateway_transaction_id]);
-            $result=$gateway->initializePayment(['email'=>$user->email,'amount_minor'=>$amountMinor,'amount'=>Money::fromMinor($amountMinor),'reference'=>$transaction->gateway_transaction_id,'currency'=>$wallet->currency,
-                'callback_url'=>route('commerce.wallet.callback',$transaction),'user_id'=>$user->id,'type'=>'wallet_funding','metadata'=>['funding_uuid'=>$funding->uuid,'transaction_uuid'=>$transaction->uuid]]);
-            if(!($result['status']??false)){ $transaction->update(['status'=>'failed','gateway_status'=>'initialization_failed']); $funding->update(['status'=>'failed']); throw ValidationException::withMessages(['payment'=>$result['message']??'Wallet funding could not be started.']); }
-            $transaction->update(['status'=>'processing','gateway_status'=>'initialized']);
-            return ['funding_uuid'=>$funding->uuid,'transaction_uuid'=>$transaction->uuid,'authorization_url'=>$result['authorization_url']??null];
+            $funding->update(['transaction_id' => $transaction->id, 'gateway_reference' => $transaction->gateway_transaction_id]);
+            return ['funding_uuid' => $funding->uuid, 'transaction_uuid' => $transaction->uuid];
         });
+        $transaction = Transaction::query()->where('uuid', $preparation['transaction_uuid'])->where('user_id', $user->id)->firstOrFail();
+        $funding = $transaction->transactionable;
+        if (! $created) {
+            $url = $transaction->metadata['authorization_url'] ?? null;
+            if ($url && $transaction->status === 'processing') return $preparation + ['authorization_url' => $url];
+            throw ValidationException::withMessages(['payment' => 'This funding attempt already exists. Check its status before starting another payment.']);
+        }
+        // Persist the reference before the external POST; a timeout must not roll it back.
+        $result = $gateway->initializePayment([
+            'email' => $user->email, 'amount_minor' => $amountMinor, 'reference' => $transaction->gateway_transaction_id, 'currency' => $wallet->currency,
+            'callback_url' => route('commerce.wallet.callback', $transaction), 'user_id' => $user->id, 'type' => 'wallet_funding',
+            'metadata' => ['funding_uuid' => $funding->uuid, 'transaction_uuid' => $transaction->uuid],
+        ]);
+        if (! ($result['status'] ?? false)) {
+            $unknown = (bool) ($result['outcome_unknown'] ?? false);
+            Transaction::query()->whereKey($transaction->id)->whereIn('status', ['pending', 'processing'])->update(['status' => $unknown ? 'processing' : 'failed', 'gateway_status' => $unknown ? 'initialization_unknown' : 'initialization_failed']);
+            WalletFundingRequest::query()->whereKey($funding->id)->where('status', '!=', 'completed')->update(['status' => $unknown ? 'pending' : 'failed']);
+            throw ValidationException::withMessages(['payment' => $result['message'] ?? 'Wallet funding could not be started.']);
+        }
+        Transaction::query()->whereKey($transaction->id)->whereIn('status', ['pending', 'processing'])->update([
+            'status' => 'processing', 'gateway_status' => 'initialized',
+            'metadata' => json_encode(array_merge($transaction->metadata ?? [], ['authorization_url' => $result['authorization_url'], 'access_code' => $result['access_code'] ?? null]), JSON_THROW_ON_ERROR),
+        ]);
+        return $preparation + ['authorization_url' => $result['authorization_url']];
     }
 
     public function verifyWalletFunding(Transaction $transaction): WalletFundingRequest
@@ -206,13 +246,11 @@ class CommerceService
         $funding=$transaction->transactionable;
         if($funding->status==='completed') return $funding->fresh();
         abort_unless($transaction->paymentGateway,422,'This wallet funding transaction does not have a payment gateway.');
-        $gateway=$this->gateways->gateway($transaction->paymentGateway->code);
+        $gateway=$this->gateways->gatewayForTransaction($transaction);
         $result=$gateway->verifyPayment((string)$transaction->gateway_transaction_id);
         abort_unless(($result['status']??false)&&($result['paid']??false),422,'Wallet funding has not been confirmed by the gateway.');
         $data=$result['data']??[];
-        $paidMinor=isset($data['amount'])?(int)$data['amount']:(int)$transaction->amount_minor;
-        abort_unless($paidMinor===(int)$funding->amount_minor,422,'Gateway amount does not match the wallet funding request.');
-        abort_unless(strtoupper((string)($data['currency']??$funding->currency))===strtoupper($funding->currency),422,'Gateway currency does not match the wallet funding request.');
+        abort_unless(\App\Services\PaymentGateway\PaymentVerification::matches($result, (string) $transaction->gateway_transaction_id, (int) $funding->amount_minor, $funding->currency),422,'Gateway confirmation does not match the wallet funding reference, amount and currency.');
 
         return DB::transaction(function() use($transaction,$funding,$data){
             $locked=WalletFundingRequest::query()->whereKey($funding->id)->lockForUpdate()->firstOrFail();
@@ -243,25 +281,23 @@ class CommerceService
             throw ValidationException::withMessages(['amount' => 'Refund amount must be greater than zero.']);
         }
 
-        // Requested and processing refunds reserve their amount so concurrent requests
-        // cannot over-refund the order while an administrator/provider operation is pending.
-        $alreadyReserved = (int) $order->refunds()
-            ->whereIn('status', ['requested', 'processing', 'completed'])
-            ->sum('amount_minor');
-        abort_unless($alreadyReserved + $amountMinor <= $this->orderMinor($order), 422, 'Refund amount exceeds the unrefunded order balance.');
-
         $result = $this->idempotency->execute(
             'commerce.refund_request',
             $idempotencyKey,
             ['order_uuid' => $order->uuid, 'amount_minor' => $amountMinor],
             $requester,
-            fn () => $order->refunds()->create([
+            function () use ($order, $requester, $amountMinor, $reason) {
+                $order = CommerceOrder::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+                $reserved = (int) $order->refunds()->whereIn('status', ['requested', 'processing', 'completed'])->sum('amount_minor');
+                abort_unless($reserved + $amountMinor <= $this->orderMinor($order), 422, 'Refund amount exceeds the unrefunded order balance.');
+                return $order->refunds()->create([
                 'requested_by' => $requester->id,
                 'amount' => Money::fromMinor($amountMinor),
                 'amount_minor' => $amountMinor,
                 'reason' => $reason,
                 'status' => 'requested',
-            ])
+                ]);
+            }
         );
 
         if ($result instanceof CommerceRefund) return $result;
@@ -314,9 +350,11 @@ class CommerceService
 
             // A confirmed provider response means the external side already succeeded;
             // resume only the local ledger/order finalization.
-            if ($locked->provider_confirmed_at || $locked->gateway_refund_id || $locked->provider_status === 'internal_confirmed') {
+            if ($locked->provider_confirmed_at || $locked->provider_status === 'internal_confirmed') {
                 return ['action' => 'finalize', 'refund_id' => $locked->id];
             }
+
+            if ($locked->gateway_refund_id && ! $locked->reconciliation_required) return ['action' => 'in_progress', 'refund_id' => $locked->id];
 
             if ($locked->reconciliation_required) {
                 return ['action' => 'reconcile', 'refund_id' => $locked->id];
@@ -364,7 +402,7 @@ class CommerceService
             } else {
                 $transaction = $refund->order?->transaction;
                 abort_unless($transaction?->paymentGateway, 422, 'The original gateway transaction is unavailable.');
-                $gateway = $this->gateways->gateway($transaction->paymentGateway->code);
+                $gateway = $this->gateways->gatewayForTransaction($transaction);
                 try {
                     $result = $gateway->refund((string) $transaction->gateway_transaction_id, (int) $refund->amount_minor);
                 } catch (\Throwable $exception) {
@@ -421,25 +459,80 @@ class CommerceService
                     ]);
                 }
 
-                DB::transaction(function () use ($refund, $providerData, $providerRefundId): void {
+                $stored = DB::transaction(function () use ($refund, $providerData, $providerRefundId): bool {
                     $locked = CommerceRefund::query()->whereKey($refund->id)->lockForUpdate()->firstOrFail();
-                    if ($locked->provider_confirmed_at) return;
+                    if ($locked->provider_confirmed_at) return true;
                     if(CommerceRefund::query()->where('gateway_refund_id',$providerRefundId)->where('id','!=',$locked->id)->exists()){
                         $locked->update(['provider_status'=>'duplicate_provider_reference','provider_payload'=>$providerData,'reconciliation_required'=>true]);
-                        throw ValidationException::withMessages(['refund'=>'The provider returned a refund reference already linked to another refund. Reconciliation is required before local settlement.']);
+                        return false;
                     }
+                    $confirmed = ($providerData['status'] ?? null) === 'processed' && ($providerData['amount'] ?? null) === (int) $locked->amount_minor && strtoupper((string) ($providerData['currency'] ?? '')) === strtoupper($locked->order->currency);
                     $locked->update([
                         'gateway_refund_id' => $providerRefundId,
                         'provider_status' => (string) ($providerData['status'] ?? 'accepted'),
                         'provider_payload' => $providerData,
-                        'provider_confirmed_at' => now(),
-                        'reconciliation_required' => false,
+                        'provider_confirmed_at' => $confirmed ? now() : null,
+                        'reconciliation_required' => in_array($providerData['status'] ?? '', ['failed', 'needs-attention', 'processed'], true) && ! $confirmed,
                     ]);
+                    return true;
                 }, 3);
+                if (! $stored) throw ValidationException::withMessages(['refund' => 'The provider refund reference is already linked to another refund. Reconciliation is required.']);
             }
         }
 
+        if (! $refund->fresh()->provider_confirmed_at) return $refund->fresh();
         return $this->finalizeRefundLocally($refund->fresh(), $actor, $note);
+    }
+
+    public function handleRefundWebhook(PaymentGateway $gateway, array $payload): bool
+    {
+        $data = $payload['data'] ?? [];
+        $reference = $data['transaction_reference'] ?? data_get($data, 'transaction.reference');
+        $amount = $data['amount'] ?? null;
+        if (! is_string($reference) || ! is_scalar($amount) || ! ctype_digit((string) $amount)) return false;
+        $transaction = Transaction::query()->where('payment_gateway_id', $gateway->id)->where('gateway_transaction_id', $reference)->first();
+        if (! $transaction || $transaction->transactionable_type !== CommerceOrder::class) return false;
+        $order = $transaction->transactionable;
+        if (strtoupper((string) ($data['currency'] ?? '')) !== strtoupper($order->currency)) return false;
+        $candidates = $order->refunds()->where('amount_minor', (int) $amount)->where('status', 'processing');
+        $refundId = $data['id'] ?? $data['refund_id'] ?? $data['refund_reference'] ?? null;
+        $refund = $refundId !== null ? (clone $candidates)->where('gateway_refund_id', (string) $refundId)->first() : null;
+        // Some Paystack refund events contain a processor reference instead of the
+        // API refund id. Only correlate by transaction/amount when it is unambiguous.
+        if (! $refund) {
+            $matches = $candidates->limit(2)->get();
+            if ($matches->count() !== 1) {
+                if ($matches->isNotEmpty()) $candidates->update(['reconciliation_required' => true, 'provider_status' => 'ambiguous_event']);
+                return false;
+            }
+            $refund = $matches->first();
+        }
+        $event = $payload['event'] ?? '';
+        if (! in_array($event, ['refund.processed', 'refund.failed', 'refund.pending', 'refund.processing', 'refund.needs-attention'], true)) return false;
+        // Read the specific stored API refund id. Event references can differ
+        // from that id, and an old event must never settle a newer partial refund.
+        $verification = $this->gateways->gatewayForTransaction($transaction)->verifyRefund((string) $refund->gateway_refund_id);
+        abort_unless(($verification['status'] ?? false) === true, 503, 'Refund verification is temporarily unavailable.');
+        $confirmed = $verification['data'];
+        abort_unless(is_int($confirmed['amount'] ?? null) && $confirmed['amount'] === (int) $refund->amount_minor
+            && strtoupper((string) ($confirmed['currency'] ?? '')) === strtoupper($order->currency), 409, 'Refund provider confirmation does not match.');
+        $providerStatus = (string) ($confirmed['status'] ?? 'pending');
+        DB::transaction(function () use ($refund, $confirmed, $providerStatus): void {
+            $locked = CommerceRefund::query()->whereKey($refund->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status === 'completed' || $locked->provider_confirmed_at) return;
+            $locked->update([
+                'provider_status' => $providerStatus,
+                'provider_payload' => $confirmed,
+                'provider_confirmed_at' => $providerStatus === 'processed' ? now() : null,
+                'reconciliation_required' => in_array($providerStatus, ['failed', 'needs-attention'], true),
+            ]);
+        }, 3);
+        if ($refund->fresh()->provider_confirmed_at) {
+            $actor = $refund->processor;
+            abort_unless($actor, 409, 'The refund decision requires reconciliation.');
+            $this->finalizeRefundLocally($refund->fresh(), $actor, null);
+        }
+        return true;
     }
 
     /**

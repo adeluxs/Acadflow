@@ -278,7 +278,7 @@ class KnowledgeEcosystemController extends Controller
         $path->load(['creator','items.item']);
         $enrollment=$request->user()?$path->enrollments()->with('progressRecords')->where('user_id',$request->user()->id)->first():null;
         $hasAccess=$path->access_type!=='premium'||($request->user()&&($path->creator_id===$request->user()->id||$request->user()->isAdmin()||$request->user()->hasEntitlement($path)));
-        $gateways=\App\Models\PaymentGateway::query()->where('is_active',true)->orderBy('sort_order')->get();
+        $gateways=app(\App\Services\PaymentGateway\PaymentGatewayManager::class)->getCheckoutGateways();
         return view('knowledge.learning.show',compact('path','enrollment','hasAccess','gateways'));
     }
 

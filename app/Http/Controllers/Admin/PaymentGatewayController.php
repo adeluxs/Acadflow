@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use App\Support\Errors\UserFacingError;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PaymentGatewayController extends Controller
 {
@@ -25,6 +27,9 @@ class PaymentGatewayController extends Controller
     public function index()
     {
         $gateways = PaymentGateway::orderBy('sort_order')->get();
+        foreach ($gateways as $gateway) {
+            $gateway->setAttribute('is_configured', in_array($gateway->code, $this->gatewayManager->registeredCodes(), true) && $this->gatewayManager->gateway($gateway->code)->isConfigured());
+        }
         
         return view('admin.payment-gateways.index', compact('gateways'));
     }
@@ -48,7 +53,7 @@ class PaymentGatewayController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'code' => 'required|string|unique:payment_gateways,code',
+            'code' => ['required', 'string', 'unique:payment_gateways,code', Rule::in($this->gatewayManager->registeredCodes())],
             'name' => 'required|string',
             'description' => 'nullable|string',
             'is_active' => 'boolean',
@@ -56,6 +61,8 @@ class PaymentGatewayController extends Controller
             'sort_order' => 'integer',
         ]);
 
+        $validated['is_active'] = false; // Activate only after credentials are configured.
+        $validated['is_test_mode'] = $request->boolean('is_test_mode', true);
         $gateway = PaymentGateway::create($validated);
 
         return redirect()->route('admin.payment-gateways.edit', $gateway)
@@ -70,17 +77,7 @@ class PaymentGatewayController extends Controller
         $gateway = $this->gatewayManager->gateway($paymentGateway->code);
         $configFields = $gateway->getConfigFields();
         
-        // Decrypt credentials for display
         $credentials = $paymentGateway->credentials ?? [];
-        foreach ($credentials as $key => $value) {
-            if (is_string($value) && str_contains($key, 'secret')) {
-                try {
-                    $credentials[$key] = Crypt::decryptString($value);
-                } catch (\Exception $e) {
-                    // Keep as is
-                }
-            }
-        }
 
         return view('admin.payment-gateways.edit', compact('paymentGateway', 'configFields', 'credentials'));
     }
@@ -93,66 +90,41 @@ class PaymentGatewayController extends Controller
         $gateway = $this->gatewayManager->gateway($paymentGateway->code);
         $configFields = $gateway->getConfigFields();
 
-        // Build validation rules from config fields
         $rules = [
-            'is_active' => 'boolean',
-            'is_test_mode' => 'boolean',
-            'sort_order' => 'integer',
+            'is_active' => ['sometimes', 'boolean'],
+            'environment' => ['required', Rule::in(['test', 'live'])],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'supported_currencies' => ['required', 'array', 'min:1'],
+            'supported_currencies.*' => ['string', 'distinct', Rule::in($gateway->getSupportedCurrencies())],
         ];
-
-        foreach ($configFields as $fieldKey => $field) {
-            if ($field['required'] ?? false) {
-                $rules[$fieldKey] = 'required';
-            }
-            
-            if ($field['type'] === 'password') {
-                $rules[$fieldKey] = ($rules[$fieldKey] ?? '') . '|nullable';
-                // Only require if filling for first time
-                if (empty($paymentGateway->credentials[$fieldKey] ?? null)) {
-                    $rules[$fieldKey] = ($rules[$fieldKey] ?? '') . '|required';
-                }
+        foreach ($configFields as $key => $field) {
+            if (in_array($field['type'], ['text', 'password'], true)) {
+                $rules[$key] = ['nullable', 'string', 'max:255'];
             }
         }
-
         $validated = $request->validate($rules);
-
-        // Encrypt sensitive credentials
-        $credentials = [];
-        foreach ($configFields as $fieldKey => $field) {
-            if (isset($validated[$fieldKey])) {
-                if ($field['type'] === 'password' && $validated[$fieldKey]) {
-                    $credentials[$fieldKey] = Crypt::encryptString($validated[$fieldKey]);
-                } else {
-                    $credentials[$fieldKey] = $validated[$fieldKey];
-                }
+        $credentials = $paymentGateway->credentials ?? [];
+        foreach ($configFields as $key => $field) {
+            if (in_array($field['type'], ['text', 'password'], true) && $request->filled($key)) {
+                // The model encrypts the entire credential array at rest.
+                $credentials[$key] = $validated[$key];
             }
         }
-
-        // Merge with existing credentials
-        $existingCredentials = $paymentGateway->credentials ?? [];
-        foreach ($configFields as $fieldKey => $field) {
-            if ($field['type'] === 'password' && !isset($validated[$fieldKey])) {
-                // Keep existing value if not provided
-                if (isset($existingCredentials[$fieldKey])) {
-                    $credentials[$fieldKey] = $existingCredentials[$fieldKey];
-                }
-            }
+        $mode = $validated['environment'];
+        $secret = $credentials['secret_key_'.$mode] ?? '';
+        try { $secret = Crypt::decryptString($secret); } catch (\Illuminate\Contracts\Encryption\DecryptException $exception) {}
+        if ($request->boolean('is_active') && (! str_starts_with($secret, 'sk_'.$mode.'_') || strlen($secret) <= strlen('sk_'.$mode.'_'))) {
+            throw ValidationException::withMessages(['secret_key_'.$mode => 'Enter a valid '.$mode.' secret key before activating this gateway.']);
         }
-
-        $settings = [];
-        if (isset($validated['environment'])) {
-            $settings['environment'] = $validated['environment'];
-        }
-        if (isset($validated['supported_currencies'])) {
-            $settings['supported_currencies'] = $validated['supported_currencies'];
-        }
-
         $paymentGateway->update([
-            'is_active' => $validated['is_active'] ?? false,
-            'is_test_mode' => $validated['is_test_mode'] ?? true,
-            'sort_order' => $validated['sort_order'] ?? 0,
+            'is_active' => $request->boolean('is_active'),
+            'is_test_mode' => $mode === 'test',
+            'sort_order' => $validated['sort_order'] ?? $paymentGateway->sort_order,
             'credentials' => $credentials,
-            'settings' => $settings,
+            'settings' => array_merge($paymentGateway->settings ?? [], [
+                'environment' => $mode,
+                'supported_currencies' => $validated['supported_currencies'],
+            ]),
         ]);
 
         return redirect()->route('admin.payment-gateways.index')
@@ -166,6 +138,10 @@ class PaymentGatewayController extends Controller
     {
         if ($paymentGateway->is_active) {
             return back()->with('error', 'Cannot delete active payment gateway. Please deactivate it first.');
+        }
+
+        if ($paymentGateway->transactions()->exists() || \App\Models\Payment::query()->whereNotNull('reference')->exists()) {
+            return back()->with('error', 'Gateway payment history must be preserved. Keep this gateway deactivated.');
         }
 
         $paymentGateway->delete();
@@ -198,7 +174,7 @@ class PaymentGatewayController extends Controller
                     ->timeout((int) config('services.paystack.timeout', 20))
                     ->get('https://api.paystack.co/integration/payment_session_timeout');
 
-                if ($response->successful()) {
+                if ($response->successful() && $response->json('status') === true) {
                     return response()->json([
                         'status' => 'success',
                         'success' => true,

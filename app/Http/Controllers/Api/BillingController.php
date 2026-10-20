@@ -85,15 +85,16 @@ class BillingController extends Controller
         }
 
         $metadata = json_decode((string) $payment->notes, true) ?: [];
-        $gatewayCode = (string) ($metadata['gateway'] ?? $this->gateways->getDefaultGateway());
-        $verification = $this->gateways->gateway($gatewayCode)->verifyPayment($payment->reference);
+        abort_unless(! empty($metadata['gateway']), 422, 'This payment requires administrator verification.');
+        $gatewayCode = (string) $metadata['gateway'];
+        $verification = $this->gateways->gateway($gatewayCode, $metadata['gateway_environment'] ?? null)->verifyPayment($payment->reference);
 
         if (! ($verification['status'] ?? false)) {
             $retryable = (bool) ($verification['retryable'] ?? false);
-            $payment->update([
+            Payment::query()->whereKey($payment->id)->where('status', '!=', 'verified')->update([
                 // A temporary gateway/network failure does not prove that a
                 // payment failed. Keep the record pending until it can be checked.
-                'status' => $retryable ? 'pending' : 'failed',
+                'status' => 'pending',
                 'notes' => json_encode(array_merge($metadata, [
                     'last_verification' => now()->toIso8601String(),
                     'verification_code' => $verification['code'] ?? 'PAYMENT_VERIFICATION_FAILED',
@@ -114,7 +115,7 @@ class BillingController extends Controller
         if (! ($verification['paid'] ?? false)) {
             $gatewayStatus = strtolower((string) data_get($verification, 'data.status', 'pending'));
             $definitivelyFailed = in_array($gatewayStatus, ['failed', 'abandoned', 'reversed', 'cancelled', 'canceled'], true);
-            $payment->update([
+            Payment::query()->whereKey($payment->id)->where('status', '!=', 'verified')->update([
                 'status' => $definitivelyFailed ? 'failed' : 'pending',
                 'notes' => json_encode(array_merge($metadata, [
                     'last_verification' => now()->toIso8601String(),
@@ -136,12 +137,10 @@ class BillingController extends Controller
         }
 
         $expectedMinor = $payment->amount_minor !== null ? (int) $payment->amount_minor : Money::toMinor((string) $payment->amount);
-        $providerMinor = (int) data_get($verification, 'data.amount', -1);
-        $providerCurrency = strtoupper((string) data_get($verification, 'data.currency', ''));
         $universityId=$payment->invoice?->user?->university_id;
         $commercial=$universityId?\App\Models\CommercialAccount::query()->where('university_id',$universityId)->first():null;
         $expectedCurrency = strtoupper((string) ($payment->currency ?: $payment->invoice?->currency ?: $commercial?->currency ?: SettingService::get('currency', 'NGN', $universityId)));
-        if ($providerMinor !== $expectedMinor || $providerCurrency !== $expectedCurrency) {
+        if (! \App\Services\PaymentGateway\PaymentVerification::matches($verification, (string) $payment->reference, $expectedMinor, $expectedCurrency)) {
             return response()->json([
                 'status' => false,
                 'success' => false,
@@ -171,25 +170,33 @@ class BillingController extends Controller
 
         $invoice = Invoice::with('user')->findOrFail($validated['invoice_id']);
         $this->assertInvoiceAccess($request, $invoice);
-        abort_if($invoice->status === 'paid', 422, 'This invoice has already been paid.');
+        abort_unless(in_array($invoice->status, ['pending', 'overdue'], true), 422, 'This invoice is not payable.');
 
         $gatewayCode = (string) ($validated['gateway'] ?? $this->gateways->getDefaultGateway());
-        $payment = $this->payments->initiatePayment($invoice, (string) ($validated['payment_method'] ?? 'card'));
+        abort_unless(PaymentGateway::query()->where('code', $gatewayCode)->where('is_active', true)->exists(), 422, 'The selected payment gateway is unavailable.');
+        $gateway = $this->gateways->gateway($gatewayCode);
+        abort_unless($gateway->isConfigured(), 503, 'The selected payment gateway is not configured.');
+        $payment = $this->payments->initiatePayment($invoice, (string) ($validated['payment_method'] ?? 'card'), $gatewayCode);
         $existingMetadata=json_decode((string)$payment->notes,true)?:[];
         if(($existingMetadata['gateway']??null)===$gatewayCode && !empty($existingMetadata['authorization_url'])){
-            return response()->json(['message'=>'Existing pending payment resumed.','payment'=>$payment,'authorization_url'=>$existingMetadata['authorization_url']]);
+            return response()->json(['message'=>'Existing pending payment resumed.','payment'=>$payment,'payment_url'=>$existingMetadata['authorization_url'],'authorization_url'=>$existingMetadata['authorization_url'],'verification_reference'=>$payment->reference]);
         }
-        $payment->update([
-            'notes' => json_encode(array_merge($existingMetadata,['gateway' => $gatewayCode]), JSON_THROW_ON_ERROR),
-        ]);
+        DB::transaction(function () use ($payment, $gatewayCode): void {
+            $locked = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
+            $metadata = json_decode((string) $locked->notes, true) ?: [];
+            abort_if(isset($metadata['initialization_started_at']), 409, 'This payment already awaits verification. Check its status before starting another attempt.');
+            $locked->update(['notes' => json_encode(array_merge($metadata, ['gateway' => $gatewayCode, 'initialization_started_at' => now()->toIso8601String()]), JSON_THROW_ON_ERROR)]);
+        }, 3);
+        $payment->refresh();
+        $existingMetadata = json_decode((string) $payment->notes, true) ?: [];
 
-        $result = $this->gateways->gateway($gatewayCode)->initializePayment([
+        $result = $gateway->initializePayment([
             'email' => $invoice->user?->email ?: $request->user()->email,
             'amount' => Money::fromMinor($payment->amount_minor !== null ? (int) $payment->amount_minor : Money::toMinor((string) $payment->amount)),
             'amount_minor' => $payment->amount_minor !== null ? (int) $payment->amount_minor : Money::toMinor((string) $payment->amount),
             'reference' => $payment->reference,
             'currency' => strtoupper((string) ($payment->currency ?: $invoice->currency ?: SettingService::get('currency', 'NGN', $request->user()->university_id))),
-            'callback_url' => url('/billing/payment-return?reference='.$payment->reference),
+            'callback_url' => route('billing.payment-return', ['reference' => $payment->reference]),
             'user_id' => $request->user()->id,
             'type' => 'institutional_invoice',
             'metadata' => [
@@ -201,7 +208,7 @@ class BillingController extends Controller
 
         if (! ($result['status'] ?? false)) {
             $retryable = (bool) ($result['retryable'] ?? false);
-            $payment->update(['status' => $retryable ? 'pending' : 'failed']);
+            Payment::query()->whereKey($payment->id)->where('status', 'pending')->update(['status' => ($result['outcome_unknown'] ?? false) ? 'pending' : 'failed']);
 
             return response()->json([
                 'status' => false,
@@ -218,7 +225,7 @@ class BillingController extends Controller
         }
 
         $payment->update([
-            'reference' => $result['reference'] ?? $payment->reference,
+            'reference' => $payment->reference,
             'notes' => json_encode(array_merge($existingMetadata,[
                 'gateway' => $gatewayCode,
                 'access_code' => $result['access_code'] ?? null,

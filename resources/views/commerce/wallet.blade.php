@@ -24,6 +24,21 @@
     <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Lifetime earnings</p><p class="mt-2 text-3xl font-black text-slate-950">{{ $wallet->currency }} {{ $fmt((int)$wallet->lifetime_earnings_minor) }}</p><p class="mt-2 text-xs text-slate-500">Gross creator earnings recorded by AcadFlow.</p></div>
 </div>
 
+@if($pendingFunding->isNotEmpty())
+<section class="mt-6 rounded-2xl border bg-white p-5 shadow-sm">
+    <h2 class="text-lg font-black">Payments awaiting confirmation</h2>
+    <p class="mt-1 text-sm text-slate-500">Check an earlier payment before adding funds again.</p>
+    @foreach($pendingFunding as $funding)
+        @if($funding->transaction)
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
+            <span>{{ $funding->currency }} {{ $fmt((int) $funding->amount_minor) }} · {{ $funding->created_at->format('d M Y, H:i') }}</span>
+            <a href="{{ route('commerce.wallet.callback', $funding->transaction) }}" class="font-bold text-indigo-700">Check payment status</a>
+        </div>
+        @endif
+    @endforeach
+</section>
+@endif
+
 <div class="mt-6 grid gap-6 lg:grid-cols-2">
     <form method="POST" action="{{ route('commerce.wallet.fund') }}" class="grid gap-3 rounded-2xl border bg-white p-5 shadow-sm">
         @csrf

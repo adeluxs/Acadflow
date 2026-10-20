@@ -8,7 +8,7 @@
 @forelse($orders as $order)
     @php
         $orderMinor = (int)($order->total_amount_minor ?? \App\Support\Money::toMinor((string)$order->total_amount));
-        $reservedRefundMinor = (int)$order->refunds->whereIn('status',['requested','completed'])->sum(fn($r)=>(int)($r->amount_minor ?? \App\Support\Money::toMinor((string)$r->amount)));
+        $reservedRefundMinor = (int)$order->refunds->whereIn('status',['requested','processing','completed'])->sum(fn($r)=>(int)($r->amount_minor ?? \App\Support\Money::toMinor((string)$r->amount)));
         $remainingRefundMinor = max(0,$orderMinor-$reservedRefundMinor);
     @endphp
     <article class="rounded-2xl border bg-white p-5 shadow-sm">
@@ -20,6 +20,25 @@
             </div>
             <div class="text-left lg:text-right"><p class="text-xs font-bold uppercase text-slate-400">Total</p><p class="text-2xl font-black">{{ $order->currency }} {{ $fmt($orderMinor) }}</p></div>
         </div>
+
+        @if($order->payment_status === 'unpaid' && $order->transaction)
+            <a href="{{ route('commerce.callback', $order->transaction) }}" class="mt-4 inline-block text-sm font-bold text-indigo-700">Check payment status</a>
+        @endif
+        @foreach($order->refunds->where('reconciliation_required', true) as $unresolved)
+            @if(auth()->user()->isAdmin() && $unresolved->status === 'processing')
+                <details class="mt-4 rounded-xl border border-amber-200 p-4">
+                    <summary class="cursor-pointer text-sm font-bold">Reconcile refund · {{ $order->currency }} {{ $fmt((int) $unresolved->amount_minor) }}</summary>
+                    <p class="mt-2 text-sm">Confirm the final refund outcome in the provider dashboard before recording a decision.</p>
+                    <form method="POST" action="{{ route('commerce.refunds.reconcile', $unresolved) }}" class="mt-3 grid gap-3">
+                        @csrf
+                        <select name="outcome" class="rounded-lg border-slate-300"><option value="confirmed">Provider confirms refund processed</option><option value="not_refunded">Provider confirms no refund occurred</option></select>
+                        <input name="provider_reference" value="{{ $unresolved->gateway_refund_id }}" class="rounded-lg border-slate-300" placeholder="Provider refund reference">
+                        <textarea required name="note" maxlength="5000" class="rounded-lg border-slate-300" placeholder="Evidence from the provider dashboard"></textarea>
+                        <button class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white">Record reconciliation</button>
+                    </form>
+                </details>
+            @endif
+        @endforeach
 
         @if($order->refunds->isNotEmpty())
             <div class="mt-5 rounded-xl bg-slate-50 p-4"><p class="text-xs font-black uppercase tracking-wide text-slate-500">Refund history</p><div class="mt-2 divide-y">@foreach($order->refunds as $refund)<div class="py-3 text-sm"><div class="flex flex-wrap items-center justify-between gap-2"><span class="font-semibold">{{ $order->currency }} {{ $fmt((int)($refund->amount_minor ?? \App\Support\Money::toMinor((string)$refund->amount))) }} · {{ str($refund->status)->headline() }}</span><span class="text-xs text-slate-500">{{ $refund->created_at?->format('d M Y, H:i') }}</span></div><p class="mt-1 text-slate-600">{{ $refund->reason }}</p>@if(auth()->user()->isAdmin() && $refund->status==='requested')<form method="POST" action="{{ route('commerce.refunds.process',$refund) }}" class="mt-3 flex flex-wrap gap-2">@csrf<button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Approve refund</button><button name="decision" value="reject" class="rounded-lg border px-3 py-2 text-xs font-bold">Reject</button><input name="note" class="min-w-56 flex-1 rounded-lg border-slate-300 text-xs" placeholder="Decision note (optional)"></form>@endif</div>@endforeach</div></div>
