@@ -123,7 +123,7 @@ class ProfileController extends Controller
         if (! $user->is_active) {
             $restrictions[] = 'Your account is inactive. Contact your administrator to restore access.';
         }
-        if (! $user->email_verified_at) {
+        if (! $user->hasRequiredEmailVerification()) {
             $restrictions[] = 'Your email address is not verified. Some features remain limited until it is confirmed.';
         }
         if (! $user->onboarding_completed_at) {

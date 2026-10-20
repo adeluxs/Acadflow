@@ -37,6 +37,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(\Minishlink\WebPush\WebPush::class, function () {
+            return new \Minishlink\WebPush\WebPush(['VAPID' => app(\App\Services\WebPushConfiguration::class)->auth()], ['TTL' => 86400], (int) config('services.webpush.timeout', 8), ['connect_timeout' => (int) config('services.webpush.connect_timeout', 3), 'allow_redirects' => false]);
+        });
         $this->app->bind(MalwareScannerInterface::class, function () {
             return config('media.scanner') === 'clamav' ? new ClamAvMalwareScanner() : new NullMalwareScanner();
         });

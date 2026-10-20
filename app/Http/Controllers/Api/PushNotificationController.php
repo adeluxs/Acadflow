@@ -21,19 +21,25 @@ class PushNotificationController extends Controller
     public function subscribe(Request $request): JsonResponse
     {
         $request->validate([
-            'endpoint' => 'required|url',
-            'keys.p256dh' => 'required|string',
-            'keys.auth' => 'required|string',
+            'endpoint' => ['required', 'string', 'url:https', 'max:4096'],
+            'keys.p256dh' => 'required|string|max:120',
+            'keys.auth' => 'required|string|max:32',
+            'expirationTime' => 'nullable|integer|min:0|max:2147483647000',
+            'enablePreference' => 'sometimes|boolean',
         ]);
 
-        $user = Auth::user();
+        $user = $request->user();
+        abort_unless($this->pushService->availableFor($user), 503, 'Browser push is not enabled or configured.');
 
         $subscription = $this->pushService->subscribe(
             $user,
             $request->input('endpoint'),
             $request->input('keys'),
-            $request->userAgent()
+            $request->userAgent(),
+            $request->input('expirationTime')
         );
+
+        if ($request->boolean('enablePreference')) \App\Models\NotificationSetting::updateOrCreate(['user_id' => $user->id], ['push_enabled' => true]);
 
         return response()->json([
             'success' => true,
@@ -48,7 +54,7 @@ class PushNotificationController extends Controller
     public function unsubscribe(Request $request): JsonResponse
     {
         $request->validate([
-            'endpoint' => 'required|url',
+            'endpoint' => ['required', 'string', 'url:https', 'max:4096'],
         ]);
 
         $user = Auth::user();
@@ -83,11 +89,10 @@ class PushNotificationController extends Controller
     /**
      * Get VAPID public key for subscription
      */
-    public function vapidPublicKey(): JsonResponse
+    public function vapidPublicKey(Request $request): JsonResponse
     {
-        return response()->json([
-            'publicKey' => config('services.webpush.vapid_public_key', ''),
-        ]);
+        $available = $this->pushService->availableFor($request->user());
+        return response()->json(['available' => $available, 'configured' => app(\App\Services\WebPushConfiguration::class)->isConfigured(), 'publicKey' => $available ? $this->pushService->getVapidPublicKey() : null]);
     }
 
     /**
@@ -95,8 +100,9 @@ class PushNotificationController extends Controller
      */
     public function test(Request $request): JsonResponse
     {
-        $user = Auth::user();
-        
+        $user = $request->user();
+        abort_unless($this->pushService->availableFor($user), 503, 'Browser push is not enabled or configured.');
+
         $count = $this->pushService->send(
             $user,
             'Test Notification',
@@ -108,8 +114,8 @@ class PushNotificationController extends Controller
             'success' => $count > 0,
             'message' => $count > 0 
                 ? "Push notification sent to {$count} device(s)" 
-                : 'No push subscriptions found',
+                : 'No device accepted the test notification. Enable this browser or review delivery configuration.',
             'devices_notified' => $count,
-        ]);
+        ], $count > 0 ? 200 : 422);
     }
 }

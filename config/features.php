@@ -317,7 +317,7 @@ return [
             'category' => 'Communication',
             'description' => 'Browser/mobile push subscription, unsubscribe, VAPID key and push-test endpoints.',
             'default_status' => 'disabled',
-            'routes' => [],
+            'routes' => ['browser-push.subscribe', 'browser-push.test'],
             'paths' => ['api/v1/push*'],
             'depends_on' => ['notifications'],
             'impact' => 'Push subscription and push-delivery endpoints will be unavailable to normal users.',

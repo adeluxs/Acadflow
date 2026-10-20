@@ -92,7 +92,7 @@ class OnboardingController extends Controller
 
     public function complete(Request $request, OnboardingService $onboarding): JsonResponse
     {
-        abort_unless($request->user()->hasVerifiedEmail(), 403, 'Verify your email before completing onboarding.');
+        abort_unless($request->user()->hasRequiredEmailVerification(), 403, 'Verify your email before completing onboarding.');
         $user = $onboarding->complete($request->user());
         $request->user()->currentAccessToken()?->delete();
         $token = $user->createToken($request->string('device_name', 'api-client')->toString(), ['platform:access'])->plainTextToken;

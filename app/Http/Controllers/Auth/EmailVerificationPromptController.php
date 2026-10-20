@@ -13,7 +13,7 @@ class EmailVerificationPromptController extends Controller
 {
     public function __invoke(Request $request): View|RedirectResponse
     {
-        if ($request->user()->hasVerifiedEmail()) {
+        if ($request->user()->hasRequiredEmailVerification()) {
             return redirect()->intended(route('onboarding.show'));
         }
 

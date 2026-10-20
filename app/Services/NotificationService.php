@@ -36,6 +36,17 @@ class NotificationService
         $globalPushEnabled = $this->isGlobalChannelEnabled('push', $user->university_id);
         $globalEmailEnabled = $this->isGlobalChannelEnabled('email', $user->university_id);
 
+        $settings = $this->getSettings($user);
+        $preference = match ($type) {
+            NotificationType::GRADE_POSTED, NotificationType::FEEDBACK_POSTED => 'grade_notifications',
+            NotificationType::PAYMENT_RECEIVED, NotificationType::PAYMENT_OVERDUE => 'billing_notifications',
+            NotificationType::ATTENDANCE_STARTED, NotificationType::ATTENDANCE_CLOSED => 'attendance_notifications',
+            NotificationType::SUBMISSION_RECEIVED, NotificationType::SUBMISSION_CONFIRMATION, NotificationType::CORRECTION_REQUESTED, NotificationType::APPROVAL_GRANTED, NotificationType::OVERDUE_SUBMISSION => 'submission_notifications',
+            default => null,
+        };
+        if ($preference && $settings && ! $settings->{$preference}) return;
+
+        $data['notification_id'] ??= (string) Str::uuid();
         $notification = null;
 
         // Create in-app notification (unless globally disabled)

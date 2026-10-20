@@ -109,7 +109,7 @@ class AuthController extends Controller
         }
 
         $user->forceFill(['last_login_at' => now()])->save();
-        $ready = $user->hasVerifiedEmail() && $user->onboarding_completed_at !== null;
+        $ready = $user->hasRequiredEmailVerification() && $user->onboarding_completed_at !== null;
         $token = $user->createToken(
             $credentials['device_name'] ?? 'api-client',
             [$ready ? 'platform:access' : 'account:onboarding']
@@ -118,7 +118,7 @@ class AuthController extends Controller
         return response()->json([
             'token' => $token,
             'token_type' => 'Bearer',
-            'next_action' => ! $user->hasVerifiedEmail() ? 'verify_email' : (! $user->onboarding_completed_at ? 'complete_onboarding' : null),
+            'next_action' => ! $user->hasRequiredEmailVerification() ? 'verify_email' : (! $user->onboarding_completed_at ? 'complete_onboarding' : null),
             'user' => $this->userPayload($user),
             'features' => FeatureAccessService::clientSnapshot($user),
             'password_policy' => SettingService::getPasswordPolicy($user->university_id),
@@ -165,10 +165,10 @@ class AuthController extends Controller
         $token = $user->createToken('onboarding-client', ['account:onboarding'])->plainTextToken;
 
         return response()->json([
-            'message' => 'Account created. Verify your email, then complete onboarding.',
+            'message' => SettingService::emailVerificationEnabled() ? 'Account created. Verify your email, then complete onboarding.' : 'Account created. Complete onboarding to continue.',
             'token' => $token,
             'token_type' => 'Bearer',
-            'next_action' => 'verify_email',
+            'next_action' => SettingService::emailVerificationEnabled() ? 'verify_email' : 'complete_onboarding',
             'user' => $this->userPayload($user),
             'features' => FeatureAccessService::clientSnapshot($user),
             'password_policy' => SettingService::getPasswordPolicy(),
@@ -183,17 +183,17 @@ class AuthController extends Controller
             'user' => $this->userPayload($user),
             'features' => FeatureAccessService::clientSnapshot($user),
             'password_policy' => SettingService::getPasswordPolicy($user->university_id),
-            'ready' => $user->is_active && $user->hasVerifiedEmail() && $user->onboarding_completed_at !== null,
+            'ready' => $user->is_active && $user->hasRequiredEmailVerification() && $user->onboarding_completed_at !== null,
             'next_action' => ! $user->is_active
                 ? 'contact_support'
-                : (! $user->hasVerifiedEmail() ? 'verify_email' : (! $user->onboarding_completed_at ? 'complete_onboarding' : null)),
+                : (! $user->hasRequiredEmailVerification() ? 'verify_email' : (! $user->onboarding_completed_at ? 'complete_onboarding' : null)),
         ]);
     }
 
     public function resendVerification(Request $request): JsonResponse
     {
-        if ($request->user()->hasVerifiedEmail()) {
-            return response()->json(['message' => 'The email address is already verified.']);
+        if ($request->user()->hasRequiredEmailVerification()) {
+            return response()->json(['message' => $request->user()->hasVerifiedEmail() ? 'The email address is already verified.' : 'Email verification is currently optional.']);
         }
 
         $request->user()->sendEmailVerificationNotification();

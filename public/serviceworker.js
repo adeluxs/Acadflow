@@ -302,3 +302,5 @@ self.addEventListener('message', (event) => {
 });
 
 console.log('[SW] Service worker loaded');
+
+importScripts('/push-events.js');

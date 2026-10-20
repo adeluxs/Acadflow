@@ -22,6 +22,19 @@
         </div>
     </div>
 
+    <section class="mb-6 rounded-xl border bg-white p-6">
+        <h2 class="text-xl font-bold">Browser push delivery</h2>
+        <p class="mt-2 text-sm">{{ $pushConfigured ? 'Delivery keys are configured.' : 'Delivery keys have not been configured.' }} Enable the Push Notifications module and channel, then enroll a browser from Notification Preferences.</p>
+        @if(!$pushConfigured && auth()->user()->isSuperAdmin())
+        <form method="POST" action="{{ route('admin.notifications.push-keys') }}" class="mt-4 flex flex-wrap gap-3">
+            @csrf
+            <label class="text-sm">Delivery contact <input required name="subject" placeholder="mailto:support@yourdomain.com" class="rounded-lg border-gray-300"></label>
+            <button class="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white">Generate delivery keys</button>
+        </form>
+        @endif
+        @if($errors->any())<p role="alert" class="mt-3 text-red-700">{{ $errors->first() }}</p>@endif
+    </section>
+
     <!-- Stats -->
     <div class="grid grid-cols-4 gap-4 mb-8">
         <div class="bg-white rounded-lg shadow p-4">

@@ -24,7 +24,7 @@ class EnsureApiAccountReady
             return new JsonResponse(['message' => 'This account is inactive.'], 403);
         }
 
-        if (! $user->hasVerifiedEmail()) {
+        if (! $user->hasRequiredEmailVerification()) {
             return new JsonResponse([
                 'message' => 'Verify your email address before using protected API features.',
                 'next_action' => 'verify_email',

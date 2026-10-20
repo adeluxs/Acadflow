@@ -211,12 +211,22 @@ class NigeriaAcademicCatalogService
 
     public function seedStarterTemplate(University $institution): array
     {
-        $stats = ['institutions' => 1, 'faculties' => 0, 'departments' => 0, 'courses' => 0];
-        $template = $institution->institution_type === 'polytechnic'
-            ? $this->polytechnicTemplate()
-            : $this->universityTemplate();
+        return DB::transaction(function () use ($institution): array {
+            // Reserve SQLite's writer before any reads: a deferred read-to-write
+            // upgrade can fail immediately despite busy_timeout. This no-op keeps
+            // administrator settings and timestamps intact and works on PHP 8.2+.
+            if (DB::connection()->getDriverName() === 'sqlite') {
+                DB::table($institution->getTable())->where('id', $institution->getKey())
+                    ->update(['settings' => DB::raw('settings')]);
+            }
 
-        DB::transaction(function () use ($institution, $template, &$stats): void {
+            // Each retry needs fresh state and counters; rolled-back rows must
+            // never count as inserts or overwrite a concurrent administrator edit.
+            $institution = $institution->newQuery()->whereKey($institution->getKey())->lockForUpdate()->firstOrFail();
+            $stats = ['institutions' => 1, 'faculties' => 0, 'departments' => 0, 'courses' => 0];
+            $template = $institution->institution_type === 'polytechnic'
+                ? $this->polytechnicTemplate()
+                : $this->universityTemplate();
             foreach ($template as $facultyName => $departments) {
                 $facultyCode = $this->normaliseCode('', $facultyName, 20);
                 $faculty = Faculty::firstOrCreate(
@@ -274,9 +284,9 @@ class NigeriaAcademicCatalogService
                 $settings['academic_catalog'] = $catalogSettings;
                 $institution->forceFill(['settings' => $settings])->save();
             }
-        });
 
-        return $stats;
+            return $stats;
+        }, 5);
     }
 
     private function http(): PendingRequest

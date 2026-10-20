@@ -22,7 +22,7 @@ class AcademicEventPolicy
         return $event->registrations()->where('user_id',$user->id)->whereNotIn('status',['cancelled','removed','rejected'])->exists();
     }
 
-    public function create(User $user): bool { return $user->is_active && $user->hasVerifiedEmail() && $user->onboarding_completed_at !== null; }
+    public function create(User $user): bool { return $user->is_active && $user->hasRequiredEmailVerification() && $user->onboarding_completed_at !== null; }
 
     public function update(User $user, AcademicEvent $event): bool
     {

@@ -334,6 +334,7 @@ class SettingService
 
     public static function getSessionTimeout(): int { return (int) self::get('session_timeout_minutes', 120); }
     public static function isMaintenanceMode(): bool { return (bool) self::getGlobal('maintenance_mode', false); }
+    public static function emailVerificationEnabled(): bool { return (bool) self::getGlobal('email_verification_enabled', true); }
     public static function isPwaEnabled(): bool { return FeatureAccessService::effectiveStatus('pwa_enabled') === FeatureAccessService::STATUS_ENABLED; }
 
     public static function getPasswordPolicy(?int $universityId = null): array

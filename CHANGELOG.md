@@ -1,5 +1,17 @@
 ## [Unreleased]
 
+### Added
+
+- Added a platform-wide Email Verification Enabled switch under Super Admin → System Settings → Security. The existing requirement remains enabled by default; disabling it permits access without falsely marking addresses as verified. Web/API registration, sign-in, onboarding and publishing/community policies use the same runtime rule.
+- Added browser push enrollment, per-device disable/test controls, and Super Admin setup for stable encrypted delivery keys. Environment-supplied VAPID keys are also supported.
+
+### Fixed
+
+- Prevented academic starter-template seeding from failing on short SQLite write contention: enabled configurable WAL/busy waiting, acquired the writer before catalogue reads, and retried transactions with fresh state and counters. Added `acadflow:sync-nigeria-catalog --templates-only` to resume safely without a registry refresh.
+- Replaced placeholder push HTTP requests with encrypted `aes128gcm` payloads and signed VAPID delivery using `minishlink/web-push`. Added active-worker push display and safe same-origin click handling, including a standalone worker when PWA caching is disabled.
+- Enforced notification module/channel/user preferences in push delivery, cleaned expired endpoints, retained transient failures, protected endpoint ownership, restricted outbound push destinations, and supported long provider endpoints without oversized MySQL indexes.
+- Fixed unchecked notification preference fields not disabling their values; added browser recovery/error states and logout cleanup for shared devices.
+
 ### Fixed
 
 - Hardened Paystack wallet, marketplace and invoice payments: validate raw webhook signatures and exact successful references, amounts and currencies before granting value.

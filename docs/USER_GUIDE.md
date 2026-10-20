@@ -776,3 +776,14 @@ Use the existing **Admin → Settings → Security Settings** area. It now clear
 Existing password settings control minimum length, uppercase, number and special-character requirements. Existing login protection controls failed-login attempts and lockout duration. Request-limit controls cover the currently implemented login, registration, password-reset, email-verification and two-factor request throttles.
 
 These are runtime controls, not decorative settings: saved values are read by backend validation/rate-limiters. Platform-level unauthenticated request limits may be available only to the Super Admin because a user has no institution context before authentication.
+
+
+## Email verification and browser notification controls
+
+Super Admin can enable or disable **Email Verification Enabled** under **System Settings → Security**. It starts enabled. When disabled, users proceed to onboarding/workspace access without a verification email. Addresses remain visibly unverified until a valid verification link is used. Re-enabling the setting requires unverified users to confirm their email before protected access. Institution administrators cannot override this platform-wide rule.
+
+For browser notifications, Super Admin opens **Notification Management**, generates delivery keys if needed using a contact email such as `mailto:support@yourdomain.com`, enables **Push Notifications** in Feature & Module Management, and enables the push delivery channel. Saved keys must be retained to preserve existing enrolled browsers.
+
+Users open **Notification Preferences**, choose **Enable this browser**, and approve the browser prompt. **Send test notification** checks the current enrollment; **Disable this browser** removes only that device. The push preference below controls delivery to all enrolled devices. Unchecking and saving a channel or notification type now disables it.
+
+Browser notifications require HTTPS, permission in the browser and permission in operating-system notification settings. On supported iPhone/iPad versions, install AcadFlow on the Home Screen first. A blocked permission must be changed in browser settings; the application cannot override it. Push can work while offline/PWA caching is disabled, but an internet connection is needed to receive delivery.

@@ -62,6 +62,10 @@ function boot() {
             .catch((error) => console.error('AcadFlow rate-limit feedback failed to initialize:', error));
     }
 
+    if (document.querySelector('meta[name="push-config-url"]')) {
+        import('./browser-push').then(({ initBrowserPush }) => initBrowserPush()).catch(() => {});
+    }
+
     initVueRoot().catch((error) => console.error('AcadFlow Vue initialization failed:', error));
 
     if (window.OfflineSync) {

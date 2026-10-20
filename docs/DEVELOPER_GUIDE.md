@@ -692,6 +692,17 @@ php scripts/check-idempotent-seeders.php
 
 Remember: `migrate:fresh` drops tables before seeders execute and is destructive regardless of seeder safety.
 
+### Resuming interrupted academic templates
+
+```bash
+php artisan config:clear
+php artisan acadflow:sync-nigeria-catalog --templates-only
+```
+
+The templates-only command skips remote institution synchronization and exact CSV imports, preserves existing academic rows/settings, and can be rerun after an interruption. It rejects `--csv` and `--no-templates` combinations. Each institution has its own transaction; SQLite reserves its writer before reads to avoid a deferred read-to-write lock upgrade, with up to five attempts for recognized concurrency errors. Every attempt reloads institution settings and initializes its counters so rollbacks cannot inflate insertion counts or restore stale settings. SQLite connections default to a 15-second busy timeout and WAL; see [environment configuration](ENVIRONMENT_CONFIGURATION.md#sqlite-lock-handling). Long-held locks can still exhaust that timeout; stop the competing writer or close its transaction before retrying.
+
+Run `php vendor/bin/phpunit tests/Feature/Database/AcademicCatalogLockingTest.php` for real file-based SQLite writer contention, rollback/retry counts, settings preservation, idempotent resumption, and command validation.
+
 ---
 
 ## 16. Local development setup
@@ -1161,3 +1172,14 @@ php scripts/check-security-policy.php
 # or
 composer security-policy-check
 ```
+
+
+## Email verification control and browser push (2026-10-20)
+
+`email_verification_enabled` is a global security setting, enabled by default and writable only by Super Admin. `SettingService::emailVerificationEnabled()` and `User::hasRequiredEmailVerification()` provide the access rule used by the `verified` middleware alias, API readiness/token decisions, onboarding and relevant community/publishing policies. `hasVerifiedEmail()` continues to mean the address was actually confirmed. Disabling the requirement skips verification mail and the blocking step; it never backfills timestamps. Re-enabling blocks still-unverified accounts again. Signed verification links continue to validate identity and signature independently.
+
+Browser push uses `minishlink/web-push` 10.x for RFC Web Push encryption and VAPID authentication. `WebPushConfiguration` reads a complete environment key pair or an encrypted database-backed pair created by Super Admin in Notification Management. Generated keys remain stable; setup does not rotate existing keys. The global module state, institution channel setting, user push preference and subscription expiry are checked before sending, including administrator retries. Existing queued notification listeners still own asynchronous event delivery.
+
+Authenticated browser endpoints use session/CSRF protection; native API endpoints retain Sanctum support. Unsubscribe remains available when the module is disabled. Endpoint hashes provide uniqueness for text-length provider endpoints. Only configured browser-service hostnames over HTTPS are permitted; redirects are disabled. `404`/`410` delete stale subscriptions, while rate limits/server failures retain them for later retry. Secrets and provider endpoints are excluded from diagnostic messages.
+
+`resources/js/browser-push.js` enrolls only on explicit permission approval, reconciles an existing subscription, and removes device enrollment before browser logout. `public/push-events.js` handles display and same-origin click navigation for both `serviceworker.js` and the independent `pushworker.js`. Push does not require offline/PWA caching. See [email and push operations](EMAIL_AND_PUSH.md) for setup and checks.

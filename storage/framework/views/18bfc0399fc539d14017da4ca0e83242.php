@@ -7,6 +7,12 @@
 
     <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
 
+    <?php if(auth()->guard()->check()): ?>
+    <meta name="push-account-id" content="<?php echo e(auth()->id()); ?>">
+    <meta name="push-config-url" content="<?php echo e(route('browser-push.configuration')); ?>">
+    <meta name="push-worker-url" content="<?php echo e($pwaAvailable ? '/serviceworker.js' : '/pushworker.js'); ?>">
+    <?php endif; ?>
+
     
     <?php if($pwaAvailable): ?>
     <link rel="manifest" href="/manifest.webmanifest">
@@ -376,7 +382,7 @@
             `;
             document.body.appendChild(notification);
         }
-        <?php else: ?>
+        <?php elseif(!auth()->check() || !app(\App\Services\PushNotificationService::class)->availableFor(auth()->user())): ?>
         // If PWA is switched off after users previously installed it, actively
         // unregister old service workers so the release control takes effect.
         if ('serviceWorker' in navigator) {

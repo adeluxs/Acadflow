@@ -17,7 +17,7 @@ class GroupPolicy
         return $group->members()->where('user_id',$user->id)->where('status','active')->exists();
     }
 
-    public function create(User $user): bool { return $user->is_active && $user->hasVerifiedEmail() && $user->onboarding_completed_at !== null; }
+    public function create(User $user): bool { return $user->is_active && $user->hasRequiredEmailVerification() && $user->onboarding_completed_at !== null; }
     public function update(User $user, Group $group): bool { return $user->isSuperAdmin() || ($user->isAdmin() && $group->university_id !== null && $user->university_id !== null && $group->university_id === $user->university_id) || $group->leader_id === $user->id || $group->members()->where('user_id',$user->id)->where('status','active')->whereIn('role',['leader','administrator'])->exists(); }
     public function delete(User $user, Group $group): bool { return $user->isSuperAdmin() || $group->leader_id === $user->id; }
     public function manageMembers(User $user, Group $group): bool { return $this->update($user,$group); }

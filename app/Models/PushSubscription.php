@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class PushSubscription extends Model
 {
     protected $fillable = [
+        'endpoint_hash',
         'user_id',
         'endpoint',
         'keys_p256dh',
@@ -16,6 +17,15 @@ class PushSubscription extends Model
         'ip_address',
         'expires_at',
     ];
+
+    protected $hidden = ['keys_p256dh', 'keys_auth', 'endpoint_hash'];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $subscription): void {
+            $subscription->endpoint_hash = hash('sha256', $subscription->endpoint);
+        });
+    }
 
     protected $casts = [
         'expires_at' => 'datetime',

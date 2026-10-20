@@ -47,8 +47,8 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
+            'busy_timeout' => (int) env('DB_BUSY_TIMEOUT', 15000),
+            'journal_mode' => env('DB_JOURNAL_MODE', 'WAL'),
             'synchronous' => null,
         ],
 

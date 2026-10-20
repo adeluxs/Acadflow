@@ -7,6 +7,12 @@
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
+    @auth
+    <meta name="push-account-id" content="{{ auth()->id() }}">
+    <meta name="push-config-url" content="{{ route('browser-push.configuration') }}">
+    <meta name="push-worker-url" content="{{ $pwaAvailable ? '/serviceworker.js' : '/pushworker.js' }}">
+    @endauth
+
     {{-- PWA runtime availability is controlled centrally by FeatureAccessService. --}}
     @if($pwaAvailable)
     <link rel="manifest" href="/manifest.webmanifest">
@@ -370,7 +376,7 @@
             `;
             document.body.appendChild(notification);
         }
-        @else
+        @elseif(!auth()->check() || !app(\App\Services\PushNotificationService::class)->availableFor(auth()->user()))
         // If PWA is switched off after users previously installed it, actively
         // unregister old service workers so the release control takes effect.
         if ('serviceWorker' in navigator) {

@@ -45,6 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
+            'verified' => \App\Http\Middleware\EnsureEmailVerificationRequirement::class,
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'feature.flag' => FeatureFlagMiddleware::class,

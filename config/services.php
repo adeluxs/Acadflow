@@ -1,6 +1,14 @@
 <?php
 
 return [
+    'webpush' => [
+        'vapid_public_key' => env('VAPID_PUBLIC_KEY', ''),
+        'vapid_private_key' => env('VAPID_PRIVATE_KEY', ''),
+        'vapid_subject' => env('VAPID_SUBJECT', ''),
+        'timeout' => 8,
+        'connect_timeout' => 3,
+        'allowed_hosts' => ['fcm.googleapis.com', 'android.googleapis.com', '*.push.services.mozilla.com', '*.push.apple.com', '*.notify.windows.com'],
+    ],
 
     /*
     |--------------------------------------------------------------------------

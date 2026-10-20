@@ -21,6 +21,7 @@ class SettingsController extends Controller
     /** Platform-only settings cannot be overridden by institution admins. */
     private const GLOBAL_ONLY_GROUPS = ['pwa'];
     private const GLOBAL_ONLY_KEYS = [
+        'email_verification_enabled', 'webpush_vapid_public_key', 'webpush_vapid_private_key', 'webpush_vapid_subject',
         'maintenance_mode', 'maintenance_mode_bypass_routes',
         'login_requests_per_minute', 'registration_requests_per_hour', 'password_reset_requests_per_minute',
     ];
@@ -45,7 +46,7 @@ class SettingsController extends Controller
             ->reject(fn (Setting $setting) => in_array($setting->group, ['ai', 'ai_legacy'], true))
             ->reject(fn (Setting $setting) => ! $user->isSuperAdmin() && $this->isGlobalOnlySetting($setting))
             // The SIWES assignment type has one authoritative toggle below.
-            ->reject(fn (Setting $setting) => $setting->key === 'siwes_assignment_enabled')
+            ->reject(fn (Setting $setting) => $setting->key === 'siwes_assignment_enabled' || str_starts_with($setting->key, 'webpush_vapid_'))
             ->each(function (Setting $setting) use ($scopeUniversityId, $user): void {
                 $setting->value = $user->isSuperAdmin()
                     ? SettingService::getGlobal($setting->key, $setting->value)
@@ -293,6 +294,7 @@ class SettingsController extends Controller
             'pwa_enabled' => SettingService::isPwaEnabled(),
             'maintenance_mode' => SettingService::isMaintenanceMode(),
             'password_policy' => SettingService::getPasswordPolicy(),
+            'email_verification_enabled' => SettingService::emailVerificationEnabled(),
             'features' => FeatureAccessService::clientSnapshot(),
         ];
 
@@ -312,7 +314,7 @@ class SettingsController extends Controller
         $scope = $user->isSuperAdmin() ? null : $user->university_id;
 
         return response()->json([
-            'settings' => SettingService::allGrouped($scope),
+            'settings' => array_diff_key(SettingService::allGrouped($scope), ['webpush' => true]),
             'features' => FeatureAccessService::clientSnapshot($user),
         ]);
     }

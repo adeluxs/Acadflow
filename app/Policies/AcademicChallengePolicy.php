@@ -21,7 +21,7 @@ class AcademicChallengePolicy
         return $challenge->entries()->where('user_id',$user->id)->exists();
     }
 
-    public function create(User $user): bool { return $user->is_active && $user->hasVerifiedEmail() && $user->onboarding_completed_at !== null; }
+    public function create(User $user): bool { return $user->is_active && $user->hasRequiredEmailVerification() && $user->onboarding_completed_at !== null; }
     public function update(User $user, AcademicChallenge $challenge): bool { return $user->isSuperAdmin() || ($user->isAdmin() && $challenge->university_id !== null && $user->university_id !== null && $challenge->university_id === $user->university_id) || $challenge->organizer_id === $user->id; }
     public function delete(User $user, AcademicChallenge $challenge): bool { return $this->update($user,$challenge); }
     public function submit(User $user, AcademicChallenge $challenge): bool { return $this->view($user,$challenge) && $challenge->organizer_id !== $user->id; }

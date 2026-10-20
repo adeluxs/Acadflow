@@ -12,7 +12,7 @@ class EmailVerificationNotificationController extends Controller
 {
     public function store(Request $request): RedirectResponse
     {
-        if ($request->user()->hasVerifiedEmail()) {
+        if ($request->user()->hasRequiredEmailVerification()) {
             return redirect()->intended(route('onboarding.show'));
         }
 

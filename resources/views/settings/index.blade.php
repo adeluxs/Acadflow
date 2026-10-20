@@ -163,6 +163,7 @@
         @if(isset($settings['security']))
         @php
             $securityLabels = [
+                'email_verification_enabled' => 'Email Verification Enabled',
                 'password_min_length' => 'Minimum password length',
                 'password_require_uppercase' => 'Require uppercase letter',
                 'password_require_numbers' => 'Require number',
@@ -177,6 +178,10 @@
                 'payment_requests_per_minute' => 'Payment requests per minute',
             ];
             $securitySections = [
+                'Email verification' => [
+                    'description' => 'Require email confirmation before workspace access. Disabling this requirement keeps actual verification records unchanged. Only Super Admin can change it.',
+                    'keys' => ['email_verification_enabled'],
+                ],
                 'Password policy' => [
                     'description' => 'These are the exact password rules used by registration and password-change/reset validation.',
                     'keys' => ['password_min_length','password_require_uppercase','password_require_numbers','password_require_special'],

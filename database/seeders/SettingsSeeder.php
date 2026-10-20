@@ -68,6 +68,7 @@ class SettingsSeeder extends Seeder
             'grace_period_days' => ['value' => 7, 'type' => 'integer', 'group' => 'academic', 'description' => 'Academic semester/submission grace period in days'],
 
             // Security Settings
+            'email_verification_enabled' => ['value' => true, 'type' => 'boolean', 'group' => 'security', 'description' => 'Require email verification before workspace access (platform-wide)'],
             'password_min_length' => ['value' => 8, 'type' => 'integer', 'group' => 'security', 'description' => 'Minimum password length'],
             'password_require_uppercase' => ['value' => true, 'type' => 'boolean', 'group' => 'security', 'description' => 'Require uppercase in passwords'],
             'password_require_numbers' => ['value' => true, 'type' => 'boolean', 'group' => 'security', 'description' => 'Require numbers in passwords'],

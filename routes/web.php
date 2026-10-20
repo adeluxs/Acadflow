@@ -105,6 +105,7 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::post('/browser-push/unsubscribe', [\App\Http\Controllers\Api\PushNotificationController::class, 'unsubscribe'])->name('browser-push.unsubscribe');
     Route::get('/verify-email', EmailVerificationPromptController::class)->name('verification.notice');
     Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
         ->middleware(['signed', 'throttle:verification'])
@@ -134,6 +135,9 @@ Route::post('/webhook/payment/{gateway}', [CommerceController::class, 'webhook']
 // Protected application routes require verified identity and completed onboarding.
 Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.complete'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/browser-push/configuration', [\App\Http\Controllers\Api\PushNotificationController::class, 'vapidPublicKey'])->name('browser-push.configuration');
+    Route::post('/browser-push/subscribe', [\App\Http\Controllers\Api\PushNotificationController::class, 'subscribe'])->middleware('throttle:30,1')->name('browser-push.subscribe');
+    Route::post('/browser-push/test', [\App\Http\Controllers\Api\PushNotificationController::class, 'test'])->middleware('throttle:3,1')->name('browser-push.test');
     Route::get('/institution/onboarding', [InstitutionOnboardingController::class, 'requestForm'])
         ->middleware('throttle:commercial-account-requests')
         ->name('institution.onboarding.request');
@@ -697,6 +701,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     // Admin notification management (available to department_admin, university_admin, super_admin)
     Route::middleware('role:department_admin,university_admin,super_admin')->group(function () {
         Route::get('/admin/notifications', [NotificationManagementController::class, 'index'])->name('admin.notifications.index');
+        Route::post('/admin/notifications/push-keys', [NotificationManagementController::class, 'generatePushKeys'])->name('admin.notifications.push-keys');
         Route::put('/admin/notifications/channels', [NotificationManagementController::class, 'updateChannels'])->name('admin.notifications.update-channels');
         Route::get('/admin/notifications/announce', [NotificationManagementController::class, 'announce'])->name('admin.notifications.announce');
         Route::post('/admin/notifications/announce', [NotificationManagementController::class, 'sendAnnouncement'])->name('admin.notifications.send-announcement');

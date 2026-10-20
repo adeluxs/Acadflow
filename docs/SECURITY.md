@@ -86,3 +86,10 @@ Do not log passwords, recovery codes, API keys, access tokens or payment secrets
 ## Reporting vulnerabilities
 
 Use the organization/platform security contact configured for the deployment. Do not use the default Laravel framework security-contact wording from old boilerplate README files.
+
+
+## Optional email verification and Web Push
+
+Only Super Admin controls the global email verification requirement. Disabled verification never manufactures `email_verified_at` values; signed verification callbacks still authenticate their target/hash. Active-account, onboarding, tenant, role and 2FA checks remain independent.
+
+Browser subscriptions use authenticated ownership checks and CSRF for session clients. Reassigning a device to another account requires matching its existing encryption keys; browser logout unsubscribes that device. Arbitrary/internal push URLs and redirects are blocked by the provider-host allowlist. Web Push encrypts notification contents and signs requests with a stable VAPID private key stored in environment configuration or encrypted database settings. Private keys are never returned by push configuration endpoints. Notification clicks are restricted to the application's origin. Module/channel/user opt-outs are enforced again at delivery, including admin retries.

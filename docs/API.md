@@ -131,3 +131,12 @@ When adding/changing an endpoint, update this file, `DEVELOPER_GUIDE.md`, `USER_
 `POST /api/v1/payments/verify` accepts `reference`, enforces invoice ownership/tenant access, and verifies the stored gateway/environment, reference, amount and currency. Pending provider status returns 202; unavailable verification returns 503 when retryable; mismatches return 422. A verified payment can safely be checked again.
 
 `GET /billing/payment-return?reference=...` is an authenticated browser route for the payment owner. It performs server-side invoice verification and returns to the wallet with confirmation or a pending message. Public signature-verified `POST /commerce/webhook/{gateway}` and the compatibility URL `POST /webhook/payment/{gateway}` settle supported payment types even if the payer never returns to the browser. Non-payment event types are ignored; temporary settlement failures return 503 for provider redelivery.
+
+
+## Verification setting and browser push
+
+Public settings expose `email_verification_enabled`. Auth registration/login/account-status `next_action` and readiness follow this runtime setting while `email_verified_at` continues to report actual verification. Account readiness still requires an active account and completed onboarding; disabling email verification does not bypass those checks or two-factor authentication.
+
+Browser session endpoints: `GET /browser-push/configuration` returns availability and the public key only; `POST /browser-push/subscribe` accepts a browser subscription (`endpoint`, `keys.p256dh`, `keys.auth`, optional `expirationTime` in milliseconds); `POST /browser-push/unsubscribe` removes the authenticated user's matching device; `POST /browser-push/test` reports accepted delivery count or an actionable failure. Mutations require CSRF. `enablePreference=true` is reserved for explicit enrollment, which also opts the user into push delivery; automatic subscription reconciliation does not change preferences.
+
+Existing `/api/v1/push/*` routes support Sanctum clients. `POST` and `DELETE /api/v1/push/unsubscribe` remain available with an authenticated account even when push is disabled. Subscription/list/test routes retain protected-account checks and module controls. Supported HTTPS browser push-service endpoints and valid P-256/auth keys are required.

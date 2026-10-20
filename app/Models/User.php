@@ -21,6 +21,23 @@ class User extends Authenticatable implements MustVerifyEmailContract
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    public function notificationSetting(): HasOne
+    {
+        return $this->hasOne(NotificationSetting::class);
+    }
+
+    public function hasRequiredEmailVerification(): bool
+    {
+        return ! \App\Services\SettingService::emailVerificationEnabled() || $this->hasVerifiedEmail();
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        if (\App\Services\SettingService::emailVerificationEnabled()) {
+            $this->notify(new \Illuminate\Auth\Notifications\VerifyEmail());
+        }
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $user): void {

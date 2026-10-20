@@ -56,14 +56,21 @@ Schedule::command('acadflow:release-creator-earnings --limit=1000')
     ->name('acadflow-release-creator-earnings')
     ->withoutOverlapping();
 
-Artisan::command('acadflow:sync-nigeria-catalog {--csv= : Import an exact institution/faculty/department/course CSV after registry sync} {--no-templates : Do not create starter academic templates}', function (): int {
+Artisan::command('acadflow:sync-nigeria-catalog {--csv= : Import an exact institution/faculty/department/course CSV after registry sync} {--no-templates : Do not create starter academic templates} {--templates-only : Resume starter templates without syncing or changing existing institution registry rows}', function (): int {
     /** @var \App\Services\NigeriaAcademicCatalogService $service */
     $service = app(\App\Services\NigeriaAcademicCatalogService::class);
 
+    if ($this->option('templates-only') && ($this->option('no-templates') || $this->option('csv'))) {
+        $this->error('--templates-only cannot be combined with --no-templates or --csv.');
+        return self::FAILURE;
+    }
+
     try {
-        $result = $service->syncInstitutions();
-        $this->info("Registry sync complete: {$result['nuc']} NUC rows, {$result['nbte']} NBTE rows, {$result['fallback_polytechnics']} fallback polytechnic rows.");
-        foreach ($result['warnings'] as $warning) $this->warn($warning);
+        if (! $this->option('templates-only')) {
+            $result = $service->syncInstitutions();
+            $this->info("Registry sync complete: {$result['nuc']} NUC rows, {$result['nbte']} NBTE rows, {$result['fallback_polytechnics']} fallback polytechnic rows.");
+            foreach ($result['warnings'] as $warning) $this->warn($warning);
+        }
 
         if ($csv = $this->option('csv')) {
             $stats = $service->importExactCatalogCsv((string) $csv);

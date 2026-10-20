@@ -134,8 +134,9 @@ class WebAuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('verification.notice')
-            ->with('status', 'We sent a verification link to your email address.');
+        return $this->nextDestination($user)->with('status', SettingService::emailVerificationEnabled()
+            ? 'We sent a verification link to your email address.'
+            : 'Account created. Complete your profile to continue.');
     }
 
     public function logout(Request $request): RedirectResponse
@@ -160,7 +161,7 @@ class WebAuthController extends Controller
 
     private function nextDestination(User $user): RedirectResponse
     {
-        if (! $user->hasVerifiedEmail()) {
+        if (! $user->hasRequiredEmailVerification()) {
             return redirect()->route('verification.notice');
         }
 

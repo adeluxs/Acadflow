@@ -44,7 +44,16 @@ class NotificationManagementController extends Controller
             ->limit(20)
             ->get();
 
-        return view('admin.notifications.index', compact('channels', 'stats', 'recentFailures'));
+        $pushConfigured = app(\App\Services\WebPushConfiguration::class)->isConfigured();
+        return view('admin.notifications.index', compact('channels', 'stats', 'recentFailures', 'pushConfigured'));
+    }
+
+    public function generatePushKeys(Request $request)
+    {
+        abort_unless($request->user()?->isSuperAdmin(), 403);
+        $data = $request->validate(['subject' => ['required', 'string', 'max:255']]);
+        app(\App\Services\WebPushConfiguration::class)->generate($data['subject'], $request->user()->id);
+        return back()->with('success', 'Browser delivery keys created. Enable the Push Notifications module and delivery channel, then enroll a browser in Notification Preferences.');
     }
 
     public function updateChannels(Request $request)

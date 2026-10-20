@@ -34,6 +34,7 @@ Route::prefix('v1')->group(function () {
 
 // Account bootstrap routes are available to limited onboarding tokens.
 Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
+    Route::match(['POST', 'DELETE'], '/push/unsubscribe', [PushNotificationController::class, 'unsubscribe']);
     Route::get('/auth/account-status', [AuthController::class, 'accountStatus'])->middleware('throttle:api');
     Route::post('/auth/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:verification');
     Route::get('/onboarding', [OnboardingController::class, 'show'])->middleware('throttle:api');
@@ -145,7 +146,6 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'feature.access', 'api.account.
 
     // Push Notifications
     Route::post('/push/subscribe', [PushNotificationController::class, 'subscribe']);
-    Route::post('/push/unsubscribe', [PushNotificationController::class, 'unsubscribe']);
     Route::get('/push/subscriptions', [PushNotificationController::class, 'subscriptions']);
     Route::get('/push/vapid-public-key', [PushNotificationController::class, 'vapidPublicKey']);
     Route::post('/push/test', [PushNotificationController::class, 'test']);
