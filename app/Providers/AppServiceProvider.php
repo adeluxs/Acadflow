@@ -93,6 +93,9 @@ class AppServiceProvider extends ServiceProvider
                 ->by((string) ($request->user()?->id ?? $request->ip()));
         });
 
+        RateLimiter::for('research-exports', fn (Request $request) => Limit::perMinute(10)
+            ->by((string) ($request->user()?->id ?? $request->ip())));
+
         RateLimiter::for('commerce-webhooks', function (Request $request): Limit {
             return Limit::perMinute(120)->by($request->ip());
         });

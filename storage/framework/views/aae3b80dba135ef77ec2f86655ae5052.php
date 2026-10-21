@@ -34,13 +34,15 @@
 <div class="mt-3 flex items-center justify-between"><label class="text-sm"><input type="checkbox" name="is_active" value="1" <?php if($workflow->is_active): echo 'checked'; endif; ?>> Active</label><button class="rounded-xl border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700">Save safely</button></div>
 </form>
 <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?> <p class="text-slate-500">No workflows configured.</p><?php endif; ?>
+<?php echo e($workflows->links()); ?>
+
 </div></section>
 
 <section class="rounded-2xl border bg-white p-6"><h2 class="text-xl font-semibold">Create research type</h2>
 <form method="POST" action="<?php echo e(route('research.configuration.types.store')); ?>" class="mt-5 grid gap-4 lg:grid-cols-2"><?php echo csrf_field(); ?>
 <label class="text-sm font-medium">Name<input name="name" required placeholder="Dissertation" class="mt-1 w-full rounded-xl border-slate-300"></label>
 <label class="text-sm font-medium">Slug<input name="slug" placeholder="dissertation" class="mt-1 w-full rounded-xl border-slate-300"></label>
-<label class="text-sm font-medium">Workflow<select name="workflow_definition_id" required class="mt-1 w-full rounded-xl border-slate-300"><?php $__currentLoopData = $workflows->where('is_active',true); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $workflow): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><option value="<?php echo e($workflow->id); ?>"><?php echo e($workflow->name); ?></option><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></select></label>
+<label class="text-sm font-medium">Workflow<select name="workflow_definition_id" required class="mt-1 w-full rounded-xl border-slate-300"><?php $__currentLoopData = $workflowOptions->where('is_active',true); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $workflow): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><option value="<?php echo e($workflow->id); ?>"><?php echo e($workflow->name); ?></option><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></select></label>
 <label class="text-sm font-medium">Maximum similarity (%)<input type="number" name="similarity_threshold" value="20" min="0" max="100" step="0.01" class="mt-1 w-full rounded-xl border-slate-300"></label>
 <label class="lg:col-span-2 text-sm font-medium">Description<textarea name="description" rows="2" class="mt-1 w-full rounded-xl border-slate-300"></textarea></label>
 <label class="text-sm font-medium">Template schema JSON<textarea name="template_schema" rows="10" class="mt-1 w-full rounded-xl border-slate-300 font-mono text-xs">{"sections":[{"key":"abstract","title":"Abstract","required":true},{"key":"chapter_1","title":"Chapter 1","required":true},{"key":"references","title":"References","required":true}]}</textarea></label>
@@ -53,7 +55,7 @@
 <?php $__currentLoopData = $types; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $type): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><form method="POST" action="<?php echo e(route('research.configuration.types.update',$type)); ?>" class="rounded-2xl border bg-white p-5"><?php echo csrf_field(); ?> <?php echo method_field('PUT'); ?>
 <h3 class="font-semibold"><?php echo e($type->name); ?></h3><p class="text-xs text-slate-500"><?php echo e($type->projects_count); ?> project(s) · <?php echo e($type->template_versions_count); ?> immutable template version(s)</p>
 <div class="mt-4 grid gap-3 sm:grid-cols-2"><label class="text-xs font-medium">Name<input name="name" value="<?php echo e($type->name); ?>" required class="mt-1 w-full rounded-lg border-slate-300"></label><label class="text-xs font-medium">Slug<input name="slug" value="<?php echo e($type->slug); ?>" required class="mt-1 w-full rounded-lg border-slate-300"></label></div>
-<label class="mt-3 block text-xs font-medium">Workflow<select name="workflow_definition_id" class="mt-1 w-full rounded-lg border-slate-300"><?php $__currentLoopData = $workflows; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $workflow): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><option value="<?php echo e($workflow->id); ?>" <?php if($type->workflow_definition_id===$workflow->id): echo 'selected'; endif; ?>><?php echo e($workflow->name); ?></option><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></select></label>
+<label class="mt-3 block text-xs font-medium">Workflow<select name="workflow_definition_id" class="mt-1 w-full rounded-lg border-slate-300"><?php $__currentLoopData = $workflowOptions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $workflow): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><option value="<?php echo e($workflow->id); ?>" <?php if($type->workflow_definition_id===$workflow->id): echo 'selected'; endif; ?>><?php echo e($workflow->name); ?></option><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></select></label>
 <label class="mt-3 block text-xs font-medium">Description<textarea name="description" rows="2" class="mt-1 w-full rounded-lg border-slate-300"><?php echo e($type->description); ?></textarea></label>
 <label class="mt-3 block text-xs font-medium">Template schema JSON<textarea name="template_schema" rows="8" class="mt-1 w-full rounded-lg border-slate-300 font-mono text-xs"><?php echo e(json_encode($type->template_schema ?? new stdClass, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)); ?></textarea></label>
 <label class="mt-3 block text-xs font-medium">Validation rules JSON<textarea name="validation_rules" rows="6" class="mt-1 w-full rounded-lg border-slate-300 font-mono text-xs"><?php echo e(json_encode($type->validation_rules ?? new stdClass, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)); ?></textarea></label>
@@ -61,6 +63,8 @@
 <div class="mt-4 text-right"><button class="rounded-xl border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700">Save type</button></div></form><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
 </div></section>
 </div>
+<?php echo e($types->links()); ?>
+
 <?php $__env->stopSection(); ?>
 
 <?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH /Users/user/Desktop/acadflow/acadflow-web/resources/views/research/configuration.blade.php ENDPATH**/ ?>

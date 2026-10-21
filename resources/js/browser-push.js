@@ -14,6 +14,7 @@ export async function initBrowserPush() {
     const supported = window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
     let busy = false;
     let config;
+    let currentSubscription = null;
     const show = (message) => { if (status) status.textContent = message; };
     const api = async (url, data, timeout = 12000) => {
         const controller = new AbortController();
@@ -33,7 +34,10 @@ export async function initBrowserPush() {
         await navigator.serviceWorker.register(document.querySelector('meta[name="push-worker-url"]').content, { scope: '/', updateViaCache: 'none' });
         return Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => setTimeout(() => reject(new Error('Browser notifications are still starting. Try again shortly.')), 10000))]);
     };
-    const existing = async () => (await navigator.serviceWorker.getRegistration('/'))?.pushManager.getSubscription();
+    const existing = async () => {
+        currentSubscription = await (await navigator.serviceWorker.getRegistration('/'))?.pushManager.getSubscription();
+        return currentSubscription;
+    };
     const updateButtons = (subscription) => {
         if (enable) enable.disabled = busy || !supported || !config?.available || Notification.permission === 'denied';
         if (disable) disable.disabled = busy || !subscription;
@@ -51,19 +55,19 @@ export async function initBrowserPush() {
             updateButtons(subscription);
         }
     };
-    // Remove the current browser subscription before ending its authenticated session.
+    // Logout proceeds natively. The server removes this session's push endpoint;
+    // browser cleanup must never delay sign-out or trigger a second submission.
     document.querySelectorAll('form[action]').forEach((form) => {
         if (new URL(form.action).pathname !== '/logout') return;
-        form.addEventListener('submit', async (event) => {
-            if (form.dataset.pushCleaned || !supported) return;
-            event.preventDefault();
-            try {
-                const subscription = await existing();
-                if (subscription) {
-                    try { await api('/browser-push/unsubscribe', { endpoint: subscription.endpoint }, 4000); } catch (_) {}
-                    await subscription.unsubscribe();
-                }
-            } finally { form.dataset.pushCleaned = 'true'; form.requestSubmit(); }
+        form.addEventListener('submit', (event) => {
+            if (event.defaultPrevented || !currentSubscription) return;
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'push_endpoint';
+            input.value = currentSubscription.endpoint;
+            form.append(input);
+            // A remembered endpoint also covers sessions enrolled before server tracking.
+            void Promise.resolve().then(() => currentSubscription.unsubscribe()).catch(() => {});
         });
     });
     if (!supported) { show('Browser notifications require HTTPS and a supported browser. On iPhone or iPad, add AcadSyntra to your Home Screen first.'); updateButtons(null); return; }
@@ -76,6 +80,9 @@ export async function initBrowserPush() {
         }
         if (accountId) localStorage.setItem('acadflow_push_account', accountId);
     } catch (_) { /* Storage may be disabled by browser privacy settings. */ }
+    // Ordinary navigation needs no push configuration request for a browser
+    // that has never opted in. Account-switch cleanup above still always runs.
+    if (!panel && (Notification.permission !== 'granted' || !await existing())) return;
     try { config = await api(configUrl); }
     catch (_) { show('Notification availability could not be checked. Reload to try again.'); updateButtons(await existing()); return; }
     if (!config.available) {
@@ -109,6 +116,7 @@ export async function initBrowserPush() {
                 await subscription.unsubscribe(); subscription = null;
             }
             subscription ||= await worker.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+            currentSubscription = subscription;
             await api('/browser-push/subscribe', { ...subscription.toJSON(), enablePreference: true });
             const preference = document.querySelector('input[type="checkbox"][name="push_enabled"]');
             if (preference) preference.checked = true;

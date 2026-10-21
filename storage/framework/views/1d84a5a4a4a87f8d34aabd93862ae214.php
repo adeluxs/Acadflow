@@ -66,7 +66,7 @@
                 </form>
                 <div id="annotationSummary" class="mt-3 hidden rounded-xl bg-indigo-50 p-3 text-sm text-slate-700"></div>
                 <div class="mt-4 space-y-2">
-                    <?php $__empty_1 = true; $__currentLoopData = $material->annotations; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $annotation): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <?php $__empty_0 = true; $__currentLoopData = $material->annotations; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $annotation): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                         <div class="rounded-xl border border-slate-200 p-3 text-sm">
                             <?php if($annotation->quote): ?><p class="font-semibold text-slate-800">&ldquo;<?php echo e($annotation->quote); ?>&rdquo;</p><?php endif; ?>
                             <?php if($annotation->note): ?><p class="mt-1 text-slate-600"><?php echo e($annotation->note); ?></p><?php endif; ?>
@@ -76,7 +76,7 @@
                                 <button class="text-xs font-bold text-rose-600">Remove</button>
                             </form>
                         </div>
-                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                         <p class="text-xs text-slate-500">No highlights yet.</p>
                     <?php endif; ?>
                 </div>
@@ -117,11 +117,11 @@
                     <?php if(auth()->guard()->check()): ?><a href="<?php echo e(route('discussions.create', $course)); ?>" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">Start discussion</a><?php endif; ?>
                 </div>
                 <div class="mt-5 space-y-3">
-                    <?php $__empty_1 = true; $__currentLoopData = $discussions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $discussion): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <?php $__empty_0 = true; $__currentLoopData = $discussions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $discussion): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                         <a href="<?php echo e(route('discussions.show', [$course, $discussion])); ?>" class="block rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:bg-indigo-50/30">
                             <div class="flex items-start justify-between gap-4"><div><p class="font-bold text-slate-900"><?php echo e($discussion->title); ?></p><p class="mt-1 text-sm text-slate-500"><?php echo e($discussion->user?->full_name ?? $discussion->user?->name ?? 'Course member'); ?> · <?php echo e($discussion->created_at?->diffForHumans()); ?></p></div><span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600"><?php echo e($discussion->replies_count ?? 0); ?> replies</span></div>
                         </a>
-                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                         <div class="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">No discussion has been linked to this material yet.</div>
                     <?php endif; ?>
                 </div>

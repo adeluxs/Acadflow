@@ -11,7 +11,7 @@ async function login(page, email = 'studio.owner@acadsyntra.test') {
     await page.locator('#email').fill(email);
     await page.locator('#password').fill('StudioExample123!');
     await page.getByRole('button', { name: 'Sign in to AcadSyntra' }).click();
-    await page.waitForURL(/dashboard|onboarding/);
+    await page.waitForURL(/dashboard|onboarding|admin\/faculties/);
 }
 async function createProject(page, methodology, mode = 'research') {
     await page.goto(`${base}/research-studio/create?studio_mode=${mode}`);
@@ -31,6 +31,32 @@ async function noOverflow(page) {
     const width = await page.evaluate(() => ({ viewport: innerWidth, actual: document.documentElement.scrollWidth }));
     assert.ok(width.actual <= width.viewport + 1, `Overflow: ${JSON.stringify(width)} on ${page.url()}`);
 }
+
+test('institutional options load on demand, retry safely, and preserve typed inputs', { timeout: 90_000 }, async () => {
+    const browser = await launch();
+    try {
+        const page = await browser.newPage({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+        await login(page, 'studio.institution@acadsyntra.test');
+        const lookups = [];
+        page.on('request', request => { if (request.url().includes('/create/options')) lookups.push(request.url()); });
+        await page.goto(base + '/research-studio/create', { waitUntil: 'networkidle' });
+        assert.equal(lookups.length, 0);
+        await page.locator('[name="discipline"]').fill('Preserve my research discipline');
+        let failed = false;
+        await page.route('**/create/options?**', route => {
+            if (!failed && route.request().url().includes('kind=departments')) { failed = true; return route.abort(); }
+            return route.continue();
+        });
+        await page.locator('#institutional-project-toggle').check();
+        await page.locator('[data-option-more="departments"]').filter({ hasText: 'Retry' }).click();
+        await page.locator('#institutional-department option', { hasText: 'Test Research Department' }).waitFor({ state: 'attached' });
+        await page.locator('#supervisor-invitee option', { hasText: 'Test Supervisor' }).waitFor({ state: 'attached' });
+        assert.equal(await page.locator('[name="discipline"]').inputValue(), 'Preserve my research discipline');
+        await page.locator('[data-option-search="supervisors"]').fill('No matching lecturer');
+        await page.locator('[data-option-status="supervisors"]').filter({ hasText: 'No matching options' }).waitFor();
+        await noOverflow(page);
+    } finally { await browser.close(); }
+});
 
 test('auth, setup and research workspaces fit mobile, tablet and desktop', { timeout: 180_000 }, async () => {
     const browser = await launch();
@@ -85,9 +111,175 @@ test('rich writing autosaves and a stale second tab cannot overwrite it', { time
         assert.equal(await page.locator('.ql-editor table').count(), 1);
         await page.getByText('Section version history', { exact: true }).click();
         assert.ok(await page.getByText(/Version 2 ·/).count());
+        await page.getByText('Export document', { exact: true }).click();
         const downloadPromise = page.waitForEvent('download');
-        await page.getByRole('link', { name: 'DOCX', exact: true }).click();
+        await page.getByRole('link', { name: 'Download DOCX', exact: true }).click();
         const download = await downloadPromise; assert.match(download.suggestedFilename(), /\.docx$/);
+    } finally { await browser.close(); }
+});
+
+test('table removal targets the selected table, supports undo and persists on reload', { timeout: 120_000 }, async () => {
+    const browser = await launch();
+    try {
+        const page = await browser.newPage({ serviceWorkers: 'block', hasTouch: true });
+        const errors = []; page.on('pageerror', error => errors.push(error.message));
+        await login(page); await createProject(page, 'interviews');
+        const editor = page.locator('.ql-editor');
+        const remove = page.getByRole('button', { name: 'Remove table', exact: true });
+        const insert = page.getByRole('button', { name: 'Insert 3 × 3 table' });
+        const saved = () => page.waitForFunction(() => {
+            const form = document.querySelector('[data-research-autosave]');
+            return form?.querySelector('[data-autosave-status]')?.dataset.state === 'saved'
+                && form.querySelector('textarea[name="body"]').value === form.querySelector('.ql-editor').innerHTML;
+        });
+        const caretAtEnd = async (locator) => {
+            await locator.click();
+            await locator.evaluate(node => {
+                const range = document.createRange(); range.selectNodeContents(node); range.collapse(false);
+                const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+            });
+        };
+        await editor.waitFor();
+        assert.equal(await remove.isDisabled(), true);
+        await editor.fill('Paragraph before the tables.');
+        await page.keyboard.press('Enter'); await page.keyboard.press('Enter');
+        await page.keyboard.insertText('Paragraph after the tables.');
+        await saved();
+        await editor.locator('p').nth(1).click();
+        await insert.click();
+        await editor.locator('table td').first().click();
+        await page.keyboard.insertText('Keep this first table');
+        await caretAtEnd(editor.locator('p').filter({ hasText: 'Paragraph after the tables.' }));
+        await page.keyboard.press('Enter');
+        await insert.click();
+        await editor.locator('table').last().locator('td').first().click();
+        await page.keyboard.insertText('Remove this second table');
+        await saved();
+        await page.reload({ waitUntil: 'networkidle' });
+        assert.equal(await editor.locator('table').count(), 2);
+        assert.equal(await editor.locator('table').first().locator('tr').count(), 3);
+        assert.equal(await editor.locator('table').last().locator('tr').count(), 3);
+        const version = await page.locator('[data-research-autosave] [name="expected_version"]').inputValue();
+        await page.waitForTimeout(2000);
+        assert.equal(await page.locator('[data-research-autosave] [name="expected_version"]').inputValue(), version, 'opening a saved table must not create an edit');
+        await editor.locator('p').filter({ hasText: 'Paragraph before the tables.' }).click();
+        assert.equal(await remove.isDisabled(), true);
+        await editor.locator('table').last().locator('td').first().click();
+        await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent === 'Remove table' && !button.disabled));
+        // Keyboard activation must preserve the selected table when focus leaves the editor.
+        await remove.focus(); await remove.press('Enter');
+        assert.equal(await editor.locator('table').count(), 1);
+        assert.match(await editor.innerText(), /Keep this first table/);
+        assert.doesNotMatch(await editor.innerText(), /Remove this second table/);
+        await page.keyboard.press('ControlOrMeta+z');
+        assert.equal(await editor.locator('table').count(), 2);
+        assert.equal(await editor.locator('table').last().locator('tr').count(), 3);
+        assert.match(await editor.innerText(), /Remove this second table/);
+        await page.keyboard.press('ControlOrMeta+Shift+z');
+        assert.equal(await editor.locator('table').count(), 1);
+        await saved();
+        await page.reload({ waitUntil: 'networkidle' });
+        assert.equal(await editor.locator('table').count(), 1);
+        assert.match(await editor.innerText(), /Keep this first table/);
+        assert.doesNotMatch(await editor.innerText(), /Remove this second table/);
+        await page.setViewportSize({ width: 390, height: 844 });
+        await editor.locator('table td').first().tap();
+        await remove.tap();
+        assert.equal(await editor.locator('table').count(), 0);
+        await saved();
+        await page.reload({ waitUntil: 'networkidle' });
+        assert.equal(await editor.locator('table').count(), 0);
+        assert.match(await editor.innerText(), /Paragraph before the tables\./);
+        assert.match(await editor.innerText(), /Paragraph after the tables\./);
+        assert.equal(await remove.isDisabled(), true);
+        await noOverflow(page);
+        assert.deepEqual(errors, []);
+    } finally { await browser.close(); }
+});
+
+test('chapter selection expands the writing space and focus preserves the live draft', { timeout: 120_000 }, async () => {
+    const browser = await launch();
+    try {
+        await mkdir(artifacts, { recursive: true });
+        const page = await browser.newPage({ serviceWorkers: 'block', viewport: { width: 1440, height: 1000 } });
+        const errors = []; page.on('pageerror', error => errors.push(error.message));
+        await login(page);
+        const project = await createProject(page, 'software');
+        const navigator = page.locator('[data-writing-chapters]');
+        assert.equal(await navigator.evaluate(el => el.open), true);
+        const chapter = page.locator('[data-writing-chapter]').nth(1);
+        const href = await chapter.getAttribute('href');
+        await chapter.click();
+        await page.waitForURL(href);
+        assert.equal(await navigator.evaluate(el => el.open), false, 'selected chapter should start with its navigator closed');
+        const wide = await page.locator('.studio-writing-paper').boundingBox();
+        await navigator.locator(':scope > summary').click();
+        const narrow = await page.locator('.studio-writing-paper').boundingBox();
+        assert.ok(wide.width - narrow.width >= 200, 'closing chapters should release the sidebar width');
+        await navigator.locator(':scope > summary').click();
+        for (const width of [320, 390, 768, 1024, 1280, 1440, 1920]) {
+            await page.setViewportSize({ width, height: 900 });
+            await noOverflow(page);
+            const editor = await page.locator('.ql-editor').boundingBox();
+            const document = await page.locator('.studio-writing-document').boundingBox();
+            assert.ok(editor.width >= document.width - 85, `editor must use available width at ${width}px`);
+            await navigator.locator(':scope > summary').click(); await noOverflow(page);
+            await navigator.locator(':scope > summary').click();
+            if ([390, 1440].includes(width)) await page.screenshot({ path: `${artifacts}/writing-wide-${width}.png`, fullPage: true });
+        }
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await page.locator('.ql-editor').fill('A live draft remains intact while the workspace changes.');
+        await page.locator('.ql-editor').evaluate(el => { el.dataset.draftIdentity = 'same-editor'; });
+        await page.getByRole('button', { name: 'Focus writing', exact: true }).click();
+        assert.equal(await page.locator('[data-writing-focus-toggle]').getAttribute('aria-pressed'), 'true');
+        assert.equal(await navigator.isVisible(), false);
+        assert.equal(await page.locator('[data-studio-guide]').isVisible(), false);
+        assert.match(await page.locator('.ql-editor').innerText(), /A live draft remains intact/);
+        assert.equal(await page.locator('.ql-editor').getAttribute('data-draft-identity'), 'same-editor');
+        await page.waitForFunction(() => document.querySelector('[data-autosave-status]')?.textContent.includes('Saved · Version 2'));
+        await page.keyboard.press('Escape');
+        assert.equal(await page.locator('[data-writing-focus-toggle]').getAttribute('aria-pressed'), 'false');
+        assert.equal(await navigator.isVisible(), true);
+        await page.getByRole('link', { name: 'Writing tools', exact: true }).click();
+        assert.equal(await page.locator('#writing-tools').evaluate(el => el.open), true);
+        await page.locator('[data-editor-insert]').first().click();
+        assert.equal(await page.locator('.ql-editor').getAttribute('data-draft-identity'), 'same-editor');
+        await page.waitForFunction(() => document.querySelector('[data-autosave-status]')?.textContent.includes('Saved · Version 3'));
+        await page.reload({ waitUntil: 'networkidle' });
+        assert.match(await page.locator('.ql-editor').innerText(), /A live draft remains intact/);
+        assert.ok(page.url().startsWith(project));
+        assert.deepEqual(errors, []);
+    } finally { await browser.close(); }
+});
+
+test('the studio guide explains the tools across project pages and works without JavaScript', { timeout: 90_000 }, async () => {
+    const browser = await launch();
+    try {
+        const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+        const page = await context.newPage(); await login(page);
+        const project = await createProject(page, 'interviews');
+        for (const path of [project, `${project}/plan`, `${project}/workspace`, `${base}/research-studio`, `${base}/research-studio/create`]) {
+            await page.goto(path, { waitUntil: 'networkidle' });
+            const guide = page.locator('[data-studio-guide]');
+            assert.equal(await guide.evaluate(el => el.open), false);
+            await guide.locator(':scope > summary').click();
+            for (const title of ['Chapters, writing & focus mode', 'Autosave, versions & recovering work', 'Plan, library & institutional guidelines', 'Literature, review notes & citations', 'Preview, formatting & document export']) {
+                const topic = guide.getByText(title, { exact: true });
+                await topic.click();
+                assert.equal(await topic.evaluate(el => el.parentElement.open), true);
+            }
+            await noOverflow(page);
+        }
+        const fallback = await browser.newContext({ javaScriptEnabled: false, storageState: await context.storageState(), viewport: { width: 390, height: 844 } });
+        const basic = await fallback.newPage(); await basic.goto(project);
+        await basic.locator('[data-studio-guide] > summary').click();
+        assert.equal(await basic.locator('[data-studio-guide]').evaluate(el => el.open), true);
+        const chapters = basic.locator('[data-writing-chapters]');
+        await chapters.locator('[data-writing-chapter]').nth(1).click();
+        assert.equal(await chapters.evaluate(el => el.open), false);
+        assert.ok(await basic.locator('textarea[name="body"]').isVisible());
+        await noOverflow(basic);
+        await fallback.close();
     } finally { await browser.close(); }
 });
 

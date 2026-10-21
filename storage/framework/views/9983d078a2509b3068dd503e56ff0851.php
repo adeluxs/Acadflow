@@ -492,6 +492,7 @@
         </div>
     </section>
 </div>
+<?php if($libraryPage): ?><?php echo e($libraryPage->links()); ?><?php endif; ?>
 <?php $__env->stopSection(); ?>
 
 <?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH /Users/user/Desktop/acadflow/acadflow-web/resources/views/research/literature.blade.php ENDPATH**/ ?>

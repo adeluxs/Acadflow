@@ -196,6 +196,9 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::post('/templates/{type}', [ResearchWorkspaceController::class, 'storeTemplate'])->name('templates.store');
         Route::post('/templates/versions/{template}/activate', [ResearchWorkspaceController::class, 'activateTemplate'])->name('templates.activate');
         Route::get('/create', [ResearchProjectController::class, 'create'])->name('create');
+        Route::get('/create/options', [ResearchProjectController::class, 'creationOptions'])->middleware('throttle:60,1')->name('create.options');
+        Route::get('/exports/{export}', [\App\Http\Controllers\ResearchExportController::class, 'show'])->name('exports.show');
+        Route::get('/exports/{export}/download', [\App\Http\Controllers\ResearchExportController::class, 'download'])->middleware('throttle:secure-downloads')->name('exports.download');
         Route::post('/', [ResearchProjectController::class, 'store'])->name('store');
         Route::get('/{research}', [ResearchProjectController::class, 'show'])->name('show');
         Route::put('/{research}', [ResearchProjectController::class, 'update'])->name('update');
@@ -240,9 +243,9 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::post('/{research}/analysis/coding', [\App\Http\Controllers\ResearchPlanController::class, 'codeExcerpt'])->name('analysis.coding');
         Route::post('/{research}/analysis/describe', [\App\Http\Controllers\ResearchPlanController::class, 'analyse'])->middleware('throttle:10,1')->name('analysis.describe');
         Route::post('/{research}/analysis/sample-size', [\App\Http\Controllers\ResearchPlanController::class, 'sampleSize'])->middleware('throttle:10,1')->name('analysis.sample-size');
-        Route::get('/{research}/export/docx', [ResearchWorkspaceController::class, 'exportDocx'])->name('export.docx');
+        Route::get('/{research}/export/docx', [ResearchWorkspaceController::class, 'exportDocx'])->middleware('throttle:research-exports')->name('export.docx');
         Route::get('/{research}/export/html', [ResearchWorkspaceController::class, 'exportHtml'])->name('export.html');
-        Route::get('/{research}/export/pdf', [ResearchWorkspaceController::class, 'exportPdf'])->name('export.pdf');
+        Route::get('/{research}/export/pdf', [ResearchWorkspaceController::class, 'exportPdf'])->middleware('throttle:research-exports')->name('export.pdf');
         Route::post('/{research}/sections', [ResearchWorkspaceController::class, 'storeSection'])->name('sections.store');
         Route::patch('/{research}/sections/reorder', [ResearchWorkspaceController::class, 'reorderSections'])->name('sections.reorder');
         Route::delete('/{research}/sections/{section}', [ResearchWorkspaceController::class, 'destroySection'])->name('sections.destroy');

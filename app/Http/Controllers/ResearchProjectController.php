@@ -19,6 +19,7 @@ use App\Services\ResearchValidationService;
 use App\Services\WorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
 
 class ResearchProjectController extends Controller
@@ -90,6 +91,7 @@ class ResearchProjectController extends Controller
         }
 
         $types = ResearchType::query()
+            ->select(['id', 'name'])
             ->where('is_active', true)
             ->where(fn ($query) => $query->whereNull('university_id')->orWhere('university_id', $user->university_id))
             ->orderBy('name')
@@ -99,25 +101,60 @@ class ResearchProjectController extends Controller
         $departments = collect();
         $supervisors = collect();
 
-        if ($institutionExpansionEnabled && $user->university_id) {
+        // Institutional options are optional. Keep the initial independent form
+        // small; fetch these only when institutional mode is selected. Retain
+        // server rendering after validation failures and for the no-JS fallback.
+        if ($institutionExpansionEnabled && $user->university_id && ($request->boolean('institutional') || $request->session()->getOldInput('institutional_project') === '1' || $request->session()->getOldInput('workspace_mode') === 'institutional')) {
             $departments = Department::query()
                 ->when(! $user->isSuperAdmin(), fn ($query) => $query->whereHas('faculty', fn ($faculty) => $faculty->where('university_id', $user->university_id)))
                 ->when($user->department_id && ! $user->isAdmin(), fn ($query) => $query->whereKey($user->department_id))
                 ->orderBy('name')
-                ->get();
+                ->get(['id', 'name']);
 
             $supervisors = User::query()
-                ->with('department')
+                ->with('department:id,name')
                 ->where('role', 'lecturer')
                 ->where('is_active', true)
                 ->where('university_id', $user->university_id)
                 ->orderBy('first_name')
                 ->orderBy('last_name')
                 ->limit(150)
-                ->get();
+                ->get(['id', 'first_name', 'last_name', 'department_id']);
         }
 
         return view('research.create', compact('types', 'departments', 'supervisors', 'institutionExpansionEnabled'));
+    }
+
+    public function creationOptions(Request $request): JsonResponse
+    {
+        $this->authorize('create', ResearchProject::class);
+        $user = $request->user();
+        abort_unless($user->university_id && FeatureAccessService::effectiveStatus('research_institutional_expansion', $user->university_id) === FeatureAccessService::STATUS_ENABLED, 403);
+        $data = $request->validate([
+            'kind' => ['required', 'in:departments,supervisors'],
+            'q' => ['nullable', 'string', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1', 'max:10000'],
+        ]);
+        $term = trim($data['q'] ?? '');
+        if ($data['kind'] === 'departments') {
+            $query = Department::query()
+                ->when(! $user->isSuperAdmin(), fn ($q) => $q->whereHas('faculty', fn ($faculty) => $faculty->where('university_id', $user->university_id)))
+                ->when($user->department_id && ! $user->isAdmin(), fn ($q) => $q->whereKey($user->department_id))
+                ->when($term !== '', fn ($q) => $q->where('name', 'like', '%'.$term.'%'))
+                ->orderBy('name')->orderBy('id');
+            $page = $query->simplePaginate(25, ['id', 'name']);
+            $options = $page->getCollection()->map(fn ($department) => ['id' => $department->id, 'label' => $department->name]);
+        } else {
+            $query = User::query()->with('department:id,name')
+                ->where('role', 'lecturer')->where('is_active', true)->where('university_id', $user->university_id)
+                ->when($term !== '', fn ($q) => $q->where(fn ($names) => $names->where('first_name', 'like', '%'.$term.'%')->orWhere('last_name', 'like', '%'.$term.'%')))
+                ->orderBy('first_name')->orderBy('last_name')->orderBy('id');
+            $page = $query->simplePaginate(25, ['id', 'first_name', 'last_name', 'department_id']);
+            $options = $page->getCollection()->map(fn ($supervisor) => ['id' => $supervisor->id, 'label' => $supervisor->full_name.($supervisor->department?->name ? ' · '.$supervisor->department->name : '')]);
+        }
+
+        return response()->json(['options' => $options, 'next_page' => $page->hasMorePages() ? $page->currentPage() + 1 : null])
+            ->header('Cache-Control', 'private, no-store');
     }
 
     public function store(Request $request, ResearchProjectService $projects, IndependentAcademicContextService $independent, ResearchInvitationService $invitations): RedirectResponse
@@ -213,7 +250,7 @@ class ResearchProjectController extends Controller
 
         $relations = [
             'researchType', 'owner',
-            'sections.document.versions', 'sections.document.comments.user',
+            'sections.document',
             'workflowInstance.currentStage', 'workflowInstance.definition.stages',
             'workflowInstance.transitions.actor', 'latestValidationReport', 'corrections',
         ];
@@ -224,12 +261,7 @@ class ResearchProjectController extends Controller
             $relations[] = 'publications';
         }
         if ($literatureEnabled) {
-            $relations[] = 'referenceLinks.reference';
-            $relations[] = 'literatureNotes.reference';
             $relations[] = 'templateVersion';
-        }
-        if ($datasetsEnabled) {
-            $relations[] = 'datasets';
         }
         $research->load($relations);
 
@@ -266,12 +298,34 @@ class ResearchProjectController extends Controller
 
         $sectionJourney = $writing->journey($research);
         $activeSection = $writing->activeSection($research, $request->query('section'));
+        $sectionLabel = strtolower(($activeSection?->key ?? '').' '.($activeSection?->title ?? ''));
+        $needsLiterature = str_contains($sectionLabel, 'chapter_2') || str_contains($sectionLabel, 'literature') || str_contains($sectionLabel, 'reference') || str_contains($sectionLabel, 'bibliograph');
+        if ($literatureEnabled && $needsLiterature) {
+            $research->load([
+                'referenceLinks.reference',
+                'literatureNotes' => fn ($query) => $query->where('created_by', $request->user()->id)->where('reading_status', 'reviewed')->with('reference'),
+            ]);
+        }
+        if ($datasetsEnabled && (str_contains($sectionLabel, 'chapter_4') || str_contains($sectionLabel, 'result') || str_contains($sectionLabel, 'analysis'))) {
+            $research->load('datasets');
+        }
+        $sectionVersions = null;
+        $sectionComments = null;
+        if ($activeSection) {
+            $activeSection->setRelation('project', $research);
+            if ($activeSection->document) {
+                // Version bodies grow on every autosave. Never hydrate histories
+                // for chapters that are not currently being edited.
+                $sectionVersions = $activeSection->document->versions()->paginate(5, ['*'], 'versions_page')->withQueryString();
+                $sectionComments = $activeSection->document->comments()->with('user')->paginate(25, ['*'], 'comments_page')->withQueryString();
+            }
+        }
         $writingGuidance = $writing->guidance($activeSection);
         $nextWritingAction = $writing->nextAction($research);
 
         $citationStyle = strtolower((string) (data_get($research->metadata, 'citation_style', $research->templateVersion?->citation_style ?? 'apa')));
         $chapterTwoLiterature = collect();
-        if ($literatureEnabled) {
+        if ($literatureEnabled && $needsLiterature) {
             $linkedReferenceIds = $research->referenceLinks->pluck('academic_reference_id')->flip();
             $chapterTwoLiterature = $research->literatureNotes
                 ->where('created_by', auth()->id())
@@ -291,7 +345,7 @@ class ResearchProjectController extends Controller
         return view('research.show', compact(
             'research', 'categories', 'institutionExpansionEnabled', 'publishingEnabled', 'literatureEnabled', 'datasetsEnabled',
             'pendingSupervisorInvitation', 'supervisorCandidates', 'chapterTwoLiterature', 'citationStyle',
-            'sectionJourney', 'activeSection', 'writingGuidance', 'nextWritingAction'
+            'sectionJourney', 'activeSection', 'writingGuidance', 'nextWritingAction', 'sectionVersions', 'sectionComments'
         ));
     }
 

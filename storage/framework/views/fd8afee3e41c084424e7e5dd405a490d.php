@@ -1,0 +1,37 @@
+<?php $__env->startSection('title','Member Dashboard'); ?>
+<?php $__env->startSection('page-title','Dashboard'); ?>
+<?php $__env->startSection('page-subtitle','Welcome back, '.(auth()->user()->first_name ?? 'Member').' 👋'); ?>
+<?php $__env->startSection('content'); ?>
+<?php
+    $dashboardUser = auth()->user();
+    $routeFeatureVisible = function (string $routeName) use ($dashboardUser): bool {
+        $feature = \App\Services\FeatureAccessService::featureForRoute($routeName);
+        return ! $feature || \App\Services\FeatureAccessService::shouldShowInNavigation($feature, $dashboardUser);
+    };
+    $featureVisible = fn (string $feature): bool => \App\Services\FeatureAccessService::shouldShowInNavigation($feature, $dashboardUser);
+?>
+<div class="space-y-5">
+    <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <?php $__currentLoopData = [
+            ['Publications',$stats['publications'],'knowledge.manage','bg-indigo-50 text-indigo-600'],
+            ['Research Projects',$stats['research_projects'],'research.index','bg-blue-50 text-blue-600'],
+            ['Communities',$stats['communities'],'knowledge.communities.index','bg-emerald-50 text-emerald-600'],
+            ['Groups',$stats['groups'],'groups.index','bg-orange-50 text-orange-600'],
+        ]; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $card): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if($routeFeatureVisible($card[2])): ?><a href="<?php echo e(route($card[2])); ?>" class="acad-card acad-card-hover p-4"><div class="flex items-start justify-between"><div><p class="text-xs text-slate-500"><?php echo e($card[0]); ?></p><p class="mt-2 text-2xl font-black"><?php echo e($card[1]); ?></p><p class="mt-1 text-[10px] text-slate-400">Your workspace</p></div><span class="flex h-9 w-9 items-center justify-center rounded-xl <?php echo e($card[3]); ?>">↗</span></div></a><?php endif; ?> <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+    </section>
+    <section class="grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
+        <?php if($featureVisible('knowledge_hub')): ?>
+        <article class="acad-card p-5"><div class="flex items-center justify-between"><h2 class="text-sm font-bold">Recent Publications</h2><a class="text-xs font-semibold acad-link" href="<?php echo e(route('knowledge.manage')); ?>">Manage</a></div><div class="mt-4 space-y-2"><?php $__empty_0 = true; $__currentLoopData = $publications; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $publication): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?><a href="<?php echo e(route('knowledge.show',$publication)); ?>" class="flex items-center gap-3 rounded-xl border border-slate-100 p-3 hover:bg-slate-50"><span class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">▤</span><div class="min-w-0 flex-1"><p class="truncate text-xs font-semibold"><?php echo e($publication->title); ?></p><p class="text-[10px] text-slate-500"><?php echo e(str($publication->status)->headline()); ?></p></div><span class="text-[10px] text-slate-400"><?php echo e($publication->updated_at?->diffForHumans()); ?></span></a><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?><p class="text-xs text-slate-500">No publications yet.</p><?php endif; ?></div></article>
+        <?php endif; ?>
+        <?php if($featureVisible('ai_assistant')): ?>
+        <article class="relative overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50 p-5 shadow-sm"><div class="flex items-center gap-3"><div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-xs font-bold text-white">AI</div><div><h2 class="text-sm font-bold">AI Research Assistant</h2><p class="text-[10px] text-slate-500">Write, discover, and organize knowledge</p></div></div><div class="mt-4 space-y-2 text-xs"><a href="<?php echo e(route('ai.assistant')); ?>" class="block rounded-lg bg-indigo-600 p-3 font-semibold text-white shadow-sm">Ask AI Assistant</a><a href="<?php echo e(route('research.create')); ?>" class="block rounded-lg bg-white p-3 shadow-sm">Start a research project</a><a href="<?php echo e(route('knowledge.manage.create')); ?>" class="block rounded-lg bg-white p-3 shadow-sm">Draft a publication</a><a href="<?php echo e(route('knowledge.search')); ?>" class="block rounded-lg bg-white p-3 shadow-sm">Explore Knowledge Hub</a></div></article>
+        <?php endif; ?>
+    </section>
+    <section class="grid gap-5 xl:grid-cols-2">
+        <?php if($featureVisible('academic_events')): ?><article class="acad-card p-5"><div class="flex items-center justify-between"><h2 class="text-sm font-bold">Upcoming Events</h2><a href="<?php echo e(route('knowledge.events.index')); ?>" class="text-xs font-semibold acad-link">Discover</a></div><div class="mt-4 space-y-2"><?php $__empty_0 = true; $__currentLoopData = $eventRegistrations; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $registration): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?><?php if($registration->event): ?><a href="<?php echo e(route('knowledge.events.show',$registration->event)); ?>" class="block rounded-xl border-b border-slate-100 py-3"><p class="text-xs font-semibold"><?php echo e($registration->event->title); ?></p><p class="mt-1 text-[10px] text-slate-500"><?php echo e($registration->event->starts_at?->format('M j, Y · g:i A')); ?> · <?php echo e(ucfirst($registration->status)); ?></p></a><?php endif; ?> <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?><p class="text-xs text-slate-500">No event registrations.</p><?php endif; ?></div></article><?php endif; ?>
+        <?php if($featureVisible('academic_challenges')): ?><article class="acad-card p-5"><div class="flex items-center justify-between"><h2 class="text-sm font-bold">Challenge Activity</h2><a href="<?php echo e(route('knowledge.challenges.index')); ?>" class="text-xs font-semibold acad-link">Participate</a></div><div class="mt-4 space-y-2"><?php $__empty_0 = true; $__currentLoopData = $challengeEntries; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $entry): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?><?php if($entry->challenge): ?><a href="<?php echo e(route('knowledge.challenges.show',$entry->challenge)); ?>" class="block rounded-xl border-b border-slate-100 py-3"><p class="text-xs font-semibold"><?php echo e($entry->challenge->title); ?></p><p class="mt-1 text-[10px] text-slate-500"><?php echo e($entry->is_final ? 'Final submission' : 'Draft'); ?><?php echo e($entry->rank ? ' · Rank '.$entry->rank : ''); ?></p></a><?php endif; ?> <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?><p class="text-xs text-slate-500">No challenge activity.</p><?php endif; ?></div></article><?php endif; ?>
+    </section>
+</div>
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH /Users/user/Desktop/acadflow/acadflow-web/resources/views/dashboard/member.blade.php ENDPATH**/ ?>

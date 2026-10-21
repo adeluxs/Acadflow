@@ -201,7 +201,7 @@
                 <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700"><?php echo e($pendingCommercialRequests->count()); ?></span>
             </div>
             <div class="mt-5 space-y-4">
-                <?php $__empty_1 = true; $__currentLoopData = $pendingCommercialRequests; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $commercialRequest): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                <?php $__empty_0 = true; $__currentLoopData = $pendingCommercialRequests; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $commercialRequest): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                     <article class="rounded-2xl border p-4">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
@@ -220,7 +220,7 @@
                             </form>
                         </div>
                     </article>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                     <div class="rounded-2xl border border-dashed p-6 text-center"><p class="font-bold text-slate-700">No institution requests are waiting.</p><p class="mt-1 text-xs text-slate-500">New requests will appear here and can be applied through the guided setup form.</p></div>
                 <?php endif; ?>
             </div>
@@ -229,12 +229,12 @@
         <section class="rounded-3xl border bg-white p-6 shadow-sm">
             <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Existing B2B accounts</p><h2 class="mt-1 text-xl font-black text-slate-900">Institution commercial accounts</h2><p class="mt-1 text-sm text-slate-500">Open an account to update negotiated terms. Institution admins see the approved values on their own Commercial Account dashboard.</p></div>
             <div class="mt-5 space-y-3">
-                <?php $__empty_1 = true; $__currentLoopData = $commercialAccounts; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $commercialAccount): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                <?php $__empty_0 = true; $__currentLoopData = $commercialAccounts; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $commercialAccount): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                     <a href="<?php echo e(route('admin.monetization',['institution'=>$commercialAccount->university_id])); ?>#commercial-account-setup" class="block rounded-2xl border p-4 transition hover:border-indigo-200 hover:bg-indigo-50/30">
                         <div class="flex items-start justify-between gap-3"><div><p class="font-black text-slate-900"><?php echo e($commercialAccount->university?->name ?? $commercialAccount->name); ?></p><p class="mt-1 text-xs text-slate-500"><?php echo e($commercialAccount->name); ?> · <?php echo e($commercialAccount->currency); ?></p></div><span class="rounded-full px-2.5 py-1 text-[11px] font-black <?php echo e($commercialAccount->status==='active'?'bg-emerald-50 text-emerald-700':'bg-slate-100 text-slate-600'); ?>"><?php echo e(ucfirst($commercialAccount->status)); ?></span></div>
                         <div class="mt-3 flex flex-wrap gap-3 text-xs text-slate-600"><span>Prepaid: <strong class="text-slate-900"><?php echo e($commercialAccount->currency); ?> <?php echo e(\App\Support\Money::fromMinor((int)$commercialAccount->prepaid_balance_minor)); ?></strong></span><span>AI sponsored: <strong class="text-slate-900"><?php echo e(data_get($commercialAccount->metadata,'sponsor_ai_usage',false)?'Yes':'No'); ?></strong></span><span>Sponsored features: <strong class="text-slate-900"><?php echo e(count((array)data_get($commercialAccount->metadata,'sponsored_features',[]))); ?></strong></span></div>
                     </a>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                     <div class="rounded-2xl border border-dashed p-6 text-center"><p class="font-bold text-slate-700">No commercial accounts yet.</p><p class="mt-1 text-xs text-slate-500">Use the setup form above or approve an institution setup request.</p></div>
                 <?php endif; ?>
             </div>
@@ -245,12 +245,12 @@
     <div class="grid gap-6 xl:grid-cols-3">
         <section class="rounded-3xl border bg-white p-6 shadow-sm">
             <div class="flex items-center justify-between"><h2 class="text-lg font-black">Pending withdrawals</h2><span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700"><?php echo e($pendingWithdrawals->count()); ?></span></div>
-            <div class="mt-4 space-y-4"><?php $__empty_1 = true; $__currentLoopData = $pendingWithdrawals; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $withdrawal): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?><div class="rounded-2xl border p-4 text-sm"><p class="font-black"><?php echo e($withdrawal->wallet?->user?->full_name); ?> · <?php echo e($withdrawal->wallet?->currency); ?> <?php echo e(\App\Support\Money::fromMinor((int)$withdrawal->amount_minor)); ?></p><p class="mt-1 text-xs text-slate-500"><?php echo e($withdrawal->payoutAccount?->bank_name); ?> · <?php echo e($withdrawal->payoutAccount?->masked_account_number); ?> · fee <?php echo e(\App\Support\Money::fromMinor((int)$withdrawal->fee_minor)); ?></p><form method="POST" action="<?php echo e(route('commerce.withdrawals.process',$withdrawal)); ?>" class="mt-3 grid gap-2"><?php echo csrf_field(); ?><input name="provider_reference" class="rounded-lg border-slate-300 text-xs" placeholder="Provider/bank reference for approval"><input name="note" class="rounded-lg border-slate-300 text-xs" placeholder="Decision note"><div class="flex gap-2"><button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Approve paid</button><button name="decision" value="reject" class="rounded-lg border px-3 py-2 text-xs font-bold">Reject & release hold</button></div></form></div><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?><p class="text-sm text-slate-500">No withdrawal requests awaiting review.</p><?php endif; ?></div>
+            <div class="mt-4 space-y-4"><?php $__empty_0 = true; $__currentLoopData = $pendingWithdrawals; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $withdrawal): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?><div class="rounded-2xl border p-4 text-sm"><p class="font-black"><?php echo e($withdrawal->wallet?->user?->full_name); ?> · <?php echo e($withdrawal->wallet?->currency); ?> <?php echo e(\App\Support\Money::fromMinor((int)$withdrawal->amount_minor)); ?></p><p class="mt-1 text-xs text-slate-500"><?php echo e($withdrawal->payoutAccount?->bank_name); ?> · <?php echo e($withdrawal->payoutAccount?->masked_account_number); ?> · fee <?php echo e(\App\Support\Money::fromMinor((int)$withdrawal->fee_minor)); ?></p><form method="POST" action="<?php echo e(route('commerce.withdrawals.process',$withdrawal)); ?>" class="mt-3 grid gap-2"><?php echo csrf_field(); ?><input name="provider_reference" class="rounded-lg border-slate-300 text-xs" placeholder="Provider/bank reference for approval"><input name="note" class="rounded-lg border-slate-300 text-xs" placeholder="Decision note"><div class="flex gap-2"><button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Approve paid</button><button name="decision" value="reject" class="rounded-lg border px-3 py-2 text-xs font-bold">Reject & release hold</button></div></form></div><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?><p class="text-sm text-slate-500">No withdrawal requests awaiting review.</p><?php endif; ?></div>
         </section>
         <section class="rounded-3xl border bg-white p-6 shadow-sm">
             <div class="flex items-center justify-between"><h2 class="text-lg font-black">Refund operations</h2><span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700"><?php echo e($pendingRefunds->count()); ?></span></div>
             <div class="mt-4 space-y-4">
-                <?php $__empty_1 = true; $__currentLoopData = $pendingRefunds; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $refund): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                <?php $__empty_0 = true; $__currentLoopData = $pendingRefunds; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $refund): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                     <div class="rounded-2xl border p-4 text-sm">
                         <div class="flex items-start justify-between gap-3">
                             <div>
@@ -289,14 +289,14 @@
                             </form>
                         <?php endif; ?>
                     </div>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                     <p class="text-sm text-slate-500">No refund requests awaiting action.</p>
                 <?php endif; ?>
             </div>
         </section>
         <section class="rounded-3xl border bg-white p-6 shadow-sm">
             <div class="flex items-center justify-between"><h2 class="text-lg font-black">Payout verification</h2><span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700"><?php echo e($pendingPayoutAccounts->count()); ?></span></div>
-            <div class="mt-4 space-y-4"><?php $__empty_1 = true; $__currentLoopData = $pendingPayoutAccounts; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $account): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?><div class="rounded-2xl border p-4 text-sm"><p class="font-black"><?php echo e($account->user?->full_name); ?></p><p class="mt-1 text-slate-600"><?php echo e($account->account_name); ?> · <?php echo e($account->bank_name); ?> · <?php echo e($account->masked_account_number); ?></p><form method="POST" action="<?php echo e(route('commerce.payout-accounts.verify',$account)); ?>" class="mt-3 flex gap-2"><?php echo csrf_field(); ?><button name="verified" value="1" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Mark verified</button><button name="verified" value="0" class="rounded-lg border px-3 py-2 text-xs font-bold">Keep unverified</button></form></div><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?><p class="text-sm text-slate-500">No payout accounts awaiting verification.</p><?php endif; ?></div>
+            <div class="mt-4 space-y-4"><?php $__empty_0 = true; $__currentLoopData = $pendingPayoutAccounts; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $account): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?><div class="rounded-2xl border p-4 text-sm"><p class="font-black"><?php echo e($account->user?->full_name); ?></p><p class="mt-1 text-slate-600"><?php echo e($account->account_name); ?> · <?php echo e($account->bank_name); ?> · <?php echo e($account->masked_account_number); ?></p><form method="POST" action="<?php echo e(route('commerce.payout-accounts.verify',$account)); ?>" class="mt-3 flex gap-2"><?php echo csrf_field(); ?><button name="verified" value="1" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Mark verified</button><button name="verified" value="0" class="rounded-lg border px-3 py-2 text-xs font-bold">Keep unverified</button></form></div><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?><p class="text-sm text-slate-500">No payout accounts awaiting verification.</p><?php endif; ?></div>
         </section>
     </div>
 
@@ -308,7 +308,7 @@
             <table class="min-w-full text-sm">
                 <thead><tr class="border-b text-left text-slate-500"><th class="p-3">Feature</th><th class="p-3">Pricing type</th><th class="p-3">Price</th><th class="p-3">Version</th><th class="p-3">Status</th><th class="p-3">Published</th></tr></thead>
                 <tbody>
-                    <?php $__empty_1 = true; $__currentLoopData = $pricingRules; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $r): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <?php $__empty_0 = true; $__currentLoopData = $pricingRules; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $r): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                         <tr class="border-b align-top last:border-0">
                             <td class="p-3"><p class="font-bold text-slate-900"><?php echo e($pricingRuleTitles[$r->id] ?? $r->name); ?></p><p class="mt-1 font-mono text-[11px] text-slate-400"><?php echo e($r->key); ?></p></td>
                             <td class="p-3"><span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700"><?php echo e(str((string)data_get($r->metadata,'pricing_type','legacy'))->replace('_',' ')->headline()); ?></span><?php if(data_get($r->metadata,'pricing_type')==='ai_usage'): ?><p class="mt-2 text-xs text-slate-500"><?php echo e((int)data_get($r->metadata,'free_daily_requests',0)); ?> free/day</p><?php elseif(data_get($r->metadata,'pricing_type')==='fixed_access'): ?><p class="mt-2 text-xs text-slate-500"><?php echo e((int)data_get($r->metadata,'duration_days',0) > 0 ? data_get($r->metadata,'duration_days').' days' : 'No expiry'); ?></p><?php endif; ?></td>
@@ -326,7 +326,7 @@
                             <td class="p-3"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold <?php echo e($r->enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'); ?>"><?php echo e($r->enabled ? 'Active' : 'Previous / inactive'); ?></span></td>
                             <td class="p-3 text-slate-500"><?php echo e($r->created_at?->format('d M Y, H:i') ?? '—'); ?></td>
                         </tr>
-                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                         <tr><td colspan="6" class="p-5 text-slate-500">No feature prices have been published yet. Features remain free until an active pricing rule is created.</td></tr>
                     <?php endif; ?>
                 </tbody>

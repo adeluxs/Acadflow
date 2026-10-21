@@ -41,7 +41,7 @@
     </form>
 
     <section class="space-y-3">
-        <?php $__empty_1 = true; $__currentLoopData = $reflections; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $reflection): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+        <?php $__empty_0 = true; $__currentLoopData = $reflections; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $reflection): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
             <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <p class="text-xs text-slate-500"><?php echo e($reflection->course?->code ?? 'General'); ?> · <?php echo e($reflection->created_at?->diffForHumans()); ?></p>
@@ -55,7 +55,7 @@
                     </div>
                 <?php endif; ?>
             </article>
-        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
             <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500">No reflections yet.</div>
         <?php endif; ?>
         <div class="pt-2"><?php echo e($reflections->links()); ?></div>

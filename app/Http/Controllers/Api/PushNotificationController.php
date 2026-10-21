@@ -39,6 +39,10 @@ class PushNotificationController extends Controller
             $request->input('expirationTime')
         );
 
+        if ($request->hasSession()) {
+            $request->session()->put('browser_push.endpoint_hash', $subscription->endpoint_hash);
+        }
+
         if ($request->boolean('enablePreference')) \App\Models\NotificationSetting::updateOrCreate(['user_id' => $user->id], ['push_enabled' => true]);
 
         return response()->json([
@@ -60,6 +64,10 @@ class PushNotificationController extends Controller
         $user = Auth::user();
         
         $this->pushService->unsubscribe($user, $request->input('endpoint'));
+
+        if ($request->hasSession() && $request->session()->get('browser_push.endpoint_hash') === hash('sha256', $request->input('endpoint'))) {
+            $request->session()->forget('browser_push.endpoint_hash');
+        }
 
         return response()->json([
             'success' => true,

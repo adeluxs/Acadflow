@@ -66,7 +66,7 @@ unset($__errorArgs, $__bag); ?>
     </form>
 
     <section class="space-y-3">
-        <?php $__empty_1 = true; $__currentLoopData = $quizzes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $quiz): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+        <?php $__empty_0 = true; $__currentLoopData = $quizzes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $quiz): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
             <a href="<?php echo e(route('practice-quizzes.show', $quiz)); ?>" class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-indigo-200">
                 <div>
                     <h3 class="font-black text-slate-900"><?php echo e($quiz->title); ?></h3>
@@ -74,7 +74,7 @@ unset($__errorArgs, $__bag); ?>
                 </div>
                 <span class="text-sm font-black text-indigo-700">Open →</span>
             </a>
-        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
             <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500">No practice quizzes yet.</div>
         <?php endif; ?>
         <div class="pt-2"><?php echo e($quizzes->links()); ?></div>

@@ -1,7 +1,6 @@
 import { initPerformanceUX } from './performance';
 import { initErrorFeedback } from './error-feedback';
-import { initGlobalLoader } from './global-loader';
-import './bootstrap';
+import { initGlobalLoader, installAxiosLoader } from './global-loader';
 
 /**
  * Most AcadSyntra screens are Blade-rendered. Vue and its component bundle are
@@ -11,6 +10,10 @@ import './bootstrap';
 async function initVueRoot() {
     const vueRoot = document.getElementById('app');
     if (!vueRoot) return;
+
+    await import('./bootstrap');
+    installAxiosLoader();
+    initErrorFeedback();
 
     const [{ createApp }, { default: NotificationCenter }, { default: FileUpload }] = await Promise.all([
         import('vue'),
@@ -28,6 +31,23 @@ function boot() {
     initGlobalLoader();
     initErrorFeedback();
     initPerformanceUX();
+    if (document.querySelector('[data-export-progress]')) {
+        import('./research-export').then(({ initResearchExport }) => initResearchExport()).catch(() => {});
+    }
+
+    // Warm the small setup module on navigation intent without issuing an
+    // authenticated HTML request or running an expensive controller in advance.
+    let setupWarmed = false;
+    const warmSetup = (event) => {
+        const anchor = event.target.closest?.('a[href]');
+        if (!anchor || setupWarmed || navigator.connection?.saveData) return;
+        const url = new URL(anchor.href, location.href);
+        if (url.origin !== location.origin || url.pathname !== '/research-studio/create') return;
+        setupWarmed = true;
+        import('./research-studio').catch(() => { setupWarmed = false; });
+    };
+    document.addEventListener('pointerover', warmSetup, { passive: true });
+    document.addEventListener('focusin', warmSetup);
 
     if (document.querySelector('[data-contextual-ai]')) {
         import('./contextual-assistant')
@@ -80,6 +100,6 @@ if (document.readyState === 'loading') {
     boot();
 }
 
-if (document.querySelector('[data-research-setup], [data-research-autosave]')) {
+if (document.querySelector('[data-research-setup], [data-research-autosave], [data-writing-workspace]')) {
     import('./research-studio').catch(() => { /* Standard forms remain available if the module cannot load. */ });
 }

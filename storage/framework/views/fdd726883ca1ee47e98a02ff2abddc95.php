@@ -20,7 +20,7 @@
             </div>
             <h1 class="text-3xl font-black tracking-tight text-slate-950">Feature & Module Management</h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                One authoritative release-control centre for AcadFlow. Administrators retain preview access when a feature is in maintenance or disabled; normal users are restricted at the backend, not only in the menu.
+                One authoritative release-control centre for AcadSyntra. Administrators retain preview access when a feature is in maintenance or disabled; normal users are restricted at the backend, not only in the menu.
             </p>
         </div>
         <div class="flex flex-wrap gap-2">

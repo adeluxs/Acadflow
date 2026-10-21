@@ -25,13 +25,17 @@ class ResearchConfigurationController extends Controller
             ->with('stages')
             ->withCount('instances')
             ->orderBy('name')
-            ->get();
+            ->paginate(10, ['*'], 'workflows_page')->withQueryString();
         $types = $scope(ResearchType::query())
             ->withCount(['projects', 'templateVersions'])
             ->orderBy('name')
-            ->get();
+            ->paginate(15, ['*'], 'types_page')->withQueryString();
 
-        return view('research.configuration', compact('workflows', 'types'));
+        // Dropdowns need only IDs and labels, independently of the edit pages.
+        $workflowOptions = $scope(WorkflowDefinition::query())
+            ->orderBy('name')->get(['id', 'name', 'is_active']);
+
+        return view('research.configuration', compact('workflows', 'types', 'workflowOptions'));
     }
 
     public function storeWorkflow(Request $request): RedirectResponse

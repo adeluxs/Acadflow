@@ -16,7 +16,10 @@ class IndexSearchableContent implements ShouldQueue
     public int $tries = 3;
     public array $backoff = [10, 60, 300];
 
-    public function __construct(public readonly string $modelClass, public readonly int $modelId) {}
+    public function __construct(public readonly string $modelClass, public readonly int $modelId)
+    {
+        $this->onQueue('indexing');
+    }
 
     public function handle(SearchIndexService $index): void
     {

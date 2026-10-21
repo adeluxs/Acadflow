@@ -21,13 +21,20 @@ class ResearchPlanController extends Controller
     public function show(Request $request, ResearchProject $research)
     {
         $this->authorize('view', $research);
-        $research->load(['resources.document', 'resources.mediaAsset', 'sections.document', 'milestones']);
-        $activeResource = $research->resources->firstWhere('uuid', $request->query('resource'));
+        $research->load(['sections.document:id,version_number', 'milestones']);
+        $resources = $research->resources()->with('document:id,version_number')
+            ->when(! $request->boolean('archived'), fn ($query) => $query->whereNull('metadata->archived_at'))
+            ->latest()->orderByDesc('id')->paginate(25, ['*'], 'resources_page')->withQueryString();
+        $activeResource = $request->filled('resource')
+            ? $research->resources()->with(['document', 'mediaAsset'])->where('uuid', $request->query('resource'))->first()
+            : null;
+        // Coding tools need labels/metadata, never the bodies of every resource.
+        $research->setRelation('resources', $research->resources()->whereIn('kind', ['coded_excerpt', 'file', 'coding', 'instrument'])->get());
         $activeResource?->load(['document.versions' => fn($query) => $query->limit(15)]);
         $kinds = ResearchResourceService::KINDS;
         $setup = data_get($research->metadata, 'research_setup', []);
         $datasetsEnabled = FeatureAccessService::effectiveStatus('research_datasets', $request->user()->university_id) === FeatureAccessService::STATUS_ENABLED;
-        return response()->view('research.plan', compact('research', 'activeResource', 'kinds', 'setup', 'datasetsEnabled'))->header('Cache-Control', 'private, no-store');
+        return response()->view('research.plan', compact('research', 'resources', 'activeResource', 'kinds', 'setup', 'datasetsEnabled'))->header('Cache-Control', 'private, no-store');
     }
 
     public function update(Request $request, ResearchProject $research)

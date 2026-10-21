@@ -491,4 +491,5 @@
         </div>
     </section>
 </div>
+@if($libraryPage){{ $libraryPage->links() }}@endif
 @endsection

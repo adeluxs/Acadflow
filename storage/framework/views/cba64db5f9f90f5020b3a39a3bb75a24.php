@@ -58,12 +58,12 @@
     <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="text-sm font-black text-slate-900">Focus next on</h2>
         <div class="mt-3 space-y-2">
-            <?php $__empty_1 = true; $__currentLoopData = $weak; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $topic): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+            <?php $__empty_0 = true; $__currentLoopData = $weak; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $topic): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                 <div class="flex items-center justify-between rounded-xl bg-rose-50 px-3 py-2 text-sm">
                     <span class="font-semibold text-slate-800"><?php echo e($topic->topic); ?> <?php if($topic->course): ?><span class="text-xs text-slate-500">· <?php echo e($topic->course->code); ?></span><?php endif; ?></span>
                     <span class="font-black text-rose-700"><?php echo e($topic->mastery); ?>%</span>
                 </div>
-            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                 <p class="text-sm text-slate-500">Take a practice quiz to build your mastery map.</p>
             <?php endif; ?>
         </div>
@@ -72,7 +72,7 @@
     <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="text-sm font-black text-slate-900">All topics</h2>
         <div class="mt-3 space-y-3">
-            <?php $__empty_1 = true; $__currentLoopData = $topics; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $topic): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+            <?php $__empty_0 = true; $__currentLoopData = $topics; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $topic): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                 <div>
                     <div class="flex items-center justify-between text-xs text-slate-600">
                         <span><?php echo e($topic->topic); ?> <?php if($topic->course): ?><span class="text-slate-400">· <?php echo e($topic->course->code); ?></span><?php endif; ?></span>
@@ -82,7 +82,7 @@
                         <div class="h-2 rounded-full bg-indigo-500" style="width: <?php echo e($topic->mastery); ?>%"></div>
                     </div>
                 </div>
-            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                 <p class="text-sm text-slate-500">No mastery data yet.</p>
             <?php endif; ?>
         </div>

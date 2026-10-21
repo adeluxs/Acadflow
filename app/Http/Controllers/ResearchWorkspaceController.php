@@ -134,7 +134,7 @@ class ResearchWorkspaceController extends Controller
     public function templates(Request $request): View
     {
         abort_unless($request->user()->isAdmin(), 403);
-        $types = ResearchType::query()->with('templateVersions')->when(! $request->user()->isSuperAdmin(), fn ($q) => $q->where(fn ($s) => $s->whereNull('university_id')->orWhere('university_id', $request->user()->university_id)))->orderBy('name')->get();
+        $types = ResearchType::query()->select(['id', 'uuid', 'name'])->with('templateVersions:id,uuid,research_type_id,version,name,citation_style,is_active')->when(! $request->user()->isSuperAdmin(), fn ($q) => $q->where(fn ($s) => $s->whereNull('university_id')->orWhere('university_id', $request->user()->university_id)))->orderBy('name')->paginate(15)->withQueryString();
         return view('research.templates', compact('types'));
     }
 
@@ -292,8 +292,54 @@ class ResearchWorkspaceController extends Controller
         })->values()->all();
 
         $research->loadMissing(['templateVersion', 'sections']);
-        $referenceLinks = $research->referenceLinks()->with('reference')->latest()->get();
-        $notesByReference = $research->literatureNotes()->where('created_by', $request->user()->id)->get()->keyBy('academic_reference_id');
+        $notesQuery = $research->literatureNotes()->where('created_by', $request->user()->id)
+            ->whereIn('academic_reference_id', $research->referenceLinks()->select('academic_reference_id'));
+        $noteCounts = (clone $notesQuery)->selectRaw('reading_status, COUNT(*) AS aggregate')->groupBy('reading_status')->pluck('aggregate', 'reading_status');
+        $totalReferences = $research->referenceLinks()->count();
+        $libraryStats = [
+            'total' => $totalReferences,
+            'reading' => (int) ($noteCounts['reading'] ?? 0),
+            'reviewed' => (int) ($noteCounts['reviewed'] ?? 0),
+        ];
+        $libraryStats['saved'] = $totalReferences - $libraryStats['reading'] - $libraryStats['reviewed'];
+        $collections = $activeView === 'saved'
+            ? (clone $notesQuery)->get(['collections'])->flatMap(fn ($note) => (array) $note->collections)->filter()->unique()->sort()->values()
+            : collect();
+        $query = $research->referenceLinks()->with('reference')->latest()->orderByDesc('id');
+        $libraryPage = null;
+        if ($activeView === 'discover') {
+            // Mark only the visible search results as saved. Do not hydrate the
+            // complete reference library merely to open the discovery page.
+            $query->whereHas('reference', fn ($q) => $q->whereIn('citation_key', array_column($records, 'citation_key')));
+        } elseif ($activeView === 'compare') {
+            $query->whereHas('reference', fn ($q) => $q->whereIn('uuid', $data['compare'] ?? []));
+        } elseif ($activeView === 'synthesis') {
+            $query->whereIn('academic_reference_id', (clone $notesQuery)->where('reading_status', 'reviewed')->select('academic_reference_id'));
+        } else {
+            if ($activeView === 'reading') {
+                $query->whereNotIn('academic_reference_id', (clone $notesQuery)->where('reading_status', 'reviewed')->select('academic_reference_id'));
+            }
+            if (filled($data['reading_status'] ?? null)) {
+                $matchingNotes = (clone $notesQuery);
+                if ($data['reading_status'] === 'saved') {
+                    $query->whereNotIn('academic_reference_id', $matchingNotes->whereIn('reading_status', ['reading', 'reviewed'])->select('academic_reference_id'));
+                } else {
+                    $query->whereIn('academic_reference_id', $matchingNotes->where('reading_status', $data['reading_status'])->select('academic_reference_id'));
+                }
+            }
+            if (filled($data['collection'] ?? null)) {
+                $query->whereIn('academic_reference_id', (clone $notesQuery)->whereJsonContains('collections', $data['collection'])->select('academic_reference_id'));
+            }
+            if (filled($data['library_q'] ?? null)) {
+                $needle = '%'.$data['library_q'].'%';
+                $query->where(fn ($q) => $q
+                    ->whereHas('reference', fn ($ref) => $ref->where('title', 'like', $needle)->orWhere('authors', 'like', $needle))
+                    ->orWhereIn('academic_reference_id', (clone $notesQuery)->where('keywords', 'like', $needle)->select('academic_reference_id')));
+            }
+            $libraryPage = $query->paginate(25, ['*'], 'library_page')->withQueryString();
+        }
+        $referenceLinks = $libraryPage?->getCollection() ?? $query->get();
+        $notesByReference = (clone $notesQuery)->whereIn('academic_reference_id', $referenceLinks->pluck('academic_reference_id'))->get()->keyBy('academic_reference_id');
         $savedCitationKeys = $referenceLinks->pluck('reference.citation_key')->filter()->flip();
         $providers = collect(config('scholarly.providers', []))->keys()->values();
         $citationStyle = strtolower((string) ($data['style'] ?? data_get($research->metadata, 'citation_style', $research->templateVersion?->citation_style ?? 'apa')));
@@ -305,7 +351,7 @@ class ResearchWorkspaceController extends Controller
         $libraryRows = $referenceLinks
             ->filter(fn ($link): bool => (bool) $link->reference)
             ->values()
-            ->map(function ($link, int $index) use ($notesByReference, $referenceService, $citationStyle, $research, $explicitCitationStyle): array {
+            ->map(function ($link, int $index) use ($notesByReference, $referenceService, $citationStyle, $research, $explicitCitationStyle, $libraryPage): array {
                 $reference = $link->reference;
                 $note = $notesByReference->get($reference->id);
                 $readingStatus = $note?->reading_status ?: 'saved';
@@ -332,18 +378,10 @@ class ResearchWorkspaceController extends Controller
                     'limitations' => $note?->limitations,
                     'contradictions' => $note?->contradictions,
                     'research_gap' => $note?->research_gap,
-                    'in_text_citation' => $referenceService->inText($reference, $citationStyle, $index + 1),
-                    'bibliography' => $referenceService->formatForProject($reference, $research, $index + 1, $explicitCitationStyle),
+                    'in_text_citation' => $referenceService->inText($reference, $citationStyle, ($libraryPage?->firstItem() ?? 1) + $index),
+                    'bibliography' => $referenceService->formatForProject($reference, $research, ($libraryPage?->firstItem() ?? 1) + $index, $explicitCitationStyle),
                 ];
             });
-
-        $libraryStats = [
-            'total' => $libraryRows->count(),
-            'saved' => $libraryRows->where('reading_status', 'saved')->count(),
-            'reading' => $libraryRows->where('reading_status', 'reading')->count(),
-            'reviewed' => $libraryRows->where('reading_status', 'reviewed')->count(),
-        ];
-        $collections = $libraryRows->flatMap(fn (array $row) => $row['collections'])->filter()->unique()->sort()->values();
 
         $filteredLibraryRows = $libraryRows
             ->when(filled($data['library_q'] ?? null), function ($rows) use ($data) {
@@ -355,7 +393,7 @@ class ResearchWorkspaceController extends Controller
             ->values();
 
         $readingQueue = $libraryRows->whereIn('reading_status', ['saved', 'reading'])->values();
-        $synthesis = $synthesisService->build($libraryRows);
+        $synthesis = $activeView === 'synthesis' ? $synthesisService->build($libraryRows) : [];
         $compareUuids = array_values(array_unique((array) ($data['compare'] ?? [])));
         $compareRows = $libraryRows->filter(fn (array $row): bool => in_array($row['reference_uuid'], $compareUuids, true))->take(5)->values();
         $chapterTwoSection = $research->sections->first(fn ($section) => in_array($section->key, ['chapter_2', 'literature_review'], true));
@@ -363,7 +401,7 @@ class ResearchWorkspaceController extends Controller
         return view('research.literature', compact(
             'research', 'records', 'referenceLinks', 'notesByReference', 'savedCitationKeys', 'providers',
             'activeView', 'libraryRows', 'filteredLibraryRows', 'readingQueue', 'libraryStats', 'collections',
-            'synthesis', 'compareRows', 'citationStyle', 'citationStyles', 'chapterTwoSection'
+            'synthesis', 'compareRows', 'citationStyle', 'citationStyles', 'chapterTwoSection', 'libraryPage'
         ));
     }
 
@@ -596,12 +634,17 @@ class ResearchWorkspaceController extends Controller
 
     public function exportPdf(ResearchProject $research)
     {
-        $this->authorize('view',$research);$research->load(['sections.document','owner','supervisor','department','university','referenceLinks.reference']);$pdf=Pdf::loadView('research.export',compact('research'))->setPaper('a4','portrait');return $pdf->download(str($research->title)->slug().'.pdf');
+        $this->authorize('view', $research);
+        $queue = app(\App\Services\ResearchExportQueue::class);
+        if ($queue->required($research)) return redirect()->route('research.exports.show', $queue->start($research, auth()->user(), 'pdf'));
+        $research->load(['sections.document','owner','supervisor','department','university','referenceLinks.reference']);$pdf=Pdf::loadView('research.export',compact('research'))->setPaper('a4','portrait');return $pdf->download(str($research->title)->slug().'.pdf');
     }
 
     public function exportDocx(ResearchProject $research, \App\Services\ResearchDocumentExportService $exporter)
     {
         $this->authorize('view', $research);
+        $queue = app(\App\Services\ResearchExportQueue::class);
+        if ($queue->required($research)) return redirect()->route('research.exports.show', $queue->start($research, auth()->user(), 'docx'));
         $path = $exporter->docx($research);
         return response()->download($path, (str($research->title)->slug()->limit(120, '')->toString() ?: 'research').'.docx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

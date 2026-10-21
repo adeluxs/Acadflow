@@ -5,7 +5,7 @@
 
 @section('content')
 @php
-    $oldInstitutional = old('institutional_project') === '1' || old('workspace_mode') === 'institutional';
+    $oldInstitutional = request()->boolean('institutional') || old('institutional_project') === '1' || old('workspace_mode') === 'institutional';
 @endphp
 <div class="studio-shell mx-auto max-w-5xl space-y-5">
     <div class="studio-banner"><p class="studio-eyebrow">AcadSyntra / New workspace</p><h1>Start with a question.<br>Build a defensible contribution.</h1><p>From your first idea to your final submission, keep the decisions and evidence together.</p></div>
@@ -30,21 +30,26 @@
                     </label>
                 </div>
 
-                <div id="institutional-project-fields" class="mt-5 grid gap-4 border-t border-indigo-100 pt-5 md:grid-cols-2 {{ $oldInstitutional ? '' : 'hidden' }}">
+                <noscript><p class="mt-3 text-sm"><a href="{{ route('research.create', ['institutional' => 1]) }}">Load institutional options</a> before completing the form.</p></noscript>
+                <div id="institutional-project-fields" data-institution-options="{{ route('research.create.options') }}" class="mt-5 grid gap-4 border-t border-indigo-100 pt-5 md:grid-cols-2 {{ $oldInstitutional ? '' : 'hidden' }}">
                     <label class="block">
                         <span class="text-sm font-semibold text-slate-800">Department</span>
                         <span class="mt-1 block text-xs text-slate-500">Used for institutional governance and department-level visibility.</span>
+                        <input type="search" data-option-search="departments" aria-label="Search departments" placeholder="Search departments" maxlength="100" class="mt-2 w-full rounded-xl border-slate-300">
                         <select name="department_id" id="institutional-department" class="mt-2 w-full rounded-xl border-slate-300">
                             <option value="">Choose department</option>
                             @foreach($departments as $department)
                                 <option value="{{ $department->id }}" @selected(old('department_id', auth()->user()->department_id) == $department->id)>{{ $department->name }}</option>
                             @endforeach
                         </select>
+                        <button type="button" data-option-more="departments" hidden class="mt-2 text-sm font-semibold text-indigo-700">Load more departments</button>
+                        <span data-option-status="departments" role="status" class="mt-1 block text-xs text-slate-600"></span>
                     </label>
 
                     <label class="block">
                         <span class="text-sm font-semibold text-slate-800">Invite supervisor</span>
                         <span class="mt-1 block text-xs text-slate-500">The lecturer receives an invitation and becomes supervisor only after accepting it.</span>
+                        <input type="search" data-option-search="supervisors" aria-label="Search supervisors" placeholder="Search lecturers" maxlength="100" class="mt-2 w-full rounded-xl border-slate-300">
                         <select name="supervisor_invitee_id" id="supervisor-invitee" class="mt-2 w-full rounded-xl border-slate-300">
                             <option value="">Invite later</option>
                             @foreach($supervisors as $supervisor)
@@ -53,6 +58,8 @@
                                 </option>
                             @endforeach
                         </select>
+                        <button type="button" data-option-more="supervisors" hidden class="mt-2 text-sm font-semibold text-indigo-700">Load more supervisors</button>
+                        <span data-option-status="supervisors" role="status" class="mt-1 block text-xs text-slate-600"></span>
                     </label>
 
                     <label class="block md:col-span-2">

@@ -1,5 +1,7 @@
 <?php
     $profileLevel = strtolower(trim((string) auth()->user()->academic_level));
+    $methodologySummaries = collect(config('research_methodologies.methodologies'))
+        ->map(fn ($method) => \Illuminate\Support\Arr::only($method, ['label', 'decision', 'instruments']));
     $selectedResearchLevel = old('research_level', match (true) {
         array_key_exists($profileLevel, config('research_methodologies.levels')) => $profileLevel,
         (bool) preg_match('/ph\.?d|doctor/i', $profileLevel) => 'doctoral',
@@ -25,6 +27,6 @@
         <label>Reference style<select name="citation_style"><?php $__currentLoopData = config('research_methodologies.styles'); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $key => $label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><option value="<?php echo e($key); ?>" <?php if(old('citation_style', 'apa') === $key): echo 'selected'; endif; ?>><?php echo e($label); ?></option><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></select></label>
     </div>
     <div class="studio-callout mt-5" data-methodology-preview aria-live="polite"></div>
-    <script type="application/json" data-methodology-catalogue><?php echo json_encode(config('research_methodologies.methodologies'), 15, 512) ?></script>
+    <script type="application/json" data-methodology-catalogue><?php echo json_encode($methodologySummaries, 15, 512) ?></script>
 </section>
 <?php /**PATH /Users/user/Desktop/acadflow/acadflow-web/resources/views/research/partials/setup.blade.php ENDPATH**/ ?>

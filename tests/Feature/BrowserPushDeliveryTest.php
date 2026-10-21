@@ -65,6 +65,67 @@ class BrowserPushDeliveryTest extends TestCase
         $this->get(route('notifications.settings'))->assertOk()->assertSee('Enable this browser');
     }
 
+    public function test_logout_removes_only_this_browsers_subscription_without_a_browser_cleanup_request(): void
+    {
+        $user = $this->user();
+        $current = $this->data();
+        $otherDevice = $this->data('https://fcm.googleapis.com/fcm/send/other-device');
+        app(PushNotificationService::class)->subscribe($user, $otherDevice['endpoint'], $otherDevice['keys']);
+        $this->actingAs($user)->postJson(route('browser-push.subscribe'), $current)
+            ->assertOk()->assertSessionHas('browser_push.endpoint_hash', hash('sha256', $current['endpoint']));
+
+        // Cleanup still works if notifications have since been disabled.
+        SettingService::set('push_notifications_enabled', false, 'boolean');
+        $this->withSession(['private_marker' => 'must-be-cleared'])->post(route('logout'))
+            ->assertRedirect(route('login'))
+            ->assertSessionMissing('browser_push.endpoint_hash')
+            ->assertSessionMissing('private_marker');
+        $this->assertGuest();
+        $this->assertDatabaseMissing('push_subscriptions', ['endpoint' => $current['endpoint']]);
+        $this->assertDatabaseHas('push_subscriptions', ['user_id' => $user->id, 'endpoint' => $otherDevice['endpoint']]);
+    }
+
+    public function test_logout_accepts_a_known_endpoint_from_an_older_session(): void
+    {
+        $user = $this->user();
+        $data = $this->data();
+        app(PushNotificationService::class)->subscribe($user, $data['endpoint'], $data['keys']);
+        $this->actingAs($user)->post(route('logout'), ['push_endpoint' => $data['endpoint']])->assertRedirect(route('login'));
+        $this->assertGuest();
+        $this->assertDatabaseMissing('push_subscriptions', ['endpoint' => $data['endpoint']]);
+    }
+
+    public function test_logout_cannot_remove_another_accounts_subscription(): void
+    {
+        $owner = $this->user();
+        $data = $this->data();
+        app(PushNotificationService::class)->subscribe($owner, $data['endpoint'], $data['keys']);
+        $this->actingAs($this->user())->withSession(['browser_push.endpoint_hash' => hash('sha256', $data['endpoint'])])
+            ->post(route('logout'), ['push_endpoint' => $data['endpoint']])->assertRedirect(route('login'));
+        $this->assertGuest();
+        $this->assertDatabaseHas('push_subscriptions', ['user_id' => $owner->id, 'endpoint' => $data['endpoint']]);
+    }
+
+    #[DataProvider('invalidLogoutEndpoints')]
+    public function test_optional_push_metadata_cannot_prevent_logout(mixed $endpoint): void
+    {
+        $this->actingAs($this->user())->post(route('logout'), ['push_endpoint' => $endpoint])->assertRedirect(route('login'));
+        $this->assertGuest();
+    }
+
+    public static function invalidLogoutEndpoints(): array
+    {
+        return [[null], [['unexpected' => 'array']], [str_repeat('x', 4097)]];
+    }
+
+    public function test_unsubscribing_clears_current_device_session_tracking(): void
+    {
+        $data = $this->data();
+        $this->actingAs($this->user())->postJson(route('browser-push.subscribe'), $data)->assertOk();
+        $this->postJson(route('browser-push.unsubscribe'), ['endpoint' => $data['endpoint']])
+            ->assertOk()->assertSessionMissing('browser_push.endpoint_hash');
+    }
+
     public function test_delivery_encrypts_payload_and_signs_vapid_using_actual_web_push_library(): void
     {
         $user = $this->user(); $data = $this->data();

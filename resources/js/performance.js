@@ -12,7 +12,8 @@
 
 const prefetched = new Set();
 let prefetchCount = 0;
-const MAX_PREFETCHES_PER_PAGE = 8;
+const MAX_PREFETCHES_PER_PAGE = 2;
+const pendingForms = new WeakSet();
 
 function connectionAllowsPrefetch() {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
@@ -37,6 +38,10 @@ function eligibleLink(anchor) {
 }
 
 function prefetch(anchor) {
+    // Authenticated documents are private/no-store and cannot accelerate the
+    // next navigation. Speculating on every hover can instead run expensive
+    // reports/exports and occupy all available PHP workers.
+    if (anchor?.dataset.prefetch !== '1') return;
     if (!connectionAllowsPrefetch() || document.visibilityState !== 'visible') return;
     const url = eligibleLink(anchor);
     if (!url || prefetched.has(url.href) || prefetchCount >= MAX_PREFETCHES_PER_PAGE) return;
@@ -107,6 +112,8 @@ function initializeLinkAcceleration() {
         hoverTimer = setTimeout(() => prefetch(anchor), 120);
     }, { passive: true });
 
+    document.addEventListener('pointerout', () => clearTimeout(hoverTimer), { passive: true });
+
     document.addEventListener('focusin', (event) => {
         const anchor = event.target.closest?.('a[href]');
         if (anchor) prefetch(anchor);
@@ -130,11 +137,14 @@ function initializeDuplicateSubmitProtection() {
     document.addEventListener('submit', (event) => {
         const form = event.target;
         if (!(form instanceof HTMLFormElement)) return;
+        if (form.dataset.submitting === '1' || pendingForms.has(form)) { event.preventDefault(); return; }
+        pendingForms.add(form);
 
         // JS/AJAX forms own their own pending state and normally call
         // preventDefault(). Wait until the current event stack completes before
         // deciding whether this is a native navigation form submission.
         queueMicrotask(() => {
+            pendingForms.delete(form);
             if (event.defaultPrevented || form.dataset.allowMultipleSubmit === '1') return;
             const method = (form.method || 'get').toLowerCase();
             if (method === 'get') return;
@@ -157,7 +167,7 @@ function initializeDuplicateSubmitProtection() {
 
             form.dataset.submitting = '1';
             form.setAttribute('aria-busy', 'true');
-            form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((control) => {
+            form.querySelectorAll('button[type="submit"]:not(:disabled), input[type="submit"]:not(:disabled)').forEach((control) => {
                 control.disabled = true;
                 control.setAttribute('aria-disabled', 'true');
                 if (control instanceof HTMLButtonElement && control.dataset.loadingText) {
@@ -173,4 +183,16 @@ export function initPerformanceUX() {
     initializeLinkAcceleration();
     initializeDuplicateSubmitProtection();
     window.addEventListener('pageshow', finishNavigationFeedback);
+    window.addEventListener('pageshow', () => {
+        document.querySelectorAll('form[data-submitting="1"]').forEach((form) => {
+            delete form.dataset.submitting;
+            form.removeAttribute('aria-busy');
+            form.querySelectorAll('[data-submitter-mirror]').forEach(input => input.remove());
+            form.querySelectorAll('[aria-disabled="true"]').forEach(control => {
+                control.disabled = false;
+                control.removeAttribute('aria-disabled');
+                if (control.dataset.originalText) control.textContent = control.dataset.originalText;
+            });
+        });
+    });
 }

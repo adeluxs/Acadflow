@@ -12,7 +12,7 @@
         <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,.45),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,.22),transparent_42%)]"></div>
         <div class="relative p-6 sm:p-8 lg:p-10">
             <div class="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
-                <div class="max-w-3xl"><p class="text-xs font-black uppercase tracking-[.24em] text-indigo-200">Student learning space</p><h1 class="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Everything for your semester, organized by course.</h1><p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300">Open a course to continue with materials, assignments, discussions and attendance without searching across different parts of AcadFlow.</p></div>
+                <div class="max-w-3xl"><p class="text-xs font-black uppercase tracking-[.24em] text-indigo-200">Student learning space</p><h1 class="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Everything for your semester, organized by course.</h1><p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300">Open a course to continue with materials, assignments, discussions and attendance without searching across different parts of AcadSyntra.</p></div>
                 <div class="grid grid-cols-3 gap-2 sm:min-w-[390px]">
                     <div class="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur"><p class="text-2xl font-black"><?php echo e($enrollments->count()); ?></p><p class="mt-1 text-[11px] text-slate-300">Active courses</p></div>
                     <div class="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur"><p class="text-2xl font-black"><?php echo e($totalMaterials); ?></p><p class="mt-1 text-[11px] text-slate-300">Materials</p></div>
@@ -23,7 +23,7 @@
     </section>
 
     <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        <?php $__empty_1 = true; $__currentLoopData = $enrollments; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $enrollment): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+        <?php $__empty_0 = true; $__currentLoopData = $enrollments; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $enrollment): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
             <?php ($course = $enrollment->course); ?>
             <a href="<?php echo e(route('courses.show', $course)); ?>" class="group relative overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-950/5">
                 <div class="absolute right-0 top-0 h-28 w-28 rounded-bl-[5rem] bg-gradient-to-br from-indigo-50 to-sky-50 transition group-hover:scale-110"></div>
@@ -43,7 +43,7 @@
                     <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 text-sm"><span class="font-semibold text-slate-500"><?php echo e(ucfirst($course->level)); ?> · <?php echo e(ucfirst($course->type)); ?></span><span class="font-black text-indigo-700 transition group-hover:translate-x-1">Open course →</span></div>
                 </div>
             </a>
-        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
             <div class="md:col-span-2 xl:col-span-3 rounded-[2rem] border border-dashed border-slate-300 bg-white px-6 py-16 text-center"><div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-2xl">◫</div><h2 class="mt-4 text-lg font-black text-slate-900">No active courses yet</h2><p class="mt-2 text-sm text-slate-500">Your enrolled courses will appear here. You can join an independent classroom from a lecturer's link even if you have not connected a university.</p></div>
         <?php endif; ?>
     </div>

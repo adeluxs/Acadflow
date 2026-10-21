@@ -25,7 +25,7 @@
                     <tr><th class="px-5 py-3">Institution</th><th class="px-5 py-3">Type</th><th class="px-5 py-3">Ownership</th><th class="px-5 py-3">Structure</th><th class="px-5 py-3">Registry</th><th class="px-5 py-3">Status</th><th class="px-5 py-3"></th></tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 bg-white">
-                    <?php $__empty_1 = true; $__currentLoopData = $universities; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $university): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <?php $__empty_0 = true; $__currentLoopData = $universities; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $university): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                         <tr class="hover:bg-slate-50/70">
                             <td class="px-5 py-4"><p class="font-semibold text-slate-900"><?php echo e($university->name); ?></p><p class="mt-1 text-xs text-slate-500"><?php echo e($university->code); ?><?php echo e($university->state ? ' · '.$university->state : ''); ?></p></td>
                             <td class="px-5 py-4 capitalize"><?php echo e($university->institution_type ?: 'university'); ?></td>
@@ -35,7 +35,7 @@
                             <td class="px-5 py-4"><span class="rounded-full px-2.5 py-1 text-xs font-semibold <?php echo e($university->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'); ?>"><?php echo e($university->is_active ? 'Active' : 'Inactive'); ?></span></td>
                             <td class="px-5 py-4 text-right"><a href="<?php echo e(route('admin.universities.edit', $university)); ?>" class="acad-link text-sm font-semibold">Edit</a></td>
                         </tr>
-                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                         <tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">No institutions have been added yet.</td></tr>
                     <?php endif; ?>
                 </tbody>

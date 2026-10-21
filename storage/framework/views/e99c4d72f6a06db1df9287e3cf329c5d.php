@@ -50,7 +50,7 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
-                <?php $__empty_1 = true; $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                <?php $__empty_0 = true; $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                     <tr>
                         <td class="px-6 py-4"><?php echo e($user->first_name); ?> <?php echo e($user->last_name); ?></td>
                         <td class="px-6 py-4"><?php echo e($user->email); ?></td>
@@ -71,7 +71,7 @@
                             <a href="<?php echo e(route('admin.users.edit', $user)); ?>" class="text-indigo-600 hover:text-indigo-900">Edit</a>
                         </td>
                     </tr>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                     <tr>
                         <td colspan="6" class="px-6 py-4 text-center text-gray-500">No users found.</td>
                     </tr>

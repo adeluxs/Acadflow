@@ -1,5 +1,7 @@
 @php
     $profileLevel = strtolower(trim((string) auth()->user()->academic_level));
+    $methodologySummaries = collect(config('research_methodologies.methodologies'))
+        ->map(fn ($method) => \Illuminate\Support\Arr::only($method, ['label', 'decision', 'instruments']));
     $selectedResearchLevel = old('research_level', match (true) {
         array_key_exists($profileLevel, config('research_methodologies.levels')) => $profileLevel,
         (bool) preg_match('/ph\.?d|doctor/i', $profileLevel) => 'doctoral',
@@ -25,5 +27,5 @@
         <label>Reference style<select name="citation_style">@foreach(config('research_methodologies.styles') as $key => $label)<option value="{{ $key }}" @selected(old('citation_style', 'apa') === $key)>{{ $label }}</option>@endforeach</select></label>
     </div>
     <div class="studio-callout mt-5" data-methodology-preview aria-live="polite"></div>
-    <script type="application/json" data-methodology-catalogue>@json(config('research_methodologies.methodologies'))</script>
+    <script type="application/json" data-methodology-catalogue>@json($methodologySummaries)</script>
 </section>

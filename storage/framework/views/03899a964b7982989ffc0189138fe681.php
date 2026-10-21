@@ -26,7 +26,7 @@
             <h2 class="text-lg font-bold text-slate-900">Available assignments</h2>
             <p class="mt-1 text-sm text-slate-500">Only published assignments from courses you are actively enrolled in are shown.</p>
             <div class="mt-5 space-y-3">
-                <?php $__empty_1 = true; $__currentLoopData = $availableTasks; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $availableTask): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                <?php $__empty_0 = true; $__currentLoopData = $availableTasks; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $availableTask): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                     <a href="<?php echo e(route('submissions.create', ['task_id' => $availableTask->id])); ?>" class="flex items-center justify-between rounded-xl border border-slate-200 p-4 transition hover:border-indigo-400 hover:bg-indigo-50/40">
                         <div>
                             <div class="font-semibold text-slate-900"><?php echo e($availableTask->title); ?></div>
@@ -37,7 +37,7 @@
                             <span class="font-semibold text-indigo-600">Open →</span>
                         </div>
                     </a>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                     <div class="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
                         No published assignments are available for your active courses yet.
                     </div>

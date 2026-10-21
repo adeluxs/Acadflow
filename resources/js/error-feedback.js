@@ -164,7 +164,8 @@ export function initErrorFeedback() {
         error: showError,
     };
 
-    if (window.axios?.interceptors?.response) {
+    if (window.axios?.interceptors?.response && !window.axios.__acadflowErrorsInstalled) {
+        window.axios.__acadflowErrorsInstalled = true;
         window.axios.interceptors.response.use(
             response => response,
             error => {

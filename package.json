@@ -4,6 +4,10 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
+    "performance:bundles": "node scripts/performance/check-bundles.mjs",
+    "performance:browser": "node --test tests/Browser/performance.test.mjs",
+    "performance:load": "node scripts/performance/load.mjs",
+    "performance:harness": "node --test tests/Unit/performance-load.test.mjs",
     "video:demo": "bash marketing/video/prepare-demo.sh",
     "video:capture": "node marketing/video/capture.mjs",
     "video:clean": "node marketing/video/clean.mjs",

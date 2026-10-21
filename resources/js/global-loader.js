@@ -114,7 +114,7 @@ function installFetchLoader() {
     window.fetch = wrappedFetch;
 }
 
-function installAxiosLoader() {
+export function installAxiosLoader() {
     const axios = window.axios;
     if (!axios?.interceptors || axios.__acadflowLoaderInstalled) return;
     axios.__acadflowLoaderInstalled = true;
@@ -142,31 +142,36 @@ function installAxiosLoader() {
 
 function installNavigationLoader() {
     document.addEventListener('click', (event) => {
-        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        const anchor = event.target.closest?.('a[href]');
-        if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download') || anchor.dataset.noLoader === '1') return;
-
-        let url;
-        try { url = new URL(anchor.href, window.location.href); } catch { return; }
-        if (!['http:', 'https:'].includes(url.protocol) || url.origin !== window.location.origin) return;
-        if (url.hash && url.pathname === location.pathname && url.search === location.search) return;
-
-        begin('Loading page…', { delay: 180 });
-    }, true);
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+        if (!link || link.dataset.noLoader === '1' || link.hasAttribute('download')) return;
+        const target = link.target || document.querySelector('base[target]')?.target;
+        if (target && target.toLowerCase() !== '_self') return;
+        const url = new URL(link.href, window.location.href);
+        if (!/^https?:$/.test(url.protocol) || url.origin !== window.location.origin) return;
+        if (url.pathname === location.pathname && url.search === location.search && (url.hash || url.href.endsWith('#'))) return;
+        // Attachments leave the current document open, so no navigation will hide an overlay.
+        if (/\/(?:download|export)(?:[/.]|$)/i.test(url.pathname)) return;
+        setTimeout(() => {
+            if (!event.defaultPrevented) begin('Loading page…', { delay: 180 });
+        }, 0);
+    });
 
     document.addEventListener('submit', (event) => {
         const form = event.target;
         if (!(form instanceof HTMLFormElement) || form.dataset.noLoader === '1') return;
 
-        queueMicrotask(() => {
+        setTimeout(() => {
             if (event.defaultPrevented) return;
-            const method = String(form.method || 'get').toUpperCase();
-            begin(method === 'GET' ? 'Searching…' : 'Saving changes…', { delay: 100 });
-        });
+            const target = event.submitter?.formTarget || form.target || document.querySelector('base[target]')?.target;
+            if (target && target.toLowerCase() !== '_self') return;
+            const method = String(event.submitter?.getAttribute('formmethod') || form.method || 'get').toUpperCase();
+            if (method === 'DIALOG') return;
+            begin(new URL(form.action).pathname === '/logout' ? 'Signing out…' : method === 'GET' ? 'Searching…' : 'Saving changes…', { delay: 100 });
+        }, 0);
     }, true);
 
     window.addEventListener('pageshow', reset);
-    window.addEventListener('pagehide', () => reveal('Loading page…'));
 }
 
 export function initGlobalLoader() {

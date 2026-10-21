@@ -83,7 +83,7 @@
                 </div>
 
                 <div class="mt-5 space-y-3">
-                    <?php $__empty_1 = true; $__currentLoopData = $recentTasks; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $task): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <?php $__empty_0 = true; $__currentLoopData = $recentTasks; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $task): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                         <a href="<?php echo e($isEnrolled ? route('submission-tasks.student.show', ['course' => $course ?? $task->course_id, 'task' => $task]) : route('submission-tasks.lecturer.show', ['course' => $course ?? $task->course_id, 'task' => $task])); ?>"
                            class="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:bg-indigo-50/40 sm:flex-row sm:items-center sm:justify-between">
                             <div class="min-w-0">
@@ -105,7 +105,7 @@
                                 </p>
                             </div>
                         </a>
-                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                         <div class="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-500">
                             No assignments are available right now.
                         </div>
@@ -123,7 +123,7 @@
                 </div>
 
                 <div class="mt-5 grid gap-3 sm:grid-cols-2">
-                    <?php $__empty_1 = true; $__currentLoopData = $recentMaterials; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $material): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <?php $__empty_0 = true; $__currentLoopData = $recentMaterials; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $material): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                         <a href="<?php echo e(route('materials.show', [$course, $material])); ?>"
                            class="group rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-200 hover:shadow-md">
                             <div class="flex items-start gap-3">
@@ -138,7 +138,7 @@
                                 </div>
                             </div>
                         </a>
-                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                         <div class="sm:col-span-2 rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-500">
                             No course materials have been added yet.
                         </div>
@@ -157,7 +157,7 @@
                     </div>
 
                     <div class="mt-5 space-y-3">
-                        <?php $__empty_1 = true; $__currentLoopData = $recentDiscussions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $discussion): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                        <?php $__empty_0 = true; $__currentLoopData = $recentDiscussions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $discussion): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                             <a href="<?php echo e(route('discussions.show', [$course, $discussion])); ?>" class="block rounded-2xl border border-slate-200 p-4 hover:border-indigo-200">
                                 <div class="flex items-start justify-between gap-4">
                                     <div>
@@ -173,7 +173,7 @@
 
                                 </p>
                             </a>
-                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                             <div class="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-500">No discussion threads yet.</div>
                         <?php endif; ?>
                     </div>
@@ -185,7 +185,7 @@
             <section class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 class="font-black text-slate-950">Course team</h2>
                 <div class="mt-4 space-y-3">
-                    <?php $__empty_1 = true; $__currentLoopData = $course->lecturerAssignments; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $assignment): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <?php $__empty_0 = true; $__currentLoopData = $course->lecturerAssignments; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $assignment): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                         <div class="flex items-center gap-3">
                             <div class="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-xs font-black text-indigo-700">
                                 <?php echo e(strtoupper(substr($assignment->user?->first_name ?? 'L', 0, 1))); ?>
@@ -196,7 +196,7 @@
                                 <p class="text-xs text-slate-500"><?php echo e($assignment->is_coordinator ? 'Course coordinator' : 'Lecturer'); ?></p>
                             </div>
                         </div>
-                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                         <p class="text-sm text-slate-500">No lecturer has been assigned.</p>
                     <?php endif; ?>
                 </div>

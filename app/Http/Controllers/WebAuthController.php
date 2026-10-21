@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\PushSubscription;
 use App\Models\User;
 use App\Models\UserOnboardingState;
 use App\Services\OnboardingService;
@@ -141,6 +142,17 @@ class WebAuthController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
+        $endpointHashes = [$request->session()->get('browser_push.endpoint_hash')];
+        $endpoint = $request->input('push_endpoint');
+        if (is_string($endpoint) && $endpoint !== '' && strlen($endpoint) <= 4096) {
+            $endpointHashes[] = hash('sha256', $endpoint);
+        }
+        $endpointHashes = array_filter($endpointHashes);
+        if ($endpointHashes) {
+            PushSubscription::where('user_id', $request->user()->id)
+                ->whereIn('endpoint_hash', $endpointHashes)->delete();
+        }
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

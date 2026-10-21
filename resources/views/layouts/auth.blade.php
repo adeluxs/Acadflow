@@ -20,7 +20,7 @@
         </div>
         <div class="relative">
             <a href="{{ route('home') }}" class="inline-flex items-center gap-3">
-                <span class="grid h-12 w-12 place-items-center rounded-2xl bg-white p-1 shadow-lg ring-1 ring-white/20"><img src="{{ asset('branding/acadsyntra-mark.png') }}" alt="" class="h-full w-full object-contain"></span>
+                <span class="grid h-12 w-12 place-items-center rounded-2xl bg-white p-1 shadow-lg ring-1 ring-white/20"><img src="{{ asset('branding/acadsyntra-mark.svg') }}" alt="" class="h-full w-full object-contain"></span>
                 <span>
                     <strong class="block text-2xl">{{ $siteName }}</strong>
                     <span class="text-sm text-blue-100">A connected space for academic work.</span>
@@ -54,7 +54,7 @@
     <main id="auth-main" class="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 sm:px-8">
         <div class="w-full max-w-xl">
             <a href="{{ route('home') }}" class="mb-8 inline-flex items-center gap-3 lg:hidden">
-                <span class="grid h-11 w-11 place-items-center rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-200"><img src="{{ asset('branding/acadsyntra-mark.png') }}" alt="" class="h-full w-full object-contain"></span>
+                <span class="grid h-11 w-11 place-items-center rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-200"><img src="{{ asset('branding/acadsyntra-mark.svg') }}" alt="" class="h-full w-full object-contain"></span>
                 <span class="text-xl font-bold text-slate-950">{{ $siteName }}</span>
             </a>
 

@@ -13,10 +13,11 @@
         <aside class="studio-panel space-y-5"><a href="{{ route('research.plan', ['research' => $research, 'archived' => !request()->boolean('archived')]) }}" class="text-xs font-semibold text-indigo-700">{{ request()->boolean('archived') ? 'Show active resources' : 'Include archived resources' }}</a>
             <div><p class="studio-eyebrow">Project library</p><h2 class="text-lg font-bold">Decisions become evidence.</h2></div>
             <div class="max-h-[520px] space-y-2 overflow-y-auto" aria-label="Research resources">
-                @forelse($research->resources->filter(fn($r) => request()->boolean('archived') || !data_get($r->metadata, 'archived_at'))->sortByDesc('created_at') as $resource)
-                    <a class="studio-library-item" href="{{ route('research.plan', ['research' => $research, 'resource' => $resource->uuid]) }}" @if($activeResource?->id === $resource->id) aria-current="page" @endif><span class="block text-[10px] font-semibold uppercase tracking-wide text-indigo-600">{{ $kinds[$resource->kind] ?? 'Resource' }}</span><span class="mt-1 block text-sm font-semibold">{{ $resource->title }}</span><span class="mt-1 block text-xs text-slate-500">{{ $resource->document ? 'Version '.$resource->document->version_number : 'Private attachment' }}</span></a>
+                @forelse($resources as $resource)
+                    <a class="studio-library-item" href="{{ route('research.plan', ['research' => $research, 'resource' => $resource->uuid, 'resources_page' => $resources->currentPage()]) }}" @if($activeResource?->id === $resource->id) aria-current="page" @endif><span class="block text-[10px] font-semibold uppercase tracking-wide text-indigo-600">{{ $kinds[$resource->kind] ?? 'Resource' }}</span><span class="mt-1 block text-sm font-semibold">{{ $resource->title }}</span><span class="mt-1 block text-xs text-slate-500">{{ $resource->document ? 'Version '.$resource->document->version_number : 'Private attachment' }}</span></a>
                 @empty<p class="text-sm leading-6 text-slate-500">Build your library with a proposal, instrument or research worksheet.</p>@endforelse
             </div>
+            {{ $resources->links() }}
             @can('update', $research)
                 <form method="POST" enctype="multipart/form-data" action="{{ route('research.resources.store', $research) }}" class="space-y-3 border-t border-slate-100 pt-5">@csrf
                     <h3 class="font-bold text-sm">Add a resource</h3>

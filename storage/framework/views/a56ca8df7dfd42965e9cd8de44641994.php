@@ -106,7 +106,7 @@
                     </div>
 
                     <div class="mt-4 space-y-2">
-                        <?php $__empty_1 = true; $__currentLoopData = $activeEnrollments; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $enrollment): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                        <?php $__empty_0 = true; $__currentLoopData = $activeEnrollments; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $enrollment): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                             <a href="<?php echo e(route('courses.show', $enrollment->course)); ?>" class="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/30">
                                 <div class="min-w-0">
                                     <p class="text-xs font-black uppercase tracking-wide text-indigo-600"><?php echo e($enrollment->course?->code); ?></p>
@@ -115,7 +115,7 @@
                                 </div>
                                 <span class="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700">Enrolled</span>
                             </a>
-                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                             <p class="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">You are not currently enrolled in any course. Use a course join link from your lecturer to enroll.</p>
                         <?php endif; ?>
                     </div>
@@ -160,7 +160,7 @@
                 <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                     <h2 class="text-lg font-black text-slate-950">Teaching & management</h2>
                     <div class="mt-4 space-y-2">
-                        <?php $__empty_1 = true; $__currentLoopData = $teachingCourses; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $assignment): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                        <?php $__empty_0 = true; $__currentLoopData = $teachingCourses; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $assignment): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                             <a href="<?php echo e($assignment->course ? route('courses.show', $assignment->course) : '#'); ?>" class="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 p-4 hover:border-indigo-200">
                                 <div class="min-w-0">
                                     <p class="text-xs font-black uppercase tracking-wide text-indigo-600"><?php echo e($assignment->course?->code); ?></p>
@@ -169,7 +169,7 @@
                                 </div>
                                 <span class="rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-black text-indigo-700"><?php echo e($assignment->is_coordinator ? 'Coordinator' : 'Teaching team'); ?></span>
                             </a>
-                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                             <p class="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">No course assignments recorded for the active semester.</p>
                         <?php endif; ?>
                     </div>
@@ -184,9 +184,9 @@
                 </div>
                 <p class="mt-2 text-sm text-slate-600">Platform role: <strong><?php echo e(\Illuminate\Support\Str::headline(str_replace('_', ' ', (string) $user->role))); ?></strong><?php if($user->account_type): ?> · Account type: <strong><?php echo e(\Illuminate\Support\Str::headline(str_replace('_', ' ', $user->account_type))); ?></strong><?php endif; ?></p>
                 <div class="mt-4 flex flex-wrap gap-1.5">
-                    <?php $__empty_1 = true; $__currentLoopData = $permissions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $permission): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                    <?php $__empty_0 = true; $__currentLoopData = $permissions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $permission): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                         <span class="rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200"><?php echo e($permission); ?></span>
-                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                         <span class="text-sm text-slate-500">No permissions are granted to this role.</span>
                     <?php endif; ?>
                 </div>

@@ -16,6 +16,8 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Schedule::command('research:prune-exports')->daily()->withoutOverlapping();
+
 Schedule::call(function (): void {
     KnowledgePublication::query()->select('id')->where('status','scheduled')->whereNotNull('scheduled_at')->where('scheduled_at','<=',now())->chunkById(250, function ($publications): void { foreach ($publications as $publication) PublishScheduledKnowledgePublication::dispatch($publication->id)->onQueue('default'); });
 })->everyMinute()->name('publish-scheduled-knowledge')->withoutOverlapping();

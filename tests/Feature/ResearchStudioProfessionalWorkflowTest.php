@@ -14,6 +14,96 @@ class ResearchStudioProfessionalWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_resource_lists_are_paginated_and_only_the_selected_document_body_is_loaded(): void
+    {
+        [$owner, $project] = $this->independentProject('Resource paging');
+        \Illuminate\Support\Facades\Queue::fake();
+        $first = null;
+        for ($i = 0; $i < 31; $i++) {
+            $document = ContentDocument::create(['owner_id' => $owner->id, 'document_type' => 'research_resource', 'title' => 'Resource '.$i, 'body' => '<p>Hidden resource body '.$i.'</p>', 'version_number' => 1]);
+            $resource = \App\Models\ResearchResource::create(['research_project_id' => $project->id, 'created_by' => $owner->id, 'content_document_id' => $document->id, 'kind' => 'instrument', 'title' => 'Resource '.$i]);
+            $first ??= $resource;
+        }
+        $this->actingAs($owner)->get(route('research.plan', $project))->assertOk()
+            ->assertViewHas('resources', fn ($rows) => $rows->count() === 25 && $rows->total() === 31)
+            ->assertDontSee('Hidden resource body');
+        $this->get(route('research.plan', ['research' => $project, 'resource' => $first->uuid]))->assertOk()->assertSee('Hidden resource body 0');
+        $this->get(route('research.plan', ['research' => $project, 'resources_page' => 2]))->assertOk()->assertViewHas('resources', fn ($rows) => $rows->count() === 6);
+    }
+
+    public function test_library_filters_apply_before_pagination_and_discovery_does_not_load_the_library(): void
+    {
+        [$owner, $project] = $this->independentProject('Library paging');
+        for ($i = 0; $i < 31; $i++) {
+            $reference = \App\Models\AcademicReference::create(['owner_id' => $owner->id, 'title' => $i === 0 ? 'Needle older paper' : 'Other paper '.$i, 'citation_key' => 'paged-reference-'.$i]);
+            $project->referenceLinks()->create(['academic_reference_id' => $reference->id]);
+        }
+        $this->actingAs($owner)->get(route('research.literature.search', $project))->assertOk()
+            ->assertViewHas('referenceLinks', fn ($rows) => $rows->isEmpty())
+            ->assertViewHas('libraryStats', fn ($stats) => $stats['total'] === 31);
+        $this->get(route('research.literature.search', ['research' => $project, 'view' => 'saved']))->assertOk()
+            ->assertViewHas('libraryPage', fn ($page) => $page->count() === 25 && $page->total() === 31);
+        $this->get(route('research.literature.search', ['research' => $project, 'view' => 'saved', 'library_q' => 'Needle']))->assertOk()
+            ->assertSee('Needle older paper')->assertViewHas('libraryPage', fn ($page) => $page->total() === 1);
+    }
+
+    public function test_large_exports_are_deduplicated_built_in_a_job_and_downloadable_only_by_the_requester(): void
+    {
+        [$owner, $project] = $this->independentProject('Queued research export');
+        $section = $this->section($project, $owner, 'chapter_1', 'Chapter 1: Introduction', 1);
+        $section->document->update(['body' => '<p>Actual supplied research text.</p>']);
+        config(['performance.queued_export_bytes' => 1, 'queue.default' => 'database']);
+        \Illuminate\Support\Facades\Queue::fake();
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $response = $this->actingAs($owner)->get(route('research.export.docx', $project))->assertRedirect();
+        $location = $response->headers->get('Location');
+        $id = basename($location);
+        $this->get(route('research.export.docx', $project))->assertRedirect($location);
+        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\BuildResearchExport::class, 1);
+        \Illuminate\Support\Facades\Queue::assertPushedOn('exports', \App\Jobs\BuildResearchExport::class);
+        $this->getJson($location)->assertOk()->assertJsonPath('status', 'queued');
+        $job = new \App\Jobs\BuildResearchExport($id);
+        $job->handle(app(\App\Services\ResearchDocumentExportService::class));
+        $this->getJson($location)->assertOk()->assertJsonPath('status', 'completed');
+        $this->get(route('research.exports.download', $id))->assertOk()->assertDownload('queued-research-export.docx');
+        $this->actingAs(User::factory()->create(['role' => 'super_admin']))->getJson($location)->assertNotFound();
+    }
+
+    public function test_failed_exports_can_be_retried_and_expired_artifacts_are_pruned(): void
+    {
+        [$owner, $project] = $this->independentProject('Export retry');
+        config(['queue.default' => 'database']);
+        \Illuminate\Support\Facades\Queue::fake();
+        $service = app(\App\Services\ResearchExportQueue::class);
+        $id = $service->start($project, $owner, 'pdf');
+        (new \App\Jobs\BuildResearchExport($id))->failed(new \RuntimeException('Internal transport detail'));
+        $this->actingAs($owner)->getJson(route('research.exports.show', $id))->assertOk()->assertJsonPath('status', 'failed')->assertDontSee('Internal transport detail');
+        $this->assertNotSame($id, $service->start($project, $owner, 'pdf'));
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $old = 'research-exports/'.now()->subDays(4)->format('Y-m-d').'/old.pdf';
+        $new = 'research-exports/'.now()->format('Y-m-d').'/new.pdf';
+        \Illuminate\Support\Facades\Storage::disk('local')->put($old, 'old');
+        \Illuminate\Support\Facades\Storage::disk('local')->put($new, 'new');
+        $this->artisan('research:prune-exports')->assertSuccessful();
+        \Illuminate\Support\Facades\Storage::disk('local')->assertMissing($old);
+        \Illuminate\Support\Facades\Storage::disk('local')->assertExists($new);
+    }
+
+    public function test_writing_history_is_paginated_and_older_versions_remain_accessible(): void
+    {
+        [$owner, $project] = $this->independentProject('Bounded writing history');
+        $section = $this->section($project, $owner, 'chapter_1', 'Chapter 1: Introduction', 1);
+        $other = $this->section($project, $owner, 'chapter_2', 'Chapter 2: Literature Review', 2);
+        for ($i = 1; $i <= 30; $i++) {
+            \App\Models\ContentVersion::create(['content_document_id' => $section->content_document_id, 'version_number' => $i, 'body' => 'History marker '.$i, 'created_at' => now()]);
+            \App\Models\ContentVersion::create(['content_document_id' => $other->content_document_id, 'version_number' => $i, 'body' => 'Unselected history '.$i, 'created_at' => now()]);
+        }
+        $this->actingAs($owner)->get(route('research.show', $project))->assertOk()
+            ->assertViewHas('sectionVersions', fn ($versions) => $versions->count() === 5 && $versions->total() === 30)
+            ->assertSee('History marker 30')->assertDontSee('History marker 1<', false)->assertDontSee('Unselected history');
+        $this->get(route('research.show', ['research' => $project, 'versions_page' => 6]))->assertOk()->assertSee('History marker 1');
+    }
+
     public function test_writing_workspace_focuses_one_selected_chapter_with_professional_guidance(): void
     {
         [$owner, $project] = $this->independentProject('Professional Writing Workflow');

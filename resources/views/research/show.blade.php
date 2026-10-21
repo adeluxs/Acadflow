@@ -14,20 +14,22 @@
     $isResultsWritingSection = $activeSection && ($activeKey === 'chapter_4' || str_contains($activeTitle, 'result') || str_contains($activeTitle, 'analysis'));
 @endphp
 
-<div class="studio-shell space-y-6">
-    <nav class="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+<div class="studio-shell studio-writing-workspace space-y-4" data-writing-workspace>
+    <nav class="studio-writing-navigation flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Project workspace">
         <a href="{{ route('research.workspace', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Control center</a>
         <a href="{{ route('research.show', ['research' => $research, 'section' => $activeSection?->uuid]) }}" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Writing workspace</a>
         @if($literatureEnabled)
             <a href="{{ route('research.literature.search', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Literature &amp; references</a>
         @endif
         <a href="{{ route('research.plan', $research) }}" class="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700">Plan & library</a>
-        <a href="{{ route('research.export.docx', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold">DOCX</a>
-        <a href="{{ route('research.export.pdf', $research) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold">PDF</a>
-        <a href="{{ route('research.export.html', $research) }}" class="ml-auto rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Preview / export</a>
+        <details class="studio-export-menu">
+            <summary>Export document</summary>
+            <div><a href="{{ route('research.export.docx', $research) }}">Download DOCX</a><a href="{{ route('research.export.pdf', $research) }}">Download PDF</a><a href="{{ route('research.export.html', $research) }}">Preview / export</a></div>
+        </details>
     </nav>
 
-    <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <details class="studio-writing-overview overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary class="studio-disclosure-summary"><span><strong>Project overview</strong><span class="block text-xs font-normal text-slate-500">{{ number_format((float) $research->progress) }}% complete · {{ $currentStage?->name ?? ucwords(str_replace('_', ' ', $research->status)) }}</span></span><span class="studio-disclosure-hint">Details &amp; workflow</span></summary>
         <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 p-5 text-white sm:p-6">
             <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -55,10 +57,17 @@
                 @endif
             </div>
         </div>
-    </section>
+    </details>
 
-    <div class="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)_330px]">
-        <aside class="space-y-4 xl:sticky xl:top-5 xl:self-start">
+    <div class="studio-writing-actions">
+        <p><span class="studio-writing-dot" aria-hidden="true"></span> Your space to write <span class="studio-writing-actions-note">Choose a chapter, then make it yours.</span></p>
+        <div class="flex flex-wrap gap-2"><a href="#writing-tools" class="studio-button-secondary" data-writing-open-tools>Writing tools</a><button type="button" class="studio-button" data-writing-focus-toggle aria-pressed="false" hidden>Focus writing</button></div>
+    </div>
+
+    <div class="studio-writing-layout">
+        <details class="studio-chapter-nav" data-writing-chapters @if(!request()->filled('section')) open @endif>
+            <summary class="studio-disclosure-summary"><span><strong>Chapter navigator</strong><span class="studio-chapter-current">{{ $activeSection?->title ?? 'Choose a section' }}</span></span><span class="studio-disclosure-hint">Change chapter</span></summary>
+            <div class="space-y-4 p-3">
             <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div class="flex items-center justify-between gap-3">
                     <div><p class="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Research document</p><h2 class="mt-1 font-black text-slate-950">Chapter navigator</h2></div>
@@ -68,7 +77,7 @@
                     @foreach($sectionJourney as $step)
                         @php($sectionNav = $step['section'])
                         @php($isActive = $activeSection && $sectionNav->id === $activeSection->id)
-                        <a href="{{ route('research.show', ['research' => $research, 'section' => $sectionNav->uuid]) }}" class="block rounded-xl border px-3 py-3 transition {{ $isActive ? 'border-indigo-300 bg-indigo-50 ring-1 ring-indigo-100' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50' }}">
+                        <a href="{{ route('research.show', ['research' => $research, 'section' => $sectionNav->uuid]) }}" @if($isActive) aria-current="page" @endif data-writing-chapter class="block rounded-xl border px-3 py-3 transition {{ $isActive ? 'border-indigo-300 bg-indigo-50 ring-1 ring-indigo-100' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50' }}">
                             <div class="flex items-start gap-2.5">
                                 <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ $step['progress'] >= 100 ? 'bg-emerald-100 text-emerald-700' : ($isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500') }} text-[11px] font-black">{{ $step['progress'] >= 100 ? '✓' : $loop->iteration }}</span>
                                 <span class="min-w-0 flex-1">
@@ -87,11 +96,12 @@
                 <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-indigo-600" style="width:{{ min(100, max(0, (float) $research->progress)) }}%"></div></div>
                 <p class="mt-2 text-xs text-slate-500">{{ number_format((float) $research->progress) }}% complete</p>
             </section>
-        </aside>
+            </div>
+        </details>
 
-        <main class="min-w-0 space-y-5">
+        <div class="studio-writing-document min-w-0 space-y-5" role="region" aria-label="Chapter writing area">
             @if($activeSection)
-                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <section class="studio-writing-paper overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                     <header class="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50 p-5">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
@@ -120,35 +130,39 @@
                     </div>
                 </section>
 
-                <details class="studio-panel"><summary class="cursor-pointer font-bold text-sm">Section version history</summary><div class="mt-4 space-y-3">@foreach($activeSection->document->versions->sortByDesc('version_number')->take(20) as $version)<details class="rounded-xl border border-slate-200 p-3"><summary class="cursor-pointer text-xs">Version {{ $version->version_number }} · {{ $version->created_at?->format('d M Y H:i') }}</summary><article class="prose mt-3 max-w-none text-sm">{!! app(\App\Services\RichTextSanitizer::class)->sanitize((string) $version->body) !!}</article>@if(auth()->user()->can('update', $research) && !$activeSection->locked_at)<form method="POST" action="{{ route('research.sections.versions.restore', [$research, $activeSection, $version]) }}" class="mt-3">@csrf<button class="studio-button-secondary">Restore as new version</button></form>@endif</details>@endforeach</div></details>
-                <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div class="flex items-center justify-between gap-3"><div><h3 class="font-black text-slate-900">Comments and corrections</h3><p class="mt-1 text-xs text-slate-500">Keep feedback attached to the section it applies to.</p></div><span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">{{ $activeSection->document->comments->count() }}</span></div>
+                <details class="studio-panel studio-writing-secondary" @if(request()->has('versions_page')) open @endif><summary class="cursor-pointer font-bold text-sm">Section version history</summary><div class="mt-4 space-y-3">@foreach($sectionVersions as $version)<details class="rounded-xl border border-slate-200 p-3"><summary class="cursor-pointer text-xs">Version {{ $version->version_number }} · {{ $version->created_at?->format('d M Y H:i') }}</summary><article class="prose mt-3 max-w-none text-sm">{!! app(\App\Services\RichTextSanitizer::class)->sanitize((string) $version->body) !!}</article>@if(auth()->user()->can('update', $research) && !$activeSection->locked_at)<form method="POST" action="{{ route('research.sections.versions.restore', [$research, $activeSection, $version]) }}" class="mt-3">@csrf<button class="studio-button-secondary">Restore as new version</button></form>@endif</details>@endforeach{{ $sectionVersions->links() }}</div></details>
+                <details class="studio-writing-secondary rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" @if(request()->has('comments_page') || $errors->has('body') || $errors->has('description')) open @endif>
+                    <summary class="cursor-pointer font-bold text-sm">Comments and corrections <span class="ml-2 rounded-full bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">{{ $sectionComments->total() }}</span></summary>
+                    <p class="mt-3 text-xs text-slate-500">Keep feedback attached to the section it applies to.</p>
                     <div class="mt-4 space-y-3">
-                        @forelse($activeSection->document->comments as $comment)
+                        @forelse($sectionComments as $comment)
                             <div class="rounded-xl bg-slate-50 p-3"><div class="flex justify-between gap-3 text-xs text-slate-500"><span>{{ $comment->user?->full_name }} · {{ ucfirst($comment->type) }}</span><span>{{ $comment->created_at?->diffForHumans() }}</span></div><p class="mt-2 text-sm leading-6 text-slate-700">{{ $comment->body }}</p></div>
                         @empty
                             <p class="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">No comments yet.</p>
                         @endforelse
                     </div>
-                    <form method="POST" action="{{ route('research.sections.comment', [$research, $activeSection]) }}" class="mt-3 flex gap-2">@csrf<input name="body" required class="flex-1 rounded-xl border-slate-300 text-sm" placeholder="Add a review comment"><button class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold">Comment</button></form>
+                    {{ $sectionComments->links() }}
+                    <form method="POST" action="{{ route('research.sections.comment', [$research, $activeSection]) }}" class="mt-3 flex flex-col gap-2 sm:flex-row">@csrf<input name="body" required class="min-w-0 flex-1 rounded-xl border-slate-300 text-sm" placeholder="Add a review comment" aria-label="Review comment"><button class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold">Comment</button></form>
                     @can('review', $research)
                         <form method="POST" action="{{ route('research.sections.corrections', [$research, $activeSection]) }}" class="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto]">@csrf<select name="type" class="rounded-xl border-slate-300 text-sm"><option value="general">General correction</option><option value="rewrite">Rewrite</option><option value="methodology">Methodology</option><option value="references">References</option><option value="formatting">Formatting</option><option value="academic_language">Academic language</option></select><input name="description" required class="rounded-xl border-slate-300 text-sm" placeholder="Describe the required correction"><button class="rounded-xl bg-amber-500 px-3 py-2 text-sm font-bold text-white">Request</button></form>
                     @endcan
-                </section>
+                </details>
             @else
                 <section class="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm"><h2 class="text-lg font-black text-slate-900">No writing sections configured</h2><p class="mt-2 text-sm text-slate-500">This project template does not contain any sections yet.</p></section>
             @endif
 
-            <div id="research-assistant">
+            <div id="research-assistant" class="studio-writing-secondary">
                 @include('ai._contextual-assistant', [
                     'assistantFeature' => 'research_assistant',
                     'assistantEndpoint' => route('ai.context.research', $research),
                     'assistantDescription' => $activeSection ? 'Use the authorized project context to review the current section without inventing research evidence.' : null,
                 ])
             </div>
-        </main>
+        </div>
 
-        <aside class="space-y-5 xl:sticky xl:top-5 xl:self-start">
+        <details class="studio-writing-tools" id="writing-tools">
+            <summary class="studio-disclosure-summary"><span><strong>Writing tools &amp; guidance</strong><span class="block text-xs font-normal text-slate-500">Structure, references, research data and review prompts</span></span><span class="studio-disclosure-hint">Explore tools</span></summary>
+            <div class="studio-writing-tools-grid">
             @if($activeSection)
                 <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <p class="text-xs font-black uppercase tracking-[0.14em] text-indigo-600">Recommended structure</p>
@@ -247,7 +261,8 @@
                     <form method="POST" action="{{ route('research.publish', $research) }}" class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">@csrf<p class="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Publication</p><h3 class="mt-1 font-black text-emerald-950">Publish approved research</h3><p class="mt-2 text-xs leading-5 text-emerald-800">Creates a moderated Knowledge Hub draft while preserving the source-project link.</p><select name="category_id" class="mt-3 w-full rounded-xl border-emerald-200 text-sm"><option value="">No category</option>@foreach($categories as $category)<option value="{{ $category->id }}">{{ $category->name }}</option>@endforeach</select><select name="visibility" class="mt-2 w-full rounded-xl border-emerald-200 text-sm">@if($institutionExpansionEnabled && $research->workspace_mode === 'institutional')<option value="institution">Institution only</option>@endif<option value="public">Public</option></select><button class="mt-3 w-full rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white">Create linked publication</button></form>
                 @endcan
             @endif
-        </aside>
+            </div>
+        </details>
     </div>
 </div>
 @endsection

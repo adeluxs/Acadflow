@@ -55,7 +55,7 @@
             <div class="flex items-start justify-between gap-4 mb-4">
                 <div class="flex items-center gap-3">
                     <div class="h-11 w-11 rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
-                        <img src="{{ asset('branding/acadsyntra-mark.png') }}" alt="" class="h-full w-full object-contain">
+                        <img src="{{ asset('branding/acadsyntra-mark.svg') }}" alt="" class="h-full w-full object-contain">
                     </div>
                     <div>
                         <h3 class="font-semibold text-sm">Install {{ $siteName }}</h3>
@@ -103,7 +103,7 @@
 
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-2">
                     <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-white p-0.5 shadow-sm ring-1 ring-slate-200">
-                        <img src="{{ asset('branding/acadsyntra-mark.png') }}" alt="" class="h-full w-full object-contain">
+                        <img src="{{ asset('branding/acadsyntra-mark.svg') }}" alt="" class="h-full w-full object-contain">
                     </span>
                     <span class="font-bold text-lg text-slate-950">{{ $siteName }}</span>
                 </a>
@@ -137,7 +137,7 @@
                 <div class="px-5 py-5 border-b border-slate-100">
                     <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5">
                         <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-white p-0.5 shadow-sm ring-1 ring-slate-200">
-                            <img src="{{ asset('branding/acadsyntra-mark.png') }}" alt="" class="h-full w-full object-contain">
+                            <img src="{{ asset('branding/acadsyntra-mark.svg') }}" alt="" class="h-full w-full object-contain">
                         </span>
                         <h1 class="text-lg font-black tracking-tight text-slate-950">{{ $siteName }}</h1>
                     </a>
@@ -281,6 +281,10 @@
                     @endif
 
                     @include('partials.feedback')
+
+                    @if(request()->routeIs('research.index', 'research.create', 'research.show', 'research.workspace', 'research.plan', 'research.literature.*', 'research.specialized.*', 'research.export.*', 'research.exports.*'))
+                        @include('research.partials.guide')
+                    @endif
 
                     @yield('content')
                 </div>

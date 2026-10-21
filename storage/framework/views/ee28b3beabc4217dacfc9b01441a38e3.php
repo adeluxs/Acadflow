@@ -24,7 +24,7 @@
     </nav>
 
     <div class="grid gap-5 lg:grid-cols-2">
-        <?php $__empty_1 = true; $__currentLoopData = $tasks; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $task): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+        <?php $__empty_0 = true; $__currentLoopData = $tasks; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $task): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
             <?php
                 $mySubmission = $task->submissions->where('user_id', auth()->id())->first();
                 $baseClose = $task->allow_late_submissions ? $task->late_deadline : ($task->due_date ?? $task->close_at);
@@ -68,7 +68,7 @@
                     <?php if($canSubmit): ?><a href="<?php echo e(route('submissions.create')); ?>?task_id=<?php echo e($task->id); ?>" class="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-center text-sm font-black text-white hover:bg-indigo-700"><?php echo e($mySubmission ? 'Resubmit' : 'Submit work'); ?></a><?php endif; ?>
                 </div>
             </article>
-        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
             <div class="lg:col-span-2 rounded-[2rem] border border-dashed border-slate-300 bg-white p-14 text-center"><div class="text-4xl">🗂️</div><h2 class="mt-4 text-xl font-black text-slate-900">No assignments yet</h2><p class="mt-2 text-sm text-slate-500">New coursework will appear here when it is published.</p></div>
         <?php endif; ?>
     </div>

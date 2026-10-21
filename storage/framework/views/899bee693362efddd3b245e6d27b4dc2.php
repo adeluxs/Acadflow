@@ -7,7 +7,7 @@
     <div class="acadflow-loader-card" role="status">
         <div class="acadflow-loader-emblem" aria-hidden="true">
             <span class="acadflow-loader-orbit"></span>
-            <img src="<?php echo e(asset('branding/acadsyntra-mark.png')); ?>" alt="" class="acadflow-loader-mark">
+            <img src="<?php echo e(asset('branding/acadsyntra-mark.svg')); ?>" alt="" class="acadflow-loader-mark">
         </div>
         <p class="acadflow-loader-label" data-acadflow-loader-label>Loading AcadSyntra…</p>
         <p class="acadflow-loader-subtitle">Preparing your workspace</p>

@@ -244,13 +244,57 @@ function initQuill(source, Quill) {
         },
     });
     if (source.closest('[data-research-autosave]')) {
+        const tableModule = quill.getModule('table');
+        const controls = document.createElement('div');
+        controls.className = 'my-2 flex flex-wrap items-center gap-2';
         const tableButton = document.createElement('button');
-        tableButton.type = 'button'; tableButton.className = 'studio-button-secondary my-2';
+        tableButton.type = 'button'; tableButton.className = 'studio-button-secondary';
         tableButton.textContent = 'Insert 3 × 3 table';
-        tableButton.addEventListener('click', () => { quill.focus(); quill.getModule('table')?.insertTable(3, 3); });
-        container.insertBefore(tableButton, editor);
+        tableButton.addEventListener('click', () => { quill.focus(); tableModule?.insertTable(3, 3); });
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'studio-button-secondary disabled:cursor-not-allowed disabled:opacity-50';
+        removeButton.textContent = 'Remove table';
+        removeButton.disabled = true;
+        let tableSelection = null;
+        const updateTableSelection = () => {
+            const range = quill.getSelection();
+            // Preserve the cursor when keyboard/touch focus moves to this toolbar.
+            if (range) tableSelection = { index: range.index, length: 0 };
+            removeButton.disabled = !tableSelection || !tableModule?.getTable(tableSelection)[0];
+        };
+        removeButton.addEventListener('mousedown', (event) => event.preventDefault());
+        removeButton.addEventListener('click', () => {
+            const range = tableSelection;
+            if (!range || !tableModule?.getTable(range)[0]) return;
+            quill.focus();
+            quill.setSelection(range.index, 0, 'silent');
+            quill.history.cutoff();
+            tableModule.deleteTable();
+            quill.history.cutoff();
+            updateTableSelection();
+        });
+        quill.on('selection-change', updateTableSelection);
+        quill.on('text-change', () => queueMicrotask(updateTableSelection));
+
+        const hint = document.createElement('span');
+        hint.className = 'text-xs text-slate-500';
+        hint.textContent = 'To remove a table, click inside it first. Undo with Ctrl/Cmd+Z.';
+        controls.append(tableButton, removeButton, hint);
+        container.insertBefore(controls, editor);
     }
-    quill.root.innerHTML = source.value || '';
+    const initialContent = document.createElement('div');
+    initialContent.innerHTML = source.value || '';
+    // Saved HTML retains table rows, but sanitization removes Quill's internal
+    // row identifiers. Rebuild them before Quill reads the document for undo.
+    initialContent.querySelectorAll('tr').forEach((row, index) => {
+        [...row.children].filter(cell => ['TD', 'TH'].includes(cell.tagName))
+            .forEach(cell => cell.setAttribute('data-row', `acadflow-row-${index}`));
+    });
+    quill.root.innerHTML = initialContent.innerHTML;
+    quill.update('silent');
+    quill.history.clear();
     quill.root.style.minHeight = source.dataset.editorHeight || '300px';
 
     const status = document.createElement('div');
@@ -278,7 +322,9 @@ function initQuill(source, Quill) {
     quill.on('text-change', syncAndSuggest);
     source.form?.addEventListener('submit', sync);
     registerEditor(source, api, sync);
-    sync();
+    // Internal row metadata is initialization, not an edit. Keep the original
+    // source baseline until a user changes the document, avoiding phantom saves.
+    status.querySelector('[data-word-count]').textContent = `${plainText(quill.root.innerHTML).split(/\s+/).filter(Boolean).length} words`;
 }
 
 export function initRichEditors() {

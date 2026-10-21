@@ -35,13 +35,14 @@
 <div class="mt-3 flex items-center justify-between"><label class="text-sm"><input type="checkbox" name="is_active" value="1" @checked($workflow->is_active)> Active</label><button class="rounded-xl border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700">Save safely</button></div>
 </form>
 @empty <p class="text-slate-500">No workflows configured.</p>@endforelse
+{{ $workflows->links() }}
 </div></section>
 
 <section class="rounded-2xl border bg-white p-6"><h2 class="text-xl font-semibold">Create research type</h2>
 <form method="POST" action="{{ route('research.configuration.types.store') }}" class="mt-5 grid gap-4 lg:grid-cols-2">@csrf
 <label class="text-sm font-medium">Name<input name="name" required placeholder="Dissertation" class="mt-1 w-full rounded-xl border-slate-300"></label>
 <label class="text-sm font-medium">Slug<input name="slug" placeholder="dissertation" class="mt-1 w-full rounded-xl border-slate-300"></label>
-<label class="text-sm font-medium">Workflow<select name="workflow_definition_id" required class="mt-1 w-full rounded-xl border-slate-300">@foreach($workflows->where('is_active',true) as $workflow)<option value="{{ $workflow->id }}">{{ $workflow->name }}</option>@endforeach</select></label>
+<label class="text-sm font-medium">Workflow<select name="workflow_definition_id" required class="mt-1 w-full rounded-xl border-slate-300">@foreach($workflowOptions->where('is_active',true) as $workflow)<option value="{{ $workflow->id }}">{{ $workflow->name }}</option>@endforeach</select></label>
 <label class="text-sm font-medium">Maximum similarity (%)<input type="number" name="similarity_threshold" value="20" min="0" max="100" step="0.01" class="mt-1 w-full rounded-xl border-slate-300"></label>
 <label class="lg:col-span-2 text-sm font-medium">Description<textarea name="description" rows="2" class="mt-1 w-full rounded-xl border-slate-300"></textarea></label>
 <label class="text-sm font-medium">Template schema JSON<textarea name="template_schema" rows="10" class="mt-1 w-full rounded-xl border-slate-300 font-mono text-xs">{"sections":[{"key":"abstract","title":"Abstract","required":true},{"key":"chapter_1","title":"Chapter 1","required":true},{"key":"references","title":"References","required":true}]}</textarea></label>
@@ -54,7 +55,7 @@
 @foreach($types as $type)<form method="POST" action="{{ route('research.configuration.types.update',$type) }}" class="rounded-2xl border bg-white p-5">@csrf @method('PUT')
 <h3 class="font-semibold">{{ $type->name }}</h3><p class="text-xs text-slate-500">{{ $type->projects_count }} project(s) · {{ $type->template_versions_count }} immutable template version(s)</p>
 <div class="mt-4 grid gap-3 sm:grid-cols-2"><label class="text-xs font-medium">Name<input name="name" value="{{ $type->name }}" required class="mt-1 w-full rounded-lg border-slate-300"></label><label class="text-xs font-medium">Slug<input name="slug" value="{{ $type->slug }}" required class="mt-1 w-full rounded-lg border-slate-300"></label></div>
-<label class="mt-3 block text-xs font-medium">Workflow<select name="workflow_definition_id" class="mt-1 w-full rounded-lg border-slate-300">@foreach($workflows as $workflow)<option value="{{ $workflow->id }}" @selected($type->workflow_definition_id===$workflow->id)>{{ $workflow->name }}</option>@endforeach</select></label>
+<label class="mt-3 block text-xs font-medium">Workflow<select name="workflow_definition_id" class="mt-1 w-full rounded-lg border-slate-300">@foreach($workflowOptions as $workflow)<option value="{{ $workflow->id }}" @selected($type->workflow_definition_id===$workflow->id)>{{ $workflow->name }}</option>@endforeach</select></label>
 <label class="mt-3 block text-xs font-medium">Description<textarea name="description" rows="2" class="mt-1 w-full rounded-lg border-slate-300">{{ $type->description }}</textarea></label>
 <label class="mt-3 block text-xs font-medium">Template schema JSON<textarea name="template_schema" rows="8" class="mt-1 w-full rounded-lg border-slate-300 font-mono text-xs">{{ json_encode($type->template_schema ?? new stdClass, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) }}</textarea></label>
 <label class="mt-3 block text-xs font-medium">Validation rules JSON<textarea name="validation_rules" rows="6" class="mt-1 w-full rounded-lg border-slate-300 font-mono text-xs">{{ json_encode($type->validation_rules ?? new stdClass, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES) }}</textarea></label>
@@ -62,4 +63,5 @@
 <div class="mt-4 text-right"><button class="rounded-xl border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700">Save type</button></div></form>@endforeach
 </div></section>
 </div>
+{{ $types->links() }}
 @endsection
