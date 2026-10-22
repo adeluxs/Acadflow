@@ -136,6 +136,9 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified', 'two-factor.authenticated'])->prefix('onboarding')->name('onboarding.')->group(function () {
     Route::get('/', [OnboardingController::class, 'show'])->name('show');
+    Route::get('/manage', [OnboardingController::class, 'manage'])->name('manage');
+    Route::post('/dismiss', [OnboardingController::class, 'dismiss'])->name('dismiss');
+    Route::get('/directory', [\App\Http\Controllers\AcademicOrganisationController::class, 'directory'])->middleware('throttle:60,1')->name('directory');
     Route::post('/back', [OnboardingController::class, 'back'])->name('back');
     Route::post('/complete', [OnboardingController::class, 'complete'])->name('complete');
     Route::get('/recommendations', [OnboardingController::class, 'recommendations'])->name('recommendations');
@@ -619,6 +622,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 
     // Admin routes (department_admin, university_admin, super_admin)
     Route::middleware('role:department_admin,university_admin,super_admin')->group(function () {
+        Route::get('/admin/lookups', \App\Http\Controllers\AdminLookupController::class)->middleware('throttle:120,1')->name('admin.lookups');
         Route::get('/admin/ai/settings', [AiController::class, 'settings'])->name('ai.settings');
         Route::post('/admin/ai/settings', [AiController::class, 'updateSettings'])->name('ai.settings.update');
         Route::post('/admin/ai/providers/{provider}/test', [AiController::class, 'testProvider'])->middleware('throttle:10,1')->name('ai.providers.test');

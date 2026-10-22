@@ -39,27 +39,8 @@
                         class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                 </div>
 
-                <div class="mb-4">
-                    <label for="department_id" class="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                    <select name="department_id" id="department_id" required
-                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <option value="">Select Department</option>
-                        @foreach($departments as $department)
-                            <option value="{{ $department->id }}">{{ $department->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="mb-6">
-                    <label for="semester_id" class="block text-sm font-medium text-gray-700 mb-2">Semester (Optional - for auto-enrollment)</label>
-                    <select name="semester_id" id="semester_id"
-                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <option value="">Select Semester</option>
-                        @foreach($semesters as $semester)
-                            <option value="{{ $semester->id }}">{{ $semester->name }} - {{ $semester->academicSession->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+                <x-admin-lookup class="mb-4" name="department_id" kind="departments" label="Department" :selected="$selectedDepartment" required />
+                <x-admin-lookup class="mb-6" name="semester_id" kind="semesters" label="Semester (optional, for auto-enrollment)" placeholder="No auto-enrollment" :selected="$selectedSemester" depends="department_id" />
 
                 <div class="flex items-center justify-between">
                     <a href="{{ route('admin.dashboard') }}" class="text-gray-600 hover:text-gray-900">Cancel</a>

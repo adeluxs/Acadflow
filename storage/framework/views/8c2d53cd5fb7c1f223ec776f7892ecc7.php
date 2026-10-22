@@ -32,7 +32,6 @@
             ['Knowledge Hub','knowledge.index','book'],
             ['Communities','knowledge.communities.index','community'],
             ['Calendar','knowledge.events.index','calendar'],
-            ['My Profile','profile.show','profile'],
             ['Notifications','notifications.index','bell'],
         ],
         'student' => [
@@ -45,7 +44,6 @@
             ['Research Studio','research.index','research'],
             ['Knowledge Hub','knowledge.index','book'],
             ['Calendar','knowledge.events.index','calendar'],
-            ['My Profile','profile.show','profile'],
             ['Notifications','notifications.index','bell'],
         ],
         'member' => [

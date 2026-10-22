@@ -4,33 +4,32 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Faculty;
+use App\Models\AcademicEvent;
+use App\Models\AcademicMembershipInvitation;
+use App\Models\AcademicSession;
+use App\Models\DepartmentAdoptionRequest;
+use App\Models\DepartmentOnboardingDraft;
+use App\Models\InstitutionOnboardingRequest;
 use App\Models\KnowledgeCommunity;
 use App\Models\KnowledgePublication;
-use App\Models\AcademicEvent;
+use App\Models\ResearchProject;
 use App\Models\University;
 use App\Models\User;
 use App\Models\UserOnboardingState;
+use App\Services\FeatureAccessService;
 use App\Services\Media\MediaSecurityService;
 use App\Services\OnboardingService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class OnboardingController extends Controller
 {
-    public const STEPS = [
-        1 => 'path',
-        2 => 'profile',
-        3 => 'affiliation',
-        4 => 'interests',
-        5 => 'preferences',
-        6 => 'review',
-    ];
+    public const STEPS = OnboardingService::STEPS;
 
-    public function show(Request $request): View|RedirectResponse
+    public function show(Request $request, OnboardingService $onboarding): View|RedirectResponse
     {
         $user = $request->user();
 
@@ -38,50 +37,52 @@ class OnboardingController extends Controller
             return redirect()->route('dashboard');
         }
 
-        $state = UserOnboardingState::firstOrCreate(
-            ['user_id' => $user->id],
-            ['current_step' => 1, 'started_at' => now(), 'data' => []]
-        );
+        $state = $onboarding->state($user);
+        $data = $onboarding->data($user, $state);
+        if ($user->onboarding_completed_at) {
+            $state->path = $user->account_type;
+        }
 
         $requestedStep = $request->integer('step', $state->current_step ?: 1);
         $stepNumber = max(1, min(count(self::STEPS), $requestedStep));
         $step = self::STEPS[$stepNumber];
+        if ($step === 'preferences') {
+            $user->load('notificationSetting');
+            $data = $onboarding->data($user, $state);
+        }
 
-        $universities = University::query()
-            ->where('is_active', true)
-            ->where('code', '!=', 'ACADFIND')
-            ->with(['faculties' => fn ($query) => $query->where('is_active', true)->with([
-                'departments' => fn ($departmentQuery) => $departmentQuery->where('is_active', true),
-            ])])
-            ->orderBy('name')
-            ->get();
+        $universities = collect();
+        $selectedUniversityId = (int) $request->old('university_id', $data['university_id'] ?? 0);
+        if (in_array($step, ['affiliation', 'review'], true) && $selectedUniversityId) {
+            $universities = University::query()->whereKey($selectedUniversityId)
+                ->when($step === 'affiliation', fn ($q) => $q->with(['faculties:id,university_id,name', 'faculties.departments:id,faculty_id,name']))->get(['id', 'name', 'slug']);
+        }
 
         return view('onboarding.show', [
             'user' => $user,
             'state' => $state,
-            'data' => array_merge($this->userDefaults($user), $state->data ?? []),
+            'data' => $data,
+            'completion' => $onboarding->progress($user, $state),
+            'editing' => (bool) $user->onboarding_completed_at,
             'steps' => self::STEPS,
             'step' => $step,
             'stepNumber' => $stepNumber,
             'universities' => $universities,
-            'accountPaths' => $this->accountPaths(),
+            'accountPaths' => $onboarding->accountPaths($state->path),
         ]);
     }
 
-    public function save(Request $request, string $step, MediaSecurityService $media): RedirectResponse
+    public function save(Request $request, string $step, MediaSecurityService $media, OnboardingService $onboarding): RedirectResponse|JsonResponse
     {
         $stepNumber = array_search($step, self::STEPS, true);
         abort_if($stepNumber === false, 404);
 
         $user = $request->user();
-        $state = UserOnboardingState::firstOrCreate(
-            ['user_id' => $user->id],
-            ['current_step' => 1, 'started_at' => now(), 'data' => []]
-        );
+        $state = $onboarding->state($user);
 
         if ($step === 'interests') {
-            $fields = ['research_interests', 'skills', 'topic_interests', 'community_interests', 'event_interests'];
-            $text = $request->validate(collect($fields)->mapWithKeys(fn($field) => [$field.'_text' => ['nullable', 'string', 'max:3000']])->all());
+            $fields = ['research_interests', 'skills', 'topic_interests', 'community_interests', 'event_interests', 'supervision_interests'];
+            $text = $request->validate(collect($fields)->mapWithKeys(fn ($field) => [$field.'_text' => ['nullable', 'string', 'max:3000']])->all());
             foreach ($fields as $field) {
                 if (array_key_exists($field.'_text', $text)) {
                     $request->merge([$field => array_values(array_filter(array_map('trim', explode(',', (string) $text[$field.'_text']))))]);
@@ -89,9 +90,13 @@ class OnboardingController extends Controller
             }
         }
 
+        if ($step === 'profile' && $request->has('username')) {
+            $request->merge(['username' => strtolower((string) $request->input('username'))]);
+        }
+
         $validated = match ($step) {
             'path' => $request->validate([
-                'path' => ['required', Rule::in(array_keys($this->accountPaths()))],
+                'path' => ['required', Rule::in(array_keys($onboarding->accountPaths($state->path)))],
             ]),
             'profile' => $request->validate([
                 'first_name' => ['required', 'string', 'max:100'],
@@ -105,20 +110,7 @@ class OnboardingController extends Controller
                 'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             ]),
             'affiliation' => $this->validateAffiliation($request, $state),
-            'interests' => $request->validate([
-                'programme' => ['nullable', 'string', 'max:255'],
-                'academic_level' => ['nullable', 'string', 'max:80'],
-                'research_interests' => ['nullable', 'array', 'max:20'],
-                'research_interests.*' => ['string', 'max:100'],
-                'skills' => ['nullable', 'array', 'max:30'],
-                'skills.*' => ['string', 'max:100'],
-                'topic_interests' => ['nullable', 'array', 'max:30'],
-                'topic_interests.*' => ['string', 'max:100'],
-                'community_interests' => ['nullable', 'array', 'max:20'],
-                'community_interests.*' => ['string', 'max:100'],
-                'event_interests' => ['nullable', 'array', 'max:20'],
-                'event_interests.*' => ['string', 'max:100'],
-            ]),
+            'interests' => $request->validate($onboarding->interestRules($user->onboarding_completed_at ? $user->account_type : $state->path)),
             'preferences' => $request->validate([
                 'profile_visibility' => ['required', Rule::in(['public', 'institution', 'private'])],
                 'email_notifications' => ['nullable', 'boolean'],
@@ -130,15 +122,6 @@ class OnboardingController extends Controller
             ]),
             'review' => [],
         };
-
-        if ($step === 'path') {
-            $state->path = $validated['path'];
-            if (! in_array($validated['path'], $this->institutionalPaths(), true)) {
-                $current = $state->data ?? [];
-                unset($current['university_id'], $current['faculty_id'], $current['department_id']);
-                $state->data = $current;
-            }
-        }
 
         if ($step === 'profile' && $request->hasFile('avatar')) {
             $asset = $media->store(
@@ -153,55 +136,112 @@ class OnboardingController extends Controller
             unset($validated['avatar']);
         }
 
-        $state->data = array_merge($state->data ?? [], $this->normalizeStepData($step, $validated));
-        $state->current_step = min(count(self::STEPS), $stepNumber + 1);
-        $state->last_saved_at = now();
-        $state->save();
-
-        return redirect()->route('onboarding.show', ['step' => $state->current_step])
-            ->with('success', 'Your onboarding progress was saved.');
-    }
-
-    public function back(Request $request): RedirectResponse
-    {
-        $state = UserOnboardingState::firstOrCreate(['user_id' => $request->user()->id]);
-        $state->current_step = max(1, (int) $state->current_step - 1);
-        $state->last_saved_at = now();
-        $state->save();
-
-        return redirect()->route('onboarding.show', ['step' => $state->current_step]);
-    }
-
-    public function skip(Request $request, string $step): RedirectResponse
-    {
-        $stepNumber = array_search($step, self::STEPS, true);
-        abort_if($stepNumber === false || in_array($step, ['path', 'profile', 'review'], true), 422, 'This onboarding step is required.');
-
-        $state = UserOnboardingState::firstOrCreate(['user_id' => $request->user()->id]);
-        if ($step === 'affiliation' && in_array($state->path, $this->institutionalPaths(), true)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'university_id' => ['Institutional account paths must confirm their affiliation.'],
-            ]);
+        $state = $onboarding->saveStep($user, $step, $validated);
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Profile changes saved.', 'state' => $state,
+                'progress' => $onboarding->progress($user->fresh(), $state)]);
         }
-        $skipped = $state->skipped_steps ?? [];
-        $skipped[] = $step;
-        $state->skipped_steps = array_values(array_unique($skipped));
-        $state->current_step = min(count(self::STEPS), $stepNumber + 1);
-        $state->last_saved_at = now();
-        $state->save();
+
+        return $user->onboarding_completed_at
+            ? redirect()->route('onboarding.manage')->with('success', 'Your profile changes were saved.')
+            : redirect()->route('onboarding.show', ['step' => $state->current_step])->with('success', 'Your onboarding progress was saved.');
+    }
+
+    public function back(Request $request, OnboardingService $onboarding): RedirectResponse
+    {
+        if ($request->user()->onboarding_completed_at) {
+            return redirect()->route('onboarding.manage');
+        }
+        $state = $onboarding->state($request->user());
+        $state->update(['current_step' => max(1, (int) $state->current_step - 1), 'last_saved_at' => now()]);
 
         return redirect()->route('onboarding.show', ['step' => $state->current_step]);
+    }
+
+    public function skip(Request $request, string $step, OnboardingService $onboarding): RedirectResponse
+    {
+        $state = $onboarding->skip($request->user(), $step);
+
+        return $request->user()->onboarding_completed_at
+            ? redirect()->route('onboarding.manage')
+            : redirect()->route('onboarding.show', ['step' => $state->current_step]);
+    }
+
+    public function manage(Request $request, OnboardingService $onboarding): View
+    {
+        $user = $request->user();
+        $state = $onboarding->state($user);
+
+        $departmentApplications = ($user->isDepartmentAdmin() || $user->account_type === 'department_representative')
+            ? DepartmentAdoptionRequest::where('requester_user_id', $user->id)->latest('id')->limit(5)->get() : collect();
+        $institutionApplications = ($user->isUniversityAdmin() || $user->account_type === 'university_representative')
+            ? InstitutionOnboardingRequest::where('requester_user_id', $user->id)->latest('id')->limit(5)->get() : collect();
+
+        return view('onboarding.manage', ['user' => $user, 'completion' => $onboarding->progress($user, $state),
+            'memberships' => $user->institutionAffiliations()->with(['university:id,name', 'department:id,name'])->latest('id')->limit(10)->get(),
+            'departmentApplications' => $departmentApplications, 'institutionApplications' => $institutionApplications,
+            'membershipRequestsAvailable' => FeatureAccessService::canAccessFeature('institution_self_service', $user),
+            'organisationSteps' => $this->organisationSteps($user, $departmentApplications->first(), $institutionApplications->first()),
+        ]);
+    }
+
+    private function organisationSteps(User $user, ?DepartmentAdoptionRequest $departmentApplication, ?InstitutionOnboardingRequest $institutionApplication): array
+    {
+        if ($user->isDepartmentAdmin() || $user->account_type === 'department_representative') {
+            $department = $user->isDepartmentAdmin() ? $user->department : null;
+            $draft = DepartmentOnboardingDraft::where('user_id', $user->id)->first();
+            $data = array_replace($draft?->data ?? [], $departmentApplication?->toArray() ?? []);
+            $infoFields = ['department_name', 'representative_title', 'official_email', 'official_phone', 'classification'];
+            $infoComplete = $department || collect($infoFields)->every(fn ($field) => filled($data[$field] ?? null));
+            $verification = ($department && in_array($department->adoption_status, ['independent_active', 'institution_managed', 'institution_affiliated'], true)) || $departmentApplication?->status === 'approved' ? 'Completed'
+                : (in_array($departmentApplication?->status, ['pending', 'in_review'], true) ? 'Pending approval' : 'Incomplete');
+
+            return [
+                ['label' => 'Department information', 'status' => $infoComplete ? 'Completed' : 'Incomplete', 'url' => route('department.onboarding')],
+                ['label' => 'Authority and verification', 'status' => $verification, 'url' => route('department.onboarding')],
+                ['label' => 'Lecturer invitations (optional)', 'status' => $department && AcademicMembershipInvitation::where('department_id', $department->id)->where('invited_by', $user->id)->where('role', 'lecturer')->exists() ? 'Completed' : 'Incomplete', 'url' => route('academic.organisations').'#invite-members'],
+                ['label' => 'Modules and academic calendar', 'status' => $department && filled($department->adoption_settings['modules'] ?? []) && AcademicSession::where('department_id', $department->id)->exists() ? 'Completed' : 'Incomplete', 'url' => route('academic.organisations').'#department-configuration'],
+            ];
+        }
+        if ($user->isUniversityAdmin() || $user->account_type === 'university_representative') {
+            $institution = $user->isUniversityAdmin() ? $user->university : null;
+            $verification = ($institution && in_array($institution->adoption_status, ['claim_verified', 'setup_in_progress', 'active'], true)) || $institutionApplication?->status === 'approved' ? 'Completed'
+                : (in_array($institutionApplication?->status, ['pending', 'in_review'], true) ? 'Pending approval' : 'Incomplete');
+
+            return [
+                ['label' => 'Institution profile', 'status' => $institution || $institutionApplication ? 'Completed' : 'Incomplete', 'url' => route('institution.onboarding.request')],
+                ['label' => 'Institution verification', 'status' => $verification, 'url' => route('institution.onboarding.request')],
+                ['label' => 'Faculties and departments', 'status' => $institution && $institution->faculties()->whereHas('departments')->exists() ? 'Completed' : 'Incomplete', 'url' => $institution ? route('admin.faculties') : route('institution.onboarding.request')],
+                ['label' => 'Administration and configuration', 'status' => $institution?->adoption_status === 'active' ? 'Completed' : 'Incomplete', 'url' => $institution ? route('institution.setup') : route('institution.onboarding.request')],
+            ];
+        }
+
+        return [];
+    }
+
+    public function dismiss(Request $request, OnboardingService $onboarding): RedirectResponse
+    {
+        $onboarding->dismissBanner($request->user());
+
+        return back()->with('success', 'Profile suggestion dismissed. You can manage your profile anytime.');
     }
 
     public function complete(Request $request, OnboardingService $onboarding): RedirectResponse
     {
+        if ($request->user()->onboarding_completed_at) {
+            return redirect()->route('onboarding.manage');
+        }
         $data = $request->validate(['next_action' => ['nullable', Rule::in(['dashboard', 'research', 'final_year'])]]);
-        $onboarding->complete($request->user());
-        if ($request->user()->account_type === 'department_representative') return redirect()->route('department.onboarding');
-        if ($request->user()->account_type === 'university_representative') return redirect()->route('institution.onboarding.request');
+        $completedUser = $onboarding->complete($request->user());
+        if ($completedUser->account_type === 'department_representative') {
+            return redirect()->route('department.onboarding');
+        }
+        if ($completedUser->account_type === 'university_representative') {
+            return redirect()->route('institution.onboarding.request');
+        }
         if (in_array($data['next_action'] ?? '', ['research', 'final_year'], true)
-            && $request->user()->can('create', \App\Models\ResearchProject::class)
-            && \App\Services\FeatureAccessService::effectiveStatus('research_studio', $request->user()->university_id) === \App\Services\FeatureAccessService::STATUS_ENABLED) {
+            && $request->user()->can('create', ResearchProject::class)
+            && FeatureAccessService::effectiveStatus('research_studio', $request->user()->university_id) === FeatureAccessService::STATUS_ENABLED) {
             return redirect()->route('research.create', ['studio_mode' => $data['next_action'] === 'final_year' ? 'final_year' : 'research'])
                 ->with('success', 'Your profile is ready. Create your first research workspace.');
         }
@@ -296,103 +336,6 @@ class OnboardingController extends Controller
 
     private function validateAffiliation(Request $request, UserOnboardingState $state): array
     {
-        $path = $state->path ?: (string) Arr::get($state->data ?? [], 'path');
-        $validated = $request->validate([
-            'university_id' => [
-                Rule::requiredIf(in_array($path, $this->institutionalPaths(), true)),
-                'nullable', 'integer', 'exists:universities,id',
-            ],
-            'faculty_id' => [
-                'nullable', 'integer', 'exists:faculties,id',
-            ],
-            'department_id' => [
-                'nullable', 'integer', 'exists:departments,id',
-            ],
-        ]);
-
-        if (! empty($validated['faculty_id'])) {
-            $faculty = Faculty::findOrFail($validated['faculty_id']);
-            abort_if(! empty($validated['university_id']) && $faculty->university_id !== (int) $validated['university_id'], 422, 'The selected faculty does not belong to that university.');
-        }
-
-        if (! empty($validated['department_id'])) {
-            $department = \App\Models\Department::with('faculty')->findOrFail($validated['department_id']);
-            abort_if(! empty($validated['faculty_id']) && $department->faculty_id !== (int) $validated['faculty_id'], 422, 'The selected department does not belong to that faculty.');
-            abort_if(! empty($validated['university_id']) && $department->faculty?->university_id !== (int) $validated['university_id'], 422, 'The selected department does not belong to that university.');
-        }
-
-        return $validated;
-    }
-
-    private function normalizeStepData(string $step, array $validated): array
-    {
-        if ($step === 'preferences') {
-            return [
-                'profile_visibility' => $validated['profile_visibility'],
-                'notification_preferences' => [
-                    'email' => (bool) ($validated['email_notifications'] ?? false),
-                    'in_app' => (bool) ($validated['in_app_notifications'] ?? false),
-                    'event_reminders' => (bool) ($validated['event_reminders'] ?? false),
-                    'research_updates' => (bool) ($validated['research_updates'] ?? false),
-                    'community_updates' => (bool) ($validated['community_updates'] ?? false),
-                    'personalized_recommendations' => (bool) ($validated['personalized_recommendations'] ?? false),
-                ],
-            ];
-        }
-
-        if ($step === 'path') {
-            return ['path' => $validated['path']];
-        }
-
-        return $validated;
-    }
-
-    private function userDefaults(User $user): array
-    {
-        return [
-            'first_name' => $user->first_name,
-            'last_name' => $user->last_name,
-            'username' => $user->username,
-            'phone' => $user->phone,
-            'country_code' => $user->country_code,
-            'location' => $user->location,
-            'avatar_media_id' => $user->avatar_media_id,
-            'university_id' => $user->university_id,
-            'faculty_id' => $user->faculty_id,
-            'department_id' => $user->department_id,
-            'programme' => $user->programme,
-            'academic_level' => $user->academic_level,
-            'research_interests' => $user->research_interests ?? [],
-            'skills' => $user->skills ?? [],
-            'topic_interests' => $user->topic_interests ?? [],
-            'community_interests' => $user->community_interests ?? [],
-            'event_interests' => $user->event_interests ?? [],
-            'profile_visibility' => $user->profile_visibility ?? 'public',
-            'notification_preferences' => $user->notification_preferences ?? $this->defaultNotifications(),
-            'headline' => $user->creatorProfile?->headline,
-            'biography' => $user->creatorProfile?->biography,
-        ];
-    }
-
-    private function defaultNotifications(): array
-    {
-        return [
-            'email' => true,
-            'in_app' => true,
-            'event_reminders' => true,
-            'research_updates' => true,
-            'community_updates' => true,
-            'personalized_recommendations' => true,
-        ];
-    }
-
-    private function institutionalPaths(): array
-    {
-        return OnboardingService::INSTITUTIONAL_PATHS;
-    }
-
-    private function accountPaths(): array
-    {
-        return OnboardingService::PUBLIC_ACCOUNT_PATHS + OnboardingService::ADOPTION_ACCOUNT_PATHS;
+        return app(OnboardingService::class)->assertAffiliation($request->all(), $state->path);
     }
 }

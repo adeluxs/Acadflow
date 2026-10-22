@@ -46,13 +46,11 @@ class SettingsController extends Controller
             ->reject(fn (Setting $setting) => in_array($setting->group, ['ai', 'ai_legacy'], true))
             ->reject(fn (Setting $setting) => ! $user->isSuperAdmin() && $this->isGlobalOnlySetting($setting))
             // The SIWES assignment type has one authoritative toggle below.
-            ->reject(fn (Setting $setting) => $setting->key === 'siwes_assignment_enabled' || str_starts_with($setting->key, 'webpush_vapid_'))
-            ->each(function (Setting $setting) use ($scopeUniversityId, $user): void {
-                $setting->value = $user->isSuperAdmin()
-                    ? SettingService::getGlobal($setting->key, $setting->value)
-                    : SettingService::get($setting->key, $setting->value, $scopeUniversityId);
-            })
-            ->groupBy('group');
+            ->reject(fn (Setting $setting) => $setting->key === 'siwes_assignment_enabled' || str_starts_with($setting->key, 'webpush_vapid_'));
+        // An explicit zero selects global settings even for a platform admin
+        // whose personal profile has an institution. Resolve cold caches in bulk.
+        $values = SettingService::getMany($settings->pluck('value', 'key')->all(), $scopeUniversityId ?? 0);
+        $settings = $settings->each(fn (Setting $setting) => $setting->value = $values[$setting->key])->groupBy('group');
         // Global commercial controls are only relevant to the platform owner.
         // Runtime feature availability is managed on the dedicated child page
         // under Settings so there is only one switch per feature.
@@ -411,7 +409,16 @@ class SettingsController extends Controller
             abort(403);
         }
 
-        $query = AuditLog::with('user')->latest();
+        $request->validate([
+            'action' => ['nullable', 'string', 'max:100'],
+            'user_id' => ['nullable', 'integer', 'min:1'],
+            'model_type' => ['nullable', 'string', 'max:255'],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('date_from') ? ['after_or_equal:date_from'] : [])],
+        ]);
+        $query = AuditLog::query()->select(['id', 'user_id', 'action', 'created_at', 'field_name', 'model_type', 'model_id', 'ip_address'])
+            ->selectRaw('SUBSTR(old_value, 1, 200) AS old_value, SUBSTR(new_value, 1, 200) AS new_value')
+            ->with('user:id,first_name,last_name,email')->latest()->latest('id');
 
         // Filter by action
         if ($request->action) {
@@ -430,18 +437,16 @@ class SettingsController extends Controller
 
         // Filter by date range
         if ($request->date_from) {
-            $query->whereDate('created_at', '>=', $request->date_from);
+            $query->where('created_at', '>=', $request->date_from.' 00:00:00');
         }
         if ($request->date_to) {
-            $query->whereDate('created_at', '<=', $request->date_to);
+            $query->where('created_at', '<', \Illuminate\Support\Carbon::parse($request->date_to)->addDay()->startOfDay());
         }
 
-        $logs = $query->paginate(50);
+        $logs = $query->simplePaginate(50)->withQueryString();
+        $selectedUser = app(\App\Services\AdminLookupService::class)->selected($user, 'audit_users', $request->input('user_id'));
 
-        $actions = AuditLog::distinct()->pluck('action');
-        $users = \App\Models\User::whereIn('id', AuditLog::distinct()->pluck('user_id')->filter())->get();
-
-        return view('settings.audit-logs', compact('logs', 'actions', 'users'));
+        return view('settings.audit-logs', compact('logs', 'selectedUser'));
     }
 
     private function auditSettingChange(Request $request, Setting $setting, mixed $oldValue, mixed $newValue): void

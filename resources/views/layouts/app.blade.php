@@ -10,7 +10,7 @@
     @auth
     <meta name="push-account-id" content="{{ auth()->id() }}">
     <meta name="push-config-url" content="{{ route('browser-push.configuration') }}">
-    <meta name="push-worker-url" content="{{ $pwaAvailable ? '/serviceworker.js' : '/pushworker.js' }}">
+    <meta name="push-worker-url" content="{{ $pwaAvailable ? $pwaWorkerUrl : '/pushworker.js' }}">
     @endauth
 
     {{-- PWA runtime availability is controlled centrally by FeatureAccessService. --}}
@@ -240,6 +240,7 @@
                                         <a href="{{ route('profile.show') }}" class="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">
                                             My Profile
                                         </a>
+                                        <a href="{{ route('onboarding.manage') }}" class="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">Manage Onboarding</a>
                                     @endif
 
                                     @if(Route::has('commerce.wallet'))
@@ -286,6 +287,9 @@
                         @include('research.partials.guide')
                     @endif
 
+                    @if(request()->routeIs('dashboard'))
+                        @include('onboarding._banner')
+                    @endif
                     @yield('content')
                 </div>
             </main>
@@ -350,8 +354,27 @@
 
         @if($pwaAvailable)
         if ('serviceWorker' in navigator) {
+            // A worker upgrade can retire a cached HTML/error response that
+            // broke CSS in this document. Retry only missing local styles,
+            // once, after the new worker takes control; preserve form state.
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                const recoverStyles = () => document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+                    if (link.disabled || link.dataset.workerStyleRetry) return;
+                    const url = new URL(link.href, location.href);
+                    if (url.origin !== location.origin || !/^\/(?:build\/assets|css)\//.test(url.pathname)) return;
+                    // Some browsers expose an empty sheet for cached HTML
+                    // rather than reporting a stylesheet load error.
+                    try { if (link.sheet?.cssRules.length) return; }
+                    catch (_) { if (link.sheet) return; }
+                    link.dataset.workerStyleRetry = '1';
+                    url.searchParams.set('_sw_retry', Date.now().toString());
+                    link.href = url.href;
+                });
+                if (document.readyState === 'complete') recoverStyles();
+                else window.addEventListener('load', recoverStyles, { once: true });
+            });
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/serviceworker.js')
+                navigator.serviceWorker.register(@json($pwaWorkerUrl), { updateViaCache: 'none' })
                     .then((registration) => {
                         registration.addEventListener('updatefound', () => {
                             const newWorker = registration.installing;

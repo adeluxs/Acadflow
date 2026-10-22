@@ -14,25 +14,11 @@
         <form method="GET" action="{{ route('admin.settings.audit-logs') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Action</label>
-                <select name="action" class="w-full px-3 py-2 border rounded">
-                    <option value="">All Actions</option>
-                    @foreach($actions as $action)
-                        <option value="{{ $action }}" {{ request('action') === $action ? 'selected' : '' }}>
-                            {{ ucfirst(str_replace('_', ' ', $action)) }}
-                        </option>
-                    @endforeach
-                </select>
+                <input name="action" value="{{ request('action') }}" maxlength="100" list="audit-actions" placeholder="All actions" class="w-full px-3 py-2 border rounded">
+                <datalist id="audit-actions">@foreach(['login','logout','setting_updated','create','update','delete'] as $action)<option value="{{ $action }}">@endforeach</datalist>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">User</label>
-                <select name="user_id" class="w-full px-3 py-2 border rounded">
-                    <option value="">All Users</option>
-                    @foreach($users as $user)
-                        <option value="{{ $user->id }}" {{ request('user_id') == $user->id ? 'selected' : '' }}>
-                            {{ $user->name ?? $user->email }}
-                        </option>
-                    @endforeach
-                </select>
+                <x-admin-lookup name="user_id" kind="audit_users" label="User" placeholder="All users" :selected="$selectedUser" />
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Date From</label>
@@ -73,7 +59,7 @@
                                 {{ $log->created_at->format('Y-m-d H:i:s') }}
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-900">
-                                {{ $log->user ? ($log->user->name ?? $log->user->email) : 'System' }}
+                                {{ $log->user ? ($log->user->full_name ?: $log->user->email) : 'System' }}
                             </td>
                             <td class="px-4 py-3 text-sm">
                                 <span class="px-2 py-1 rounded text-xs font-medium

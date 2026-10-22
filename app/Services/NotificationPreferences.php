@@ -12,7 +12,7 @@ class NotificationPreferences
     {
         return match (true) {
             str_contains($type, 'onboarding_reminder') => 'onboarding',
-            str_starts_with($type, 'inactivity_'), $type === 'weekly_summary' => 'engagement',
+            str_starts_with($type, 'inactivity_'), $type === 'weekly_summary', $type === 'profile_completion_suggestion' => 'engagement',
             str_contains($type, 'department'), str_contains($type, 'institution'), str_starts_with($type, 'academic_membership'), str_contains($type, 'commercial_account'), str_starts_with($type, 'notification_delivery_') => 'organisation',
             str_contains($type, 'research'), str_contains($type, 'supervis'), str_contains($type, 'milestone') => 'research',
             str_contains($type, 'payment'), str_contains($type, 'billing'), str_contains($type, 'access_changed') => 'billing',
@@ -41,7 +41,9 @@ class NotificationPreferences
             'organisation' => 'organisation_updates', 'research' => 'research_updates',
             'billing' => 'billing_notifications', default => 'academic_alerts',
         };
-        if (! ($settings?->$field ?? ($category !== 'engagement'))) return false;
+        if (! ($settings?->$field ?? ($category !== 'engagement'))) {
+            return false;
+        }
         $specific = match ($type) {
             'grade_posted', 'feedback_posted' => 'grade_notifications',
             'attendance_started', 'attendance_closed' => 'attendance_notifications',
@@ -54,14 +56,19 @@ class NotificationPreferences
 
     public function quietUntil(?NotificationSetting $settings): ?CarbonImmutable
     {
-        if (! $settings?->quiet_hours_start || ! $settings->quiet_hours_end || $settings->quiet_hours_start === $settings->quiet_hours_end) return null;
+        if (! $settings?->quiet_hours_start || ! $settings->quiet_hours_end || $settings->quiet_hours_start === $settings->quiet_hours_end) {
+            return null;
+        }
         $timezone = in_array($settings->timezone, timezone_identifiers_list(), true) ? $settings->timezone : 'UTC';
         $local = CarbonImmutable::now($timezone);
         $start = $local->setTimeFromTimeString($settings->quiet_hours_start);
         $end = $local->setTimeFromTimeString($settings->quiet_hours_end);
         if ($end <= $start) {
-            if ($local < $end) $start = $start->subDay();
-            else $end = $end->addDay();
+            if ($local < $end) {
+                $start = $start->subDay();
+            } else {
+                $end = $end->addDay();
+            }
         }
 
         return $local >= $start && $local < $end ? $end->setTimezone(config('app.timezone', 'UTC')) : null;
@@ -74,13 +81,23 @@ class NotificationPreferences
 
     public function safeUrl(?string $url): string
     {
-        if (! $url) return route('notifications.index');
+        if (! $url) {
+            return route('notifications.index');
+        }
         $origin = parse_url(config('app.url'));
         $parts = parse_url($url);
-        if ($parts === false || isset($parts['user']) || isset($parts['pass']) || str_contains($url, '\\') || preg_match('/[\x00-\x20]/', $url)) return route('notifications.index');
-        if (isset($parts['host']) && (strtolower($parts['host']) !== strtolower($origin['host'] ?? '') || ($parts['port'] ?? null) !== ($origin['port'] ?? null))) return route('notifications.index');
-        if (isset($parts['scheme']) && ! in_array($parts['scheme'], ['http', 'https'], true)) return route('notifications.index');
-        if (! isset($parts['host']) && (! str_starts_with($url, '/') || str_starts_with($url, '//'))) return route('notifications.index');
+        if ($parts === false || isset($parts['user']) || isset($parts['pass']) || str_contains($url, '\\') || preg_match('/[\x00-\x20]/', $url)) {
+            return route('notifications.index');
+        }
+        if (isset($parts['host']) && (strtolower($parts['host']) !== strtolower($origin['host'] ?? '') || ($parts['port'] ?? null) !== ($origin['port'] ?? null))) {
+            return route('notifications.index');
+        }
+        if (isset($parts['scheme']) && ! in_array($parts['scheme'], ['http', 'https'], true)) {
+            return route('notifications.index');
+        }
+        if (! isset($parts['host']) && (! str_starts_with($url, '/') || str_starts_with($url, '//'))) {
+            return route('notifications.index');
+        }
 
         return isset($parts['host']) ? $url : rtrim(config('app.url'), '/').$url;
     }

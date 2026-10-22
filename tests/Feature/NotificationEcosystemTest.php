@@ -208,7 +208,8 @@ class NotificationEcosystemTest extends TestCase
         $reminders->remindOnboarding($user->fresh());
         $this->assertSame(1, Notification::where('category', 'onboarding')->count());
         $notice = Notification::where('category', 'onboarding')->firstOrFail();
-        $this->assertStringContainsString('step=3', $notice->data['url']);
+        // The cursor points at optional affiliation, but the username is genuinely missing.
+        $this->assertStringContainsString('step=2', $notice->data['url']);
         $this->travel(11)->hours();
         $reminders->remindOnboarding($user->fresh());
         $this->assertSame(1, Notification::where('category', 'onboarding')->count());

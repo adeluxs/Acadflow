@@ -15,20 +15,16 @@
 
     <!-- Filters -->
     <form method="GET" class="bg-white rounded-lg shadow p-4 mb-6">
-        <div class="flex gap-4">
-            <select name="role" class="border rounded px-3 py-2">
+        <div class="grid items-end gap-4 md:grid-cols-4">
+            <label class="text-sm">Name or email<input type="search" name="q" maxlength="100" value="{{ request('q') }}" class="mt-1 w-full border rounded px-3 py-2" placeholder="Search users"></label>
+            <label class="text-sm">Role<select name="role" class="mt-1 w-full border rounded px-3 py-2">
                 <option value="">All Roles</option>
-                <option value="student">Student</option>
-                <option value="lecturer">Lecturer</option>
-                <option value="department_admin">Department Admin</option>
-            </select>
-            <select name="department_id" class="border rounded px-3 py-2">
-                <option value="">All Departments</option>
-                @foreach($departments as $dept)
-                    <option value="{{ $dept->id }}">{{ $dept->name }}</option>
+                @foreach(['member'=>'Member','student'=>'Student','lecturer'=>'Lecturer','department_admin'=>'Department Admin','university_admin'=>'University Admin'] as $value=>$label)
+                    <option value="{{ $value }}" @selected(request('role')===$value)>{{ $label }}</option>
                 @endforeach
-            </select>
-            <button type="submit" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300">Filter</button>
+            </select></label>
+            <x-admin-lookup name="department_id" kind="departments" label="Department" placeholder="All departments" :selected="$selectedDepartment" />
+            <div class="space-y-2"><label class="block text-sm">Status<select name="status" class="mt-1 w-full border rounded px-3 py-2"><option value="">All statuses</option><option value="active" @selected(request('status')==='active')>Active</option><option value="inactive" @selected(request('status')==='inactive')>Inactive</option></select></label><button type="submit" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300">Filter</button> <a href="{{ route('admin.users') }}" class="text-sm text-indigo-600">Clear</a></div>
         </div>
     </form>
 
@@ -38,7 +34,7 @@
         </div>
     @endif
 
-    <div class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="bg-white rounded-lg shadow overflow-x-auto">
         <table class="min-w-full">
             <thead class="bg-gray-50">
                 <tr>
@@ -84,6 +80,7 @@
     </div>
 </div>
 
+@can('create', App\Models\User::class)
 <!-- Invite Modal -->
 <div id="inviteModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
     <div class="bg-white rounded-lg p-6 w-full max-w-md">
@@ -102,15 +99,7 @@
                     <option value="department_admin">Department Admin</option>
                 </select>
             </div>
-            <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-bold mb-2">Department</label>
-                <select name="department_id" class="w-full px-3 py-2 border rounded">
-                    <option value="">Select Department</option>
-                    @foreach($departments as $dept)
-                        <option value="{{ $dept->id }}">{{ $dept->name }}</option>
-                    @endforeach
-                </select>
-            </div>
+            <x-admin-lookup class="mb-4" name="department_id" kind="departments" label="Department" placeholder="Select department" :selected="$inviteDepartment" required />
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="document.getElementById('inviteModal').classList.add('hidden')" class="px-4 py-2 border rounded">Cancel</button>
                 <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Send Invite</button>
@@ -118,4 +107,5 @@
         </form>
     </div>
 </div>
+@endcan
 @endsection

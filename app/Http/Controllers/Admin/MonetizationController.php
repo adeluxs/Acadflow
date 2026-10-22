@@ -40,10 +40,11 @@ class MonetizationController extends Controller
     public function index(Request $request): View
     {
         abort_unless($request->user()->isSuperAdmin(),403);
+        $request->validate(['account_q' => ['nullable', 'string', 'max:100']]);
         $scope=null;
         $displayCurrency=strtoupper((string)SettingService::getGlobal('currency','NGN'));
         $settings=[]; foreach(self::KEYS as $key=>$type)$settings[$key]=SettingService::getGlobal($key,$this->default($key));
-        $pricingRules=PricingRule::query()->latest()->limit(100)->get();
+        $pricingRules=PricingRule::query()->latest()->latest('id')->paginate(50, ['*'], 'pricing_page')->withQueryString();
         $pricingRuleTitles=$pricingRules->mapWithKeys(function (PricingRule $rule): array {
             if (str_starts_with($rule->key, 'ai.')) {
                 $featureKey=(string)data_get($rule->metadata,'ai_feature',substr($rule->key,3));
@@ -59,8 +60,11 @@ class MonetizationController extends Controller
             ->map(fn(array $feature,string $key): array => [...$feature,'key'=>$key,'target'=>'ai:'.$key,'pricing_type'=>'ai_usage','rule_key'=>'ai.'.$key])
             ->values();
         $pricingTargets=$pricingFeatures->concat($aiPricingFeatures)->values();
-        $commercialAccounts=CommercialAccount::query()->with(['university','department.faculty.university'])->when($scope,fn($q)=>$q->where('university_id',$scope))->latest()->get();
-        $universities=$request->user()->isSuperAdmin()?University::query()->orderBy('name')->get(['id','name']):collect();
+        $commercialAccounts=CommercialAccount::query()->with(['university:id,name','department:id,name'])
+            ->when($scope,fn($q)=>$q->where('university_id',$scope))
+            ->when($search = trim((string)$request->input('account_q','')), fn($q)=>$q->where(fn($q)=>$q->where('name','like','%'.$search.'%')->orWhereHas('university',fn($q)=>$q->where('name','like','%'.$search.'%'))))
+            ->latest()->latest('id')->paginate(20, ['*'], 'accounts_page')->withQueryString();
+        $selectedUniversity=app(\App\Services\AdminLookupService::class)->selected($request->user(),'commercial_universities',old('university_id'));
         $pendingCommercialRequests=$request->user()->isSuperAdmin()
             ? CommercialAccountRequest::query()->with(['university','department','requester'])->whereIn('status',['pending','in_review'])->oldest()->limit(50)->get()
             : collect();
@@ -70,7 +74,11 @@ class MonetizationController extends Controller
         }
         $setupUniversityId=(int)($setupRequest?->university_id ?: $request->integer('institution'));
         $setupDepartmentId=(int)($setupRequest?->department_id ?: $request->integer('department'));
-        $setupAccount=$setupDepartmentId>0 ? $commercialAccounts->firstWhere('department_id',$setupDepartmentId) : ($setupUniversityId>0 ? $commercialAccounts->firstWhere('university_id',$setupUniversityId) : null);
+        // Resolve the edited account independently of the visible list page.
+        // Balances and negotiated terms must always come from the current row.
+        $setupAccount=($setupDepartmentId>0 || $setupUniversityId>0)
+            ? CommercialAccount::query()->with('university:id,name')->when($setupDepartmentId>0,fn($q)=>$q->where('department_id',$setupDepartmentId),fn($q)=>$q->where('university_id',$setupUniversityId)->whereNull('department_id'))->first()
+            : null;
         if($setupDepartmentId>0 && !$setupUniversityId)$setupUniversityId=(int)\App\Models\Department::findOrFail($setupDepartmentId)->faculty->university_id;
         $setupCurrency=$setupAccount?->currency ?: ($setupUniversityId>0 ? strtoupper((string)SettingService::get('currency',$displayCurrency,$setupUniversityId)) : $displayCurrency);
         $setupCurrency=strtoupper(trim((string)$setupCurrency)) ?: 'NGN';
@@ -91,16 +99,20 @@ class MonetizationController extends Controller
 
         $platformAllocations=CommerceRevenueAllocation::query()->where('allocation_type','platform')
             ->when($scope,fn($q)=>$q->whereHas('orderItem.order',fn($oq)=>$oq->where('university_id',$scope)))
-            ->whereHas('orderItem.order',fn($oq)=>$oq->where('currency',$displayCurrency))->get(['amount_minor','metadata']);
-        $platformRevenueMinor=(int)$platformAllocations->sum(fn($allocation)=>max(0,(int)$allocation->amount_minor-(int)data_get($allocation->metadata,'reversed_amount_minor',0)));
+            ->whereHas('orderItem.order',fn($oq)=>$oq->where('currency',$displayCurrency))->select(['id','amount_minor','metadata']);
+        // Retain per-allocation reversal semantics, with bounded memory even
+        // when the ledger contains years of entries. Never cache balances.
+        $platformRevenueMinor=(int)$platformAllocations->lazyById(500)->sum(fn($allocation)=>max(0,(int)$allocation->amount_minor-(int)data_get($allocation->metadata,'reversed_amount_minor',0)));
+        $aiTotals=AiUsageCharge::query()->when($scope,fn($q)=>$q->where('university_id',$scope))->where('currency',$displayCurrency)->where('status','completed')
+            ->selectRaw('SUM(user_charge_minor) AS revenue, SUM(platform_margin_minor) AS margin')->first();
         $metrics=[
             'paid_orders'=>CommerceOrder::query()->when($scope,fn($q)=>$q->where('university_id',$scope))->where('payment_status','paid')->count(),
             'gross_minor'=>(int)CommerceOrder::query()->when($scope,fn($q)=>$q->where('university_id',$scope))->where('currency',$displayCurrency)->whereIn('payment_status',['paid','partially_refunded'])->sum('total_amount_minor'),
             'platform_revenue_minor'=>$platformRevenueMinor,
             'pending_withdrawals'=>WithdrawalRequest::query()->when($scope,fn($q)=>$q->whereHas('wallet.user',fn($uq)=>$uq->where('university_id',$scope)))->where('status','pending')->count(),
             'feature_revenue_minor'=>(int)FeatureUsageCharge::query()->when($scope,fn($q)=>$q->where('university_id',$scope))->where('currency',$displayCurrency)->where('status','completed')->sum('total_amount_minor'),
-            'ai_revenue_minor'=>(int)AiUsageCharge::query()->when($scope,fn($q)=>$q->where('university_id',$scope))->where('currency',$displayCurrency)->where('status','completed')->sum('user_charge_minor'),
-            'ai_margin_minor'=>(int)AiUsageCharge::query()->when($scope,fn($q)=>$q->where('university_id',$scope))->where('currency',$displayCurrency)->where('status','completed')->sum('platform_margin_minor'),
+            'ai_revenue_minor'=>(int)$aiTotals?->revenue,
+            'ai_margin_minor'=>(int)$aiTotals?->margin,
         ];
         $pendingWithdrawals=WithdrawalRequest::query()->with(['wallet.user','payoutAccount'])
             ->when($scope,fn($q)=>$q->whereHas('wallet.user',fn($uq)=>$uq->where('university_id',$scope)))
@@ -112,7 +124,7 @@ class MonetizationController extends Controller
             ->when($scope,fn($q)=>$q->whereHas('user',fn($uq)=>$uq->where('university_id',$scope)))
             ->where('is_verified',false)->latest()->limit(50)->get();
         return view('admin.monetization.index',compact(
-            'settings','pricingRules','pricingRuleTitles','pricingFeatures','aiPricingFeatures','pricingTargets','pricingFeatureGroups','commercialAccounts','universities',
+            'settings','pricingRules','pricingRuleTitles','pricingFeatures','aiPricingFeatures','pricingTargets','pricingFeatureGroups','commercialAccounts','selectedUniversity',
             'metrics','scope','displayCurrency','pendingWithdrawals','pendingRefunds','pendingPayoutAccounts',
             'pendingCommercialRequests','setupRequest','setupUniversityId','setupAccount','setupCurrency',
             'setupDepartmentId','setupChanges','setupMetadata','requestedAddMinor','suggestedTargetMinor','selectedSponsoredFeatures'

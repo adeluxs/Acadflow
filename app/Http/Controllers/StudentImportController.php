@@ -23,24 +23,11 @@ class StudentImportController extends Controller
     public function showImportForm()
     {
         $user = Auth::user();
-        $departments = Department::query()
-            ->when(! $user->isSuperAdmin(), fn (Builder $query) => $query->whereHas('faculty', fn (Builder $faculty) => $faculty->where('university_id', $user->university_id)))
-            ->when($user->isDepartmentAdmin(), fn (Builder $query) => $query->whereKey($user->department_id))
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $lookups = app(\App\Services\AdminLookupService::class);
+        $selectedDepartment = $lookups->selected($user, 'departments', old('department_id', $user->isDepartmentAdmin() ? $user->department_id : null));
+        $selectedSemester = $lookups->selected($user, 'semesters', old('semester_id'), ['department_id' => $selectedDepartment['id'] ?? 0]);
 
-        $semesters = Semester::query()
-            ->select(['id', 'name', 'academic_session_id'])
-            ->with('academicSession:id,name')
-            ->when(! $user->isSuperAdmin(), fn (Builder $query) => $query->whereHas(
-                'academicSession',
-                fn (Builder $session) => $session->where('university_id', $user->university_id)
-            ))
-            ->orderByDesc('id')
-            ->get();
-
-        return view('students.import', compact('departments', 'semesters'));
+        return view('students.import', compact('selectedDepartment', 'selectedSemester'));
     }
 
     public function import(Request $request, InstitutionAdoptionService $adoption)

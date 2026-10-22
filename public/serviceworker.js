@@ -9,9 +9,10 @@
  * - preserve offline write queue/background sync support.
  */
 
-const CACHE_NAME = 'acadflow-pwa-v7-acadsyntra-branding';
-const STATIC_CACHE = 'acadflow-static-v7-acadsyntra-branding';
-const API_CACHE = 'acadflow-api-v7-acadsyntra-branding';
+const CACHE_NAME = 'acadflow-pwa-v8-asset-integrity';
+const STATIC_CACHE = 'acadflow-static-v8-asset-integrity';
+const API_CACHE = 'acadflow-api-v8-asset-integrity';
+const DEVELOPMENT_MODE = new URL(self.location.href).searchParams.get('dev') === '1';
 
 // Only stable public files belong in the install cache. Vite assets are hashed
 // and are cached lazily when requested; /css/app.css and /js/app.js are not
@@ -38,7 +39,7 @@ self.addEventListener('activate', (event) => {
     const validCaches = [CACHE_NAME, STATIC_CACHE, API_CACHE];
     event.waitUntil((async () => {
         const names = await caches.keys();
-        await Promise.all(names.map((name) => validCaches.includes(name) ? null : caches.delete(name)));
+        await Promise.all(names.map((name) => /^acadflow-(?:pwa|static|api)-/.test(name) && !validCaches.includes(name) ? caches.delete(name) : null));
         if (self.registration.navigationPreload) {
             try { await self.registration.navigationPreload.enable(); } catch (_) {}
         }
@@ -93,8 +94,15 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    if (['script', 'style', 'image', 'font'].includes(request.destination)) {
-        event.respondWith(handleStaticAsset(request));
+    // Development CSS/modules must reach the browser's normal network loader.
+    // Do not cache Vite development URLs or authenticated media/download URLs.
+    if (!DEVELOPMENT_MODE && ['script', 'style', 'image', 'font'].includes(request.destination)
+        && /^(?:\/build\/assets\/|\/branding\/|\/css\/|\/js\/|\/fonts\/)/.test(url.pathname)
+        && !request.headers.has('Range')) {
+        const writes = [];
+        const response = handleStaticAsset(request, writes);
+        event.respondWith(response);
+        event.waitUntil(response.then(() => Promise.all(writes)).catch(() => {}));
     }
 });
 
@@ -133,20 +141,54 @@ async function handleNavigationRequest(event) {
     }
 }
 
-async function handleStaticAsset(request) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
+function validStaticResponse(request, response) {
+    if (!response || response.status !== 200 || response.redirected) return false;
+    const type = (response.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+    if (request.destination === 'style') return type === 'text/css';
+    if (request.destination === 'script') return /^(?:text|application)\/(?:javascript|ecmascript)$/.test(type);
+    if (request.destination === 'image') return type.startsWith('image/');
+    return type.startsWith('font/') || /^(?:application\/(?:font-woff|vnd\.ms-fontobject|octet-stream))$/.test(type);
+}
+
+function cacheableStaticResponse(request, response) {
+    return validStaticResponse(request, response) && !/\b(?:private|no-store)\b/i.test(response.headers.get('Cache-Control') || '');
+}
+
+async function handleStaticAsset(request, writes) {
+    let cache, cached;
+    let invalidCachedResponse = false;
+    try {
+        cache = await caches.open(STATIC_CACHE);
+        cached = await cache.match(request);
+        if (cached && !cacheableStaticResponse(request, cached)) {
+            invalidCachedResponse = true;
+            cached = null;
+            await cache.delete(request);
+        }
+    } catch (_) { /* Storage/quota failures must not prevent network styles. */ }
+
+    const immutable = /^\/build\/assets\/.+-[A-Za-z0-9_-]{8,}\.[^/]+$/.test(new URL(request.url).pathname);
+    const bypass = ['reload', 'no-cache', 'no-store'].includes(request.cache);
+    if (request.cache === 'no-store') cached = null;
+    if (cached && immutable && !bypass && !/\bno-cache\b/i.test(cached.headers.get('Cache-Control') || '')) return cached;
 
     try {
-        const response = await fetch(request);
-        if (response.ok) {
-            const cache = await caches.open(STATIC_CACHE);
-            cache.put(request, response.clone()).catch(() => {});
+        // Unhashed assets can change at the same URL. Revalidate them instead
+        // of keeping old CSS/mobile rules until a manual browser refresh.
+        const options = !bypass && invalidCachedResponse ? { cache: 'reload' }
+            : !immutable && !bypass ? { cache: 'no-cache' } : undefined;
+        const response = await fetch(request, options);
+        if (cacheableStaticResponse(request, response) && cache && request.cache !== 'no-store') {
+            writes.push(cache.put(request, response.clone()).catch(() => {}));
+        } else if (cache && /\b(?:private|no-store)\b/i.test(response.headers.get('Cache-Control') || '')) {
+            writes.push(cache.delete(request).catch(() => {}));
         }
+        if (!validStaticResponse(request, response) && cached) return cached;
         return response;
     } catch (_) {
+        if (cached) return cached;
         if (request.destination === 'image') {
-            return (await caches.match('/branding/acadsyntra-icon-192.png')) || new Response('', { status: 503 });
+            return (await cache?.match('/branding/acadsyntra-icon-192.png')) || new Response('', { status: 503 });
         }
         return new Response('Asset not available offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
     }

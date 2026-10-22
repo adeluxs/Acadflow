@@ -126,19 +126,16 @@
                 <div class="rounded-2xl border p-5">
                     <div class="flex items-center gap-3"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-xs font-black text-white">1</span><div><h3 class="font-black text-slate-900">Institution & account status</h3><p class="text-xs text-slate-500">The institution currency comes from its own settings and cannot be forged from the browser.</p></div></div>
                     <div class="mt-4 grid gap-4 md:grid-cols-2">
-                        <label class="text-sm font-bold text-slate-800">Institution
+                        <div class="text-sm font-bold text-slate-800">Institution
                             @if($setupUniversityId>0)
                                 <input type="hidden" name="university_id" value="{{ $setupUniversityId }}">
                                 <div class="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-800">{{ $setupRequest?->university?->name ?? $setupAccount?->university?->name ?? 'Selected institution' }}</div>
                                 <span class="mt-1 block text-xs font-normal text-slate-500">Institution is locked while reviewing this account/request, preventing accidental cross-institution updates.</span>
                             @else
-                                <select name="university_id" class="mt-2 w-full rounded-xl border-slate-300" required>
-                                    <option value="">Choose an institution without a commercial account</option>
-                                    @foreach($universities->reject(fn($u)=>$commercialAccounts->contains('university_id',$u->id)) as $u)<option value="{{ $u->id }}" @selected((int)old('university_id')===(int)$u->id)>{{ $u->name }}</option>@endforeach
-                                </select>
+                                <x-admin-lookup name="university_id" kind="commercial_universities" label="Choose institution" :selected="$selectedUniversity" required />
                                 <span class="mt-1 block text-xs font-normal text-slate-500">Existing accounts are managed from the account list below so their current balance and terms are always prefilled safely.</span>
                             @endif
-                        </label>
+                        </div>
                         <label class="text-sm font-bold text-slate-800">Account label <span class="font-normal text-slate-400">(optional)</span>
                             <input name="name" value="{{ old('name',$setupAccount?->name) }}" class="mt-2 w-full rounded-xl border-slate-300" placeholder="Automatically uses institution name if left blank">
                         </label>
@@ -231,6 +228,7 @@
 
         <section class="rounded-3xl border bg-white p-6 shadow-sm">
             <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Existing B2B accounts</p><h2 class="mt-1 text-xl font-black text-slate-900">Institution commercial accounts</h2><p class="mt-1 text-sm text-slate-500">Open an account to update negotiated terms. Institution admins see the approved values on their own Commercial Account dashboard.</p></div>
+            <form method="GET" class="mt-4 flex gap-2"><label class="flex-1 text-sm">Account or institution<input type="search" name="account_q" maxlength="100" value="{{ request('account_q') }}" class="mt-1 w-full rounded-lg border-slate-300"></label><button class="self-end rounded-lg border px-3 py-2 text-sm">Search</button></form>
             <div class="mt-5 space-y-3">
                 @forelse($commercialAccounts as $commercialAccount)
                     <a href="{{ route('admin.monetization',['institution'=>$commercialAccount->university_id,'department'=>$commercialAccount->department_id]) }}#commercial-account-setup" class="block rounded-2xl border p-4 transition hover:border-indigo-200 hover:bg-indigo-50/30">
@@ -240,6 +238,7 @@
                 @empty
                     <div class="rounded-2xl border border-dashed p-6 text-center"><p class="font-bold text-slate-700">No commercial accounts yet.</p><p class="mt-1 text-xs text-slate-500">Use the setup form above or approve an institution setup request.</p></div>
                 @endforelse
+                {{ $commercialAccounts->fragment('commercial-account-setup')->links() }}
             </div>
         </section>
     </div>
@@ -333,6 +332,7 @@
                 </tbody>
             </table>
         </div>
+        <div class="mt-4">{{ $pricingRules->links() }}</div>
     </section>
 </div>
 

@@ -125,7 +125,7 @@
         </div>
 
         <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            <?php $__empty_1 = true; $__currentLoopData = $publications; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $publication): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+            <?php $__empty_0 = true; $__currentLoopData = $publications; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $publication): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
                 <article class="group flex min-h-[280px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-indigo-200 hover:shadow-xl hover:shadow-slate-200/60">
                     <div class="h-1.5 bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-400 opacity-80"></div>
                     <div class="flex flex-1 flex-col p-5">
@@ -158,7 +158,7 @@
                         </div>
                     </div>
                 </article>
-            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?>
                 <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center md:col-span-2 xl:col-span-3">
                     <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-2xl">⌕</div>
                     <h3 class="mt-4 text-lg font-black text-slate-900">No publications match this search</h3>

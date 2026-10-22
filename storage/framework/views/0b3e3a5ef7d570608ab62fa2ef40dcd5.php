@@ -1,0 +1,1 @@
+<?php /**PATH /Users/user/Desktop/acadflow/acadflow-web/resources/views/layouts/dashboard.blade.php ENDPATH**/ ?>

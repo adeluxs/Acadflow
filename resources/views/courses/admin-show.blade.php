@@ -56,16 +56,9 @@
             <!-- Assign Lecturer Form -->
             <div class="border-t pt-4">
                 <h3 class="text-md font-semibold mb-3">Assign New Lecturer</h3>
-                <form method="POST" action="{{ route('admin.courses.lecturers.store', $course) }}" class="flex gap-2">
+                <form method="POST" action="{{ route('admin.courses.lecturers.store', $course) }}" class="flex flex-wrap items-end gap-2">
                     @csrf
-                    <select name="user_id" class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500" required>
-                        <option value="">Select a lecturer...</option>
-                        @foreach($lecturers as $lecturer)
-                            @if(! $course->lecturerAssignments->contains('user_id', $lecturer->id))
-                                <option value="{{ $lecturer->id }}">{{ $lecturer->full_name }} ({{ $lecturer->email }})</option>
-                            @endif
-                        @endforeach
-                    </select>
+                    <x-admin-lookup class="flex-1" name="user_id" kind="lecturers" label="Lecturer" :filters="['course_id' => $course->id]" :options="$lecturers->map(fn($lecturer) => app(\App\Services\AdminLookupService::class)->option($lecturer))" required />
                     <div class="flex items-center gap-2">
                         <label class="flex items-center gap-1 text-sm text-gray-700">
                             <input type="checkbox" name="is_coordinator" value="1" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">

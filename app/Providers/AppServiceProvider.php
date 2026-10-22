@@ -186,6 +186,7 @@ class AppServiceProvider extends ServiceProvider
                 'primaryG' => (int) $primaryG,
                 'primaryB' => (int) $primaryB,
                 'pwaAvailable' => $pwaStatus === FeatureAccessService::STATUS_ENABLED || (bool) $user?->isAdmin(),
+                'pwaWorkerUrl' => '/serviceworker.js'.(app()->environment('local') ? '?dev=1' : ''),
                 'notificationsVisible' => $notificationsVisible,
                 'unreadNotificationCount' => ($user && $notificationsVisible) ? $user->unreadNotifications()->count() : 0,
                 'featurePreview' => request()->attributes->get('restricted_feature_preview'),

@@ -31,6 +31,9 @@ function boot() {
     initGlobalLoader();
     initErrorFeedback();
     initPerformanceUX();
+    if (document.querySelector('[data-admin-lookup]')) {
+        import('./admin-lookups').then(({ initAdminLookups }) => initAdminLookups()).catch(() => {});
+    }
     if (document.querySelector('[data-export-progress]')) {
         import('./research-export').then(({ initResearchExport }) => initResearchExport()).catch(() => {});
     }

@@ -13,6 +13,8 @@ use App\Models\Invoice;
 use App\Models\Submission;
 use App\Models\University;
 use App\Models\User;
+use App\Services\AdminLookupService;
+use App\Services\AcademicOrganisationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -45,10 +47,11 @@ class AdminController extends Controller
         $department=Department::with('faculty.university')->findOrFail($departmentId);
         abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment(Auth::user(),$department),403);
         $members=\App\Models\UserInstitutionAffiliation::approved()->where('department_id',$departmentId);
+        $memberCounts = $members->selectRaw("SUM(CASE WHEN affiliation_type = 'student' THEN 1 ELSE 0 END) AS students, SUM(CASE WHEN affiliation_type = 'lecturer' THEN 1 ELSE 0 END) AS lecturers")->first();
 
         $stats = [
-            'total_students' => (clone $members)->where('affiliation_type','student')->count(),
-            'total_lecturers' => (clone $members)->where('affiliation_type','lecturer')->count(),
+            'total_students' => (int) $memberCounts?->students,
+            'total_lecturers' => (int) $memberCounts?->lecturers,
             'total_courses' => $department->courses()->count(),
         ];
         $pending=\App\Models\InstitutionAccessRequest::where('department_id',$departmentId)->whereIn('status',['pending','in_review'])->count();
@@ -60,8 +63,18 @@ class AdminController extends Controller
     public function users(Request $request)
     {
         $user = Auth::user();
+        $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'role' => ['nullable', Rule::in(['member', 'student', 'lecturer', 'department_admin', 'university_admin', 'super_admin'])],
+            'department_id' => ['nullable', 'integer', 'min:1'],
+            'status' => ['nullable', Rule::in(['active', 'inactive'])],
+        ]);
 
-        $query = User::query();
+        $query = User::query()->select(['id', 'first_name', 'last_name', 'email', 'role', 'department_id', 'is_active']);
+        if ($search = trim((string) $request->input('q', ''))) {
+            $query->where(fn ($q) => $q->where('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%'));
+        }
+        if ($request->filled('status')) $query->where('is_active', $request->status === 'active');
 
         // The User organisation boundary resolves approved memberships across
         // primary profiles; do not narrow these back to self-declared profile IDs.
@@ -74,32 +87,25 @@ class AdminController extends Controller
             if ($user->isDepartmentAdmin() && $request->department_id != $user->department_id) {
                 abort(403, 'You can only view users in your department.');
             }
-            $query->where('department_id', $request->department_id);
+            if ($user->isSuperAdmin()) $query->where('department_id', $request->department_id);
+            else $query->whereHas('institutionAffiliations', fn ($q) => $q->approved()->where('department_id', $request->integer('department_id'))
+                ->whereIn('department_id', app(AcademicOrganisationService::class)->departmentIds($user)->select('departments.id')));
         }
 
-        $users = $query->with('department')->latest()->paginate(20);
+        $users = $query->with('department:id,name')->latest()->latest('id')->paginate(20)->withQueryString();
+        $selectedDepartment = app(AdminLookupService::class)->selected($user, 'departments', $request->input('department_id'));
+        $inviteDepartment = app(AdminLookupService::class)->selected($user, 'departments', old('department_id'));
 
-        // Only show departments they have access to
-        if ($user->isDepartmentAdmin()) {
-            $departments = Department::where('id', $user->department_id)->where('is_active', true)->get();
-        } elseif ($user->isUniversityAdmin()) {
-            $departments = Department::whereHas('faculty', fn ($faculty) => $faculty
-                ->where('university_id', $user->university_id))
-                ->where('is_active', true)
-                ->get();
-        } else {
-            $departments = Department::where('is_active', true)->get();
-        }
-
-        return view('admin.users', compact('users', 'departments'));
+        return view('admin.users', compact('users', 'selectedDepartment', 'inviteDepartment'));
     }
 
     public function editUser(Request $request, User $user)
     {
         $this->authorize('update', $user);
-        $departments = $this->departmentsForAdmin($request->user());
+        if (! $request->user()->isSuperAdmin()) return redirect()->route('academic.organisations')->with('info', 'Manage this person through their scoped membership.');
+        $selectedDepartment = app(AdminLookupService::class)->selected($request->user(), 'departments', old('department_id', $user->department_id), includeInactive: true);
 
-        return view('admin.users-edit', compact('user', 'departments'));
+        return view('admin.users-edit', compact('user', 'selectedDepartment'));
     }
 
     public function updateUser(Request $request, User $user)
@@ -173,7 +179,7 @@ class AdminController extends Controller
             $courseScope = fn ($query) => $query->where('department_id', $user->department_id);
         } elseif ($user->isUniversityAdmin()) {
             $userScope = fn ($query) => $query->where('university_id', $user->university_id);
-            $departmentIds = Department::whereHas('faculty', fn ($q) => $q->where('university_id', $user->university_id))->pluck('id');
+            $departmentIds = Department::whereHas('faculty', fn ($q) => $q->where('university_id', $user->university_id))->select('departments.id');
             $courseScope = fn ($query) => $query->whereIn('department_id', $departmentIds);
         }
 
@@ -238,7 +244,7 @@ class AdminController extends Controller
             $userScope = fn ($query) => $query->where('university_id', $user->university_id);
             $departmentIds = Department::whereHas('faculty', fn ($faculty) => $faculty
                 ->where('university_id', $user->university_id))
-                ->pluck('id');
+                ->select('departments.id');
             $courseScope = fn ($query) => $query->whereIn('department_id', $departmentIds);
         }
 
@@ -325,23 +331,22 @@ class AdminController extends Controller
     }
 
     // University Admin: Manage faculties
-    public function faculties()
+    public function faculties(Request $request)
     {
         $actor = Auth::user();
+        $request->validate(['q' => ['nullable', 'string', 'max:100']]);
         $faculties = Faculty::query()
-            ->with(['departments', 'university', 'dean'])
+            ->select(['id', 'university_id', 'name', 'code', 'dean_id', 'is_active'])
+            ->with(['university:id,name', 'dean:id,first_name,last_name'])
+            ->withCount('departments')
             ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('university_id', $actor->university_id))
-            ->orderBy('name')
-            ->get();
-        $universities = $actor->isSuperAdmin() ? University::query()->where('is_active', true)->orderBy('name')->get() : collect([$actor->university]);
-        $deans = User::query()
-            ->when(! $actor->isSuperAdmin(), fn ($query) => $query->where('university_id', $actor->university_id))
-            ->whereIn('role', ['lecturer', 'university_admin'])
-            ->where('is_active', true)
-            ->orderBy('first_name')
-            ->get();
+            ->when($search = trim((string) $request->input('q', '')), fn ($query) => $query->where(fn ($q) => $q->where('name', 'like', '%'.$search.'%')->orWhere('code', 'like', '%'.$search.'%')))
+            ->orderBy('name')->orderBy('id')->paginate(25)->withQueryString();
+        $lookups = app(AdminLookupService::class);
+        $selectedUniversity = $actor->isSuperAdmin() ? $lookups->selected($actor, 'universities', old('university_id')) : null;
+        $selectedDean = $lookups->selected($actor, 'deans', old('dean_id'), ['university_id' => old('university_id')]);
 
-        return view('admin.faculties', compact('faculties', 'universities', 'deans'));
+        return view('admin.faculties', compact('faculties', 'selectedUniversity', 'selectedDean'));
     }
 
     public function createFaculty(Request $request)
@@ -370,8 +375,8 @@ class AdminController extends Controller
     public function editFaculty(Request $request, Faculty $faculty)
     {
         $this->authorize('update', $faculty);
-        $deans = User::query()->where('university_id', $faculty->university_id)->whereIn('role', ['lecturer', 'university_admin'])->orderBy('first_name')->get();
-        return view('admin.faculties-edit', compact('faculty', 'deans'));
+        $selectedDean = app(AdminLookupService::class)->selected($request->user(), 'deans', old('dean_id', $faculty->dean_id), ['university_id' => $faculty->university_id], includeInactive: true);
+        return view('admin.faculties-edit', compact('faculty', 'selectedDean'));
     }
 
     public function updateFaculty(Request $request, Faculty $faculty)
@@ -390,13 +395,16 @@ class AdminController extends Controller
     }
 
     // Super Admin: Manage universities
-    public function universities()
+    public function universities(Request $request)
     {
+        $request->validate(['q' => ['nullable', 'string', 'max:100'], 'institution_type' => ['nullable', Rule::in(['university', 'polytechnic'])]]);
         $universities = University::query()
+            ->select(['id', 'name', 'code', 'state', 'institution_type', 'ownership', 'regulator', 'is_active'])
             ->withCount(['faculties', 'users'])
+            ->when($search = trim((string) $request->input('q', '')), fn ($query) => $query->where(fn ($q) => $q->where('name', 'like', '%'.$search.'%')->orWhere('code', 'like', '%'.$search.'%')))
+            ->when($request->filled('institution_type'), fn ($query) => $query->where('institution_type', $request->institution_type))
             ->orderBy('institution_type')
-            ->orderBy('name')
-            ->paginate(20);
+            ->orderBy('name')->orderBy('id')->paginate(20)->withQueryString();
 
         return view('admin.universities', compact('universities'));
     }
@@ -451,17 +459,6 @@ class AdminController extends Controller
         University::create($validated);
 
         return back()->with('success', 'Institution created.');
-    }
-
-    private function departmentsForAdmin(User $actor)
-    {
-        return Department::query()
-            ->with('faculty')
-            ->when($actor->isDepartmentAdmin(), fn ($query) => $query->whereKey($actor->department_id))
-            ->when($actor->isUniversityAdmin(), fn ($query) => $query->whereHas('faculty', fn ($faculty) => $faculty->where('university_id', $actor->university_id)))
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
     }
 
     // Settings - redirect to SettingsController

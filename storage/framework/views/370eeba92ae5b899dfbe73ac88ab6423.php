@@ -1,0 +1,16 @@
+<?php $__env->startSection('title','Knowledge Search'); ?>
+<?php $__env->startSection('page-title','Knowledge Search'); ?>
+<?php $__env->startSection('page-subtitle','Lexical and privacy-aware semantic discovery'); ?>
+<?php $__env->startSection('content'); ?>
+<?php echo $__env->make('knowledge._nav', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+<form class="rounded-2xl border bg-white p-4" method="GET"><div class="grid gap-3 md:grid-cols-[1fr_180px_auto]"><input class="rounded-xl border-slate-300" name="q" value="<?php echo e(request('q')); ?>" placeholder="Search academic knowledge"><input class="rounded-xl border-slate-300" name="type" value="<?php echo e(request('type')); ?>" placeholder="Content type"><button class="rounded-xl bg-blue-600 px-5 py-2 text-white">Search</button></div></form>
+<div class="mt-6 space-y-4">
+<?php $__empty_0 = true; $__currentLoopData = $results; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $result): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
+<?php ($document=$result['document']); ?>
+<article class="rounded-2xl border bg-white p-5"><div class="flex justify-between gap-4"><div><p class="text-xs uppercase text-blue-700"><?php echo e(str_replace('_',' ',$document->content_type)); ?></p><h2 class="mt-1 text-lg font-semibold"><?php echo e($document->title); ?></h2></div><span class="text-xs text-slate-500"><?php echo e(number_format($result['score']*100,1)); ?>% match</span></div><p class="mt-2 text-sm text-slate-600"><?php echo e(Illuminate\Support\Str::limit($document->summary ?: strip_tags((string)$document->body),220)); ?></p><?php if($document->searchable_type===App\Models\KnowledgePublication::class && $document->searchable): ?><a class="mt-3 inline-block text-sm font-semibold text-blue-700" href="<?php echo e(route('knowledge.show',$document->searchable)); ?>">Open publication</a><?php endif; ?></article>
+<?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_0): ?><div class="rounded-2xl border border-dashed bg-white p-10 text-center text-slate-500">No authorized results found.</div><?php endif; ?>
+</div>
+<?php if($recommended->isNotEmpty()): ?><h2 class="mt-8 text-xl font-semibold">Recommended for you</h2><div class="mt-3 grid gap-4 md:grid-cols-3"><?php $__currentLoopData = $recommended; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $item): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><a class="rounded-2xl border bg-white p-4" href="<?php echo e(route('knowledge.show',$item['publication'])); ?>"><strong><?php echo e($item['publication']->title); ?></strong><p class="mt-2 text-xs text-slate-500"><?php echo e($item['recommendation']->reason); ?></p></a><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></div><?php endif; ?>
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH /Users/user/Desktop/acadflow/acadflow-web/resources/views/knowledge/search.blade.php ENDPATH**/ ?>

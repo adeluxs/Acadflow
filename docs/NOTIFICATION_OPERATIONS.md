@@ -44,6 +44,22 @@ Install the existing Laravel scheduler in cron, with the deployment's PHP binary
 
 Hourly queued campaigns check onboarding, inactivity and academic deadlines; maintenance runs every five minutes; the default analytics snapshot warms every minute; opted-in operations summaries run at 08:00 in the application timezone. Schedules use overlap protection, campaign jobs use uniqueness, and notification/delivery keys provide a second deduplication boundary. Do not run a general local worker merely to test delivery: it could also consume unrelated queued academic or AI work.
 
+### Recovering MySQL error 1067 on `user_activity_days`
+
+If deployment stops with `Invalid default value for 'last_activity_at'`, deploy the corrected `database/migrations/2026_10_21_210000_extend_notification_delivery_and_engagement.php`. Its two required activity timestamps now use `DATETIME`, with both values supplied by `MeaningfulActivityService`. This avoids legacy implicit `TIMESTAMP` zero-date defaults under strict SQL mode. See [MySQL timestamp initialization rules](https://dev.mysql.com/doc/refman/8.0/en/timestamp-initialization.html).
+
+MySQL can commit the earlier table alterations even when the migration fails before being recorded. The corrected migration checks existing columns, tables and indexes independently, preserving prior notification history and preferences while creating whatever is still missing. Deploy the whole corrected migration, rather than changing only the two activity column lines.
+
+From the live application's directory, using its normal PHP executable, run:
+
+```sh
+php artisan migrate --force
+php artisan queue:restart
+php artisan notifications:diagnose
+```
+
+Keep the normal production database backup procedure. Recovery does not require a rollback, table deletion, manual migration-history insertion, `migrate:fresh`, or disabling strict SQL mode. Successfully applied installations do not rerun this migration or rewrite existing activity times. All existing activity uniqueness/reporting indexes remain in place; metadata checks run only during migration, adding no request-path queries.
+
 ## Browser push
 
 Enable the existing notification and push modules and browser-push channel in Super Admin notification management. Keep the existing VAPID key pair; rotating it invalidates subscriptions created with the old public key. `notifications:diagnose --json` reports only configuration booleans/counts, never private keys or subscription authentication secrets.
@@ -77,7 +93,9 @@ Set a strong `NOTIFICATION_PROVIDER_WEBHOOK_SECRET` and rebuild configuration ca
 
 ## Reminder rules and safe delivery
 
-Onboarding reminders start no earlier than 12 hours after account creation, with at least 12 hours between notices. Defaults permit six per onboarding cycle; after the third ignored reminder the next interval is four times the configured interval (48 hours by default). Personal setup links to the saved step, department drafts to the wizard, and institution adoption/admin setup to its existing route. Pending review is not an abandoned draft. Existing approved institution administrators are included regardless of the account type they registered with. Completion, changed stage, opt-out and quiet hours are rechecked before an external send.
+Onboarding reminders start no earlier than 12 hours after account creation, with at least 12 hours between notices. Defaults permit six per onboarding cycle; after the third ignored reminder the next interval is four times the configured interval (48 hours by default). Personal setup links to the first actually missing required section, department drafts to the wizard, and institution adoption/admin setup to its existing route. Pending review is not an abandoned draft. Existing approved institution administrators are included regardless of the account type they registered with. Completion, changed stage, opt-out and quiet hours are rechecked before an external send.
+
+Completed personal onboarding with skipped optional fields is never treated as abandoned. Optional profile suggestions require engagement consent and personalised recommendations, begin 14 days after completion, and send at most once per section with at least 14 days between suggestions. Dismissal stops optional profile suggestions; completed sections invalidate queued deliveries. See [editable onboarding](EDITABLE_ONBOARDING.md) for progress, editing and affiliation behavior.
 
 Inactivity reminders require explicit engagement opt-in **and** useful unfinished owned work. Stages are 24 hours, 48 hours, seven days, 14 days and 28 days per activity cycle, not an endless daily sequence. Return, work completion or opt-out stops pending reminders. Foreground authenticated HTML navigation and form interactions count as meaningful activity; polling, prefetch, counters, autosave and background JSON requests do not. Activity timestamps write at most once per five minutes, with daily activity rows for reporting. Day boundaries follow application reporting timezone; quiet hours follow the user's selected timezone.
 

@@ -13,6 +13,7 @@
         @endcan
     </div>
 
+    <form method="GET" class="flex flex-wrap items-end gap-3"><label class="text-sm">Institution name or code<input type="search" name="q" maxlength="100" value="{{ request('q') }}" class="mt-1 block rounded-lg border-slate-300"></label><label class="text-sm">Type<select name="institution_type" class="mt-1 block rounded-lg border-slate-300"><option value="">All types</option><option value="university" @selected(request('institution_type')==='university')>University</option><option value="polytechnic" @selected(request('institution_type')==='polytechnic')>Polytechnic</option></select></label><button class="rounded-lg bg-indigo-600 px-4 py-2 text-white">Search</button><a href="{{ route('admin.universities') }}" class="px-2 py-2 text-sm text-indigo-600">Clear</a></form>
     <div class="grid gap-4 sm:grid-cols-3">
         <div class="acad-card p-5"><p class="text-xs text-slate-500">Visible on this page</p><p class="mt-2 text-2xl font-bold">{{ $universities->count() }}</p></div>
         <div class="acad-card p-5"><p class="text-xs text-slate-500">Universities</p><p class="mt-2 text-2xl font-bold">{{ $universities->where('institution_type','university')->count() }}</p></div>

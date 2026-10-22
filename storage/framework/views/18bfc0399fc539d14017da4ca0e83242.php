@@ -10,7 +10,7 @@
     <?php if(auth()->guard()->check()): ?>
     <meta name="push-account-id" content="<?php echo e(auth()->id()); ?>">
     <meta name="push-config-url" content="<?php echo e(route('browser-push.configuration')); ?>">
-    <meta name="push-worker-url" content="<?php echo e($pwaAvailable ? '/serviceworker.js' : '/pushworker.js'); ?>">
+    <meta name="push-worker-url" content="<?php echo e($pwaAvailable ? $pwaWorkerUrl : '/pushworker.js'); ?>">
     <?php endif; ?>
 
     
@@ -246,6 +246,7 @@
                                         <a href="<?php echo e(route('profile.show')); ?>" class="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">
                                             My Profile
                                         </a>
+                                        <a href="<?php echo e(route('onboarding.manage')); ?>" class="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">Manage Onboarding</a>
                                     <?php endif; ?>
 
                                     <?php if(Route::has('commerce.wallet')): ?>
@@ -292,6 +293,9 @@
                         <?php echo $__env->make('research.partials.guide', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
                     <?php endif; ?>
 
+                    <?php if(request()->routeIs('dashboard')): ?>
+                        <?php echo $__env->make('onboarding._banner', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+                    <?php endif; ?>
                     <?php echo $__env->yieldContent('content'); ?>
                 </div>
             </main>
@@ -356,8 +360,27 @@
 
         <?php if($pwaAvailable): ?>
         if ('serviceWorker' in navigator) {
+            // A worker upgrade can retire a cached HTML/error response that
+            // broke CSS in this document. Retry only missing local styles,
+            // once, after the new worker takes control; preserve form state.
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                const recoverStyles = () => document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+                    if (link.disabled || link.dataset.workerStyleRetry) return;
+                    const url = new URL(link.href, location.href);
+                    if (url.origin !== location.origin || !/^\/(?:build\/assets|css)\//.test(url.pathname)) return;
+                    // Some browsers expose an empty sheet for cached HTML
+                    // rather than reporting a stylesheet load error.
+                    try { if (link.sheet?.cssRules.length) return; }
+                    catch (_) { if (link.sheet) return; }
+                    link.dataset.workerStyleRetry = '1';
+                    url.searchParams.set('_sw_retry', Date.now().toString());
+                    link.href = url.href;
+                });
+                if (document.readyState === 'complete') recoverStyles();
+                else window.addEventListener('load', recoverStyles, { once: true });
+            });
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/serviceworker.js')
+                navigator.serviceWorker.register(<?php echo json_encode($pwaWorkerUrl, 15, 512) ?>, { updateViaCache: 'none' })
                     .then((registration) => {
                         registration.addEventListener('updatefound', () => {
                             const newWorker = registration.installing;

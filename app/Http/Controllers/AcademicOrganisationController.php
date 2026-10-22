@@ -17,8 +17,8 @@ use App\Services\AcademicOrganisationService;
 use App\Services\DepartmentAffiliationService;
 use App\Services\FeatureAccessService;
 use App\Services\InstitutionAdoptionService;
-use Illuminate\Http\Request;
 use Illuminate\Contracts\Pagination\Paginator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -121,7 +121,13 @@ class AcademicOrganisationController extends Controller
             return response()->json($payload);
         }
 
-        return view('institution.organisations', compact('memberships', 'departments', 'candidates', 'affiliations', 'managedMembers', 'invitations'));
+        $configurationDepartment = $actor->isDepartmentAdmin() && $actor->department_id
+            ? Department::with('faculty')->find($actor->department_id) : null;
+        if ($configurationDepartment && ! $organisations->canManageDepartment($actor, $configurationDepartment)) {
+            $configurationDepartment = null;
+        }
+
+        return view('institution.organisations', compact('configurationDepartment', 'memberships', 'departments', 'candidates', 'affiliations', 'managedMembers', 'invitations'));
     }
 
     public function switchContext(Request $request, AcademicOrganisationService $organisations)

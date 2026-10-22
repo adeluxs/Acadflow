@@ -37,6 +37,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::match(['POST', 'DELETE'], '/push/unsubscribe', [PushNotificationController::class, 'unsubscribe']);
     Route::get('/auth/account-status', [AuthController::class, 'accountStatus'])->middleware('throttle:api');
     Route::post('/auth/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:verification');
+    Route::get('/onboarding/directory', [\App\Http\Controllers\AcademicOrganisationController::class, 'directory'])->middleware('throttle:api');
     Route::get('/onboarding', [OnboardingController::class, 'show'])->middleware('throttle:api');
     Route::put('/onboarding/{step}', [OnboardingController::class, 'save'])->middleware('throttle:api');
     Route::post('/onboarding/{step}/skip', [OnboardingController::class, 'skip'])->middleware('throttle:api');

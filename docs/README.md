@@ -4,6 +4,8 @@
 
 This folder contains both **current operational documentation** and **dated implementation-history reports**. Developers should use the canonical documents below first and consult dated reports when they need the history behind a specific subsystem.
 
+See [Editable onboarding and profile completion](EDITABLE_ONBOARDING.md) for returning to skipped steps, role-specific setup, affiliation connections and reminder rules.
+
 ## Start here
 
 ### For developers
@@ -20,6 +22,7 @@ This folder contains both **current operational documentation** and **dated impl
 
 ## Current specialist references
 
+- [`PERFORMANCE_OPERATIONS.md`](PERFORMANCE_OPERATIONS.md) — production tuning, admin performance measurements, index deployment and reproducible verification.
 - [`NOTIFICATION_OPERATIONS.md`](NOTIFICATION_OPERATIONS.md) — delivery architecture, reminders, consent, analytics, testing and production configuration.
 - [`ACADFLOW_2026_08_20_PASSWORD_POLICY_RATE_LIMIT_UX.md`](ACADFLOW_2026_08_20_PASSWORD_POLICY_RATE_LIMIT_UX.md)
 - [`ENVIRONMENT_CONFIGURATION.md`](ENVIRONMENT_CONFIGURATION.md)

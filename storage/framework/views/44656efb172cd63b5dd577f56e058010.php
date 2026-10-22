@@ -25,7 +25,7 @@
 
         <?php if(auth()->guard()->check()): ?>
             <div class="mx-1 h-6 w-px bg-slate-200"></div>
-            <a href="<?php echo e(route('knowledge.creator.edit')); ?>" class="inline-flex items-center rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950">
+            <a href="<?php echo e(route('knowledge.creator.edit')); ?>" class="inline-flex items-center rounded-xl px-3.5 py-2 text-sm font-semibold transition <?php echo e(request()->routeIs('knowledge.creator.edit') ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'); ?>" <?php if(request()->routeIs('knowledge.creator.edit')): ?> aria-current="page" <?php endif; ?>>
                 Creator profile
             </a>
         <?php endif; ?>

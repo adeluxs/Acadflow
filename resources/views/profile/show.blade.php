@@ -19,6 +19,8 @@
         <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{{ session('success') }}</div>
     @endif
 
+    <a href="{{ route('onboarding.manage') }}" class="inline-block rounded-xl bg-blue-700 px-4 py-3 text-sm font-bold text-white">Complete your profile / Manage onboarding</a>
+
     {{-- Identity header --}}
     <section class="overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-indigo-950 to-blue-800 p-6 text-white shadow-xl sm:p-8">
         <div class="flex flex-col gap-6 sm:flex-row sm:items-center">

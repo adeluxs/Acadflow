@@ -19,7 +19,7 @@
             <span class="grid h-11 w-11 place-items-center rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-200"><img src="<?php echo e(asset('branding/acadsyntra-mark.svg')); ?>" alt="" class="h-full w-full object-contain"></span>
             <span><strong class="block text-lg"><?php echo e($siteName); ?></strong><span class="block text-xs text-slate-500">Personal workspace setup</span></span>
         </a>
-        <form method="POST" action="<?php echo e(route('logout')); ?>"><?php echo csrf_field(); ?><button class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Sign out</button></form>
+        <div class="flex items-center gap-3"><?php if(auth()->user()?->onboarding_completed_at): ?><a href="<?php echo e(route('onboarding.manage')); ?>" class="text-sm font-bold text-blue-700">Manage profile</a><?php endif; ?><form method="POST" action="<?php echo e(route('logout')); ?>"><?php echo csrf_field(); ?><button class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Sign out</button></form></div>
     </div>
 </header>
 <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

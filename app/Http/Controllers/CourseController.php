@@ -265,10 +265,7 @@ class CourseController extends Controller
             ->orderBy('user_id')
             ->paginate(25, ['*'], 'students_page')
             ->withQueryString();
-        $lecturers = User::query()
-            ->whereHas('institutionAffiliations',fn($q)=>$q->approved()->where('affiliation_type','lecturer')->where('department_id',$course->department_id))
-            ->orderBy('first_name')
-            ->get();
+        $lecturers = app(\App\Services\AdminLookupService::class)->query(Auth::user(), 'lecturers', ['course_id' => $course->id])->limit(20)->get();
 
         return view('courses.admin-show', compact('course', 'lecturers', 'enrollments'));
     }

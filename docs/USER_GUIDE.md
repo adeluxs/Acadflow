@@ -85,6 +85,12 @@ Choose a student, lecturer/supervisor, researcher, independent professional, aut
 
 Before normal application routes are available, new accounts complete role-aware onboarding. Depending on your account, onboarding can collect institution, faculty/department, programme/academic level, research/topic interests, skills, notification preferences and other profile information. Some optional steps can be skipped.
 
+After setup, open **Manage Onboarding** from your account menu or **Complete your profile / Manage onboarding** on My Profile. You can edit any saved section or complete a skipped step without restarting. The dashboard shows a dismissible suggestion. Progress reflects applicable profile fields; skipped optional sections never remove workspace access. Students see programme/level fields; lecturers can update position, specialisation and supervision interests. Preferences autosave after changes and also provide a Save changes button.
+
+Use **Search and request membership** when available, or **Memberships and invitations**, to connect the same account to an adopted department or institution. Existing work stays with your account. Directory selection is self-declared and grants no organisational access; verification and approval rules still apply. Department and institution administrators see a separate setup checklist linking to their existing verification, invitation, structure and configuration tools. New membership requests remain subject to platform availability.
+
+Required-setup reminders link to the section that is actually missing. Optional profile suggestions require engagement opt-in and personalised recommendations, are at least 14 days apart, and stop for completed sections. Dismissing the profile suggestion also stops these optional suggestions. Quiet hours and channel preferences apply. See [Editable onboarding](EDITABLE_ONBOARDING.md).
+
 After completion, you are redirected to your role-specific dashboard.
 
 ---
@@ -735,6 +741,16 @@ Assignment pages show status, requirements, timing, attachments/rubrics and the 
 ## 33. Updated Knowledge ecosystem experience
 
 Communities, groups, learning paths, reading lists, events, challenges, leaderboard and creator profiles now use a more consistent responsive workspace design. Existing membership, visibility, moderation, enrollment/registration, voting/judging and creator privacy rules still apply.
+
+### My Profile and Creator Profile
+
+**My Profile** appears once in the account section of the sidebar. It contains your account identity, academic affiliation and access information. **Creator profile** is your Knowledge Hub author page, linked from publications; it is retained for everyone who shares academic work.
+
+Open **Knowledge Hub → Creator profile** to edit your headline, position, biography, expertise, website and optional ORCID iD. The editor shows a live text preview and a link to your saved reader page. Name/photo changes use your existing account profile. Save publishes the selected details according to your visibility choices; a newly created creator profile remains private until you explicitly enable its public page.
+
+Use **Choose what readers see** to control public access, institution, department and reputation/impact display. Account security and notification/recommendation preferences stay in their existing account settings. Public creator pages list only public, already-published work; restricted work remains in its authorised workspace. Existing publication permissions and purchase requirements still apply.
+
+ORCID import is optional and uses the saved iD. It stores a sourced snapshot of public metadata without replacing your biography or publishing imported work. Changing the saved iD clears the old ORCID snapshot. **Academic identity review** shows up to five recent requests and reviewer feedback. Personal creator reviews are separate from department/institution adoption and do not grant organisational access.
 
 ### Publication creator workspace
 

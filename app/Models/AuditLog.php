@@ -66,16 +66,17 @@ class AuditLog extends Model
 
         // The original audit table used required entity_* fields. Preserve and
         // dual-write them while old installations transition to the normalized schema.
-        if (Schema::hasColumn('audit_logs', 'entity_type')) {
+        $columns = Schema::getColumnListing('audit_logs');
+        if (in_array('entity_type', $columns, true)) {
             $attributes['entity_type'] = $modelType ?? 'system';
         }
-        if (Schema::hasColumn('audit_logs', 'entity_id')) {
+        if (in_array('entity_id', $columns, true)) {
             $attributes['entity_id'] = $modelId ?? 0;
         }
-        if (Schema::hasColumn('audit_logs', 'old_values')) {
+        if (in_array('old_values', $columns, true)) {
             $attributes['old_values'] = self::legacyJsonValue($oldValue);
         }
-        if (Schema::hasColumn('audit_logs', 'new_values')) {
+        if (in_array('new_values', $columns, true)) {
             $attributes['new_values'] = self::legacyJsonValue($newValue);
         }
 

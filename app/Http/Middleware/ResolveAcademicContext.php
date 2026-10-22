@@ -11,7 +11,7 @@ class ResolveAcademicContext
     public function handle(Request $request, Closure $next)
     {
         $user = $request->user();
-        if (! $user || $user->getRawOriginal('role') === 'super_admin' || $request->is('onboarding', 'onboarding/*')) {
+        if (! $user || $user->getRawOriginal('role') === 'super_admin' || ($request->is('onboarding', 'onboarding/*') && ! $request->routeIs('onboarding.manage'))) {
             return $next($request);
         }
 

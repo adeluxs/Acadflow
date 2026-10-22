@@ -38,6 +38,7 @@ use App\Services\Knowledge\LearningPathService;
 use App\Services\Knowledge\OrcidService;
 use App\Services\Knowledge\ReadingListService;
 use App\Services\Reputation\ReputationService;
+use Illuminate\Support\Arr;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -55,30 +56,67 @@ class KnowledgeEcosystemController extends Controller
 
     public function creator(User $creator, ReputationService $reputation): View
     {
-        $creator->load(['creatorProfile','reputationProfile','university','department']);
-        abort_if(! $creator->creatorProfile?->is_public && auth()->id() !== $creator->id && ! auth()->user()?->isAdmin(), 404);
-        if (! $creator->reputationProfile || ! $creator->reputationProfile->calculated_at || $creator->reputationProfile->calculated_at->lt(now()->subHour())) {
-            $creator->setRelation('reputationProfile', $reputation->recalculate($creator));
+        $creator->load(['creatorProfile', 'avatarMedia']);
+        $profile = $creator->creatorProfile;
+        abort_if(! $profile?->is_public && auth()->id() !== $creator->id && ! auth()->user()?->isAdmin(), 404);
+        if (data_get($profile?->privacy_settings, 'show_institution', false)) {
+            $creator->load('university:id,name');
         }
-        $publications = $creator->knowledgePublications()->with(['category','tags'])->where('status','published')->latest('published_at')->paginate(12);
-        return view('knowledge.creator', compact('creator','publications'));
+        if (data_get($profile?->privacy_settings, 'show_department', false)) {
+            $creator->load('department:id,name');
+        }
+        $showImpact = $profile && (bool) data_get($profile->privacy_settings, 'show_impact', true);
+        if ($showImpact) {
+            $creator->load('reputationProfile');
+            if (! $creator->reputationProfile?->calculated_at || $creator->reputationProfile->calculated_at->lt(now()->subHour())) {
+                $creator->setRelation('reputationProfile', $reputation->recalculate($creator));
+            }
+        }
+        // Author pages list public work only. Restricted work stays in its authorised workspace.
+        $publications = $creator->knowledgePublications()->with('category:id,name')->where('status', 'published')
+            ->where('visibility', 'public')->where('access_type', '!=', 'institution')
+            ->whereNotNull('published_at')->where('published_at', '<=', now())->latest('published_at')->paginate(12);
+
+        return view('knowledge.creator', compact('creator', 'profile', 'publications', 'showImpact'));
     }
 
     public function editCreator(Request $request): View
     {
-        return view('knowledge.creator-edit', ['profile' => $request->user()->creatorProfile]);
+        $creator = clone $request->user();
+        $creator->clearAcademicContext();
+        $creator->loadMissing(['creatorProfile', 'avatarMedia']);
+        $profile = $creator->creatorProfile;
+        $verificationRequests = $creator->verificationRequests()->latest('id')->limit(5)
+            ->get(['id', 'verification_type', 'status', 'review_note', 'created_at', 'reviewed_at']);
+
+        return view('knowledge.creator-edit', compact('creator', 'profile', 'verificationRequests'));
     }
 
     public function updateCreator(Request $request, CreatorService $creators): RedirectResponse
     {
+        if (is_string($request->input('orcid')) && $request->filled('orcid')) {
+            $request->merge(['orcid' => strtoupper(trim(preg_replace('~^https?://orcid\.org/~i', '', (string) $request->input('orcid'))))]);
+        }
         $data = $request->validate([
-            'headline'=>['nullable','string','max:255'], 'biography'=>['nullable','string','max:5000'], 'expertise'=>['nullable','string','max:1000'],
-            'position'=>['nullable','string','max:255'], 'orcid'=>['nullable','regex:/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/'], 'website'=>['nullable','url','max:500'],
-            'is_public'=>['nullable','boolean'], 'show_institution'=>['nullable','boolean'], 'show_department'=>['nullable','boolean'], 'show_impact'=>['nullable','boolean'], 'personalized_recommendations'=>['nullable','boolean'],
+            'headline' => ['nullable', 'string', 'max:255'], 'biography' => ['nullable', 'string', 'max:5000'],
+            'expertise' => ['bail', 'nullable', 'string', 'max:1000', function ($attribute, $value, $fail) {
+                if (collect(explode(',', (string) $value))->map(fn ($topic) => trim($topic))->filter()->unique()->count() > 30) {
+                    $fail('Add no more than 30 areas of expertise.');
+                }
+            }], 'position' => ['nullable', 'string', 'max:255'],
+            'orcid' => ['nullable', 'string', 'regex:/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/'], 'website' => ['nullable', 'url:http,https', 'max:500'],
+            'is_public' => ['sometimes', 'boolean'], 'show_institution' => ['sometimes', 'boolean'],
+            'show_department' => ['sometimes', 'boolean'], 'show_impact' => ['sometimes', 'boolean'],
+            'personalized_recommendations' => ['sometimes', 'boolean'],
         ]);
-        $data['privacy_settings'] = ['show_institution'=>(bool)($data['show_institution']??false), 'show_department'=>(bool)($data['show_department']??false), 'show_impact'=>(bool)($data['show_impact']??false), 'personalized_recommendations'=>(bool)($data['personalized_recommendations']??true)];
+        // Only submitted privacy controls change. Other account preferences stay intact.
+        $privacy = Arr::only($data, ['show_institution', 'show_department', 'show_impact', 'personalized_recommendations']);
+        if ($privacy) {
+            $data['privacy_settings'] = array_map(fn ($value) => (bool) $value, $privacy);
+        }
         $creators->updateProfile($request->user(), $data);
-        return back()->with('success','Creator profile updated.');
+
+        return redirect()->route('knowledge.creator.edit')->with('success', 'Your creator profile was saved.');
     }
 
     public function syncOrcid(Request $request, OrcidService $orcid): RedirectResponse
@@ -89,7 +127,7 @@ class KnowledgeEcosystemController extends Controller
 
     public function requestVerification(Request $request, CreatorService $creators): RedirectResponse
     {
-        $data=$request->validate(['verification_type'=>['required','in:lecturer,professor,researcher,student_ambassador,department,faculty,university,organization,institution_partner'],'statement'=>['nullable','string','max:5000'],'evidence'=>['nullable','array']]);
+        $data=$request->validate(['verification_type'=>['required','in:lecturer,professor,researcher,student_ambassador,department,faculty,university,organization,institution_partner'],'statement'=>['required','string','min:20','max:5000'],'evidence'=>['nullable','array']]);
         $creators->requestVerification($request->user(),$data);
         return back()->with('success','Verification request submitted for review.');
     }

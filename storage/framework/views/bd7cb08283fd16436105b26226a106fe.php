@@ -1,0 +1,6 @@
+<?php $__env->startSection('title', 'Notification preferences'); ?>
+<?php $__env->startSection('content'); ?>
+<div class="space-y-5"><h1 class="text-2xl font-bold"><?php echo e($submitted ? 'Preference saved' : 'Manage optional reminders'); ?></h1><p class="text-sm text-slate-600"><?php echo e($submitted ? 'You will no longer receive these '.$category.' reminders. Your academic alerts and account security messages keep their own settings.' : 'Stop optional '.$category.' reminders from AcadSyntra. Your account and academic records remain available.'); ?></p><?php if(!$submitted): ?><form method="POST" action="<?php echo e(request()->fullUrl()); ?>"><?php echo csrf_field(); ?><button class="w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white">Unsubscribe from these reminders</button></form><?php endif; ?><a href="<?php echo e(route('notifications.settings')); ?>" class="block font-semibold text-indigo-600">Open all notification preferences →</a></div>
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.auth', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH /Users/user/Desktop/acadflow/acadflow-web/resources/views/notifications/unsubscribe.blade.php ENDPATH**/ ?>

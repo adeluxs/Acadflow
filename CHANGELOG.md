@@ -2,11 +2,19 @@
 
 ### Changed
 
+- Optimized admin users, faculties, institution search, audit history, commercial accounts, pricing history, lecturer assignment and import selectors with scoped pagination, deferred searches and smaller records. Added restartable management indexes, batched settings/summary reads, bounded revenue iteration and less shared activity/audit write work; documented reproducible measurements and deployment steps.
+
+- Retained and redesigned Creator Profile as the Knowledge Hub author workspace, with clear identity/expertise/visibility sections, live reader preview, optional ORCID import and scoped review history. Refreshed the public reader page with biography, expertise, links and public published work.
+
 - Rebranded the platform as AcadSyntra across public/authenticated pages, academic assistants, exports, email/notification copy, manifests, settings defaults and documentation.
 - Added reproducible violet/navy vector branding, PNG icons, favicons and social artwork; legacy asset URLs serve the new graphics. Refreshed demo screenshot capture and bumped PWA asset caches while preserving offline databases, session identifiers, API headers and existing commands.
 - Added a non-destructive branding migration that updates known defaults, preserves institution customizations and academic records, and versions shipped AI instructions without rewriting prompt history. Fixed the dynamic manifest’s string-helper import and missing icon fallbacks.
 
 ### Added
+
+- Added Manage Onboarding from dashboards and profiles, immediate editing of completed/skipped sections, applicable-field completion scores, role-specific academic fields, separate organisation setup checklists and preference autosave using existing records.
+- Connected profile management to verified memberships/invitations and existing department module/calendar configuration; bounded institution search replaces full-directory onboarding loads.
+- Added consent-based, infrequent optional profile suggestions and required-field reminder links; completed users with optional gaps are not classified as abandoned. Preserved academic affiliations, work, completion dates and notification preferences across revisits.
 
 - Expanded searchable step-by-step onboarding/help guides, consent-based browser push invitations and device management, category/timezone/quiet-hour preferences, bounded onboarding and useful-work inactivity reminders.
 - Added a central after-commit notification outbox, queued academic/research/organisation events, safe retries and uncertain-outcome handling, signed interactions/unsubscribe, optional provider-confirmation adapter, retention maintenance and queued account mail.
@@ -23,6 +31,12 @@
 - Added browser push enrollment, per-device disable/test controls, and Super Admin setup for stable encrypted delivery keys. Environment-supplied VAPID keys are also supported.
 
 ### Fixed
+
+- Fixed stale/invalid PWA asset responses breaking styles on navigation: bypassed worker asset caching locally, validated cached MIME types, respected reloads, revalidated unhashed assets and automatically repaired missing/empty styles during worker upgrades. Added real-worker browser coverage while preserving notification registration and offline queues.
+
+- Removed duplicate My Profile links from student and lecturer sidebars. Fixed creator visibility checkboxes and partial saves so privacy choices take effect without erasing stored links, verification decisions or unrelated preferences. Public creator pages honour affiliation/impact privacy and exclude restricted or future publications; hidden impact no longer triggers reputation queries.
+
+- Fixed live MySQL deployment error 1067 for `user_activity_days.last_activity_at` by using required `DATETIME` activity values. Made the notification upgrade resumable after partially committed MySQL DDL while preserving notification history, preferences, existing tables and all indexes.
 
 - Implemented actual research editor autosave with optimistic version checks and recoverable conflicts, stable no-op saves and visible offline/session/permission states. Shared web/API saves, table sanitisation, restore progress and approval/correction locks preserve research history.
 - Fixed rich-content sanitisation of nested unknown wrappers so active attributes cannot survive unwrapping.
