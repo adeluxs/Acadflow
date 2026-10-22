@@ -27,7 +27,7 @@ $pass(substr_count($settings, 'return self::getMany([') >= 6, 'Grouped settings 
 $dashboard = $read('app/Http/Controllers/DashboardController.php');
 $pass(! str_contains($dashboard, '$pendingInvoices'), 'Student dashboard no longer queries unused invoices');
 $pass(! str_contains($dashboard, "Group::query()"), 'Student dashboard no longer queries unused groups');
-$pass(str_contains($dashboard, 'coursePerformanceSummary($courseIds)'), 'Lecturer performance uses grouped SQL aggregation');
+$pass(str_contains($dashboard, 'coursePerformanceSummary($courses->pluck(\'id\'))') && str_contains($dashboard, 'averagePercentage($courseIds)'), 'Lecturer preview uses grouped SQL aggregation while overall grades include all courses');
 
 $analytics = $read('app/Services/AnalyticsService.php');
 $pass(substr_count($analytics, "SUM(CASE WHEN") >= 10, 'Analytics card counts use conditional aggregates');

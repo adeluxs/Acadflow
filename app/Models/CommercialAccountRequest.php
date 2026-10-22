@@ -13,6 +13,7 @@ class CommercialAccountRequest extends Model
     protected $fillable = [
         'uuid',
         'university_id',
+        'department_id',
         'commercial_account_id',
         'requested_by_user_id',
         'request_type',
@@ -49,6 +50,8 @@ class CommercialAccountRequest extends Model
     {
         return $this->belongsTo(CommercialAccount::class);
     }
+
+    public function department(): BelongsTo { return $this->belongsTo(Department::class); }
 
     public function requester(): BelongsTo
     {

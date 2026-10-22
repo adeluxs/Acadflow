@@ -12,6 +12,8 @@ use Illuminate\Support\Str;
 class Invoice extends Model
 {
     protected $fillable = [
+        'commercial_account_id',
+        'department_id',
         'uuid',
         'user_id',
         'semester_id',

@@ -136,6 +136,7 @@ class ResearchController extends Controller
                 $data['department_id'] = $user->department_id;
             }
             $department = Department::with('faculty')->findOrFail($data['department_id']);
+            if($user->isAdmin())abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,$department),403);
             abort_unless($user->isSuperAdmin() || $department->faculty?->university_id === $user->university_id, 403);
             $data['university_id'] = $department->faculty?->university_id;
         }
@@ -144,6 +145,7 @@ class ResearchController extends Controller
         if ($supervisorInviteeId) {
             abort_unless($institutionExpansionEnabled && $workspaceMode === 'institutional', 422, 'Supervisor invitations require institutional research mode.');
             $supervisorInvitee = User::findOrFail($supervisorInviteeId);
+            abort_unless(app(\App\Services\AcademicOrganisationService::class)->applyMembershipRole($supervisorInvitee,(int)$data['university_id'],null,'lecturer'),422,'Approve the lecturer membership before inviting supervision.');
             abort_unless(
                 $supervisorInvitee->is_active && $supervisorInvitee->isLecturer() && $supervisorInvitee->university_id === $data['university_id'],
                 422,

@@ -31,3 +31,5 @@ yarn-error.log
 /marketing/video/artifacts
 /marketing/video/frames
 /marketing/video/.auth
+/marketing/video/launch
+/storage/app/private/migration-backups/

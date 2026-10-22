@@ -74,6 +74,11 @@ class AppServiceProvider extends ServiceProvider
         CourseMaterial::observe(SearchableContentObserver::class);
         KnowledgePublication::observe(SearchableContentObserver::class);
         ResearchProject::observe(SearchableContentObserver::class);
+        foreach ([\App\Models\ContentComment::class, \App\Models\SubmissionGrade::class, \App\Models\ResearchCorrection::class, \App\Models\ResearchProject::class,
+            \App\Models\ResearchValidationReport::class, \App\Models\StudyPlan::class, \App\Models\AiContentDraft::class, \App\Models\CommercialAccount::class, \App\Models\DepartmentAdoptionRequest::class,
+            \App\Models\InstitutionOnboardingRequest::class, \App\Models\InstitutionAccessRequest::class] as $notifiableModel) {
+            $notifiableModel::observe(\App\Observers\AcademicNotificationObserver::class);
+        }
 
         RateLimiter::for('ai', function (Request $request): Limit {
             $universityId = $request->user()?->university_id;
@@ -104,6 +109,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('commercial-account-requests', function (Request $request): Limit {
             return Limit::perHour(6)->by((string) ($request->user()?->id ?? $request->ip()));
         });
+        RateLimiter::for('api', fn(Request $request) => Limit::perMinute(90)->by((string)($request->user()?->id ?? $request->ip())));
 
         RateLimiter::for('payments', function (Request $request): Limit {
             $limits = SettingService::getSecurityRateLimits($request->user()?->university_id);

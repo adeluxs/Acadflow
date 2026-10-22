@@ -31,7 +31,7 @@ class InstitutionOnboardingController extends Controller
 
     public function requestForm(Request $request): View
     {
-        abort_unless(in_array($request->user()->account_type,['university_representative','department_representative'],true) || $request->user()->isAdmin(),403);
+        abort_unless(in_array($request->user()->account_type,['university_representative','department_representative','lecturer','academic_staff'],true) || $request->user()->isAdmin(),403);
         $requests=InstitutionOnboardingRequest::query()->where('requester_user_id',$request->user()->id)->latest()->limit(10)->get();
         $departmentRequests=DepartmentAdoptionRequest::query()->where('requester_user_id',$request->user()->id)->with(['university','department'])->latest()->limit(10)->get();
         $oldUniversityId=(int) $request->session()->getOldInput('university_id', 0);
@@ -108,7 +108,7 @@ class InstitutionOnboardingController extends Controller
     {
         abort_unless($request->user()->isSuperAdmin(),403);
         $requests=InstitutionOnboardingRequest::query()->with(['requester','university','reviewer'])->latest()->paginate(20,['*'],'institution_page');
-        $departmentRequests=DepartmentAdoptionRequest::query()->with(['requester','university','department','reviewer'])->latest()->paginate(20,['*'],'department_page');
+        $departmentRequests=DepartmentAdoptionRequest::query()->with(['requester','university','faculty','department','reviewer'])->latest()->paginate(20,['*'],'department_page');
         $adminAccessRequests=InstitutionAccessRequest::query()->with(['user','university','department'])->whereIn('requested_role',['university_admin','department_admin'])->whereIn('status',['pending','in_review'])->latest()->limit(30)->get();
         $universities=University::query()->withCount(['faculties','users'])->latest()->limit(100)->get();
         return view('admin.institution-onboarding.index',compact('requests','departmentRequests','adminAccessRequests','universities'));
@@ -153,7 +153,22 @@ class InstitutionOnboardingController extends Controller
         if(!$onboardingRequest->university_id && ($match=$this->adoption->findPotentialMatch($onboardingRequest->toArray()))) {
             return back()->withErrors(['institution'=>"Possible duplicate institution found: {$match->name}. Link this request to that institution before approval."]);
         }
+        if ((bool)data_get($onboardingRequest->metadata,'directory_only',false)) {
+            $university=DB::transaction(function()use($onboardingRequest,$request,$data){
+                $locked=InstitutionOnboardingRequest::query()->lockForUpdate()->findOrFail($onboardingRequest->id);
+                abort_unless(in_array($locked->status,['pending','in_review'],true),422,'This request was already reviewed.');
+                $institution=$locked->university ?: University::create(['name'=>$locked->institution_name,'short_name'=>$locked->short_name ?: Str::limit($locked->institution_name,50,''),'code'=>$this->uniqueInstitutionCode($locked),'institution_type'=>$locked->institution_type,'state'=>$locked->state,'website'=>$locked->website,'timezone'=>'Africa/Lagos','is_active'=>true,'adoption_status'=>'unclaimed']);
+                $locked->update(['university_id'=>$institution->id,'status'=>'approved','reviewed_by_user_id'=>$request->user()->id,'reviewed_at'=>now(),'review_note'=>$data['review_note']??'Academic directory record verified. Institution adoption has not been requested.']);
+                $draft=\App\Models\DepartmentOnboardingDraft::firstOrCreate(['user_id'=>$locked->requester_user_id],['data'=>[]]);
+                $draft->update(['data'=>array_merge($draft->data??[],['university_id'=>$institution->id]),'step'=>1]);
+                return $institution;
+            },3);
+            $this->notifications->send($onboardingRequest->requester,'institution_directory_added','Institution added to directory',$university->name.' is available. Continue your department application.',['route'=>'department.onboarding','university_id'=>$university->id]);
+            return back()->with('success','Institution directory identity added. No institution adoption or administrator privilege was granted.');
+        }
         $university=DB::transaction(function()use($onboardingRequest,$request,$data){
+            $onboardingRequest=InstitutionOnboardingRequest::query()->lockForUpdate()->findOrFail($onboardingRequest->id);
+            abort_unless(in_array($onboardingRequest->status,['pending','in_review'],true),422,'This onboarding request has already been reviewed.');
             $u=$onboardingRequest->university_id ? University::query()->lockForUpdate()->findOrFail($onboardingRequest->university_id) : University::create([
                 'name'=>$onboardingRequest->institution_name,'short_name'=>$onboardingRequest->short_name ?: Str::limit($onboardingRequest->institution_name,50,''),
                 'code'=>$this->uniqueInstitutionCode($onboardingRequest),'institution_type'=>$onboardingRequest->institution_type,'ownership'=>$onboardingRequest->ownership,'state'=>$onboardingRequest->state,
@@ -223,7 +238,7 @@ class InstitutionOnboardingController extends Controller
         abort_unless($university->faculties->isNotEmpty(),422,'Add at least one faculty or school before activation.');
         $university->update(['is_active'=>true,'adoption_status'=>'active','adopted_at'=>now()]);
         $this->adoption->migrateIndependentDepartments($university,$request->user());
-        return redirect()->route('admin.universities.edit',$university)->with('success','Institution onboarding completed. Independent departments can now transition into the official institution and verified members can receive eligible institution benefits.');
+        return redirect()->route('admin.universities.edit',$university)->with('success','Institution onboarding completed. Independent departments have been identified for consensual affiliation. Existing department governance and billing remain intact.');
     }
 
     public function proposeDomain(Request $request, University $university): RedirectResponse

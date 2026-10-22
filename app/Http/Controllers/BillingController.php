@@ -117,20 +117,22 @@ class BillingController extends Controller
     public function generateInvoices(Request $request, Semester $semester, PaymentService $payments): RedirectResponse
     {
         $user = $request->user();
-        abort_unless($user->isUniversityAdmin() || $user->isSuperAdmin(), 403);
+        abort_unless($user->isAdmin(), 403);
         abort_unless($user->isSuperAdmin() || $semester->academicSession?->university_id === $user->university_id, 403, 'The semester does not belong to your university.');
 
         $universityId = $semester->academicSession?->university_id;
-        $account = $universityId ? CommercialAccount::query()->where('university_id', $universityId)->where('status', 'active')->first() : null;
-        if (! $account || (int) data_get($account->metadata, 'student_semester_fee_minor', 0) <= 0) {
+        $departmentId=$semester->academicSession?->department_id;
+        if($user->isDepartmentAdmin())abort_unless((int)$departmentId===(int)$user->department_id,403,'Choose your department academic period.');
+        if($user->isUniversityAdmin() && $departmentId)abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,\App\Models\Department::findOrFail($departmentId)),403);
+        $account = CommercialAccount::query()->when($departmentId,fn($q)=>$q->where('department_id',$departmentId),fn($q)=>$q->where('university_id',$universityId)->whereNull('department_id'))->where('status','active')->first();
+        if (! $account?->isAvailable() || (int) data_get($account->metadata, 'student_semester_fee_minor', 0) <= 0) {
             return back()->with('error', 'No student semester fee is configured in this institution’s commercial account.');
         }
 
         $created = 0;
         User::query()
             ->select('id')
-            ->where('university_id', $universityId)
-            ->where('role', 'student')
+            ->whereHas('institutionAffiliations',fn($q)=>$q->approved()->where('university_id',$universityId)->when($departmentId,fn($d)=>$d->where('department_id',$departmentId))->where('affiliation_type','student'))
             ->where('is_active', true)
             ->chunkById(250, function ($students) use ($payments, $semester, $account, &$created): void {
                 foreach ($students as $student) {
@@ -144,13 +146,13 @@ class BillingController extends Controller
     private function ensureAdminScope(User $user, Invoice $invoice): void
     {
         $invoice->loadMissing('user');
-        if ($user->isDepartmentAdmin()) abort_unless($invoice->user?->department_id === $user->department_id, 403);
+        if ($user->isDepartmentAdmin()) abort_unless((int)($invoice->department_id??$invoice->user?->department_id)===(int)$user->department_id,403);
         elseif ($user->isUniversityAdmin()) abort_unless($invoice->user?->university_id === $user->university_id, 403);
     }
 
     private function scopeInvoicesForAdmin($query, User $user): void
     {
-        if ($user->isDepartmentAdmin()) $query->whereHas('user', fn ($users) => $users->where('department_id', $user->department_id));
+        if ($user->isDepartmentAdmin()) $query->where(fn($q)=>$q->where('department_id',$user->department_id)->orWhere(fn($old)=>$old->whereNull('department_id')->whereHas('user',fn($u)=>$u->where('department_id',$user->department_id))));
         elseif ($user->isUniversityAdmin()) $query->whereHas('user', fn ($users) => $users->where('university_id', $user->university_id));
     }
 }

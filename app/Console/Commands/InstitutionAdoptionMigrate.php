@@ -38,8 +38,8 @@ class InstitutionAdoptionMigrate extends Command
                 $verified=in_array($user->role,['university_admin','department_admin'],true);
                 $affiliations++; if($verified)$verifiedAdmins++;
                 if($apply){
-                    UserInstitutionAffiliation::query()->updateOrCreate(
-                        ['user_id'=>$user->id,'university_id'=>$user->university_id,'affiliation_type'=>$type],
+                    UserInstitutionAffiliation::query()->firstOrCreate(
+                        ['user_id'=>$user->id,'university_id'=>$user->university_id,'department_id'=>$user->department_id,'affiliation_type'=>$type],
                         ['faculty_id'=>$user->faculty_id,'department_id'=>$user->department_id,'status'=>$verified?'verified':'self_declared','verification_method'=>$verified?'legacy_admin_role':null,'source'=>'legacy_migration','verified_by'=>$verified?$user->id:null,'verified_at'=>$verified?($user->updated_at?:now()):null]
                     );
                 }

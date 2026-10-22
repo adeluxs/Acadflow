@@ -1,0 +1,138 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>AcadSyntra launch film renderer</title>
+<style>html,body{margin:0;background:#0d1230}canvas{display:block;width:100%;height:auto}button{position:fixed;right:16px;top:16px;z-index:2;padding:12px}</style>
+<canvas></canvas><button id="record">Render launch film</button>
+<script>
+const canvas = document.querySelector('canvas'), ctx = canvas.getContext('2d', { alpha: false });
+const images = {}, scenes = [
+ { duration: 4, type: 'intro', title: 'Big ideas.\nClearer paths.', body: 'One connected academic workspace.' },
+ { duration: 5, image: 'landing', label: 'MEET ACADSYNTRA', title: 'Your academic world.\nBrought together.', body: 'A home for learning, research and the people who move your work forward.', tags: 'LEARN  /  RESEARCH  /  CONNECT' },
+ { duration: 6, image: 'dashboard', label: 'STAY ORGANIZED', title: 'See your courses.\nKnow what’s next.', body: 'Bring courses, submissions and upcoming deadlines into one clear view.', tags: 'COURSES  /  DEADLINES  /  PROGRESS' },
+ { duration: 5, image: 'assignments', label: 'KEEP MOVING', title: 'Less searching.\nMore doing.', body: 'Find the next assignment, understand the requirements and keep your work on track.', tags: 'YOUR NEXT STEP, IN VIEW' },
+ { duration: 8, image: 'writing', label: 'RESEARCH STUDIO', title: 'From a question\nto your next chapter.', body: 'Make space to write. Switch chapters, focus on your draft and save your progress.', tags: 'FOCUS MODE  /  AUTOSAVE  /  VERSIONS' },
+ { duration: 6, image: 'library', label: 'PLAN WITH PURPOSE', title: 'Keep the thinking\nbehind the writing.', body: 'Organize your plans, research instruments and project resources alongside your document.', tags: 'PLANS  /  INSTRUMENTS  /  LIBRARY' },
+ { duration: 6, image: 'feedback', label: 'TEACH & REVIEW', title: 'Turn feedback\ninto progress.', body: 'Keep assessment, rubrics and written feedback connected to the work.', tags: 'REVIEW  /  FEEDBACK  /  NEXT STEPS' },
+ { duration: 6, type: 'mobile', label: 'MADE TO FIT YOUR DAY', title: 'Your workspace.\nWherever you are.', body: 'Move between desktop and mobile with your academic work close at hand.', tags: 'ONE CONNECTED EXPERIENCE' },
+ { duration: 6, type: 'cta', title: 'Your next chapter\nstarts today.', body: 'Create your account. Make room for your next idea.' },
+];
+const duration = scenes.reduce((total, scene) => total + scene.duration, 0);
+let portrait = false, launchUrl = '', launchDate = '21 OCTOBER 2026';
+const ease = value => 1 - Math.pow(1 - Math.max(0, Math.min(1, value)), 3);
+function rounded(x,y,w,h,r=24){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
+function text(value,x,y,size=30,color='#111937',weight=500){ctx.fillStyle=color;ctx.font=`${weight} ${size}px Arial, sans-serif`;ctx.textBaseline='top';ctx.fillText(value,x,y);}
+function lines(value,x,y,size,width,color='#111937',weight=700,lineHeight=size*1.14){
+ const paragraphs=value.split('\n');let yy=y;
+ for(const paragraph of paragraphs){let row='';for(const word of paragraph.split(' ')){const next=row?row+' '+word:word;ctx.font=`${weight} ${size}px Arial, sans-serif`;if(ctx.measureText(next).width>width&&row){text(row,x,yy,size,color,weight);yy+=lineHeight;row=word;}else row=next;}text(row,x,yy,size,color,weight);yy+=lineHeight;}
+ return yy;
+}
+function center(value,y,size,color='#111937',weight=700){ctx.font=`${weight} ${size}px Arial, sans-serif`;text(value,(canvas.width-ctx.measureText(value).width)/2,y,size,color,weight);}
+function brand(x,y,size=58){ctx.drawImage(images.brand,x,y,size,size);text('AcadSyntra',x+size+18,y+10,size*.58,'#111937',750);}
+function background(t){
+ const w=canvas.width,h=canvas.height;ctx.fillStyle='#f5f6ff';ctx.fillRect(0,0,w,h);
+ const g=ctx.createRadialGradient(w*.83,h*.23,20,w*.83,h*.23,w*.8);g.addColorStop(0,'#ddd8ff');g.addColorStop(.6,'#eef0ff');g.addColorStop(1,'#f7f9ff');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+ ctx.strokeStyle='#4f46e512';ctx.lineWidth=2;for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(w*.87,h*.42,130+i*105+Math.sin(t*.15)*8,0,Math.PI*2);ctx.stroke();}
+}
+function pill(value,x,y){ctx.font='700 20px Arial';const width=ctx.measureText(value).width+44;ctx.fillStyle='#4f46e512';rounded(x,y,width,43,22);ctx.fill();text(value,x+22,y+12,20,'#4f46e5',700);}
+function screenshot(name,x,y,w,h,progress){
+ ctx.save();ctx.shadowColor='#29205a24';ctx.shadowBlur=50;ctx.shadowOffsetY=22;ctx.fillStyle='#fff';rounded(x,y,w,h,24);ctx.fill();ctx.restore();
+ ctx.save();rounded(x,y,w,h,24);ctx.clip();ctx.fillStyle='#fff';ctx.fillRect(x,y,w,h);ctx.fillStyle='#eef0f8';ctx.fillRect(x,y,w,42);
+ ['#f0a4ac','#efd08e','#91cbb9'].forEach((color,i)=>{ctx.fillStyle=color;ctx.beginPath();ctx.arc(x+23+i*18,y+21,5,0,Math.PI*2);ctx.fill();});
+ text('AcadSyntra · demo workspace',x+92,y+12,16,'#64748b',500);
+ const image=images[name], areaH=h-42, scale=Math.max(w/image.width,areaH/image.height)*(1.008+progress*.025);
+ const iw=image.width*scale,ih=image.height*scale;
+ ctx.beginPath();ctx.rect(x,y+42,w,areaH);ctx.clip();ctx.drawImage(image,x-(iw-w)*.5,y+42-(ih-areaH)*(.12+progress*.28),iw,ih);ctx.restore();
+}
+function phone(name,x,y,w,h,progress){
+ ctx.save();ctx.shadowBlur=45;ctx.shadowColor='#1b124044';ctx.shadowOffsetY=24;ctx.fillStyle='#161a30';rounded(x,y,w,h,42);ctx.fill();ctx.restore();
+ ctx.save();rounded(x+10,y+10,w-20,h-20,32);ctx.clip();const image=images[name];ctx.drawImage(image,x+10,y+10,w-20,h-20);ctx.restore();
+ ctx.fillStyle='#161a30';rounded(x+w*.37,y+8,w*.26,16,8);ctx.fill();
+}
+function footer(sceneIndex,progress){
+ const w=canvas.width,h=canvas.height,margin=portrait?64:96;
+ text('ACADEMIC WORK, CONNECTED',margin,h-86,portrait?19:18,'#64748b',700);
+ const totalWidth=portrait?w-margin*2:500, segment=(totalWidth-8*(scenes.length-1))/scenes.length;
+ for(let i=0;i<scenes.length;i++){const x=portrait?margin+i*(segment+8):w-margin-totalWidth+i*(segment+8);const y=portrait?h-40:h-78;ctx.fillStyle='#dce0ef';rounded(x,y,segment,5,3);ctx.fill();if(i<=sceneIndex){ctx.fillStyle='#4f46e5';rounded(x,y,segment*(i===sceneIndex?Math.max(.02,progress):1),5,3);ctx.fill();}}
+}
+function drawScene(scene,progress,t){
+ const w=canvas.width,h=canvas.height;
+ if(scene.type==='intro'){
+  brand(portrait?72:96,portrait?94:68,portrait?72:62);
+  pill('LAUNCHING TODAY',portrait?72:110,portrait?286:285);
+  lines(scene.title,portrait?72:110,portrait?400:365,portrait?122:132,portrait?936:1040,'#111937',800);
+  lines(scene.body,portrait?76:116,portrait?730:710,portrait?40:38,portrait?900:1080,'#59617c',500,55);
+  if(portrait){ctx.save();ctx.translate(w/2,h*.64);ctx.rotate(Math.sin(t*.2)*.025);ctx.fillStyle='#fff';ctx.shadowColor='#4f46e533';ctx.shadowBlur=70;rounded(-155,-155,310,310,70);ctx.fill();ctx.shadowBlur=0;ctx.drawImage(images.brand,-135,-135,270,270);ctx.restore();center('Learn. Research. Connect.',h*.79,36,'#4f46e5',600);}
+  else{ctx.save();ctx.translate(1470,515);ctx.rotate(Math.sin(t*.3)*.035);ctx.fillStyle='#fff';ctx.shadowColor='#4f46e52a';ctx.shadowBlur=80;rounded(-168,-168,336,336,70);ctx.fill();ctx.shadowBlur=0;ctx.drawImage(images.brand,-145,-145,290,290);ctx.restore();}
+  text(launchDate,portrait?76:116,portrait?846:805,25,'#4f46e5',700);return;
+ }
+ if(scene.type==='cta'){
+  const size=portrait?196:148;ctx.drawImage(images.brand,(w-size)/2,portrait?265:155,size,size);
+  center('LAUNCHING TODAY',portrait?520:345,24,'#4f46e5',750);
+  const title=scene.title.split('\n');title.forEach((row,i)=>center(row,(portrait?650:420)+i*(portrait?116:112),portrait?95:102,'#111937',800));
+  const body=scene.body.split('. ');if(portrait){body.forEach((row,i)=>center(row,960+i*53,32,'#59617c',500));}else center(scene.body,690,31,'#59617c',500);
+  const bw=portrait?650:450,by=portrait?1160:795;ctx.fillStyle='#4f46e5';rounded((w-bw)/2,by,bw,90,24);ctx.fill();center('Create your account',by+28,32,'#fff',700);
+  if(launchUrl) center(launchUrl,by+130,26,'#4f46e5',600);
+  center(launchDate,portrait?1460:965,23,'#64748b',600);return;
+ }
+ brand(portrait?64:96,portrait?82:62,portrait?64:54);
+ const entry=1-ease(Math.min(1,progress*scene.duration/1));
+ if(portrait){
+  text(scene.label,68,222,23,'#4f46e5',700);
+  const bottom=lines(scene.title,64,285,79,955,'#111937',800,94);
+  if(scene.type==='mobile'){phone('mobile-writing',266,565+entry*30,548,1186,progress);}
+  else {screenshot(scene.image,52,565+entry*30,976,690,progress);lines(scene.body,72,1320,37,930,'#59617c',500,54);pill(scene.tags,72,1575);}
+ }else{
+  text(scene.label,100,210,22,'#4f46e5',700);
+  const bottom=lines(scene.title,96,280,76,700,'#111937',800,90);
+  lines(scene.body,102,bottom+32,28,650,'#59617c',500,41);
+  pill(scene.tags,100,805);
+  if(scene.type==='mobile'){phone('mobile-dashboard',994,190+entry*30,306,662,progress);phone('mobile-writing',1370,235+entry*30,306,662,progress);}
+  else screenshot(scene.image,845+entry*34,218,980,650,progress);
+ }
+}
+window.setup = async (options) => {
+ portrait=options.portrait;launchUrl=options.url||'';launchDate=options.date||launchDate;
+ canvas.width=portrait?1080:1920;canvas.height=portrait?1920:1080;
+ for(const name of ['brand','landing','dashboard','assignments','writing','library','feedback','mobile-dashboard','mobile-writing']){
+  images[name]=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error(`Missing ${name}`));image.src=`screens/${name}.${name==='brand'?'svg':'png'}`;});
+ }
+ document.querySelector('button').hidden=true;
+ return { duration, scenes };
+};
+window.drawAt=(time)=>{
+ let offset=0,index=scenes.length-1;for(let i=0;i<scenes.length;i++){if(time<offset+scenes[i].duration){index=i;break;}offset+=scenes[i].duration;}
+ const progress=Math.max(0,Math.min(1,(time-offset)/scenes[index].duration));background(time);
+ ctx.save();const local=(time-offset);ctx.globalAlpha=Math.min(1,local/.3,(scenes[index].duration-local)/.25);drawScene(scenes[index],progress,time);ctx.restore();footer(index,progress);
+};
+function soundtrack(seconds){
+ const rate=48000,buffer=new AudioBuffer({length:Math.ceil(seconds*rate),numberOfChannels:2,sampleRate:rate});
+ const chords=[[146.832,184.997,220,277.183],[110,138.591,164.814,246.942],[164.814,207.652,246.942,369.994],[184.997,220,277.183,329.628]];
+ let seed=19,sum=0,peak=0;const beat=.625;
+ for(let channel=0;channel<2;channel++){
+  const out=buffer.getChannelData(channel);
+  for(let i=0;i<out.length;i++){
+   const t=i/rate,chord=chords[Math.floor(t/(beat*4))%chords.length];let value=0;
+   chord.forEach((frequency,k)=>{value+=Math.sin(2*Math.PI*(frequency+(channel ? 0.24 : 0))*t+k*.4)*.019;});
+   const phase=t%beat,sub=t%(beat/2);value+=Math.sin(2*Math.PI*(49*phase+1.8*(1-Math.exp(-phase*38))))*Math.exp(-phase*19)*.07;
+   seed=(seed*1664525+1013904223)>>>0;value+=((seed/4294967296)*2-1)*Math.exp(-sub*95)*.009;
+   const note=chord[Math.floor(t/(beat/2))%4]*2;value+=Math.sin(2*Math.PI*note*t)*Math.exp(-sub*12)*.018;
+   value*=Math.min(1,t/1.2,(seconds-t)/2)*1.45;out[i]=value;sum+=value*value;peak=Math.max(peak,Math.abs(value));
+  }
+ }
+ return {buffer,rms:Math.sqrt(sum/(buffer.length*2)),peak};
+}
+window.record=async()=>{
+ const audio=new AudioContext({sampleRate:48000});await audio.resume();const music=soundtrack(duration);
+ const source=audio.createBufferSource();source.buffer=music.buffer;const destination=audio.createMediaStreamDestination();source.connect(destination);
+ const stream=canvas.captureStream(30);destination.stream.getAudioTracks().forEach(track=>stream.addTrack(track));
+ const mimeType='video/mp4;codecs=avc1.42E01E,mp4a.40.2';if(!MediaRecorder.isTypeSupported(mimeType))throw new Error('Installed Chrome must support H.264/AAC MP4 recording.');
+ const recorder=new MediaRecorder(stream,{mimeType,videoBitsPerSecond:7500000,audioBitsPerSecond:160000});const chunks=[];
+ recorder.ondataavailable=event=>{if(event.data.size)chunks.push(event.data);};const stopped=new Promise(resolve=>recorder.onstop=resolve);
+ drawAt(0.001);recorder.start(1000);source.start();const start=performance.now();let frames=0;
+ await new Promise(resolve=>{function frame(){const t=(performance.now()-start)/1000;if(t>=duration){drawAt(duration-.01);resolve();return;}drawAt(t);frames++;requestAnimationFrame(frame);}frame();});
+ recorder.stop();source.stop();await stopped;stream.getTracks().forEach(track=>track.stop());await audio.close();
+ const blob=new Blob(chunks,{type:recorder.mimeType});window.recording=blob;
+ return {mimeType:recorder.mimeType,bytes:blob.size,frames,musicRms:music.rms,musicPeak:music.peak,wallSeconds:(performance.now()-start)/1000};
+};
+window.chunk=async(offset,length)=>{const bytes=new Uint8Array(await window.recording.slice(offset,offset+length).arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));return btoa(binary);};
+</script>

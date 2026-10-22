@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="AcadSyntra">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Set up your workspace') · {{ $siteName }}</title>
     <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('branding/acadsyntra-icon-192.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('branding/acadsyntra-icon-180.png') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+@auth<meta name="push-account-id" content="{{ auth()->id() }}"><meta name="push-config-url" content="{{ route('browser-push.configuration') }}"><meta name="push-worker-url" content="/pushworker.js">@endauth
 </head>
 <body class="onboarding-experience min-h-screen bg-slate-50 text-slate-900 antialiased">
 @include('partials.global-loader')
@@ -26,6 +28,7 @@
     @if($errors->any())<div class="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert"><p class="font-semibold">Please correct the following:</p><ul class="mt-2 list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
     @yield('content')
 </main>
+@include('notifications._push-invitation')
 @stack('scripts')
 </body>
 </html>

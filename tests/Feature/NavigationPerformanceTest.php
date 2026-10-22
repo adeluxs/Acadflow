@@ -45,10 +45,11 @@ class NavigationPerformanceTest extends TestCase
     {
         $university = University::factory()->create();
         $faculty = Faculty::factory()->create(['university_id' => $university->id]);
-        $department = Department::factory()->create(['faculty_id' => $faculty->id, 'name' => 'Visible department']);
+        $department = Department::factory()->create(['faculty_id' => $faculty->id, 'name' => 'Visible department','adoption_status'=>'institution_managed']);
         $foreign = Department::factory()->create(['name' => 'Foreign department']);
         $user = User::factory()->create(['role' => 'university_admin', 'university_id' => $university->id]);
-        User::factory()->count(26)->create(['role' => 'lecturer', 'university_id' => $university->id, 'department_id' => $department->id]);
+        $lecturers=User::factory()->count(26)->create(['role' => 'lecturer', 'university_id' => $university->id, 'department_id' => $department->id]);
+        foreach($lecturers as $lecturer)\App\Models\UserInstitutionAffiliation::create(['user_id'=>$lecturer->id,'university_id'=>$university->id,'department_id'=>$department->id,'faculty_id'=>$faculty->id,'affiliation_type'=>'lecturer','status'=>'verified','verified_at'=>now()]);
         User::factory()->create(['role' => 'lecturer', 'first_name' => 'Foreign', 'university_id' => $foreign->faculty->university_id]);
         FeatureAccessService::setStatus('research_institutional_expansion', 'enabled', $user->id);
 

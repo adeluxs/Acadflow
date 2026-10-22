@@ -19,7 +19,7 @@ class UserPolicy
         }
 
         if ($user->isDepartmentAdmin()) {
-            return $targetUser->department_id === $user->department_id;
+            return $targetUser->institutionAffiliations()->approved()->where('department_id',$user->department_id)->exists();
         }
 
         return $user->hasPermission(Permission::VIEW_ALL_USERS);

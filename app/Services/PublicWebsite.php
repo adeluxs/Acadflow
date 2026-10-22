@@ -49,7 +49,7 @@ class PublicWebsite
 
     public static function faqs(): array
     {
-        return [
+        return array_merge((array) config('help_guides', []), [
             ['topic' => 'Getting started', 'question' => 'Who can use AcadSyntra?', 'answer' => 'Students, lecturers, researchers, independent members and institution administrators use different parts of AcadSyntra. Onboarding helps connect your account to the relevant academic context; some roles and institution access require approval.'],
             ['topic' => 'Getting started', 'question' => 'Do I need to belong to an institution?', 'answer' => 'Independent members can use the research and knowledge workflows available to their account. Institution-specific courses, records and administration require the appropriate membership and permissions.'],
             ['topic' => 'Getting started', 'question' => 'What happens after I register?', 'answer' => 'You may be asked to verify your email, depending on the platform setting. Complete onboarding, choose your academic context and continue to your dashboard. An administrator may need to approve institutional access.'],
@@ -62,7 +62,7 @@ class PublicWebsite
             ['topic' => 'Privacy & support', 'question' => 'Can I use AcadSyntra on my phone?', 'answer' => 'The web application supports responsive layouts. Installation and offline features depend on whether the PWA module is enabled. Some workflows still require a connection; offline access is not a guarantee that every action will work without internet.'],
             ['topic' => 'Privacy & support', 'question' => 'How do browser notifications work?', 'answer' => 'Where push is enabled, sign in and open Notification Preferences to enable your browser. You choose whether to grant permission and can turn notifications off there or in browser settings. Email and in-app delivery have their own preferences.'],
             ['topic' => 'Privacy & support', 'question' => 'How can I contact the platform team?', 'answer' => 'Use the contact form for account questions, institution enquiries or privacy requests. Messages go to a restricted platform inbox. Do not include passwords, payment-card details or confidential student or research records.'],
-        ];
+        ]);
     }
 
     public static function pages(): array

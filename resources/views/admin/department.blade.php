@@ -1,38 +1,16 @@
 @extends('layouts.app')
-
-@section('title', 'Department Dashboard')
-
+@section('title','Department administration')
+@section('page-title','Department administration')
+@push('styles')
+<style>.department-admin select,.department-admin input:not([type=checkbox]),.department-admin textarea{padding:10px 12px;border:1px solid #cbd5e1;border-radius:12px;background:white}.department-admin .acad-secondary-button{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border:1px solid #dce1ed;border-radius:12px;background:#f8fafc;font-size:14px}.department-admin summary{cursor:pointer}.department-admin summary:focus-visible{outline:3px solid #a5b4fc;outline-offset:4px}</style>
+@endpush
 @section('content')
-<div class="container mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold mb-6">Department Dashboard</h1>
-
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow p-6">
-            <div class="text-gray-500 text-sm">Total Students</div>
-            <div class="text-3xl font-bold">{{ $stats['total_students'] }}</div>
-        </div>
-        <div class="bg-white rounded-lg shadow p-6">
-            <div class="text-gray-500 text-sm">Total Lecturers</div>
-            <div class="text-3xl font-bold">{{ $stats['total_lecturers'] }}</div>
-        </div>
-        <div class="bg-white rounded-lg shadow p-6">
-            <div class="text-gray-500 text-sm">Total Courses</div>
-            <div class="text-3xl font-bold">{{ $stats['total_courses'] }}</div>
-        </div>
-    </div>
-
-    <!-- Quick Links -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-bold mb-4">Quick Links</h2>
-            <div class="space-y-2">
-                <a href="{{ route('admin.courses') }}" class="block p-3 bg-gray-50 rounded hover:bg-gray-100">Manage Courses</a>
-                <a href="" class="block p-3 bg-gray-50 rounded hover:bg-gray-100">Manage Users</a>
-                <a href="{{ route('admin.billing') }}" class="block p-3 bg-gray-50 rounded hover:bg-gray-100">Billing</a>
-                <a href="{{ route('admin.reports') }}" class="block p-3 bg-gray-50 rounded hover:bg-gray-100">Reports</a>
-            </div>
-        </div>
-    </div>
+<div class="department-admin mx-auto max-w-6xl space-y-6">
+    <header><p class="text-sm font-semibold text-indigo-600">Department administration</p><h1 class="mt-2 text-3xl font-bold">{{ $department->name }}</h1><p class="mt-2 text-slate-500">{{ $department->faculty->university->name }} · {{ $department->faculty->name }} · {{ ucfirst(str_replace('_',' ',$department->adoption_status)) }}</p><p class="mt-3 text-sm text-slate-500">Your academic institution identity is separate from platform adoption. Affiliation requires both parties' approval; personal research stays owned by its authors.</p></header>
+    @if($errors->any())<div role="alert" class="rounded-xl bg-rose-50 p-4 text-rose-800">{{ $errors->first() }}</div>@endif
+    <section class="grid gap-4 sm:grid-cols-3">@foreach(['total_students'=>'Approved students','total_lecturers'=>'Approved lecturers','total_courses'=>'Courses'] as $key=>$label)<article class="acad-card p-5"><h2 class="text-sm text-slate-500">{{ $label }}</h2><p class="mt-2 text-3xl font-bold">{{ $stats[$key] }}</p></article>@endforeach</section>
+    <section class="acad-card p-6"><h2 class="text-xl font-bold">Manage your department</h2><div class="mt-4 flex flex-wrap gap-3"><a class="acad-primary-button" href="{{ route('academic.organisations') }}">Members, invitations & affiliation</a><a class="acad-secondary-button" href="{{ route('admin.institution-access.index') }}">Review {{ $pending }} membership requests</a><a class="acad-secondary-button" href="{{ route('admin.courses') }}">Courses & academic activities</a><a class="acad-secondary-button" href="{{ route('admin.users') }}">Manage users</a><a class="acad-secondary-button" href="{{ route('institution.commercial-account') }}">Department commercial account</a><a class="acad-secondary-button" href="{{ route('admin.reports') }}">Academic reports</a><a class="acad-secondary-button" href="{{ route('research.index') }}">Research Studio & supervision</a></div></section>
+    <section class="acad-card p-6"><h2 class="text-xl font-bold">Academic calendar</h2><p class="mt-2 text-sm text-slate-500">{{ $semester?'Current department period: '.$semester->name:'Create a department academic period before assigning lecturers or enrolling students in official courses.' }} Department periods do not change another department's calendar. Previous enrolments and submissions remain attached to their original periods.</p>@if($semester)<form method="POST" action="{{ route('billing.generate-invoices',$semester) }}" class="mt-4">@csrf<button class="acad-secondary-button">Generate approved department semester invoices</button></form>@endif<details class="mt-4"><summary class="cursor-pointer font-semibold">Start a new academic period</summary><form method="POST" action="{{ route('academic.departments.calendar',$department) }}" class="mt-4 grid gap-4 sm:grid-cols-3">@csrf<label class="text-sm font-semibold">Period name<input name="name" required maxlength="100" placeholder="2026/2027 First semester" class="mt-1 w-full rounded-xl border-slate-300"></label><label class="text-sm font-semibold">Start<input name="start_date" type="date" required class="mt-1 w-full rounded-xl border-slate-300"></label><label class="text-sm font-semibold">End<input name="end_date" type="date" required class="mt-1 w-full rounded-xl border-slate-300"></label><button class="acad-primary-button">Create academic period</button></form></details></section>
+    <section class="acad-card p-6"><h2 class="text-xl font-bold">Department modules</h2><p class="mt-2 text-sm text-slate-500">Choose which released modules your department uses. Platform maintenance, disabled features, dependencies and paid entitlements remain authoritative.</p><details class="mt-4"><summary class="font-semibold">Configure department modules</summary><form method="POST" action="{{ route('academic.departments.modules',$department) }}" class="mt-5">@csrf @method('PUT')<div class="grid gap-4 sm:grid-cols-2">@foreach(\App\Services\FeatureAccessService::definitions() as $key=>$definition)<label class="text-sm font-semibold">{{ $definition['title'] }}<select name="modules[{{ $key }}]" class="mt-1 w-full rounded-xl border-slate-300">@foreach(['enabled'=>'Use when available','maintenance'=>'Pause for department','disabled'=>'Disable for department'] as $value=>$label)<option value="{{ $value }}" @selected(data_get($department->adoption_settings,'modules.'.$key,'enabled')===$value)>{{ $label }}</option>@endforeach</select></label>@endforeach</div><button class="mt-5 acad-primary-button">Save module preferences</button></form></details></section>
 </div>
 @endsection

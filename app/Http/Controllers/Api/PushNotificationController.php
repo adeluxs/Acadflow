@@ -11,6 +11,30 @@ use Illuminate\Support\Facades\Auth;
 
 class PushNotificationController extends Controller
 {
+    public function permission(Request $request): JsonResponse
+    {
+        $data = $request->validate(['permission' => ['required', 'in:default,granted,denied,unsupported'], 'snooze' => ['sometimes', 'boolean']]);
+        $settings = \App\Models\NotificationSetting::firstOrCreate(['user_id' => $request->user()->id]);
+        $changed = $settings->push_permission !== $data['permission'];
+        $settings->update(['push_permission' => $data['permission'], 'push_prompt_snoozed_until' => now()->addDays($request->boolean('snooze') ? 7 : ($data['permission'] === 'denied' ? 30 : 1))]);
+        if ($changed || $request->boolean('snooze')) app(\App\Services\NotificationTrackingService::class)->record($data['permission'] === 'denied' ? 'push_declined' : ($request->boolean('snooze') ? 'push_snoozed' : 'push_permission'), $request->user(), metadata: ['reason' => $data['permission']]);
+
+        return response()->json(['saved' => true]);
+    }
+
+    public function renewContext(Request $request): JsonResponse
+    {
+        return response()->json(['csrf_token' => csrf_token(), 'available' => $this->pushService->availableFor($request->user()), 'publicKey' => $this->pushService->availableFor($request->user()) ? $this->pushService->getVapidPublicKey() : null])->header('Cache-Control', 'private, no-store');
+    }
+
+    public function removeDevice(Request $request, PushSubscription $subscription)
+    {
+        abort_unless((int) $subscription->user_id === (int) $request->user()->id, 403);
+        $this->pushService->unsubscribe($request->user(), $subscription->endpoint);
+
+        return back()->with('success', 'Device subscription removed. Its browser can reconnect only when you enable it again.');
+    }
+
     public function __construct(
         private PushNotificationService $pushService
     ) {}
@@ -100,7 +124,7 @@ class PushNotificationController extends Controller
     public function vapidPublicKey(Request $request): JsonResponse
     {
         $available = $this->pushService->availableFor($request->user());
-        return response()->json(['available' => $available, 'configured' => app(\App\Services\WebPushConfiguration::class)->isConfigured(), 'publicKey' => $available ? $this->pushService->getVapidPublicKey() : null]);
+        return response()->json(['available' => $available, 'configured' => app(\App\Services\WebPushConfiguration::class)->isConfigured(), 'publicKey' => $available ? $this->pushService->getVapidPublicKey() : null])->header('Cache-Control', 'private, no-store');
     }
 
     /**

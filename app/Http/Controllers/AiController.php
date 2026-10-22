@@ -59,6 +59,7 @@ class AiController extends Controller
     protected function authorizeAi(Permission $permission): void
     {
         if (! auth()->user()?->hasPermission($permission)) abort(403);
+        if ($permission===Permission::MANAGE_AI_SETTINGS && auth()->user()->isDepartmentAdmin()) abort(403,'Use Department Modules to manage your department. Institution AI provider settings require institution authority.');
     }
 
     public function assistant(Request $request)

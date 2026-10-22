@@ -45,6 +45,7 @@ class Group extends Model
 
     protected static function booted(): void
     {
+        static::addGlobalScope(new \App\Models\Scopes\AcademicContentBoundary());
         static::creating(function (Group $group) {
             if (empty($group->uuid)) {
                 $group->uuid = Str::uuid()->toString();

@@ -30,20 +30,14 @@ class EntitlementService
         $granted = FeatureEntitlement::query()
             ->where('user_id', $user->id)
             ->where('feature', $feature)
+            ->where('access_type', '!=', 'institution_sponsored')
             ->where('status', 'active')
             ->where(fn ($query) => $query->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->exists();
         if ($granted) return true;
 
-        // Institutions can sponsor fixed paid feature access for verified members.
-        if ($user->university_id && $this->institutionAdoption->canReceiveInstitutionBenefits($user)) {
-            $commercial = CommercialAccount::query()
-                ->where('university_id', $user->university_id)
-                ->where('status', 'active')
-                ->first();
-            if ($commercial?->sponsorsFeature($feature)) return true;
-        }
+        if (app(AcademicSponsorshipService::class)->account($user, $feature)) return true;
 
         return false;
     }

@@ -12,8 +12,9 @@
 <body class="auth-experience min-h-screen bg-slate-950 text-slate-900 antialiased">
 @include('partials.global-loader')
 <a href="#auth-main" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-4">Skip to account form</a>
+@php($isRegistration = request()->routeIs('register'))
 <div class="min-h-screen lg:grid lg:grid-cols-[1.05fr_.95fr]">
-    <section class="relative hidden overflow-hidden lg:flex lg:min-h-screen lg:flex-col lg:justify-between bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-950 px-12 py-10 text-white">
+    <section class="relative hidden overflow-hidden lg:flex lg:min-h-screen lg:flex-col {{ $isRegistration ? 'lg:justify-start lg:gap-10' : 'lg:justify-between' }} bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-950 px-12 py-10 text-white">
         <div class="absolute inset-0 opacity-20" aria-hidden="true">
             <div class="absolute -left-24 top-20 h-80 w-80 rounded-full bg-cyan-300 blur-3xl"></div>
             <div class="absolute bottom-10 right-0 h-96 w-96 rounded-full bg-violet-400 blur-3xl"></div>
@@ -48,12 +49,12 @@
             </div>
         </div>
 
-        <p class="relative text-sm text-blue-200">For students, lecturers, researchers, institutions, publishers and independent professionals.</p>
+        <p class="relative text-sm text-blue-200 {{ $isRegistration ? 'lg:mt-auto' : '' }}">For students, lecturers, researchers, institutions, publishers and independent professionals.</p>
     </section>
 
     <main id="auth-main" class="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 sm:px-8">
         <div class="w-full max-w-xl">
-            <a href="{{ route('home') }}" class="mb-8 inline-flex items-center gap-3 lg:hidden">
+            <a href="{{ route('home') }}" class="{{ $isRegistration ? 'mb-5' : 'mb-8' }} inline-flex items-center gap-3 lg:hidden">
                 <span class="grid h-11 w-11 place-items-center rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-200"><img src="{{ asset('branding/acadsyntra-mark.svg') }}" alt="" class="h-full w-full object-contain"></span>
                 <span class="text-xl font-bold text-slate-950">{{ $siteName }}</span>
             </a>

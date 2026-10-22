@@ -17,6 +17,7 @@ class Notification extends Model
         'message',
         'data',
         'read_at',
+        'event_key', 'category', 'priority', 'in_app_visible', 'university_id', 'department_id', 'clicked_at',
     ];
 
     protected function casts(): array
@@ -25,6 +26,7 @@ class Notification extends Model
             'data' => 'array',
             'read_at' => 'datetime',
             'created_at' => 'datetime',
+            'clicked_at' => 'datetime', 'in_app_visible' => 'boolean',
         ];
     }
 

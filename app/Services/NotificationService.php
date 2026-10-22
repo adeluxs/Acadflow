@@ -5,213 +5,95 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\NotificationType;
-use App\Models\Enrollment;
+use App\Jobs\DeliverNotification;
 use App\Models\Notification;
+use App\Models\NotificationEventTemplate;
 use App\Models\NotificationLog;
 use App\Models\NotificationSetting;
+use App\Models\PushSubscription;
 use App\Models\User;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class NotificationService
 {
-    public function __construct(
-        private ?PushNotificationService $pushService = null
-    ) {}
+    public function __construct(private ?PushNotificationService $pushService = null) {}
 
-    /**
-     * Send notification to a user via all enabled channels
-     */
-    public function send(User $user, NotificationType $type, string $title, string $message, array $data = []): void
+    public function send(User $user, NotificationType|string $type, string $title, string $message, array $data = []): void
     {
-        // Runtime release control is authoritative. Channel settings below only
-        // configure how Notifications behaves when the module itself is enabled.
-        if (FeatureAccessService::effectiveStatus('notifications', $user->university_id) !== FeatureAccessService::STATUS_ENABLED) {
-            return;
+        $this->publish($user, $type, $title, $message, $data);
+    }
+
+    public function publish(User $user, NotificationType|string $type, string $title, string $message, array $data = []): ?Notification
+    {
+        if (! array_key_exists('is_active', $user->getAttributes())) {
+            $user = User::withoutGlobalScopes()->find($user->id);
+            if (! $user) return null;
         }
+        $type = $type instanceof NotificationType ? $type->value : $type;
+        if (! $user->is_active || FeatureAccessService::effectiveStatus('notifications', $user->university_id) !== FeatureAccessService::STATUS_ENABLED) return null;
+        $preferences = app(NotificationPreferences::class);
+        $settings = $preferences->settings($user);
+        $category = $preferences->category($type);
+        if (! $preferences->allows($settings, $type, $category)) return null;
+        $template = NotificationEventTemplate::where('event_type', $type)->first();
+        if ($template && ! $template->enabled) return null;
+        if ($template) {
+            // Deliberately limited placeholders. Never evaluate Blade or PHP
+            // supplied by an administrator in notification templates.
+            $values = ['{first_name}' => $user->first_name, '{stage}' => (string) ($data['stage'] ?? 'setup'), '{title}' => $title];
+            $title = strtr($template->title, $values);
+            $message = strtr($template->message, $values);
+        }
+        if (empty($data['url']) && ! empty($data['route']) && \Illuminate\Support\Facades\Route::has($data['route'])) {
+            try { $data['url'] = route($data['route']); } catch (\Throwable) { /* Use notification centre for incomplete route parameters. */ }
+        }
+        $data['url'] = $preferences->safeUrl($data['url'] ?? null);
+        $eventKey = hash('sha256', $user->id.':'.$type.':'.($data['event_key'] ?? json_encode([$title, $message, $data], JSON_THROW_ON_ERROR)));
 
-        // Check global channel toggles
-        $globalInAppEnabled = $this->isGlobalChannelEnabled('in_app', $user->university_id);
-        $globalPushEnabled = $this->isGlobalChannelEnabled('push', $user->university_id);
-        $globalEmailEnabled = $this->isGlobalChannelEnabled('email', $user->university_id);
-
-        $settings = $this->getSettings($user);
-        $preference = match ($type) {
-            NotificationType::GRADE_POSTED, NotificationType::FEEDBACK_POSTED => 'grade_notifications',
-            NotificationType::PAYMENT_RECEIVED, NotificationType::PAYMENT_OVERDUE => 'billing_notifications',
-            NotificationType::ATTENDANCE_STARTED, NotificationType::ATTENDANCE_CLOSED => 'attendance_notifications',
-            NotificationType::SUBMISSION_RECEIVED, NotificationType::SUBMISSION_CONFIRMATION, NotificationType::CORRECTION_REQUESTED, NotificationType::APPROVAL_GRANTED, NotificationType::OVERDUE_SUBMISSION => 'submission_notifications',
-            default => null,
-        };
-        if ($preference && $settings && ! $settings->{$preference}) return;
-
-        $data['notification_id'] ??= (string) Str::uuid();
-        $notification = null;
-
-        // Create in-app notification (unless globally disabled)
-        if ($globalInAppEnabled) {
-            $notification = $user->notifications()->create([
-                'uuid' => Str::uuid(),
-                'type' => $type->value,
-                'title' => $title,
-                'message' => $message,
-                'data' => $data,
+        return DB::transaction(function () use ($user, $type, $title, $message, $data, $category, $settings, $template, $eventKey): Notification {
+            $notification = Notification::firstOrCreate(['event_key' => $eventKey], [
+                'uuid' => (string) Str::uuid(), 'user_id' => $user->id, 'type' => $type,
+                'title' => mb_substr($title, 0, 255), 'message' => $message, 'data' => $data,
+                'category' => $category, 'priority' => in_array($data['priority'] ?? null, ['low', 'normal', 'high'], true) ? $data['priority'] : (in_array($type, ['overdue_submission', 'deadline_approaching', 'notification_delivery_alert', 'academic_membership_requested'], true) ? 'high' : 'normal'),
+                'university_id' => $data['university_id'] ?? $user->university_id, 'department_id' => $data['department_id'] ?? $user->department_id,
+                'in_app_visible' => (bool) ($settings?->in_app_enabled ?? true) && (bool) SettingService::get('in_app_notifications_enabled', true, $user->university_id),
             ]);
-
-            // Log database delivery
-            $this->logDeliveryAttempt($notification, $user, 'database', 'success');
-        }
-
-        $settings = $this->getSettings($user);
-
-        // Try push notification first
-        $pushSent = false;
-        if ($globalPushEnabled && ($settings?->push_enabled ?? true) && $this->pushService) {
-            $pushSent = $this->sendPushNotification($user, $title, $message, $data, $notification);
-        }
-
-        // Email: send if enabled, OR as fallback if push failed
-        if ($globalEmailEnabled && ($settings?->email_enabled ?? true)) {
-            if ($this->shouldSendEmail($type, $settings) || !$pushSent) {
-                $this->sendEmailNotification($user, $type, $title, $message, $data, $notification);
+            if (! $notification->wasRecentlyCreated) return $notification;
+            $tracker = app(NotificationTrackingService::class);
+            $tracker->record('created', $user, $notification, metadata: ['stage' => $data['stage'] ?? null], key: 'created:'.$notification->uuid);
+            if ($notification->in_app_visible) {
+                $database = NotificationLog::create(['uuid' => (string) Str::uuid(), 'delivery_key' => hash('sha256', $notification->uuid.':database'), 'notification_id' => $notification->id, 'user_id' => $user->id, 'channel' => 'database', 'status' => 'delivered', 'accepted_at' => now(), 'delivered_at' => now(), 'attempted_at' => now(), 'attempt_count' => 1, 'latency_ms' => 0]);
+                $tracker->record('delivered', $user, $notification, $database, key: 'delivered:'.$database->uuid);
             }
-        }
-    }
-
-    /**
-     * Send push notification
-     */
-    protected function sendPushNotification(User $user, string $title, string $message, array $data, $notification): bool
-    {
-        try {
-            $result = $this->pushService->send($user, $title, $message, $data);
-            $count = $result ? 1 : 0;
-
-            if ($notification) {
-                $this->logDeliveryAttempt($notification, $user, 'push', $count > 0 ? 'success' : 'failed');
+            $channels = $template?->channels ?? ['email', 'push'];
+            if (in_array('email', $channels, true) && ($settings?->email_enabled ?? true) && ! $settings?->email_suppressed_at && $user->email_verified_at && SettingService::get('email_notifications_enabled', true, $user->university_id)) {
+                $this->queueDelivery($notification, $user, 'email');
+            }
+            if (in_array('push', $channels, true) && ($settings?->push_enabled ?? true) && app(PushNotificationService::class)->availableFor($user)) {
+                PushSubscription::where('user_id', $user->id)->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->select('id')->chunkById(100, function ($subscriptions) use ($notification, $user): void {
+                    foreach ($subscriptions as $subscription) $this->queueDelivery($notification, $user, 'push', $subscription->id);
+                });
             }
 
-            return $count > 0;
-        } catch (\Exception $e) {
-            if ($notification) {
-                $this->logDeliveryAttempt($notification, $user, 'push', 'failed', $e->getMessage());
-            }
-            return false;
-        }
+            return $notification;
+        }, 3);
     }
 
-    /**
-     * Send email notification with template
-     */
-    protected function sendEmailNotification(User $user, NotificationType $type, string $title, string $message, array $data, $notification): void
+    private function queueDelivery(Notification $notification, User $user, string $channel, ?int $subscriptionId = null): void
     {
-        try {
-            $template = $this->getEmailTemplate($type, $data);
-
-            Mail::raw($template['body'], function ($mail) use ($user, $template, $title) {
-                $mail->to($user->email)
-                    ->subject($template['subject'] ?? $title);
-            });
-
-            if ($notification) {
-                $this->logDeliveryAttempt($notification, $user, 'email', 'success');
-            }
-        } catch (\Exception $e) {
-            if ($notification) {
-                $this->logDeliveryAttempt($notification, $user, 'email', 'failed', $e->getMessage());
-            }
-        }
+        $delivery = NotificationLog::firstOrCreate(['delivery_key' => hash('sha256', $notification->uuid.':'.$channel.':'.($subscriptionId ?? 0))], [
+            'uuid' => (string) Str::uuid(), 'notification_id' => $notification->id, 'user_id' => $user->id, 'channel' => $channel, 'push_subscription_id' => $subscriptionId,
+            'status' => 'queued', 'queued_at' => now(), 'next_attempt_at' => now(), 'attempt_count' => 0,
+        ]);
+        if (! $delivery->wasRecentlyCreated) return;
+        app(NotificationTrackingService::class)->record('queued', $user, $notification, $delivery, key: 'queued:'.$delivery->uuid);
+        DeliverNotification::dispatch($delivery->id)->afterCommit();
     }
 
-    /**
-     * Check if a channel is globally enabled (admin-controlled)
-     */
-    protected function isGlobalChannelEnabled(string $channel, ?int $universityId): bool
-    {
-        $key = match ($channel) {
-            'in_app' => 'in_app_notifications_enabled',
-            'push' => 'push_notifications_enabled',
-            'email' => 'email_notifications_enabled',
-            default => null,
-        };
-
-        if ($channel === 'push' && FeatureAccessService::effectiveStatus('push_notifications', $universityId) !== FeatureAccessService::STATUS_ENABLED) {
-            return false;
-        }
-
-        return $key ? (bool) SettingService::get($key, true, $universityId) : true;
-    }
-
-    /**
-     * Log a delivery attempt to notification_logs
-     */
-    protected function logDeliveryAttempt($notification, User $user, string $channel, string $status, ?string $error = null): void
-    {
-        if (! $notification) {
-            return;
-        }
-
-        try {
-            NotificationLog::create([
-                'notification_id' => $notification->id,
-                'user_id' => $user->id,
-                'channel' => $channel,
-                'status' => $status,
-                'error_message' => $error,
-                'attempted_at' => now(),
-                'attempt_count' => 1,
-            ]);
-        } catch (\Exception $e) {
-            Log::warning('Failed to log notification delivery', [
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    /**
-     * Get user's notification settings
-     */
-    protected function getSettings(User $user): ?NotificationSetting
-    {
-        return NotificationSetting::where('user_id', $user->id)->first();
-    }
-
-    /**
-     * Check if should send email for this notification type
-     */
+    // Retained for callers checking the original event-specific preference API.
     protected function shouldSendEmail(NotificationType $type, ?NotificationSetting $settings): bool
     {
-        return match($type) {
-            NotificationType::MATERIAL_UPLOADED => $settings?->notify_on_material_upload ?? true,
-            NotificationType::ASSIGNMENT_CREATED => $settings?->notify_on_assignment ?? true,
-            NotificationType::NEW_DISCUSSION => $settings?->notify_on_discussion ?? true,
-            NotificationType::SUBMISSION_CONFIRMATION => $settings?->notify_on_submission ?? true,
-            NotificationType::SYSTEM_ANNOUNCEMENT => $settings?->notify_on_announcement ?? true,
-            default => true,
-        };
-    }
-
-    /**
-     * Get email template for notification type
-     */
-    protected function getEmailTemplate(NotificationType $type, array $data): array
-    {
-        return match($type) {
-            NotificationType::MATERIAL_UPLOADED => [
-                'subject' => 'New Material Uploaded',
-                'body' => "New materials have been uploaded to your course.\n\n" .
-                    ($data['course_name'] ?? 'Course'),
-            ],
-            NotificationType::ASSIGNMENT_CREATED => [
-                'subject' => 'New Assignment',
-                'body' => "A new assignment has been created.\n\n" .
-                    ($data['task_title'] ?? 'Assignment'),
-            ],
-            default => [
-                'subject' => 'Notification',
-                'body' => $data['message'] ?? 'You have a new notification.',
-            ],
-        };
+        return $settings?->email_enabled ?? true;
     }
 }

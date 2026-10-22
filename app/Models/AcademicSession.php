@@ -12,6 +12,7 @@ class AcademicSession extends Model
 {
     use HasFactory;
     protected $fillable = [
+        'department_id',
         'uuid',
         'university_id',
         'name',
@@ -23,6 +24,7 @@ class AcademicSession extends Model
 
     protected static function booted(): void
     {
+        static::saving(fn(self $session)=>$session->scope_key=$session->university_id.':'.($session->department_id?:0).':'.$session->name);
         static::creating(function (self $model): void {
             if (empty($model->uuid)) $model->uuid = (string) Str::uuid();
         });

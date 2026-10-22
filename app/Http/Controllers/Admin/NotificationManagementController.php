@@ -59,7 +59,7 @@ class NotificationManagementController extends Controller
     public function updateChannels(Request $request)
     {
         $user = $request->user();
-        abort_unless($user->isAdmin(), 403);
+        abort_unless($user->isSuperAdmin() || $user->isUniversityAdmin(), 403);
 
         $validated = $request->validate([
             'email_notifications_enabled' => 'required|boolean',
@@ -125,7 +125,7 @@ class NotificationManagementController extends Controller
         if ($recipientCount === 0) return back()->with('error', 'No recipients match the criteria.');
 
         // Queue bounded batches instead of serializing every recipient into one giant event/job.
-        $query->select(['id', 'first_name', 'last_name', 'email', 'university_id', 'department_id'])
+        $query->select(User::notificationRecipientColumns())
             ->chunkById(250, function ($recipients) use ($validated, $user): void {
                 event(new SystemAnnouncementBroadcast($validated['title'], $validated['message'], $recipients, $user));
             });
@@ -141,27 +141,24 @@ class NotificationManagementController extends Controller
 
         $query = $this->scopeLogs(NotificationLog::query(), $user)
             ->where('status', 'failed')
-            ->where('channel', 'push')
+            ->whereIn('channel', ['push','email'])->whereNotNull('delivery_key')->whereNull('accepted_at')
             ->where('attempt_count', '<', 3)
             ->with(['notification.user']);
 
-        $pushService = app(PushNotificationService::class);
         $attempted = 0;
         $retried = 0;
-        $query->chunkById(100, function ($failed) use ($pushService, &$attempted, &$retried): void {
+        $query->chunkById(100, function ($failed) use (&$attempted, &$retried): void {
             foreach ($failed as $log) {
                 $notification = $log->notification;
                 if (! $notification?->user) continue;
 
                 $attempted++;
-                $success = $pushService->send($notification->user, $notification->title, $notification->message, $notification->data ?? []);
-                $log->increment('attempt_count');
-                $log->update(['status' => $success > 0 ? 'success' : 'failed', 'attempted_at' => now()]);
-                if ($success > 0) $retried++;
+                $queued = NotificationLog::whereKey($log->id)->where('status','failed')->whereNull('accepted_at')->update(['status'=>'queued','next_attempt_at'=>now()]);
+                if ($queued) { \App\Jobs\DeliverNotification::dispatch($log->id)->afterCommit(); $retried++; }
             }
         });
 
-        return back()->with('success', "Retried {$attempted} failed notifications. {$retried} succeeded.");
+        return back()->with('success', "Reviewed {$attempted} failed notifications. {$retried} eligible deliveries queued for retry.");
     }
 
     private function scopeUsers(Builder $query, User $user): Builder

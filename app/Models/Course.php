@@ -36,6 +36,7 @@ class Course extends Model
 
     protected static function booted(): void
     {
+        static::addGlobalScope(new \App\Models\Scopes\AcademicOrganisationBoundary());
         static::creating(function (self $course) {
             if (empty($course->uuid)) {
                 $course->uuid = (string) Str::uuid();

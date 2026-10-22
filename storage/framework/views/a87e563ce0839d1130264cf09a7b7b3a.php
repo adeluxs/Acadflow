@@ -24,6 +24,7 @@
         </div>
     </div>
 
+    <nav class="mb-5 flex flex-wrap gap-2" aria-label="Notification categories"><a href="<?php echo e(route('notifications.index')); ?>" class="acad-secondary-button">All updates</a><?php $__currentLoopData = config('notification_delivery.categories'); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $key=>$label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><a href="<?php echo e(route('notifications.index',['category'=>$key])); ?>" class="acad-secondary-button" <?php if(request('category')===$key): ?> aria-current="page" <?php endif; ?>><?php echo e($label); ?></a><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></nav>
     <!-- Sidebar filters -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div class="md:col-span-1">
@@ -34,7 +35,7 @@
                         <a href="<?php echo e(route('notifications.index')); ?>" 
                            class="flex justify-between <?php echo e(!request()->has('filter') && !request()->has('type') ? 'font-bold text-indigo-600' : 'text-gray-600'); ?>">
                             All
-                             <span class="text-gray-400"><?php echo e($typeCounts->count() ?? $notifications->total()); ?></span>
+                             <span class="text-gray-400"><?php echo e($typeCounts->sum('count')); ?></span>
                         </a>
                     </li>
                     <li>
@@ -76,20 +77,19 @@
         <div class="md:col-span-3">
             <?php if($notifications->count() > 0): ?>
                 <div class="space-y-3">
-                    <?php $__currentLoopData = $notifications; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $notification): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <?php $__currentLoopData = $notifications->getCollection()->groupBy('category'); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $category=>$items): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <section class="space-y-3"><h2 class="text-sm font-bold text-slate-600"><?php echo e(config('notification_delivery.categories.'.$category,ucfirst($category))); ?></h2>
+                    <?php $__currentLoopData = $items; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $notification): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                         <div class="bg-white rounded-lg shadow p-4 <?php echo e(is_null($notification->read_at) ? 'border-l-4 border-blue-500' : ''); ?>">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
                                     <h4 class="font-semibold <?php echo e(is_null($notification->read_at) ? 'text-gray-900' : 'text-gray-700'); ?>">
-                                        <?php echo e($notification->title); ?>
-
+                                        <?php echo e($notification->title); ?> <?php if($notification->priority==='high'): ?><span class="ml-2 rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">Priority</span><?php endif; ?>
                                     </h4>
                                     <p class="text-gray-600 text-sm mt-1"><?php echo e($notification->message); ?></p>
                                     <div class="flex items-center gap-2 mt-2 text-xs text-gray-500">
                                         <span><?php echo e($notification->created_at?->format('M d, Y H:i') ?? '-'); ?></span>
-                                        <?php if($notification->user): ?>
-                                            <span>• <?php echo e($notification->user->full_name); ?></span>
-                                        <?php endif; ?>
+                                        <a href="<?php echo e(route('notifications.open',$notification)); ?>" class="font-semibold text-indigo-600">Open update →</a>
                                     </div>
                                 </div>
                                 <div class="flex gap-2">
@@ -109,6 +109,8 @@
                                 </div>
                             </div>
                         </div>
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                    </section>
                     <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                 </div>
                 <div class="mt-6">

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Services\Discovery\SearchIndexService;
+use App\Models\KnowledgePublication;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -24,6 +25,11 @@ class IndexSearchableContent implements ShouldQueue
     public function handle(SearchIndexService $index): void
     {
         $model = $this->modelClass::query()->find($this->modelId);
+        if ($model instanceof KnowledgePublication && ! $model->isPublished()) {
+            $index->remove($model);
+
+            return;
+        }
         if ($model) {
             $index->index($model);
         }

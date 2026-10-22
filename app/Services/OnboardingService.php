@@ -50,11 +50,13 @@ class OnboardingService
         'other' => 'Other academic participant',
     ];
 
-    // These paths represent an institution itself and therefore require an
-    // institutional affiliation. Students, lecturers and researchers may use
-    // AcadSyntra independently and can attach an institution later.
+    public const ADOPTION_ACCOUNT_PATHS = [
+        'department_representative' => 'Register My Department',
+        'university_representative' => 'Register My Institution',
+    ];
+
+    // Representatives may request missing directory records after account setup.
     public const INSTITUTIONAL_PATHS = [
-        'university_representative', 'department_representative',
         'academic_staff', 'non_academic_staff',
     ];
 
@@ -116,8 +118,8 @@ class OnboardingService
     {
         $validated = Validator::make($data, [
             'university_id' => [Rule::requiredIf(in_array($path, self::INSTITUTIONAL_PATHS, true)), 'nullable', 'integer', 'exists:universities,id'],
-            'faculty_id' => [Rule::requiredIf($path === 'department_representative'), 'nullable', 'integer', 'exists:faculties,id'],
-            'department_id' => [Rule::requiredIf($path === 'department_representative'), 'nullable', 'integer', 'exists:departments,id'],
+            'faculty_id' => ['nullable', 'integer', 'exists:faculties,id'],
+            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
         ])->validate();
 
         if (! empty($validated['faculty_id'])) {
@@ -145,8 +147,8 @@ class OnboardingService
             'last_name' => ['required', 'string', 'max:100'],
             'username' => ['required', 'alpha_dash', 'min:3', 'max:60', Rule::unique('users', 'username')->ignore($user->id)],
             'university_id' => [Rule::requiredIf(in_array($state->path, self::INSTITUTIONAL_PATHS, true)), 'nullable', 'integer', 'exists:universities,id'],
-            'faculty_id' => [Rule::requiredIf($state->path === 'department_representative'), 'nullable', 'integer', 'exists:faculties,id'],
-            'department_id' => [Rule::requiredIf($state->path === 'department_representative'), 'nullable', 'integer', 'exists:departments,id'],
+            'faculty_id' => ['nullable', 'integer', 'exists:faculties,id'],
+            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
         ])->validate();
         $this->assertAffiliation($data, $state->path);
 
@@ -212,6 +214,7 @@ class OnboardingService
         }
 
         $this->notifications->send($fresh, 'onboarding_completed', 'Welcome to AcadSyntra', 'Your profile and workspace setup are complete.', ['account_type' => $user->account_type]);
+        app(MeaningfulActivityService::class)->onboardingCompleted($fresh);
 
         return $fresh;
     }

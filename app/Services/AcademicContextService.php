@@ -18,7 +18,7 @@ class AcademicContextService
         return Semester::query()
             ->with('academicSession')
             ->where('is_active', true)
-            ->whereHas('academicSession', fn ($query) => $query->where('university_id', $universityId))
+            ->whereHas('academicSession', fn ($query) => $query->where('university_id', $universityId)->whereNull('department_id'))
             ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->first();
@@ -26,6 +26,10 @@ class AcademicContextService
 
     public function activeSemesterForUser(User $user): ?Semester
     {
+        if ($user->department_id && $semester = $this->activeSemesterForDepartment((int) $user->department_id)) {
+            return $semester;
+        }
+
         return $this->activeSemesterForUniversity($user->university_id);
     }
 
@@ -33,7 +37,13 @@ class AcademicContextService
     {
         $course->loadMissing('department.faculty');
 
-        return $this->activeSemesterForUniversity($course->department?->faculty?->university_id);
+        return $this->activeSemesterForDepartment((int) $course->department_id)
+            ?? $this->activeSemesterForUniversity($course->department?->faculty?->university_id);
+    }
+
+    public function activeSemesterForDepartment(int $departmentId): ?Semester
+    {
+        return Semester::with('academicSession')->where('is_active', true)->whereHas('academicSession', fn ($q) => $q->where('department_id', $departmentId))->orderByDesc('start_date')->orderByDesc('id')->first();
     }
 
     public function requireActiveSemesterForUser(User $user): Semester
@@ -53,6 +63,7 @@ class AcademicContextService
         $semester->loadMissing('academicSession');
         $course->loadMissing('department.faculty');
 
-        return (int) $semester->academicSession?->university_id === (int) $course->department?->faculty?->university_id;
+        return (int) $semester->academicSession?->university_id === (int) $course->department?->faculty?->university_id
+            && (! $semester->academicSession?->department_id || (int) $semester->academicSession->department_id === (int) $course->department_id);
     }
 }

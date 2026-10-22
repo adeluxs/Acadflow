@@ -30,7 +30,8 @@ class KnowledgeHubController extends Controller
             abort_unless($publication->isPublished() && $publication->visibility === 'public' && $publication->access_type !== 'institution', 404);
         }
 
-        $publication->load(['document.versions', 'creator.creatorProfile', 'creator.reputationProfile', 'category', 'tags', 'university', 'department', 'sourceResearchProject', 'digitalFiles.mediaAsset', 'moderationReport', 'citationsReceived.citingPublication']);
+        $publication->load(['creator.creatorProfile', 'creator.reputationProfile', 'category', 'tags', 'university', 'department', 'sourceResearchProject', 'digitalFiles.mediaAsset', 'moderationReport']);
+        $publication->loadCount('citationsReceived');
         $discovery->recordView($publication, $user, ['referrer' => $request->headers->get('referer')]);
         if ($user) $recommendations->record($user, $publication, 'view', 1.0);
         $bookmarked = $user ? $publication->bookmarks()->where('user_id', $user->id)->exists() : false;
@@ -38,6 +39,9 @@ class KnowledgeHubController extends Controller
         $hasAccess = $publication->access_type === 'free'
             || ($publication->access_type === 'institution' && $user && $publication->university_id === $user->university_id)
             || ($user && ($publication->creator_id === $user->id || $user->isAdmin() || $user->hasEntitlement($publication)));
+        if ($hasAccess) {
+            $publication->load('document');
+        }
         $comments = $engagement->commentsFor($publication, 30);
         $reactionCounts = \App\Models\EngagementReaction::query()->where('reactable_type',$publication->getMorphClass())->where('reactable_id',$publication->id)->selectRaw('reaction, COUNT(*) as total')->groupBy('reaction')->pluck('total','reaction');
         $related = KnowledgePublication::query()->with(['creator','category'])->where('status','published')->where('id', '!=', $publication->id)->where(function($q)use($publication){$q->where('category_id',$publication->category_id)->orWhere('department_id',$publication->department_id);})->where(function($q)use($user){$q->where('visibility','public');if($user)$q->orWhere(fn($i)=>$i->where('visibility','institution')->where('university_id',$user->university_id));})->limit(6)->get();

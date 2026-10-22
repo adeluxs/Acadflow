@@ -1,0 +1,70 @@
+<!doctype html><meta charset="utf-8"><title>AcadSyntra live walkthrough renderer</title>
+<style>html,body{margin:0;background:#f5f6ff}canvas{display:block;width:100%;height:auto}button{display:none}</style>
+<canvas></canvas><button></button><script src="/launch-engine.js"></script>
+<script>
+const baseSetup=window.setup,baseDrawScene=drawScene,clips=new Map();let live;
+function ensureClip(scene){
+ if(!scene?.clip)return Promise.resolve();
+ if(clips.has(scene.clip.id))return clips.get(scene.clip.id).promise;
+ const entry={frames:null,removed:false};clips.set(scene.clip.id,entry);
+ entry.promise=(async()=>{
+  const frames=[];
+  for(let i=0;i<scene.clip.frames.length;i+=5){
+   const batch=await Promise.all(scene.clip.frames.slice(i,i+5).map(async frame=>({t:frame.t,image:await createImageBitmap(await(await fetch('/'+frame.file)).blob())})));
+   frames.push(...batch);
+  }
+  if(entry.removed){frames.forEach(frame=>frame.image.close());return;}
+  entry.frames=frames;
+ })();return entry.promise;
+}
+function keep(ids){for(const [id,entry]of clips){if(!ids.includes(id)){entry.removed=true;entry.frames?.forEach(frame=>frame.image.close());clips.delete(id);}}}
+function indexAt(time){let start=0;for(let i=0;i<scenes.length;i++){if(time<start+scenes[i].duration)return {index:i,start};start+=scenes[i].duration;}return {index:scenes.length-1,start:start-scenes.at(-1).duration};}
+window.prepareAt=async time=>{
+ const {index}=indexAt(time);const current=scenes[index],next=scenes.slice(index+1).find(scene=>scene.clip);
+ keep([current.clip?.id,next?.clip?.id].filter(Boolean));await ensureClip(current);await ensureClip(next);
+};
+window.setup=async options=>{
+ await baseSetup(options);live=await(await fetch('/interactions.json')).json();
+ const data=live.formats[options.portrait?'portrait':'landscape'];
+ scenes.splice(0,scenes.length,
+  {type:'intro',duration:3,title:'Less watching.\nMore doing.',body:'Meet your next academic workspace.'},
+  ...data.clips.map(clip=>({duration:clip.duration,title:clip.title,label:clip.label,clip})),
+  {type:'cta',duration:7,title:'Your next chapter\nstarts today.',body:'Create your account. Make room for your next idea.'}
+ );
+ if(scenes.reduce((total,scene)=>total+scene.duration,0)!==duration)throw new Error('Interactive timeline must match the 52-second soundtrack.');
+ await window.prepareAt(.01);return {duration,scenes:scenes.map(({clip,...scene})=>({...scene,body:scene.body||'Recorded with real clicks and real application responses.'}))};
+};
+function drawPointer(clip,time,x,y,w,h){
+ const moves=clip.events.filter(event=>event.kind==='move');let before=moves[0],after=moves.at(-1);
+ for(let i=0;i<moves.length;i++){if(moves[i].t<=time)before=moves[i];if(moves[i].t>time){after=moves[i];break;}}
+ if(!before)return;const p=Math.max(0,Math.min(1,(time-before.t)/Math.max(.001,after.t-before.t)));
+ const px=x+(before.x+(after.x-before.x)*p)*w/clip.viewport.width,py=y+(before.y+(after.y-before.y)*p)*h/clip.viewport.height;
+ for(const event of clip.events.filter(event=>event.kind==='click'&&time>=event.t&&time-event.t<.65)){
+  const age=(time-event.t)/.65;ctx.save();ctx.strokeStyle=`rgba(99,75,245,${1-age})`;ctx.lineWidth=portrait?6:4;ctx.beginPath();ctx.arc(x+event.x*w/clip.viewport.width,y+event.y*h/clip.viewport.height,10+age*40,0,Math.PI*2);ctx.stroke();ctx.restore();
+ }
+ ctx.save();ctx.translate(px,py);ctx.shadowColor='#24134b55';ctx.shadowBlur=8;ctx.fillStyle='#5b43ed';ctx.strokeStyle='#fff';ctx.lineWidth=2.5;
+ if(portrait){ctx.beginPath();ctx.arc(0,0,12,0,Math.PI*2);}else{ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,30);ctx.lineTo(8,23);ctx.lineTo(15,38);ctx.lineTo(22,35);ctx.lineTo(14,20);ctx.lineTo(25,19);ctx.closePath();}
+ ctx.fill();ctx.stroke();ctx.restore();
+}
+function film(scene,progress){
+ const clip=scene.clip,frames=clips.get(clip.id)?.frames,time=progress*clip.realDuration;
+ brand(portrait?60:72,portrait?54:30,portrait?56:48);
+ if(portrait){text(scene.label,62,153,21,'#4f46e5',700);lines(scene.title,60,209,65,960,'#111937',800,78);}
+ else{text('LAUNCHING TODAY',1532,47,18,'#4f46e5',700);lines(scene.title,72,110,53,1780,'#111937',800,62);}
+ const x=portrait?102:110,y=portrait?420:195,w=portrait?876:1700,bar=portrait?34:30,uiH=w*clip.viewport.height/clip.viewport.width;
+ ctx.save();ctx.shadowColor='#21154625';ctx.shadowBlur=32;ctx.shadowOffsetY=16;ctx.fillStyle='#fff';rounded(x,y,w,uiH+bar,portrait?26:18);ctx.fill();ctx.restore();
+ ctx.save();rounded(x,y,w,uiH+bar,portrait?26:18);ctx.clip();ctx.fillStyle='#edf0f9';ctx.fillRect(x,y,w,bar);['#eda5af','#ecd090','#95cfb8'].forEach((c,i)=>{ctx.fillStyle=c;ctx.beginPath();ctx.arc(x+18+i*16,y+bar/2,4,0,Math.PI*2);ctx.fill();});
+ text('AcadSyntra · live product demo',x+82,y+8,portrait?17:14,'#64748b',600);
+ if(frames?.length){let frame=frames[0];for(const candidate of frames){if(candidate.t>time)break;frame=candidate;}ctx.drawImage(frame.image,x,y+bar,w,uiH);drawPointer(clip,time,x,y+bar,w,uiH);}
+ ctx.restore();
+ text(portrait?'REAL CLICKS. REAL WORKFLOW.':scene.label,portrait?62:76,portrait?1820:1049,portrait?18:16,'#64748b',700);
+ const total=portrait?956:590,segment=(total-(scenes.length-1)*8)/scenes.length;const left=portrait?62:1250,top=portrait?1870:1054;
+ const index=scenes.indexOf(scene);for(let i=0;i<scenes.length;i++){ctx.fillStyle=i<=index?'#5b43ed':'#dce0ef';rounded(left+i*(segment+8),top,segment*(i===index?Math.max(.04,progress):1),4,2);ctx.fill();}
+}
+window.drawAt=time=>{
+ const {index,start}=indexAt(time),scene=scenes[index],progress=Math.max(0,Math.min(1,(time-start)/scene.duration));
+ if(scene.clip){ensureClip(scene);if(progress>.2)ensureClip(scenes.slice(index+1).find(next=>next.clip));const ids=[scene.clip.id,scenes.slice(index+1).find(next=>next.clip)?.clip.id].filter(Boolean);keep(ids);}
+ background(time);ctx.save();ctx.globalAlpha=Math.min(1,(time-start)/.22,(scene.duration-time+start)/.2);
+ if(scene.clip)film(scene,progress);else{baseDrawScene(scene,progress,time);footer(index,progress);}ctx.restore();
+};
+</script>

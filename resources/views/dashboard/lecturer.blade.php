@@ -16,7 +16,7 @@
 <div class="space-y-5">
     <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         @foreach([
-            ['label'=>'My Courses','value'=>$courses->count(),'sub'=>'Active courses','icon'=>'book','classes'=>'bg-indigo-50 text-indigo-600'],
+            ['label'=>'My Courses','value'=>$courseCount,'sub'=>'Active courses','icon'=>'book','classes'=>'bg-indigo-50 text-indigo-600'],
             ['label'=>'My Students','value'=>$studentCount,'sub'=>'Unique students','icon'=>'users','classes'=>'bg-emerald-50 text-emerald-600'],
             ['label'=>'Pending Reviews','value'=>$pendingReviews,'sub'=>'Submissions','icon'=>'file','classes'=>'bg-orange-50 text-orange-600'],
             ['label'=>'Average Class','value'=>$averageClass !== null ? number_format($averageClass, 1).'%' : '—','sub'=>'Graded work','icon'=>'chart','classes'=>'bg-blue-50 text-blue-600'],
@@ -75,6 +75,7 @@
         @if($featureVisible('courses'))
         <article class="acad-card p-5">
             <div class="flex items-center justify-between"><h2 class="text-sm font-bold">Course Performance</h2><a href="{{ route('lecturer.courses') }}" class="text-xs font-semibold acad-link">View courses</a></div>
+            @if($courseCount > $courses->count())<p class="mt-2 text-xs text-slate-500">Showing {{ $courses->count() }} of {{ $courseCount }} courses. Open View courses for your full list.</p>@endif
             <div class="mt-5 space-y-4">
                 @forelse($coursePerformance as $item)
                 @php($score = $item['average'] ?? 0)

@@ -41,6 +41,8 @@ class PaymentService
 
         return Invoice::query()->create([
             'user_id' => $user->id,
+            'commercial_account_id' => $account->id,
+            'department_id' => $account->department_id ?? $semester->academicSession?->department_id ?? $user->institutionAffiliations()->approved()->where('university_id',$semester->academicSession?->university_id)->value('department_id'),
             'semester_id' => $semester->id,
             'subscription_id' => null,
             'user_subscription_id' => null,
@@ -58,8 +60,9 @@ class PaymentService
         $universityId = $semester->academicSession?->university_id;
         if (! $universityId) return 0;
 
-        $account = CommercialAccount::query()->where('university_id', $universityId)->where('status', 'active')->first();
-        if (! $account || (int) data_get($account->metadata, 'student_semester_fee_minor', 0) <= 0) return 0;
+        $departmentId=$semester->academicSession?->department_id;
+        $account = CommercialAccount::query()->when($departmentId,fn($q)=>$q->where('department_id',$departmentId),fn($q)=>$q->where('university_id',$universityId)->whereNull('department_id'))->where('status', 'active')->first();
+        if (! $account?->isAvailable() || (int) data_get($account->metadata, 'student_semester_fee_minor', 0) <= 0) return 0;
 
         $count = 0;
         $semester->enrollments()

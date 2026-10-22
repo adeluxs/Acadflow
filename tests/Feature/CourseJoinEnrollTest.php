@@ -28,6 +28,7 @@ class CourseJoinEnrollTest extends TestCase
             'department_id' => $ctx['department']->id,
         ]);
 
+        $this->approveProfile($student);
         $this->actingAs($student)
             ->get(route('courses.join.link', $ctx['course']->uuid))
             ->assertOk()
@@ -58,6 +59,7 @@ class CourseJoinEnrollTest extends TestCase
 
         $this->assertTrue($student->fresh()->canAccessCourse($ctx['course']));
 
+        $this->approveProfile($student);
         $this->actingAs($student)
             ->get(route('courses.join.link', $ctx['course']->uuid))
             ->assertOk()
@@ -83,6 +85,7 @@ class CourseJoinEnrollTest extends TestCase
             'enrolled_at' => now(),
         ]);
 
+        $this->approveProfile($student);
         $this->actingAs($student)
             ->post(route('courses.enroll', $ctx['course']))
             ->assertRedirect(route('courses.show', $ctx['course']))
@@ -99,6 +102,7 @@ class CourseJoinEnrollTest extends TestCase
             'department_id' => $ctx['department']->id,
         ]);
 
+        $this->approveProfile($student);
         $this->actingAs($student)
             ->post(route('courses.enroll', $ctx['course']))
             ->assertRedirect(route('courses.show', $ctx['course']))
@@ -147,7 +151,7 @@ class CourseJoinEnrollTest extends TestCase
     {
         $ctx = $this->makeContext();
 
-        $otherDepartment = Department::factory()->create(['faculty_id' => $ctx['faculty']->id]);
+        $otherDepartment = Department::factory()->create(['faculty_id' => $ctx['faculty']->id,'adoption_status'=>'institution_managed']);
         $student = User::factory()->create([
             'role' => 'student',
             'account_type' => 'student',
@@ -156,6 +160,7 @@ class CourseJoinEnrollTest extends TestCase
         ]);
 
         // Default: restrict_course_membership_to_department = true
+        $this->approveProfile($student);
         $this->actingAs($student)
             ->get(route('courses.join.link', $ctx['course']->uuid))
             ->assertRedirect(route('courses.index'))
@@ -164,6 +169,7 @@ class CourseJoinEnrollTest extends TestCase
         // Administrator disables the department restriction.
         SettingService::set('restrict_course_membership_to_department', false, 'boolean', $ctx['university']->id, null);
 
+        $this->approveProfile($student);
         $this->actingAs($student)
             ->get(route('courses.join.link', $ctx['course']->uuid))
             ->assertOk()
@@ -189,11 +195,20 @@ class CourseJoinEnrollTest extends TestCase
     /**
      * @return array<string,\App\Models\Model>
      */
+    private function approveProfile(User $user): void
+    {
+        if (!$user->university_id) return;
+        \App\Models\UserInstitutionAffiliation::firstOrCreate(
+            ['user_id'=>$user->id,'university_id'=>$user->university_id,'department_id'=>$user->department_id,'affiliation_type'=>$user->role],
+            ['faculty_id'=>$user->department?->faculty_id,'status'=>'verified','verified_at'=>now(),'source'=>'test_review']
+        );
+    }
+
     private function makeContext(): array
     {
-        $university = University::factory()->create();
+        $university = University::factory()->create(['adoption_status'=>'active']);
         $faculty = Faculty::factory()->create(['university_id' => $university->id]);
-        $department = Department::factory()->create(['faculty_id' => $faculty->id]);
+        $department = Department::factory()->create(['faculty_id' => $faculty->id,'adoption_status'=>'institution_managed']);
         $session = AcademicSession::factory()->create(['university_id' => $university->id, 'is_current' => true, 'is_active' => true]);
         $semester = Semester::factory()->create([
             'academic_session_id' => $session->id,

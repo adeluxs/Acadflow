@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="AcadSyntra">
     <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
     <title><?php echo $__env->yieldContent('title', 'Set up your workspace'); ?> · <?php echo e($siteName); ?></title>
     <link rel="icon" type="image/png" sizes="192x192" href="<?php echo e(asset('branding/acadsyntra-icon-192.png')); ?>">
     <link rel="apple-touch-icon" sizes="180x180" href="<?php echo e(asset('branding/acadsyntra-icon-180.png')); ?>">
     <?php echo app('Illuminate\Foundation\Vite')(['resources/css/app.css', 'resources/js/app.js']); ?>
+<?php if(auth()->guard()->check()): ?><meta name="push-account-id" content="<?php echo e(auth()->id()); ?>"><meta name="push-config-url" content="<?php echo e(route('browser-push.configuration')); ?>"><meta name="push-worker-url" content="/pushworker.js"><?php endif; ?>
 </head>
 <body class="onboarding-experience min-h-screen bg-slate-50 text-slate-900 antialiased">
 <?php echo $__env->make('partials.global-loader', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
@@ -26,6 +28,7 @@
     <?php if($errors->any()): ?><div class="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert"><p class="font-semibold">Please correct the following:</p><ul class="mt-2 list-disc pl-5"><?php $__currentLoopData = $errors->all(); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $error): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><li><?php echo e($error); ?></li><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></ul></div><?php endif; ?>
     <?php echo $__env->yieldContent('content'); ?>
 </main>
+<?php echo $__env->make('notifications._push-invitation', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
 <?php echo $__env->yieldPushContent('scripts'); ?>
 </body>
 </html>

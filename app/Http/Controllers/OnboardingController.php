@@ -197,6 +197,8 @@ class OnboardingController extends Controller
     {
         $data = $request->validate(['next_action' => ['nullable', Rule::in(['dashboard', 'research', 'final_year'])]]);
         $onboarding->complete($request->user());
+        if ($request->user()->account_type === 'department_representative') return redirect()->route('department.onboarding');
+        if ($request->user()->account_type === 'university_representative') return redirect()->route('institution.onboarding.request');
         if (in_array($data['next_action'] ?? '', ['research', 'final_year'], true)
             && $request->user()->can('create', \App\Models\ResearchProject::class)
             && \App\Services\FeatureAccessService::effectiveStatus('research_studio', $request->user()->university_id) === \App\Services\FeatureAccessService::STATUS_ENABLED) {
@@ -301,11 +303,9 @@ class OnboardingController extends Controller
                 'nullable', 'integer', 'exists:universities,id',
             ],
             'faculty_id' => [
-                Rule::requiredIf($path === 'department_representative'),
                 'nullable', 'integer', 'exists:faculties,id',
             ],
             'department_id' => [
-                Rule::requiredIf($path === 'department_representative'),
                 'nullable', 'integer', 'exists:departments,id',
             ],
         ]);
@@ -393,6 +393,6 @@ class OnboardingController extends Controller
 
     private function accountPaths(): array
     {
-        return OnboardingService::PUBLIC_ACCOUNT_PATHS;
+        return OnboardingService::PUBLIC_ACCOUNT_PATHS + OnboardingService::ADOPTION_ACCOUNT_PATHS;
     }
 }

@@ -42,14 +42,14 @@ test('worker tolerates empty or non-JSON push data', async () => {
     assert.equal(shown[1].title, 'AcadSyntra');
 });
 
-async function pageFixture({ available = true, permission = 'default', failSubscribe = false, subscribed = false, previousAccount = null } = {}) {
+async function pageFixture({ available = true, permission = 'default', failSubscribe = false, subscribed = false, previousAccount = null, invitation = false } = {}) {
     const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
     const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || (existsSync(localChrome) ? localChrome : undefined);
     const browser = await chromium.launch({ headless: true, executablePath });
     const page = await browser.newPage();
     await page.route('https://acadflow.test/**', (route) => route.fulfill({ contentType: 'text/html', body: `
         <form action="/logout" method="POST"><button data-logout>Sign out</button></form><meta name="push-account-id" content="1"><meta name="csrf-token" content="test"><meta name="push-config-url" content="/browser-push/configuration"><meta name="push-worker-url" content="/pushworker.js">
-        <section data-browser-push><p data-push-status></p><button data-push-enable disabled>Enable</button><button data-push-disable disabled>Disable</button><button data-push-test disabled>Test</button></section>` }));
+        <section data-browser-push ${invitation?'data-push-invitation hidden':''}><p data-push-status></p><button data-push-enable disabled>Enable</button><button data-push-disable disabled>Disable</button><button data-push-test disabled>Test</button><button data-push-later>Not Now</button></section>` }));
     await page.goto('https://acadflow.test/notifications/settings');
     await page.evaluate(({ available, permission, failSubscribe, subscribed, previousAccount }) => {
         window.pushCalls = []; window.permissionPrompts = 0; window.failSubscribe = failSubscribe;
@@ -119,17 +119,38 @@ test('changing accounts on a shared browser invalidates the earlier device subsc
     } finally { await browser.close(); }
 });
 
-test('logout removes device enrollment before submitting the sign-out form', async () => {
+test('logout submits once immediately with endpoint metadata while device cleanup stays best effort', async () => {
     const { browser, page } = await pageFixture({ permission: 'granted', subscribed: true });
     try {
-        await page.evaluate(() => document.querySelector('form[action="/logout"]').addEventListener('submit', (event) => {
+        await page.evaluate(() => document.querySelector('form[action="/logout"]').addEventListener('submit', event => {
             event.preventDefault();
-            if (event.currentTarget.dataset.pushCleaned) window.pushCalls.push('logout-submitted');
+            window.pushCalls.push('logout-submitted');
+            window.logoutEndpoint = event.currentTarget.querySelector('[name="push_endpoint"]')?.value;
         }));
         await page.locator('[data-logout]').click();
         await page.waitForFunction(() => window.pushCalls.includes('logout-submitted'));
-        const calls = await page.evaluate(() => window.pushCalls);
-        assert.ok(calls.indexOf('/browser-push/unsubscribe') < calls.indexOf('device-unsubscribe'));
-        assert.ok(calls.indexOf('device-unsubscribe') < calls.indexOf('logout-submitted'));
+        assert.equal(await page.evaluate(() => window.pushCalls.filter(call => call==='logout-submitted').length), 1);
+        assert.match(await page.evaluate(() => window.logoutEndpoint), /^https:\/\/fcm\.googleapis\.com/);
+        assert.equal(await page.evaluate(() => window.pushCalls.includes('/browser-push/unsubscribe')), false);
+    } finally { await browser.close(); }
+});
+
+test('the invitation waits for a click before permission and Not Now snoozes without prompting', async () => {
+    const { browser, page } = await pageFixture({ invitation: true });
+    try {
+        assert.equal(await page.evaluate(() => window.permissionPrompts), 0);
+        await page.locator('[data-push-later]').click();
+        assert.equal(await page.locator('[data-push-invitation]').isHidden(), true);
+        assert.equal(await page.evaluate(() => window.permissionPrompts), 0);
+        assert.ok(await page.evaluate(() => window.pushCalls.includes('/browser-push/permission')));
+    } finally { await browser.close(); }
+});
+
+test('a denied permission keeps the invitation hidden and never requests permission again', async () => {
+    const { browser, page } = await pageFixture({ invitation: true, permission: 'denied' });
+    try {
+        assert.equal(await page.locator('[data-push-invitation]').isHidden(), true);
+        assert.equal(await page.evaluate(() => window.permissionPrompts), 0);
+        assert.equal(await page.evaluate(() => window.pushCalls.includes('/browser-push/configuration')), false);
     } finally { await browser.close(); }
 });

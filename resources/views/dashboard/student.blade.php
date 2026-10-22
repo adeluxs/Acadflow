@@ -12,7 +12,7 @@
 <div class="space-y-5">
     <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         @foreach([
-            ['My Courses',$enrollments->count(),'Enrolled courses','bg-indigo-50 text-indigo-600'],
+            ['My Courses',$enrollmentCount,'Enrolled courses','bg-indigo-50 text-indigo-600'],
             ['Pending Tasks',$pendingTasks->count(),'Assignments','bg-orange-50 text-orange-600'],
             ['My Submissions',$submissionCount,'All submissions','bg-emerald-50 text-emerald-600'],
             ['CGPA',$cgpa !== null ? number_format($cgpa,2) : '—','Current CGPA','bg-blue-50 text-blue-600'],

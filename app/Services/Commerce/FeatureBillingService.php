@@ -183,6 +183,7 @@ class FeatureBillingService
             $existing = FeatureEntitlement::query()
                 ->where('user_id', $user->id)
                 ->where('feature', $feature)
+                ->where('access_type', '!=', 'institution_sponsored')
                 ->where('status', 'active')
                 ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
                 ->latest('id')
@@ -296,9 +297,7 @@ class FeatureBillingService
             $fundingSource = 'user_wallet';
             $commercialAccountId = null;
 
-            $commercial = $this->institutionSponsors($user, $feature)
-                ? CommercialAccount::query()->where('university_id', $user->university_id)->where('status', 'active')->lockForUpdate()->first()
-                : null;
+            $commercial = app(AcademicSponsorshipService::class)->account($user, $feature, true);
 
             if ($commercial) {
                 $this->assertCurrency($currency, $commercial->currency, 'institution commercial account');
@@ -371,12 +370,7 @@ class FeatureBillingService
 
     private function institutionSponsors(User $user, string $feature): bool
     {
-        if (! $user->university_id || ! $this->institutionAdoption->canReceiveInstitutionBenefits($user)) return false;
-        return CommercialAccount::query()
-            ->where('university_id', $user->university_id)
-            ->where('status', 'active')
-            ->get()
-            ->contains(fn (CommercialAccount $account) => $account->sponsorsFeature($feature));
+        return app(AcademicSponsorshipService::class)->account($user, $feature) !== null;
     }
 
     /** @return array<string,mixed> */

@@ -69,16 +69,19 @@
         ],
         'department_admin' => [
             ['Department','admin.department','building'],['Courses','admin.courses','book'],['Users','admin.users','users'],
-            ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Billing','admin.billing','wallet'],
+            ['AI Analytics','ai.analytics','grade'],['Billing','admin.billing','wallet'],
             ['Reports','admin.reports','grade'],['Notifications','admin.notifications.index','bell'],
         ],
         'super_admin' => [
             ['Institutions','admin.universities','building'],['Users','admin.users','users'],['Website enquiries','admin.contact.index','chat'],['System Settings','admin.settings','settings'],
             ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Monetization','admin.monetization','wallet'],
-            ['Reports','admin.reports','grade'],['Notifications','admin.notifications.index','bell'],['Institution onboarding','admin.institution-onboarding','building'],['User onboarding','admin.onboarding.index','users'],
+            ['Reports','admin.reports','grade'],['Notifications','admin.notifications.index','bell'],['Notification Analytics','admin.notifications.analytics','bell'],['Institution onboarding','admin.institution-onboarding','building'],['User onboarding','admin.onboarding.index','users'],
         ],
         default => [],
     };
+
+    $primary[] = ['My Academic Affiliations','academic.organisations','building'];
+    if ($user?->account_type === 'department_representative') $primary[] = ['Register my department','department.onboarding','building'];
 
     if ($user?->account_type === 'university_representative' && ! $user?->isUniversityAdmin()) {
         $primary = [

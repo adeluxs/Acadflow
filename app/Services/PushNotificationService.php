@@ -46,25 +46,40 @@ class PushNotificationService
      */
     public function sendToSubscription(PushSubscription $subscription, string $title, string $body, array $data = []): bool
     {
-        if (! $subscription->isValid() || ! PushEndpoint::valid($subscription->endpoint) || ! $this->availableFor($subscription->user)
-            || ! (\App\Models\NotificationSetting::query()->where('user_id', $subscription->user_id)->value('push_enabled') ?? true)) return false;
+        return $this->deliverToSubscription($subscription, $title, $body, $data)['success'];
+    }
+
+    public function deliverToSubscription(PushSubscription $subscription, string $title, string $body, array $data = []): array
+    {
+        $user = $subscription->user;
+        if (! $user || ! $subscription->isValid() || ! PushEndpoint::valid($subscription->endpoint)
+            || ! $this->availableFor($user)
+            || ! (\App\Models\NotificationSetting::where('user_id', $subscription->user_id)->value('push_enabled') ?? true)) {
+            return ['success' => false, 'permanent' => true, 'reason' => 'subscription_unavailable'];
+        }
         try {
             $payload = json_encode([
                 'title' => mb_substr($title, 0, 150), 'body' => mb_substr($body, 0, 500),
                 'icon' => '/branding/acadsyntra-icon-192.png', 'badge' => '/branding/acadsyntra-mark.png',
-                'tag' => 'acadflow-'.($data['notification_id'] ?? $data['type'] ?? 'notification'),
-                'data' => ['url' => $data['url'] ?? '/notifications'],
+                'tag' => 'acadsyntra-'.($data['notification_id'] ?? $data['type'] ?? 'notification'),
+                'data' => ['url' => app(NotificationPreferences::class)->safeUrl($data['url'] ?? null)],
             ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
             $report = app(WebPush::class)->sendOneNotification(Subscription::create([
-                'endpoint' => $subscription->endpoint, 'keys' => ['p256dh' => $subscription->keys_p256dh, 'auth' => $subscription->keys_auth],
+                'endpoint' => $subscription->endpoint,
+                'keys' => ['p256dh' => $subscription->keys_p256dh, 'auth' => $subscription->keys_auth],
                 'contentEncoding' => 'aes128gcm',
             ]), $payload);
-            if ($report->isSubscriptionExpired()) $subscription->delete();
-            if (! $report->isSuccess()) Log::warning('Browser push delivery rejected', ['subscription_id' => $subscription->id, 'http_status' => $report->getResponse()?->getStatusCode()]);
-            return $report->isSuccess();
+            $status = $report->getResponse()?->getStatusCode();
+            if ($report->isSubscriptionExpired()) {
+                app(NotificationTrackingService::class)->record('push_expired', $user, metadata: ['http_status' => $status], key: 'expired:'.$subscription->endpoint_hash);
+                $subscription->delete();
+            }
+            if (! $report->isSuccess()) Log::warning('Browser push delivery rejected', ['subscription_id' => $subscription->id, 'http_status' => $status]);
+
+            return ['success' => $report->isSuccess(), 'permanent' => $report->isSubscriptionExpired() || in_array($status, [400, 401, 403, 404], true), 'reason' => 'push_http_'.($status ?? 'unavailable')];
         } catch (\Throwable $exception) {
             Log::warning('Browser push delivery failed', ['subscription_id' => $subscription->id, 'exception_class' => $exception::class]);
-            return false;
+            return ['success' => false, 'permanent' => false, 'reason' => 'push_transport_failed'];
         }
     }
 
@@ -73,6 +88,14 @@ class PushNotificationService
         return $user->is_active && FeatureAccessService::effectiveStatus('push_notifications', $user->university_id) === FeatureAccessService::STATUS_ENABLED
             && (bool) SettingService::get('push_notifications_enabled', false, $user->university_id)
             && app(WebPushConfiguration::class)->isConfigured();
+    }
+
+    public function shouldInvite(User $user): bool
+    {
+        if (! $this->availableFor($user)) return false;
+        $settings = \App\Models\NotificationSetting::where('user_id', $user->id)->first();
+
+        return ($settings?->push_enabled ?? true) && ! $settings?->push_prompt_snoozed_until?->isFuture();
     }
 
     /**
@@ -129,7 +152,12 @@ class PushNotificationService
             if ($existing) { $existing->update($attributes); return $existing; }
             // A concurrent insert may fail its unique constraint; never silently
             // overwrite another user's keys through an upsert fallback.
-            return PushSubscription::create($attributes);
+            $subscription = PushSubscription::create($attributes);
+            $agent = strtolower($userAgent ?? '');
+            $browser = match (true) { str_contains($agent, 'edg') => 'Edge', str_contains($agent, 'firefox') => 'Firefox', str_contains($agent, 'chrome') => 'Chrome', str_contains($agent, 'safari') => 'Safari', default => 'Other' };
+            $device = preg_match('/iphone|ipad|android|mobile/', $agent) ? 'mobile' : 'desktop';
+            app(NotificationTrackingService::class)->record('push_subscribed', $user, metadata: compact('browser', 'device'), key: 'subscribed:'.$subscription->id.':'.$subscription->created_at->format('U.u'));
+            return $subscription;
         }, 3);
     }
 
@@ -143,6 +171,7 @@ class PushNotificationService
             ->first();
 
         if ($subscription) {
+            app(NotificationTrackingService::class)->record('push_unsubscribed', $user, key: 'unsubscribed:'.$subscription->id.':'.now()->format('U.u'));
             $subscription->delete();
             return true;
         }

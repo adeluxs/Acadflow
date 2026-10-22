@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 class DepartmentAdoptionRequest extends Model
 {
-    protected $fillable=['uuid','requester_user_id','university_id','faculty_id','department_id','department_name','department_code','representative_title','status','reviewed_by_user_id','reviewed_at','review_note','metadata'];
+    protected $fillable=['uuid','requester_user_id','university_id','faculty_id','faculty_name','department_id','department_name','department_code','classification','official_email','official_phone','plan_key','representative_title','status','reviewed_by_user_id','reviewed_at','review_note','metadata'];
     protected function casts():array{return ['reviewed_at'=>'datetime','metadata'=>'array'];}
     protected static function booted():void{static::creating(fn(self $m)=>$m->uuid??=(string)Str::uuid());}
     public function requester():BelongsTo{return $this->belongsTo(User::class,'requester_user_id');}

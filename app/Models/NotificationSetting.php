@@ -15,6 +15,9 @@ class NotificationSetting extends Model
         'grade_notifications',
         'attendance_notifications',
         'billing_notifications',
+        'in_app_enabled', 'academic_alerts', 'organisation_updates', 'onboarding_reminders', 'research_updates',
+        'engagement_reminders', 'email_open_tracking', 'timezone', 'quiet_hours_start', 'quiet_hours_end',
+        'push_permission', 'push_prompt_snoozed_until', 'email_suppressed_at', 'email_suppression_reason',
     ];
 
     protected function casts(): array
@@ -26,6 +29,9 @@ class NotificationSetting extends Model
             'grade_notifications' => 'boolean',
             'attendance_notifications' => 'boolean',
             'billing_notifications' => 'boolean',
+            'in_app_enabled' => 'boolean', 'academic_alerts' => 'boolean', 'organisation_updates' => 'boolean',
+            'onboarding_reminders' => 'boolean', 'research_updates' => 'boolean', 'engagement_reminders' => 'boolean',
+            'email_open_tracking' => 'boolean', 'push_prompt_snoozed_until' => 'datetime', 'email_suppressed_at' => 'datetime',
         ];
     }
 

@@ -135,6 +135,18 @@ class FeatureAccessService
      */
     public static function status(string $feature, ?int $universityId = null): string
     {
+        $guard=app('auth')->guard();
+        $actor=method_exists($guard,'hasUser') && $guard->hasUser() ? $guard->user() : null;
+        if($actor?->academicContextApplied() && $actor->department_id && $actor->university_id===$universityId){
+            $department=$actor->department;
+            $scope=app(AcademicOrganisationService::class)->hasInstitutionAccess($actor,$universityId)?$universityId:null;
+            $global=self::snapshot(null)[$feature]['status']??self::STATUS_ENABLED;
+            $inherited=self::snapshot($scope)[$feature]['status']??$global;
+            $local=data_get($department?->adoption_settings,'modules.'.$feature,$inherited);
+            $statuses=[$global,$inherited,self::normalizeStatus($local)];
+            usort($statuses,fn($a,$b)=>self::severity($b)<=>self::severity($a));
+            return $statuses[0];
+        }
         $snapshot = self::snapshot($universityId);
         $default = self::normalizeStatus(self::metadata($feature)['default_status'] ?? self::STATUS_ENABLED, true);
 
@@ -147,7 +159,9 @@ class FeatureAccessService
      */
     public static function effectiveStatus(string $feature, ?int $universityId = null, array $stack = []): string
     {
-        $cacheKey = $feature.':'.($universityId ?? 'global');
+        $guard=app('auth')->guard();
+        $actor=method_exists($guard,'hasUser') && $guard->hasUser() ? $guard->user() : null;
+        $cacheKey = $feature.':'.($universityId ?? 'global').':'.($actor?->department_id??0).':'.($actor?->academicAffiliation()?->id??0);
         if ($stack === [] && isset(self::$effectiveStatusCache[$cacheKey])) {
             return self::$effectiveStatusCache[$cacheKey];
         }

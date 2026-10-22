@@ -4,7 +4,9 @@
 @section('page-subtitle', ucwords(str_replace('_', ' ', $publication->content_type)).' · '.($publication->creator?->full_name ?: 'Academic contributor'))
 
 @section('content')
-@php($commerceCurrency = strtoupper((string) \App\Services\SettingService::get('currency', 'NGN', auth()->user()?->university_id)))
+@php
+    $commerceCurrency = strtoupper((string) \App\Services\SettingService::get('currency', 'NGN', auth()->user()?->university_id));
+@endphp
 @include('knowledge._nav')
 
 <div class="mx-auto max-w-7xl space-y-6">
@@ -264,7 +266,7 @@
             <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Impact</p>
                 <div class="mt-3 flex items-end justify-between">
-                    <div><p class="text-3xl font-black text-slate-950">{{ $publication->citationsReceived->count() }}</p><p class="text-sm text-slate-500">Internal citations</p></div>
+                    <div><p class="text-3xl font-black text-slate-950">{{ $publication->citations_received_count }}</p><p class="text-sm text-slate-500">Internal citations</p></div>
                     <a class="text-sm font-black text-indigo-700" href="{{ route('knowledge.citations.graph', $publication) }}">View network →</a>
                 </div>
             </section>

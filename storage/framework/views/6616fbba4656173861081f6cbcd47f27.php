@@ -67,6 +67,7 @@
         </div>
         <p class="text-sm text-gray-600 mb-6">Enable or disable notification delivery channels system-wide. Individual users can still adjust their own preferences.</p>
 
+        <?php if(auth()->user()->isSuperAdmin() || auth()->user()->isUniversityAdmin()): ?>
         <form action="<?php echo e(route('admin.notifications.update-channels')); ?>" method="POST">
             <?php echo csrf_field(); ?>
             <?php echo method_field('PUT'); ?>
@@ -111,6 +112,7 @@
                 </button>
             </div>
         </form>
+        <?php else: ?><p class="text-sm text-slate-500">Organisation-wide channel settings are managed by institution administrators. Your announcements are restricted to approved department members.</p><?php endif; ?>
     </div>
 
     <!-- Channel Breakdown -->

@@ -49,6 +49,9 @@ class AiAnalytics
         $query = AiUsageLog::query();
         if ($universityId) $query->where('university_id', $universityId);
         if ($departmentId) $query->where('department_id', $departmentId);
+        $guard=app('auth')->guard();
+        $actor=method_exists($guard,'hasUser')&&$guard->hasUser()?$guard->user():null;
+        if($actor?->isUniversityAdmin())$query->where(fn($q)=>$q->whereNull('department_id')->orWhereIn('department_id',app(\App\Services\AcademicOrganisationService::class)->departmentIds($actor)->select('departments.id')));
 
         $metrics = (clone $query)
             ->selectRaw('COUNT(*) AS total')

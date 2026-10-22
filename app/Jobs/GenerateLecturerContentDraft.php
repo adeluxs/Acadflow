@@ -56,6 +56,7 @@ class GenerateLecturerContentDraft implements ShouldQueue
         $draft->update(['status' => AiContentDraft::STATUS_GENERATING]);
 
         try {
+            app(\App\Services\AcademicOrganisationService::class)->restoreCourseActor($draft->user,$draft->course,'lecturer');
             $result = $assistant->generate(
                 $draft->user,
                 $draft->course,

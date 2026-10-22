@@ -7,9 +7,28 @@ namespace App\Services\Commerce;
 use App\Models\PricingRule;
 use App\Services\SettingService;
 use App\Support\Money;
+use Illuminate\Support\Collection;
+use Illuminate\Database\Query\JoinClause;
 
 class PricingCatalogService
 {
+    /** Latest currently effective global rules, fetched once for catalogue views. */
+    public function activeRules(array $keys): Collection
+    {
+        if ($keys === []) {
+            return collect();
+        }
+        $eligible = PricingRule::query()->whereIn('pricing_rules.key', $keys)->where('pricing_rules.scope_type', 'global')->where('pricing_rules.scope_id', 0)
+            ->where('pricing_rules.enabled', true)
+            ->where(fn ($q) => $q->whereNull('pricing_rules.starts_at')->orWhere('pricing_rules.starts_at', '<=', now()))
+            ->where(fn ($q) => $q->whereNull('pricing_rules.ends_at')->orWhere('pricing_rules.ends_at', '>', now()));
+        $latest = (clone $eligible)->select('pricing_rules.key')->selectRaw('MAX(version) AS latest_version')->groupBy('pricing_rules.key');
+
+        return $eligible->select('pricing_rules.*')->joinSub($latest, 'latest_pricing', fn (JoinClause $join) => $join
+            ->on('pricing_rules.key', '=', 'latest_pricing.key')->on('pricing_rules.version', '=', 'latest_pricing.latest_version'))
+            ->get()->keyBy('key');
+    }
+
     public function activeRule(string $key): ?PricingRule
     {
         return PricingRule::query()
@@ -42,8 +61,13 @@ class PricingCatalogService
     /** @return array{enabled:bool,amount_minor:int,free_daily_requests:int,currency:string,rule:?PricingRule,feature_specific:bool} */
     public function aiPricing(string $feature): array
     {
+        return $this->aiPricingFromRule($this->aiRule($feature));
+    }
+
+    /** Same pricing calculation for a rule supplied by a bulk catalogue lookup. */
+    public function aiPricingFromRule(?PricingRule $rule): array
+    {
         $enabled = (bool) SettingService::getGlobal('ai_monetization_enabled', false);
-        $rule = $this->aiRule($feature);
 
         if ($rule) {
             return [

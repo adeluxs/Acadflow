@@ -22,10 +22,9 @@ class InstitutionAccessController extends Controller
     public function show(Request $request): View
     {
         $user=$request->user();
-        $universities=University::query()->where('is_active',true)->where('code','!=',IndependentAcademicContextService::UNIVERSITY_CODE)->orderBy('name')->get(['id','name','short_name','adoption_status']);
         $requests=InstitutionAccessRequest::query()->where('user_id',$user->id)->with(['university','department'])->latest()->get();
         $affiliations=UserInstitutionAffiliation::query()->where('user_id',$user->id)->with(['university','department'])->latest()->get();
-        return view('institution.access',compact('universities','requests','affiliations'));
+        return view('institution.access',compact('requests','affiliations'));
     }
 
     public function store(Request $request): RedirectResponse

@@ -65,9 +65,7 @@ class AiUsageBillingService
             $commercialAccountId = null;
 
             if ($charge > 0) {
-                $commercial = $this->institutionAdoption->canReceiveInstitutionBenefits($user)
-                    ? CommercialAccount::query()->where('university_id', $user->university_id)->where('status', 'active')->lockForUpdate()->first()
-                    : null;
+                $commercial = app(AcademicSponsorshipService::class)->account($user, null, true, true);
 
                 if ($commercial && (bool) data_get($commercial->metadata, 'sponsor_ai_usage', false)) {
                     $this->assertCurrency($currency, $commercial->currency, 'institution commercial account');

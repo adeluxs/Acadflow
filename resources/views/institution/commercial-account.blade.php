@@ -5,6 +5,7 @@
 @section('page-subtitle', 'View your institution’s commercial access and request changes from the platform team')
 
 @section('content')
+<div class="mx-auto max-w-7xl px-4 pt-4"><p class="font-semibold text-indigo-700">{{ $organisationName }} · {{ $departmentId?'Department':'Institution' }} commercial account</p><p class="mt-2 text-sm text-slate-500">The account funds only eligible approved memberships. Affiliation preserves departmental balances and personal paid access.</p></div>
 @php
     $metadata = (array) ($account?->metadata ?? []);
     $sponsoredFeatureKeys = (array) data_get($metadata, 'sponsored_features', []);
@@ -51,7 +52,7 @@
                 <div>
                     <div class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-lg font-black text-white">1</div>
                     <h2 class="mt-4 text-2xl font-black text-slate-900">Request commercial account setup</h2>
-                    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Your institution does not have a commercial account yet. Send a setup request to Platform Admin. No payment or financial commitment is created just by sending the request.</p>
+                    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">This organisation does not have a commercial account yet. Send a setup request to Platform Admin. No payment or financial commitment is created just by sending the request.</p>
                     <div class="mt-5 grid gap-3 sm:grid-cols-3">
                         <div class="rounded-2xl border bg-white p-4"><p class="text-xs font-black uppercase text-slate-400">Step 1</p><p class="mt-1 text-sm font-bold text-slate-800">Request setup</p></div>
                         <div class="rounded-2xl border bg-white p-4"><p class="text-xs font-black uppercase text-slate-400">Step 2</p><p class="mt-1 text-sm font-bold text-slate-800">Platform reviews terms</p></div>
@@ -77,14 +78,14 @@
                 <p class="mt-1 text-xs text-slate-500">Used for institution-sponsored variable usage such as AI where enabled.</p>
             </div>
             <div class="rounded-2xl border bg-white p-5 shadow-sm">
-                <p class="text-xs font-black uppercase tracking-wide text-slate-400">Institution members</p>
+                <p class="text-xs font-black uppercase tracking-wide text-slate-400">Approved members</p>
                 <p class="mt-2 text-2xl font-black text-slate-900">{{ number_format($memberCount) }}</p>
                 <p class="mt-1 text-xs text-slate-500">Students, lecturers and institution administrators currently linked.</p>
             </div>
             <div class="rounded-2xl border bg-white p-5 shadow-sm">
                 <p class="text-xs font-black uppercase tracking-wide text-slate-400">AI requests this month</p>
                 <p class="mt-2 text-2xl font-black text-slate-900">{{ number_format($aiRequests) }}</p>
-                <p class="mt-1 text-xs text-slate-500">Recorded across members of this institution.</p>
+                <p class="mt-1 text-xs text-slate-500">Recorded against this commercial account.</p>
             </div>
             <div class="rounded-2xl border bg-white p-5 shadow-sm">
                 <p class="text-xs font-black uppercase tracking-wide text-slate-400">Institution-funded AI this month</p>

@@ -15,7 +15,7 @@ class AcademicEventPolicy
         if (! $user) return false;
         if ($user->isSuperAdmin() || $event->organizer_id === $user->id) return true;
         if ($event->coOrganizers()->whereKey($user->id)->exists()) return true;
-        if ($event->visibility === 'institution') return $event->university_id !== null && $event->university_id === $user->university_id;
+        if ($event->visibility === 'institution') return app(\App\Services\AcademicOrganisationService::class)->canReadRecord($user,$event);
         if ($event->group_id) return $event->group?->members()->where('user_id',$user->id)->where('status','active')->exists() ?? false;
         if ($event->knowledge_community_id) return $event->community?->members()->where('user_id',$user->id)->where('status','active')->exists() ?? false;
         if ($event->invitations()->where('invitee_id',$user->id)->whereIn('status',['pending','accepted'])->where('expires_at','>',now())->exists()) return true;
@@ -27,7 +27,7 @@ class AcademicEventPolicy
     public function update(User $user, AcademicEvent $event): bool
     {
         return $user->isSuperAdmin()
-            || ($user->isAdmin() && $event->university_id !== null && $user->university_id !== null && $event->university_id === $user->university_id)
+            || app(\App\Services\AcademicOrganisationService::class)->canAdministerRecord($user,$event)
             || $event->organizer_id === $user->id
             || $event->coOrganizers()->whereKey($user->id)->wherePivotIn('role',['co_organizer','manager'])->exists();
     }

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AcadSyntra · Interactive launch preview</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f3ff;color:#171b38;font:16px/1.6 system-ui,sans-serif}main{max-width:1200px;margin:auto;padding:32px 20px}header{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}.brand{font-weight:800;font-size:25px}.brand span{color:#5b43ed}h1{font-size:clamp(28px,5vw,44px);line-height:1.15;margin-bottom:12px}p{color:#596077}.badge{background:#e5e0ff;color:#5034ce;padding:7px 14px;border-radius:30px;font-size:13px;font-weight:700}.player{background:#15172c;border-radius:20px;overflow:hidden;display:flex;justify-content:center;margin:24px 0 16px}video{display:block;width:100%;max-height:76vh}.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}select,button,a{font:inherit}select{border:1px solid #d7d3ec;border-radius:10px;padding:8px;background:white}.chapters{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0}button{border:1px solid #d7d3ec;border-radius:12px;background:white;color:#30364f;padding:10px 15px;cursor:pointer;text-align:left}button span{font-size:12px;color:#70758b;margin-right:9px}button[aria-current=true]{background:#5b43ed;border-color:#5b43ed;color:white}button[aria-current=true] span{color:#ece8ff}button:hover{border-color:#5b43ed}button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #b4a6ff;outline-offset:3px}.downloads{display:flex;gap:22px;flex-wrap:wrap}a{color:#5034ce}footer{font-size:13px;color:#6a7083;margin-top:28px}@media(prefers-reduced-motion:no-preference){button{transition:background .15s}}
+</style>
+<main>
+<header><div class="brand">AcadSyntra<span>.</span></div><div class="badge">LAUNCHING TODAY · 21 OCTOBER 2026</div></header>
+<h1>See your next chapter in action.</h1>
+<p>Real clicks, typing and workflows. Choose a chapter to jump to that part of the walkthrough.</p>
+<div class="player"><video controls playsinline preload="metadata" aria-label="AcadSyntra launch walkthrough" src="acadsyntra-interactive-launch-landscape.mp4"></video></div>
+<div class="controls"><label for="format">Video format</label><select id="format"><option value="landscape">Landscape · 16:9</option><option value="portrait">Portrait · 9:16</option></select></div>
+<nav class="chapters" aria-label="Walkthrough chapters"></nav>
+<div class="downloads"><a href="acadsyntra-interactive-launch-landscape.mp4" download>Download landscape MP4</a><a href="acadsyntra-interactive-launch-portrait.mp4" download>Download portrait MP4</a></div>
+<footer>52-second product demonstration using sample research data. Original instrumental music; no voiceover. Chapter buttons control the video playback.</footer>
+</main>
+<script>
+const chapters=/* CHAPTER_DATA */[];
+const video=document.querySelector('video'),nav=document.querySelector('nav'),format=document.querySelector('select');
+for(const chapter of chapters){const button=document.createElement('button');button.type='button';const stamp=document.createElement('span');stamp.textContent=`0:${String(chapter.time).padStart(2,'0')}`;button.append(stamp,document.createTextNode(chapter.label));button.addEventListener('click',()=>{video.currentTime=chapter.time;video.play().catch(()=>{});});nav.append(button);}
+function markChapter(){const active=chapters.findLastIndex(chapter=>chapter.time<=video.currentTime);[...nav.children].forEach((button,i)=>button.setAttribute('aria-current',String(i===active)));}
+video.addEventListener('timeupdate',markChapter);markChapter();
+format.addEventListener('change',()=>{const time=video.currentTime,playing=!video.paused;video.addEventListener('loadedmetadata',()=>{video.currentTime=Math.min(time,video.duration);if(playing)video.play().catch(()=>{});},{once:true});video.src=`acadsyntra-interactive-launch-${format.value}.mp4`;});
+</script>
+</html>

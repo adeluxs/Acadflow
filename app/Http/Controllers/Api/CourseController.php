@@ -97,6 +97,7 @@ class CourseController extends Controller
 
         abort_unless(! empty($validated['department_id']), 422, 'Department is required for institutional courses.');
         $department = Department::with('faculty')->findOrFail($validated['department_id']);
+        if($user->isAdmin())abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,$department),403);
         abort_unless($user->isSuperAdmin() || ($user->university_id && $department->faculty?->university_id === $user->university_id), 403);
         if ($user->isDepartmentAdmin()) abort_unless($department->id === $user->department_id, 403);
 

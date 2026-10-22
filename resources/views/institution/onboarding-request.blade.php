@@ -58,16 +58,7 @@
 
     @if(auth()->user()->account_type === 'department_representative' || in_array(auth()->user()->account_type,['lecturer','academic_staff'],true) || auth()->user()->isDepartmentAdmin())
     <section class="acad-card p-6"><h2 class="text-xl font-bold">Department-first adoption</h2><p class="mt-1 text-sm text-slate-500">Your department can use AcadSyntra before the whole institution adopts it. Platform Admin verifies the department and representative.</p>
-        <form method="POST" action="{{ route('institution.onboarding.department.store') }}" class="mt-5 grid gap-4 sm:grid-cols-2">@csrf
-            <label class="text-sm font-medium">Institution ID<input name="university_id" required value="{{ old('university_id',auth()->user()->university_id) }}" class="mt-1 w-full rounded-xl border-slate-300" placeholder="Select/search institution ID"></label>
-            <label class="text-sm font-medium">Faculty ID<input name="faculty_id" value="{{ old('faculty_id',auth()->user()->faculty_id) }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
-            <label class="text-sm font-medium">Existing department ID<input name="department_id" value="{{ old('department_id',auth()->user()->department_id) }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
-            <label class="text-sm font-medium">Department name (if missing)<input name="department_name" value="{{ old('department_name') }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
-            <label class="text-sm font-medium">Department code<input name="department_code" value="{{ old('department_code') }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
-            <label class="text-sm font-medium">Your role<input name="representative_title" required value="{{ old('representative_title') }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
-            <label class="sm:col-span-2 text-sm font-medium">Evidence / note<textarea name="evidence" rows="3" class="mt-1 w-full rounded-xl border-slate-300"></textarea></label>
-            <div class="sm:col-span-2 flex justify-end"><button class="acad-primary-button">Request department adoption</button></div>
-        </form>
+        <a href="{{ route('department.onboarding') }}" class="mt-5 inline-flex acad-primary-button">Open departmental onboarding wizard →</a>
         @if($departmentRequests->isNotEmpty())<div class="mt-6 border-t pt-5"><h3 class="font-bold">Department requests</h3><div class="mt-3 grid gap-3 sm:grid-cols-2">@foreach($departmentRequests as $item)<div class="rounded-xl border p-3"><strong>{{ $item->department?->name ?: $item->department_name }}</strong><p class="mt-1 text-xs text-slate-500">{{ $item->university?->name }} · {{ str_replace('_',' ',$item->status) }}</p></div>@endforeach</div></div>@endif
     </section>
     @endif

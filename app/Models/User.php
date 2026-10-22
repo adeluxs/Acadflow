@@ -21,6 +21,49 @@ class User extends Authenticatable implements MustVerifyEmailContract
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    private bool $academicContextResolved = false;
+    private ?UserInstitutionAffiliation $resolvedAcademicAffiliation = null;
+    private array $academicContextValues = [];
+
+    public function useAcademicAffiliation(?UserInstitutionAffiliation $membership): void
+    {
+        $this->academicContextResolved = true;
+        $this->resolvedAcademicAffiliation = $membership;
+        $personalRole = match ($this->getRawOriginal('account_type')) {
+            'student' => 'student', 'lecturer' => 'lecturer', default => 'member',
+        };
+        if (in_array($this->getRawOriginal('role'), ['student', 'lecturer'], true)) $personalRole = $this->getRawOriginal('role');
+        $this->academicContextValues = [
+            'role' => $membership ? (in_array($membership->affiliation_type, ['student','lecturer','department_admin','university_admin'], true) ? $membership->affiliation_type : $personalRole) : $personalRole,
+            'university_id' => $membership?->university_id,
+            'faculty_id' => $membership?->faculty_id,
+            'department_id' => $membership?->department_id,
+        ];
+        foreach (['university','faculty','department'] as $relation) $this->unsetRelation($relation);
+    }
+
+    public function clearAcademicContext(): void
+    {
+        $this->academicContextResolved = false;
+        $this->resolvedAcademicAffiliation = null;
+        $this->academicContextValues = [];
+        foreach (['university','faculty','department'] as $relation) $this->unsetRelation($relation);
+    }
+
+    public function academicContextApplied(): bool { return $this->academicContextResolved; }
+    public function academicAffiliation(): ?UserInstitutionAffiliation { return $this->resolvedAcademicAffiliation; }
+
+    public function getAttribute($key)
+    {
+        if (array_key_exists($key, $this->academicContextValues)) return $this->academicContextValues[$key];
+        return parent::getAttribute($key);
+    }
+
+    public function attributesToArray()
+    {
+        return array_replace(parent::attributesToArray(), $this->academicContextValues);
+    }
+
     public function notificationSetting(): HasOne
     {
         return $this->hasOne(NotificationSetting::class);
@@ -34,12 +77,18 @@ class User extends Authenticatable implements MustVerifyEmailContract
     public function sendEmailVerificationNotification(): void
     {
         if (\App\Services\SettingService::emailVerificationEnabled()) {
-            $this->notify(new \Illuminate\Auth\Notifications\VerifyEmail());
+            $this->notify(new \App\Notifications\QueuedVerifyEmail());
         }
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\QueuedResetPassword($token));
     }
 
     protected static function booted(): void
     {
+        static::addGlobalScope(new \App\Models\Scopes\AcademicOrganisationBoundary());
         static::creating(function (self $user): void {
             if (empty($user->uuid)) $user->uuid = (string) Str::uuid();
             if ($user->email) $user->email = Str::lower(trim($user->email));
@@ -98,6 +147,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
     public function canAccessCourse($course): bool
     {
+        if(!$course)return false;
         if ($this->isSuperAdmin()) {
             return true;
         }
@@ -106,9 +156,16 @@ class User extends Authenticatable implements MustVerifyEmailContract
             return true;
         }
 
+        if (!$course->isIndependent()) {
+            $institutionId=(int)$course->department?->faculty?->university_id;
+            if($this->academicAffiliation() && (int)$this->university_id!==$institutionId)return false;
+            $revoked=$this->institutionAffiliations()->where('university_id',$institutionId)->where('department_id',$course->department_id)->whereIn('status',['revoked','transferred'])->exists();
+            if ($revoked && ! $this->institutionAffiliations()->approved()->where('university_id', $institutionId)->where('department_id', $course->department_id)->exists()) return false;
+        }
+
         if ($this->isUniversityAdmin()) {
             $course->loadMissing('department.faculty');
-            if (! $course->isIndependent() && $this->university_id === $course->department?->faculty?->university_id) {
+            if (! $course->isIndependent() && app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($this,$course->department)) {
                 return true;
             }
         }
@@ -243,7 +300,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
     public function unreadNotifications(): HasMany
     {
-        return $this->hasMany(Notification::class)->whereNull('read_at');
+        return $this->hasMany(Notification::class)->where('in_app_visible', true)->whereNull('read_at');
     }
 
     public function subscriptions(): HasMany
@@ -358,6 +415,12 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return $this->hasMany(UserInstitutionAffiliation::class);
     }
 
+    /** Attributes needed to evaluate and queue an account's notification safely. */
+    public static function notificationRecipientColumns(): array
+    {
+        return ['id', 'first_name', 'last_name', 'email', 'email_verified_at', 'is_active', 'role', 'account_type', 'university_id', 'department_id', 'notification_preferences'];
+    }
+
     public function hasVerifiedInstitutionAffiliation(?int $universityId = null): bool
     {
         $universityId ??= $this->university_id;
@@ -365,7 +428,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
         return $this->institutionAffiliations()
             ->where('university_id', $universityId)
-            ->where('status', 'verified')
+            ->approved()
             ->exists();
     }
 

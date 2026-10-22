@@ -1,2 +1,0 @@
-<section class="page-heading site-container"><div class="breadcrumb"><a href="<?php echo e(route('home')); ?>">Home</a><span aria-hidden="true">/</span><span><?php echo e(ucfirst(str_replace('-', ' ', $slug))); ?></span></div><p class="eyebrow"><?php echo e($eyebrow ?? 'THE ACADSYNTRA WORKSPACE'); ?></p><h1><?php echo e($page['title']); ?></h1><p class="page-intro"><?php echo e($page['intro']); ?></p></section>
-<?php /**PATH /Users/user/Desktop/acadflow/acadflow-web/resources/views/public/partials/page-heading.blade.php ENDPATH**/ ?>

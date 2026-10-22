@@ -45,7 +45,7 @@ class SubmissionTenantPolicyTest extends TestCase
     {
         $university = University::factory()->create();
         $faculty = Faculty::factory()->create(['university_id' => $university->id]);
-        $department = Department::factory()->create(['faculty_id' => $faculty->id]);
+        $department = Department::factory()->create(['faculty_id' => $faculty->id,'adoption_status'=>'institution_managed']);
         $course = Course::factory()->create(['department_id' => $department->id]);
         $session = AcademicSession::factory()->create(['university_id' => $university->id]);
         $semester = Semester::factory()->create(['academic_session_id' => $session->id]);

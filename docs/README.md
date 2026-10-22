@@ -20,6 +20,7 @@ This folder contains both **current operational documentation** and **dated impl
 
 ## Current specialist references
 
+- [`NOTIFICATION_OPERATIONS.md`](NOTIFICATION_OPERATIONS.md) — delivery architecture, reminders, consent, analytics, testing and production configuration.
 - [`ACADFLOW_2026_08_20_PASSWORD_POLICY_RATE_LIMIT_UX.md`](ACADFLOW_2026_08_20_PASSWORD_POLICY_RATE_LIMIT_UX.md)
 - [`ENVIRONMENT_CONFIGURATION.md`](ENVIRONMENT_CONFIGURATION.md)
 - [`API.md`](API.md)

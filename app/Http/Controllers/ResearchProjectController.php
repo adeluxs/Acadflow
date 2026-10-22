@@ -146,7 +146,7 @@ class ResearchProjectController extends Controller
             $options = $page->getCollection()->map(fn ($department) => ['id' => $department->id, 'label' => $department->name]);
         } else {
             $query = User::query()->with('department:id,name')
-                ->where('role', 'lecturer')->where('is_active', true)->where('university_id', $user->university_id)
+                ->where('is_active',true)->whereHas('institutionAffiliations',fn($q)=>$q->approved()->where('affiliation_type','lecturer')->where('university_id',$user->university_id))
                 ->when($term !== '', fn ($q) => $q->where(fn ($names) => $names->where('first_name', 'like', '%'.$term.'%')->orWhere('last_name', 'like', '%'.$term.'%')))
                 ->orderBy('first_name')->orderBy('last_name')->orderBy('id');
             $page = $query->simplePaginate(25, ['id', 'first_name', 'last_name', 'department_id']);
@@ -209,6 +209,7 @@ class ResearchProjectController extends Controller
             abort_unless($user->university_id, 422, 'Connect an institution before creating an institutional research workspace.');
             abort_unless(! empty($data['department_id']), 422, 'Select a department for an institutional research workspace.');
             $department = Department::with('faculty')->findOrFail($data['department_id']);
+            if($user->isAdmin())abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,$department),403);
             abort_unless($user->isSuperAdmin() || $department->faculty?->university_id === $user->university_id, 403);
             $data['university_id'] = $department->faculty?->university_id;
             if (! $user->isAdmin() && $user->department_id) {
@@ -220,6 +221,7 @@ class ResearchProjectController extends Controller
         if ($supervisorInviteeId) {
             abort_unless($institutionExpansionEnabled && $workspaceMode === 'institutional', 422, 'Supervisor invitations require institutional research mode.');
             $supervisorInvitee = User::findOrFail($supervisorInviteeId);
+            abort_unless(app(\App\Services\AcademicOrganisationService::class)->applyMembershipRole($supervisorInvitee,(int)$data['university_id'],null,'lecturer'),422,'Approve the lecturer membership before inviting supervision.');
             abort_unless(
                 $supervisorInvitee->is_active && $supervisorInvitee->isLecturer() && $supervisorInvitee->university_id === $data['university_id'],
                 422,

@@ -12,13 +12,7 @@ class SocialNotificationService
 {
     public function send(User $user, string $type, string $title, string $message, array $data = []): void
     {
-        $user->notifications()->create([
-            'uuid' => (string) Str::uuid(),
-            'type' => $type,
-            'title' => $title,
-            'message' => $message,
-            'data' => $data,
-        ]);
+        app(NotificationService::class)->send($user, $type, $title, $message, $data);
     }
 
     public function sendMany(iterable $users, string $type, string $title, string $message, array $data = []): void

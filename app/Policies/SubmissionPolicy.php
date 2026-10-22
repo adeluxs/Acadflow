@@ -9,6 +9,12 @@ use App\Models\User;
 
 class SubmissionPolicy
 {
+    public function before(User $user,string $ability,...$arguments):?bool
+    {
+        $submission=$arguments[0]??null;
+        if($submission instanceof Submission && !$submission->course)return false;
+        return null;
+    }
     public function viewAny(User $user): bool
     {
         return $user->hasPermission(Permission::VIEW_OWN_SUBMISSIONS)

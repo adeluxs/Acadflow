@@ -84,7 +84,7 @@ class EnterpriseIdentityTest extends TestCase
         $this->assertNull($user->fresh()->university_id);
     }
 
-    public function test_institution_representative_cannot_skip_affiliation(): void
+    public function test_institution_representative_can_request_missing_directory_identity_after_setup(): void
     {
         $user = User::factory()->withoutOnboarding()->create([
             'account_type' => 'university_representative',
@@ -100,7 +100,7 @@ class EnterpriseIdentityTest extends TestCase
 
         $this->actingAs($user)
             ->post(route('onboarding.skip', 'affiliation'))
-            ->assertSessionHasErrors('university_id');
+            ->assertRedirect(route('onboarding.show',['step'=>4]));
     }
 
     public function test_institution_visibility_never_treats_two_null_universities_as_same_tenant(): void

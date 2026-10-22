@@ -7,13 +7,14 @@ namespace App\Services;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Builder;
 
 class AcademicPerformanceService
 {
-    public function studentCgpa(User $student, Collection|array $courseIds): ?float
+    public function studentCgpa(User $student, Collection|array|Builder $courseIds): ?float
     {
-        $courseIds = collect($courseIds)->filter()->values();
-        if ($courseIds->isEmpty()) return null;
+        $courseIds = $courseIds instanceof Builder ? $courseIds : collect($courseIds)->filter()->values();
+        if ($courseIds instanceof Collection && $courseIds->isEmpty()) return null;
 
         $perCourse = DB::table('submission_grades')
             ->join('submissions', 'submissions.id', '=', 'submission_grades.submission_id')
@@ -42,10 +43,10 @@ class AcademicPerformanceService
         return $credits > 0 ? round($weightedPoints / $credits, 2) : null;
     }
 
-    public function averagePercentage(Collection|array $courseIds): ?float
+    public function averagePercentage(Collection|array|Builder $courseIds): ?float
     {
-        $ids = collect($courseIds)->filter()->values();
-        if ($ids->isEmpty()) return null;
+        $ids = $courseIds instanceof Builder ? $courseIds : collect($courseIds)->filter()->values();
+        if ($ids instanceof Collection && $ids->isEmpty()) return null;
 
         $average = DB::table('submission_grades')
             ->join('submissions', 'submissions.id', '=', 'submission_grades.submission_id')
@@ -62,10 +63,10 @@ class AcademicPerformanceService
      *
      * @return array{courses:array<int,float>,overall:?float}
      */
-    public function coursePerformanceSummary(Collection|array $courseIds): array
+    public function coursePerformanceSummary(Collection|array|Builder $courseIds): array
     {
-        $ids = collect($courseIds)->filter()->values();
-        if ($ids->isEmpty()) return ['courses' => [], 'overall' => null];
+        $ids = $courseIds instanceof Builder ? $courseIds : collect($courseIds)->filter()->values();
+        if ($ids instanceof Collection && $ids->isEmpty()) return ['courses' => [], 'overall' => null];
 
         $rows = DB::table('submission_grades')
             ->join('submissions', 'submissions.id', '=', 'submission_grades.submission_id')

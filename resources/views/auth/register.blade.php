@@ -14,12 +14,12 @@
             <label for="account_type" class="mb-2 block text-sm font-semibold text-slate-800">I am joining as</label>
             <select id="account_type" aria-invalid="{{ $errors->has('account_type') ? 'true' : 'false' }}" @error('account_type') aria-describedby="account_type-error" @enderror name="account_type" required class="w-full rounded-2xl border-slate-300 px-4 py-3 focus:border-indigo-500 focus:ring-indigo-500">
                 <option value="">Select your path</option>
-                @foreach(\App\Services\OnboardingService::PUBLIC_ACCOUNT_PATHS as $value => $label)
-                    <option value="{{ $value }}" @selected(old('account_type') === $value)>{{ $label }}</option>
+                @foreach((\App\Services\OnboardingService::PUBLIC_ACCOUNT_PATHS + \App\Services\OnboardingService::ADOPTION_ACCOUNT_PATHS) as $value => $label)
+                    <option value="{{ $value }}" @selected(old('account_type') === $value)>{{ match($value) { 'student' => "I'm a Student", 'lecturer' => "I'm a Lecturer / Supervisor", 'researcher' => "I'm a Researcher", default => $label } }}</option>
                 @endforeach
             </select>
             @error('account_type')<p id="account_type-error" class="mt-2 text-sm text-rose-700">{{ $message }}</p>@enderror
-            <p class="mt-2 text-xs leading-5 text-slate-500">Representing a university, faculty, department or organisation? Institutional onboarding is handled separately so individual users are never blocked from starting.</p>
+            <p class="mt-2 text-xs leading-5 text-slate-500">Representing a university, faculty, department or organisation? Choose Register My Department or Register My Institution. Your representative account grants no administrator privileges until verification.</p>
         </div>
 
         <div class="grid gap-5 sm:grid-cols-2">

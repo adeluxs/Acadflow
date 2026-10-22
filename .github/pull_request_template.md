@@ -17,6 +17,13 @@ Describe the user/developer problem and what changed.
 - [ ] `php scripts/check-documentation.php` passes
 - [ ] Frontend build checked when frontend changed
 
+## Performance
+
+- [ ] Common request paths checked for repeated queries and blocking external work
+- [ ] Growing lists paginated; unused bodies, histories and relationships deferred
+- [ ] Appropriate query-count/bundle checks run, with measurements for meaningful changes
+- [ ] Permission revocation, tenant isolation and fresh financial locking preserved
+
 ## Documentation / changelog
 
 - [ ] `docs/DEVELOPER_GUIDE.md` updated if developer behavior/architecture changed

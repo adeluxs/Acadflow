@@ -8,6 +8,7 @@ export async function initBrowserPush() {
     if (!configUrl) return;
     const panel = document.querySelector('[data-browser-push]');
     const status = panel?.querySelector('[data-push-status]');
+    const invitation = panel?.hasAttribute('data-push-invitation');
     const enable = panel?.querySelector('[data-push-enable]');
     const disable = panel?.querySelector('[data-push-disable]');
     const test = panel?.querySelector('[data-push-test]');
@@ -35,7 +36,8 @@ export async function initBrowserPush() {
         return Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => setTimeout(() => reject(new Error('Browser notifications are still starting. Try again shortly.')), 10000))]);
     };
     const existing = async () => {
-        currentSubscription = await (await navigator.serviceWorker.getRegistration('/'))?.pushManager.getSubscription();
+        const result = (async () => (await navigator.serviceWorker.getRegistration('/'))?.pushManager.getSubscription())();
+        currentSubscription = await Promise.race([result, new Promise(resolve => setTimeout(() => resolve(null), 2500))]);
         return currentSubscription;
     };
     const updateButtons = (subscription) => {
@@ -70,6 +72,15 @@ export async function initBrowserPush() {
             void Promise.resolve().then(() => currentSubscription.unsubscribe()).catch(() => {});
         });
     });
+    const savePermission = (permission, snooze = false) => api('/browser-push/permission', { permission, snooze }).catch(() => {});
+    panel?.querySelector('[data-push-later]')?.addEventListener('click', () => {
+        panel.hidden = true;
+        void savePermission(Notification.permission, true);
+    });
+    if (invitation && (!supported || Notification.permission === 'denied')) {
+        void savePermission(supported ? 'denied' : 'unsupported');
+        return;
+    }
     if (!supported) { show('Browser notifications require HTTPS and a supported browser. On iPhone or iPad, add AcadSyntra to your Home Screen first.'); updateButtons(null); return; }
     try {
         const accountId = document.querySelector('meta[name="push-account-id"]')?.content;
@@ -85,6 +96,10 @@ export async function initBrowserPush() {
     if (!panel && (Notification.permission !== 'granted' || !await existing())) return;
     try { config = await api(configUrl); }
     catch (_) { show('Notification availability could not be checked. Reload to try again.'); updateButtons(await existing()); return; }
+    if (invitation && config.available && !await existing()) {
+        setTimeout(() => { panel.hidden = false; }, 5000);
+        void savePermission(Notification.permission);
+    }
     if (!config.available) {
         show('Browser notifications are currently unavailable. Your administrator must enable and configure push delivery.');
         updateButtons(await existing());
@@ -106,7 +121,9 @@ export async function initBrowserPush() {
         // Request permission immediately in the user's click, before any network await.
         const permission = Notification.requestPermission();
         void run(async () => {
-            if (await permission !== 'granted') { show('Permission was not granted. You can enable notifications later.'); return; }
+            const result = await permission;
+            void savePermission(result);
+            if (result !== 'granted') { show('Permission was not granted. You can enable notifications later.'); if (invitation) setTimeout(() => { panel.hidden = true; }, 2500); return; }
             const worker = await registration();
             let subscription = await worker.pushManager.getSubscription();
             const key = decodeApplicationKey(config.publicKey);
@@ -121,6 +138,7 @@ export async function initBrowserPush() {
             const preference = document.querySelector('input[type="checkbox"][name="push_enabled"]');
             if (preference) preference.checked = true;
             show('This browser is enrolled. Use Send test notification to check delivery.');
+            if (invitation) panel.hidden = true;
         });
     });
     disable?.addEventListener('click', () => void run(async () => {

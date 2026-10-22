@@ -8,6 +8,15 @@ use App\Models\User;
 
 class SubmissionTaskPolicy
 {
+    public function before(User $user, string $ability, ...$arguments): ?bool
+    {
+        $task=$arguments[0]??null;
+        if($task instanceof SubmissionTask && !$task->course)return false;
+        if($task instanceof SubmissionTask && $user->isAdmin() && !$user->isSuperAdmin() && $task->course && !$task->course->isIndependent()) {
+            if(!app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,$task->course->department))return false;
+        }
+        return null;
+    }
     /**
      * View all submission tasks for a course
      */

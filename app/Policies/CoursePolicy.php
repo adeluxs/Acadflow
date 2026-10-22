@@ -8,6 +8,14 @@ use App\Models\User;
 
 class CoursePolicy
 {
+    public function before(User $user, string $ability, ...$arguments): ?bool
+    {
+        $course=$arguments[0]??null;
+        if($course instanceof Course && $user->isAdmin() && !$user->isSuperAdmin() && !$course->isIndependent()) {
+            if(!app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,$course->department))return false;
+        }
+        return null;
+    }
     public function viewAny(User $user): bool
     {
         return $user->hasPermission(Permission::VIEW_ALL_COURSES)

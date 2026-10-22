@@ -57,6 +57,47 @@
     'max_age' => 0,
     'supports_credentials' => false,
   ),
+  'academic_adoption' => 
+  array (
+    'plans' => 
+    array (
+      'department_core' => 
+      array (
+        'name' => 'Department Core',
+        'scope' => 'department',
+        'description' => 'Department administration and core academic work. Paid features use existing pricing.',
+      ),
+      'department_sponsored' => 
+      array (
+        'name' => 'Department Sponsored',
+        'scope' => 'department',
+        'description' => 'Request approved AI or paid-feature sponsorship for verified members.',
+      ),
+      'institution_core' => 
+      array (
+        'name' => 'Institution Core',
+        'scope' => 'institution',
+        'description' => 'Institution administration and affiliated departments.',
+      ),
+      'institution_sponsored' => 
+      array (
+        'name' => 'Institution Sponsored',
+        'scope' => 'institution',
+        'description' => 'Approved institution-wide commercial sponsorship.',
+      ),
+    ),
+    'classifications' => 
+    array (
+      0 => 'undergraduate',
+      1 => 'postgraduate',
+      2 => 'mixed',
+      3 => 'polytechnic',
+      4 => 'college',
+      5 => 'professional',
+      6 => 'research',
+    ),
+    'invitation_days' => 7,
+  ),
   'academic_catalog' => 
   array (
     'remote_sync' => true,
@@ -1774,6 +1815,675 @@
       '/Users/user/Desktop/acadflow/acadflow-web/public/storage' => '/Users/user/Desktop/acadflow/acadflow-web/storage/app/public',
     ),
   ),
+  'help_guides' => 
+  array (
+    0 => 
+    array (
+      'topic' => 'Students & independent registration',
+      'question' => 'Can I start as a student before my school adopts AcadSyntra?',
+      'answer' => 'Yes. Your personal account, independent classrooms and research do not depend on an institution buying access.',
+      'steps' => 
+      array (
+        0 => 'Open Create account and choose Student.',
+        1 => 'Verify your email when required, then complete your profile and interests. You may leave optional institutional affiliation unset.',
+        2 => 'Use your dashboard, independent classrooms and Research Studio. Institutional courses still require an approved membership or authorised invitation.',
+        3 => 'When your department becomes available, connect this account through My Academic Affiliations; do not register again.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Create your account',
+          'route' => 'register',
+        ),
+        1 => 
+        array (
+          'label' => 'Continue personal setup',
+          'route' => 'onboarding.show',
+        ),
+      ),
+    ),
+    1 => 
+    array (
+      'topic' => 'Students & independent registration',
+      'question' => 'Will joining my department move or expose my personal research?',
+      'answer' => 'Joining creates a reviewed academic membership. It preserves your account, research, documents and academic history. Personal research remains restricted to its explicit participants.',
+      'steps' => 
+      array (
+        0 => 'Sign in with your existing account.',
+        1 => 'Open My Academic Affiliations and request membership or accept an email-bound invitation.',
+        2 => 'Wait for role-specific approval. A matching email domain does not grant privileges.',
+        3 => 'Switch to the approved workspace when you need its academic tools; return to Personal workspace for independent work.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'My Academic Affiliations',
+          'route' => 'academic.organisations',
+        ),
+      ),
+    ),
+    2 => 
+    array (
+      'topic' => 'Lecturers & researchers',
+      'question' => 'How does a lecturer or researcher get started independently?',
+      'answer' => 'Register your own account first. Teaching assignments, supervision and organisational permissions are granted separately from your self-declared profile.',
+      'steps' => 
+      array (
+        0 => 'Choose Lecturer / Researcher during registration and finish personal setup.',
+        1 => 'Create independent academic work or use the tools enabled for your account.',
+        2 => 'Discover your adopted department or accept its secure invitation using the same verified email address.',
+        3 => 'Wait for approval of your lecturer or researcher membership. A department administrator can then assign authorised courses and supervision work.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Register',
+          'route' => 'register',
+        ),
+        1 => 
+        array (
+          'label' => 'Discover academic organisations',
+          'route' => 'institution.access',
+        ),
+      ),
+    ),
+    3 => 
+    array (
+      'topic' => 'Lecturers & researchers',
+      'question' => 'What happens when a lecturer changes institutions or departments?',
+      'answer' => 'Multiple academically valid affiliations can coexist. Transfer or revocation ends the selected membership without deleting the account or personal records.',
+      'steps' => 
+      array (
+        0 => 'Request or accept the new organisation membership.',
+        1 => 'Wait for its approval before switching workspaces.',
+        2 => 'Use My Academic Affiliations to end the old membership as transferred, or ask its administrator to record the move.',
+        3 => 'Course and institutional access follow the current approved scope; unrelated departments stay private.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Manage affiliations',
+          'route' => 'academic.organisations',
+        ),
+      ),
+    ),
+    4 => 
+    array (
+      'topic' => 'Departmental onboarding',
+      'question' => 'Can a department adopt AcadSyntra before its university, polytechnic or college?',
+      'answer' => 'Yes. An institution can exist in the academic directory without being an AcadSyntra adopter. Your department may adopt independently within that directory hierarchy.',
+      'steps' => 
+      array (
+        0 => 'Choose Register My Department and sign in or create your personal account.',
+        1 => 'Complete personal setup, then open the department wizard.',
+        2 => 'Search for the institution, choose its faculty/school and department, or provide the missing academic names.',
+        3 => 'Submit the representative, official contacts, classification, requested plan and authority evidence.',
+        4 => 'Platform Admin reviews the application. Approval activates department governance without taking over the parent institution.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Register my department',
+          'route' => 'department.onboarding',
+        ),
+      ),
+    ),
+    5 => 
+    array (
+      'topic' => 'Departmental onboarding',
+      'question' => 'Who can register a department, and what information is required?',
+      'answer' => 'A head of department, departmental administrator or other authorised representative may apply. Stating a title or owning an institutional email is not itself verification.',
+      'steps' => 
+      array (
+        0 => 'Prepare the institution, faculty/school and department names and academic classification.',
+        1 => 'Provide your representative title, official email address and official telephone number.',
+        2 => 'Select the department adoption arrangement and describe evidence of your authority.',
+        3 => 'Attach a verification document when needed. Evidence is stored privately and is available only to the applicant and authorised platform reviewer.',
+        4 => 'Confirm you are authorised to submit the application.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Department application',
+          'route' => 'department.onboarding',
+        ),
+      ),
+    ),
+    6 => 
+    array (
+      'topic' => 'Departmental onboarding',
+      'question' => 'What if my institution, faculty or department is missing from the directory?',
+      'answer' => 'Request a missing institution from the department wizard. A directory addition creates academic identity only; it does not adopt the platform or appoint you institution administrator.',
+      'steps' => 
+      array (
+        0 => 'Search using at least two characters and try the official name.',
+        1 => 'If no institution matches, submit a missing-institution request from the wizard.',
+        2 => 'Wait for review, then select the approved directory entry.',
+        3 => 'For a missing faculty or department, provide its official name in the wizard. Existing canonical names are reused when a match exists.',
+        4 => 'Contact support if two entries appear to describe the same department; do not submit another adoption application to bypass review.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Open the wizard',
+          'route' => 'department.onboarding',
+        ),
+        1 => 
+        array (
+          'label' => 'Contact support',
+          'route' => 'public.contact',
+        ),
+      ),
+    ),
+    7 => 
+    array (
+      'topic' => 'Departmental onboarding',
+      'question' => 'How do autosave, verification and approval work?',
+      'answer' => 'The four-step wizard saves your own progress. Submitting an application places it in the platform review workflow; saving a draft does not grant access or create a charge.',
+      'steps' => 
+      array (
+        0 => 'Complete each step and wait for Progress saved before leaving.',
+        1 => 'Return using the same account to resume your draft.',
+        2 => 'Review the application and submit it once your authority evidence and contacts are correct.',
+        3 => 'Check the status and any review note on the department onboarding page.',
+        4 => 'Once approved, use the department dashboard and My Academic Affiliations. If rejected, follow the review note or ask support for clarification.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Resume department setup',
+          'route' => 'department.onboarding',
+        ),
+      ),
+    ),
+    8 => 
+    array (
+      'topic' => 'Departmental onboarding',
+      'question' => 'How do lecturers and students join an adopted department?',
+      'answer' => 'They keep their existing accounts. Membership is connected through reviewed requests or secure invitations, with the appropriate academic role.',
+      'steps' => 
+      array (
+        0 => 'The department administrator opens My Academic Affiliations and selects the department scope.',
+        1 => 'Create an invitation for the recipient email and ordinary academic role, then share the secure link through an authorised channel.',
+        2 => 'The recipient signs in with the matching verified email and accepts before the link expires.',
+        3 => 'Alternatively the user discovers the department and submits an access request.',
+        4 => 'Review and approve requests in the existing membership workflow. Privileged administrator appointments remain platform-reviewed.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Invitations and members',
+          'route' => 'academic.organisations',
+        ),
+        1 => 
+        array (
+          'label' => 'Request academic access',
+          'route' => 'institution.access',
+        ),
+      ),
+    ),
+    9 => 
+    array (
+      'topic' => 'Departmental onboarding',
+      'question' => 'What can a department administrator manage?',
+      'answer' => 'Department administrators manage their authorised department’s members, courses, academic periods and enabled modules. They cannot access unrelated departments or change institution-wide provider credentials.',
+      'steps' => 
+      array (
+        0 => 'Switch to the approved department workspace.',
+        1 => 'Use the department dashboard for academic management.',
+        2 => 'Use My Academic Affiliations to invite members, review approved memberships and record graduation, transfer or revocation.',
+        3 => 'Adjust departmental module preferences. A department cannot enable a platform-disabled module.',
+        4 => 'Request commercial terms using the existing department commercial-account page when sponsored features are needed.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Manage department affiliations',
+          'route' => 'academic.organisations',
+        ),
+        1 => 
+        array (
+          'label' => 'Department commercial account',
+          'route' => 'institution.commercial-account',
+        ),
+      ),
+    ),
+    10 => 
+    array (
+      'topic' => 'Institutional onboarding',
+      'question' => 'How does a university, polytechnic or college adopt AcadSyntra?',
+      'answer' => 'Use the existing institution onboarding process. Registration, claim verification, administrator appointment and activation are separate from an institution merely appearing in the directory.',
+      'steps' => 
+      array (
+        0 => 'Choose Register My Institution, create or sign in to the representative account and finish personal setup.',
+        1 => 'Search for the institution and submit an institution adoption request with official contacts and authority evidence.',
+        2 => 'Respond to verification requests and wait for platform review.',
+        3 => 'An approved institution administrator completes the academic setup and activation workflow.',
+        4 => 'After activation, invite members and propose affiliations with independently adopted departments.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Register my institution',
+          'route' => 'institution.onboarding.request',
+        ),
+      ),
+    ),
+    11 => 
+    array (
+      'topic' => 'Institutional onboarding',
+      'question' => 'How are institution administrators verified?',
+      'answer' => 'An institution administrator appointment requires authorised review. A public email domain, matching profile field or self-declared affiliation never automatically grants administrative privileges.',
+      'steps' => 
+      array (
+        0 => 'Submit the institution request as an authorised representative.',
+        1 => 'Provide evidence and official contact information for verification.',
+        2 => 'Wait for the platform to approve the claim and administrator appointment.',
+        3 => 'Complete the remaining institution setup under the approved administrative scope.',
+        4 => 'Use invitations or reviewed memberships for other staff; do not share administrator accounts.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Institution onboarding',
+          'route' => 'institution.onboarding.request',
+        ),
+      ),
+    ),
+    12 => 
+    array (
+      'topic' => 'Institutional onboarding',
+      'question' => 'How do institution administrators discover and affiliate existing departments?',
+      'answer' => 'An active institution can see candidate independent departments attached to its directory identity. Discovery does not grant access to departmental records.',
+      'steps' => 
+      array (
+        0 => 'Open My Academic Affiliations as an approved institution administrator.',
+        1 => 'Review Independent departments that may affiliate.',
+        2 => 'Send a proposal specifying academic-data sharing, feature inheritance and preferred billing ownership.',
+        3 => 'The current department administrator must consent, and Platform Admin must verify both parties.',
+        4 => 'Manage departmental information only when the approved policy permits that access.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Discover affiliation candidates',
+          'route' => 'academic.organisations',
+        ),
+      ),
+    ),
+    13 => 
+    array (
+      'topic' => 'Institutional onboarding',
+      'question' => 'How do independent students and lecturers connect after institution adoption?',
+      'answer' => 'They connect their existing accounts through approved memberships. Their projects, documents and personal data are retained.',
+      'steps' => 
+      array (
+        0 => 'Ask users to sign in with their existing verified accounts.',
+        1 => 'Invite them into the appropriate institutional or departmental scope, or direct them to request access.',
+        2 => 'Review their requested role and organisational affiliation.',
+        3 => 'Users switch to an approved workspace in My Academic Affiliations.',
+        4 => 'Institution-wide features depend on the approved department affiliation policy and active commercial access.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Academic access requests',
+          'route' => 'institution.access',
+        ),
+      ),
+    ),
+    14 => 
+    array (
+      'topic' => 'Institutional onboarding',
+      'question' => 'How do institutional permissions, billing and reporting work?',
+      'answer' => 'Permissions are scoped to approved organisations. Independently adopted departments retain control until a verified agreement grants specific institutional access.',
+      'steps' => 
+      array (
+        0 => 'Complete institution verification and activation.',
+        1 => 'Use approved membership roles for administrators, lecturers and students.',
+        2 => 'Review commercial terms and sponsored entitlements through the existing billing system.',
+        3 => 'Access institutional reports within your approved institutional and departmental scope.',
+        4 => 'Use department consent and platform verification before claiming management of an existing independent department.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'My Academic Affiliations',
+          'route' => 'academic.organisations',
+        ),
+      ),
+    ),
+    15 => 
+    array (
+      'topic' => 'Department affiliation',
+      'question' => 'Our department adopted first. What happens when our institution adopts six months later?',
+      'answer' => 'Your department can connect through a two-party affiliation agreement. The platform does not delete, recreate, duplicate, overwrite or reparent departmental academic data during affiliation.',
+      'steps' => 
+      array (
+        0 => 'The institution completes verification and becomes active.',
+        1 => 'Its approved administrator proposes affiliation with your existing department.',
+        2 => 'Your department administrator reviews the proposal, sharing permissions, feature inheritance and billing preference.',
+        3 => 'Accept or decline. Acceptance waits for Platform Admin verification of both approvals.',
+        4 => 'After verification, the existing department becomes institution-affiliated. Existing IDs, memberships, courses and research remain intact.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Review affiliation requests',
+          'route' => 'academic.organisations',
+        ),
+      ),
+    ),
+    16 => 
+    array (
+      'topic' => 'Department affiliation',
+      'question' => 'Can a department decline affiliation or remain independent later?',
+      'answer' => 'Yes. A department can decline the proposal or retain control under its agreed policy. Either organisation can end an active affiliation without deleting the department.',
+      'steps' => 
+      array (
+        0 => 'Review the proposal as the current department administrator.',
+        1 => 'Decline if the terms or claimed authority are unsuitable.',
+        2 => 'For an active agreement, use End affiliation; retain department.',
+        3 => 'The department returns to independent operation; agreement and audit history remain.',
+        4 => 'Review which sponsored features remain available. Department balances and personal purchases are preserved.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Manage agreements',
+          'route' => 'academic.organisations',
+        ),
+      ),
+    ),
+    17 => 
+    array (
+      'topic' => 'Department affiliation',
+      'question' => 'How are unauthorised claims, duplicate departments and affiliation disputes resolved?',
+      'answer' => 'Affiliation requires current authority on both sides and platform verification. Do not create another department record or use an email-domain match to bypass a disputed claim.',
+      'steps' => 
+      array (
+        0 => 'Leave a pending proposal unapproved if the directory match or representative is incorrect.',
+        1 => 'Check the institution, faculty and department identity against official records.',
+        2 => 'Ask Platform Admin or support to review the authority evidence and agreement history.',
+        3 => 'A rejected or withdrawn proposal does not grant access. A revoked representative cannot supply valid consent.',
+        4 => 'Use a reviewed correction to canonical directory records; existing academic data must remain intact.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Review agreements',
+          'route' => 'academic.organisations',
+        ),
+        1 => 
+        array (
+          'label' => 'Resolve a directory or affiliation issue',
+          'route' => 'public.contact',
+        ),
+      ),
+    ),
+    18 => 
+    array (
+      'topic' => 'Invitations & membership',
+      'question' => 'My invitation was rejected, expired or sent to another email. What should I do?',
+      'answer' => 'Invitation links are single-use, expire and are bound to the intended verified email. A link does not grant administrator privileges.',
+      'steps' => 
+      array (
+        0 => 'Sign in to the account with the exact recipient email and verify it.',
+        1 => 'If the link expired or was revoked, ask the administrator for a fresh invitation.',
+        2 => 'If the wrong address was used, ask the administrator to revoke that invitation and issue a corrected one.',
+        3 => 'For a rejected access request, review its note and provide the requested evidence through the review workflow.',
+        4 => 'Keep your original account; contact support before creating duplicates to work around a failed invitation.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Manage academic affiliations',
+          'route' => 'academic.organisations',
+        ),
+      ),
+    ),
+    19 => 
+    array (
+      'topic' => 'Invitations & membership',
+      'question' => 'What do pending, approved, rejected and revoked membership statuses mean?',
+      'answer' => 'Pending awaits review; approved grants only the reviewed role and scope; rejected records a declined request; revoked ends the grant. Graduation and transfer preserve membership history.',
+      'steps' => 
+      array (
+        0 => 'Check the organisation and role shown in My Academic Affiliations.',
+        1 => 'Use only an approved, unexpired membership to switch workspaces.',
+        2 => 'Request review from the appropriate administrator when a pending request needs attention.',
+        3 => 'After revocation or transfer, use your personal workspace and any other valid affiliations.',
+        4 => 'A profile department or email domain is academic identity, not an access grant.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Check memberships',
+          'route' => 'academic.organisations',
+        ),
+      ),
+    ),
+    20 => 
+    array (
+      'topic' => 'Plans & access',
+      'question' => 'Do I need a subscription, and what are the department and institution plans?',
+      'answer' => 'AcadSyntra currently uses the existing commercial-account, wallet and entitlement system; the retired recurring-subscription system is not restarted. Core and Sponsored adoption arrangements request the appropriate scope and commercial review.',
+      'steps' => 
+      array (
+        0 => 'Choose a department or institution arrangement in onboarding.',
+        1 => 'Approval may open a commercial setup request; it does not automatically charge you.',
+        2 => 'Use Paid Features to inspect what is free, personally purchased or sponsored.',
+        3 => 'Use the existing commercial-account request workflow for organisation-funded access.',
+        4 => 'Feature release controls and your approved academic scope still apply.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Paid features and sponsorship',
+          'route' => 'commerce.features',
+        ),
+      ),
+    ),
+    21 => 
+    array (
+      'topic' => 'Plans & access',
+      'question' => 'What happens to paid access when a department affiliates or a plan expires?',
+      'answer' => 'Affiliation does not move balances, cancel personal purchases or create duplicate recurring subscriptions. Sponsorship follows the approved billing preference and active commercial terms.',
+      'steps' => 
+      array (
+        0 => 'Review the proposed department-first or institution-first billing preference.',
+        1 => 'Only one eligible commercial account funds a reservation.',
+        2 => 'If sponsorship expires or pauses, another eligible agreed sponsor may apply; otherwise personal access and wallet rules apply.',
+        3 => 'Refunds use the original reservation account even if the user changes academic workspace.',
+        4 => 'Contact the organisation administrator if a sponsored feature becomes unavailable; your personal academic records remain.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Check access',
+          'route' => 'commerce.features',
+        ),
+      ),
+    ),
+    22 => 
+    array (
+      'topic' => 'Research Studio & academic workflows',
+      'question' => 'How do I start and write a research or final-year project?',
+      'answer' => 'Research Studio brings project planning, chapter writing, references, data analysis, supervision and review into one workspace. Availability depends on the enabled tools and your approved academic context.',
+      'steps' => 
+      array (
+        0 => 'Open Research Studio and choose New research project or Final-Year Project.',
+        1 => 'Complete the project setup and plan before drafting chapters.',
+        2 => 'Select a chapter in the writing workspace. Collapse chapter navigation or use focus mode to make room for writing.',
+        3 => 'Save changes and review the save status. Use chapter history to inspect earlier versions.',
+        4 => 'Use references, analysis and supervisor review for the corresponding tasks; check the built-in workspace guide when unsure.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Open Research Studio',
+          'route' => 'research.index',
+        ),
+        1 => 
+        array (
+          'label' => 'Start research',
+          'route' => 'research.create',
+        ),
+        2 => 
+        array (
+          'label' => 'Start a final-year project',
+          'route' => 'research.create',
+          'params' => 
+          array (
+            'studio_mode' => 'final_year',
+          ),
+        ),
+      ),
+    ),
+    23 => 
+    array (
+      'topic' => 'Research Studio & academic workflows',
+      'question' => 'How do supervision, corrections, milestones and AI results work?',
+      'answer' => 'Supervision and collaboration use explicit invitations and roles. Review updates and reminders link back to the relevant authorised project; optional AI assistance does not replace academic judgment.',
+      'steps' => 
+      array (
+        0 => 'Invite a supervisor or collaborator through the project workflow.',
+        1 => 'Review feedback and corrections inside the authorised workspace.',
+        2 => 'Track milestone dates and complete or resolve the corresponding work to stop future reminders.',
+        3 => 'For background AI work, check its saved status or completion notification; review the generated result before using it.',
+        4 => 'AI usage and exports follow the existing feature, access and billing policies.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Research Studio',
+          'route' => 'research.index',
+        ),
+      ),
+    ),
+    24 => 
+    array (
+      'topic' => 'Notifications & preferences',
+      'question' => 'How do I enable push notifications on desktop, Android, iPhone or iPad?',
+      'answer' => 'Push is optional and requires a supported browser, HTTPS, browser permission, a valid device subscription and configured delivery. Where the browser and OS support it, push can arrive when the site is closed.',
+      'steps' => 
+      array (
+        0 => 'Sign in and choose Enable Notifications when invited, or open Notification Preferences.',
+        1 => 'On iPhone/iPad, add AcadSyntra to the Home Screen and open it from that icon first.',
+        2 => 'Click Enable this browser; browser permission is requested only after your click.',
+        3 => 'Keep Push Notifications enabled and use Send test notification to check provider acceptance.',
+        4 => 'If permission is denied, change the browser/OS notification setting manually. AcadSyntra does not repeatedly trigger denied permission prompts.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Notification preferences',
+          'route' => 'notifications.settings',
+        ),
+      ),
+    ),
+    25 => 
+    array (
+      'topic' => 'Notifications & preferences',
+      'question' => 'Can I control reminders, quiet hours and individual devices?',
+      'answer' => 'Yes. Academic, organisational, research, onboarding and optional engagement notifications have separate controls. Optional engagement is off until you opt in.',
+      'steps' => 
+      array (
+        0 => 'Open Notification Preferences.',
+        1 => 'Choose email, push and in-app channels and the categories you want.',
+        2 => 'Set your time zone and quiet-hour start/end; queued email and push wait until quiet hours end.',
+        3 => 'Use Not Now to snooze the browser invitation for seven days, or remove a specific device from the device list.',
+        4 => 'Optional reminder emails provide an unsubscribe link. Account security messages retain their separate authentication workflow.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Manage notification settings',
+          'route' => 'notifications.settings',
+        ),
+      ),
+    ),
+    26 => 
+    array (
+      'topic' => 'Notifications & preferences',
+      'question' => 'How often are onboarding and inactivity reminders sent?',
+      'answer' => 'The default onboarding schedule starts after 12 hours, has a minimum 12-hour gap, stops when the relevant setup is complete and slows after repeated ignored reminders. Administrators can reduce volume or configure the limit.',
+      'steps' => 
+      array (
+        0 => 'Open the reminder to resume the specific personal, departmental or institutional setup stage.',
+        1 => 'Submitted applications waiting for review are not treated as an unfinished department draft.',
+        2 => 'Optional inactivity reminders require consent and useful unfinished work. The planned stages are 24h, 48h, 7 days, 14 days and a reduced-frequency follow-up.',
+        3 => 'Returning or finishing the work cancels relevant queued inactivity reminders.',
+        4 => 'Disable onboarding or engagement reminders whenever you prefer.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Continue setup',
+          'route' => 'onboarding.show',
+        ),
+        1 => 
+        array (
+          'label' => 'Reminder preferences',
+          'route' => 'notifications.settings',
+        ),
+      ),
+    ),
+    27 => 
+    array (
+      'topic' => 'Notifications & preferences',
+      'question' => 'A message says accepted, but I did not receive it. Why?',
+      'answer' => 'Provider acceptance is not proof of device display or inbox delivery. Confirmed delivery is shown only when a supported provider reports it.',
+      'steps' => 
+      array (
+        0 => 'Check browser permission, OS notification settings, HTTPS and whether the device is enrolled.',
+        1 => 'Check spam/junk folders and your email preference.',
+        2 => 'Ask an administrator to inspect Notification Analytics for configured SMTP, VAPID, workers, retry status or expired subscriptions.',
+        3 => 'Log/array email transports are local simulations and cannot deliver to an inbox.',
+        4 => 'Contact support without sending passwords, subscription endpoints, encryption keys or confidential academic records.',
+      ),
+      'links' => 
+      array (
+        0 => 
+        array (
+          'label' => 'Notification settings',
+          'route' => 'notifications.settings',
+        ),
+        1 => 
+        array (
+          'label' => 'Contact support',
+          'route' => 'public.contact',
+        ),
+      ),
+    ),
+  ),
   'logging' => 
   array (
     'default' => 'stack',
@@ -1894,7 +2604,7 @@
         'port' => '2525',
         'username' => NULL,
         'password' => NULL,
-        'timeout' => NULL,
+        'timeout' => 15,
         'local_domain' => '',
       ),
       'ses' => 
@@ -2105,6 +2815,30 @@
       'fixed_access' => 'Fixed access',
       'pay_per_use' => 'Pay per use',
       'ai_usage' => 'AI usage',
+    ),
+  ),
+  'notification_delivery' => 
+  array (
+    'queue' => 'notifications',
+    'connection' => 'database',
+    'provider_webhook_secret' => NULL,
+    'onboarding_interval_hours' => 12,
+    'onboarding_max_reminders' => 6,
+    'daily_email_limit' => 10,
+    'daily_push_limit' => 20,
+    'retention_days' => 180,
+    'failure_alert_percent' => 20,
+    'failure_alert_minimum' => 10,
+    'summary_reports_enabled' => false,
+    'engagement_enabled' => true,
+    'categories' => 
+    array (
+      'academic' => 'Academic alerts',
+      'organisation' => 'Departments & institutions',
+      'research' => 'Research updates',
+      'onboarding' => 'Onboarding reminders',
+      'engagement' => 'Optional engagement',
+      'billing' => 'Billing & access',
     ),
   ),
   'performance' => 

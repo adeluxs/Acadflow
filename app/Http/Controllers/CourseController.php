@@ -246,6 +246,7 @@ class CourseController extends Controller
         $user = Auth::user();
         $data = $this->validatedCourseData($request);
         $department = Department::query()->with('faculty')->findOrFail($data['department_id']);
+        if($user->isAdmin())abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,$department),403);
 
         $this->assertDepartmentScope($user, $department);
         Course::create($data);
@@ -265,8 +266,7 @@ class CourseController extends Controller
             ->paginate(25, ['*'], 'students_page')
             ->withQueryString();
         $lecturers = User::query()
-            ->where('role', 'lecturer')
-            ->where('department_id', $course->department_id)
+            ->whereHas('institutionAffiliations',fn($q)=>$q->approved()->where('affiliation_type','lecturer')->where('department_id',$course->department_id))
             ->orderBy('first_name')
             ->get();
 
@@ -276,7 +276,9 @@ class CourseController extends Controller
     public function update(Request $request, Course $course): RedirectResponse
     {
         $this->assertDepartmentScope(Auth::user(), $course->department()->with('faculty')->firstOrFail());
-        $course->update($this->validatedCourseData($request, $course));
+        $data=$this->validatedCourseData($request,$course);
+        $this->assertDepartmentScope(Auth::user(),Department::with('faculty')->findOrFail($data['department_id']));
+        $course->update($data);
 
         return redirect()->route('admin.courses')->with('success', 'Course updated successfully.');
     }
@@ -311,6 +313,7 @@ class CourseController extends Controller
 
     protected function assertDepartmentScope(User $user, Department $department): void
     {
+        if($user->isAdmin())abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,$department),403);
         if ($user->isDepartmentAdmin() && $department->id !== $user->department_id) {
             abort(403, 'Access denied.');
         }

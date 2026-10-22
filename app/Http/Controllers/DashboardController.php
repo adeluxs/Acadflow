@@ -29,21 +29,24 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
-        $enrollments = Enrollment::query()
+        $enrollmentQuery = Enrollment::query()
             ->where('user_id', $user->id)
-            ->where('status', 'enrolled')
+            ->where('status', 'enrolled');
+        $enrollmentCount = (clone $enrollmentQuery)->count();
+        $enrollments = (clone $enrollmentQuery)
             ->with('course:id,uuid,code,name,access_mode')
-            ->latest('enrolled_at')
-            ->get();
+            ->latest('enrolled_at')->latest('id')->limit(5)->get();
 
-        $courseIds = $enrollments->pluck('course_id');
+        // Full academic totals stay in SQL; hydrate only the five visible cards.
+        $courseIds = (clone $enrollmentQuery)->select('course_id');
+        $previewCourseIds = $enrollments->pluck('course_id');
         $submissions = Submission::query()
             ->where('user_id', $user->id)
             ->whereIn('course_id', $courseIds)
             ->select(['id', 'uuid', 'user_id', 'course_id', 'title', 'status', 'submitted_at', 'created_at'])
             ->with('course:id,uuid,code,name')
             ->latest()
-            ->limit(8)
+            ->limit(5)
             ->get();
 
         $submissionCount = Submission::query()->where('user_id', $user->id)->whereIn('course_id', $courseIds)->count();
@@ -58,12 +61,12 @@ class DashboardController extends Controller
             ->whereDoesntHave('submissions', fn (Builder $query) => $query->where('user_id', $user->id))
             ->with('course:id,uuid,code,name')
             ->orderByRaw('COALESCE(close_at, due_date) ASC')
-            ->limit(8)
+            ->limit(5)
             ->get();
 
-        $allTaskCounts = SubmissionTask::query()->whereIn('course_id', $courseIds)->where('status', 'published')
+        $allTaskCounts = SubmissionTask::query()->whereIn('course_id', $previewCourseIds)->where('status', 'published')
             ->selectRaw('course_id, COUNT(*) as total')->groupBy('course_id')->pluck('total', 'course_id');
-        $doneTaskCounts = Submission::query()->where('user_id', $user->id)->whereIn('course_id', $courseIds)
+        $doneTaskCounts = Submission::query()->where('user_id', $user->id)->whereIn('course_id', $previewCourseIds)
             ->whereNotNull('submission_task_id')->selectRaw('course_id, COUNT(DISTINCT submission_task_id) as total')
             ->groupBy('course_id')->pluck('total', 'course_id');
 
@@ -87,7 +90,7 @@ class DashboardController extends Controller
             ->get();
 
         return view('dashboard.student', compact(
-            'enrollments', 'submissions', 'submissionCount', 'pendingTasks', 'courseProgress',
+            'enrollments', 'enrollmentCount', 'submissions', 'submissionCount', 'pendingTasks', 'courseProgress',
             'cgpa', 'announcements'
         ));
     }
@@ -96,28 +99,27 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
-        $courses = Course::query()
-            ->whereHas('lecturerAssignments', fn (Builder $query) => $query->where('user_id', $user->id))
+        $courseQuery = Course::query()
+            ->whereHas('lecturerAssignments', fn (Builder $query) => $query->where('user_id', $user->id));
+        $courseCount = (clone $courseQuery)->count();
+        $courses = (clone $courseQuery)
             ->with(['department'])
             ->withCount([
                 'enrollments as enrolled_students_count' => fn (Builder $query) => $query->where('status', 'enrolled'),
                 'submissionTasks as assignment_count',
             ])
-            ->orderBy('code')
+            ->orderBy('code')->orderBy('id')->limit(6)
             ->get();
 
-        $courseIds = $courses->pluck('id');
+        $courseIds = (clone $courseQuery)->select('courses.id');
         $studentCount = Enrollment::query()->whereIn('course_id', $courseIds)->where('status', 'enrolled')->distinct('user_id')->count('user_id');
-
-        $pendingReviews = Submission::query()->whereIn('course_id', $courseIds)
-            ->whereIn('status', ['submitted', 'under_review', 'correction_requested'])
-            ->count();
 
         $recentSubmissions = Submission::query()->whereIn('course_id', $courseIds)
             ->with(['user', 'course', 'grade'])->latest('submitted_at')->limit(8)->get();
 
         $submissionOverviewRaw = Submission::query()->whereIn('course_id', $courseIds)
             ->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
+        $pendingReviews = (int) ($submissionOverviewRaw['submitted'] ?? 0) + (int) ($submissionOverviewRaw['under_review'] ?? 0) + (int) ($submissionOverviewRaw['correction_requested'] ?? 0);
         $submissionOverview = [
             'pending' => (int) (($submissionOverviewRaw['submitted'] ?? 0) + ($submissionOverviewRaw['draft'] ?? 0)),
             'in_review' => (int) ($submissionOverviewRaw['under_review'] ?? 0),
@@ -126,12 +128,12 @@ class DashboardController extends Controller
         ];
         $submissionOverview['total'] = array_sum($submissionOverview);
 
-        $performance = app(AcademicPerformanceService::class)->coursePerformanceSummary($courseIds);
+        $performance = app(AcademicPerformanceService::class)->coursePerformanceSummary($courses->pluck('id'));
         $coursePerformance = $courses->map(fn ($course) => [
             'course' => $course,
             'average' => $performance['courses'][$course->id] ?? null,
         ]);
-        $averageClass = $performance['overall'];
+        $averageClass = app(AcademicPerformanceService::class)->averagePercentage($courseIds);
 
         $upcomingTasks = SubmissionTask::query()->whereIn('course_id', $courseIds)
             ->whereIn('status', ['published', 'draft'])
@@ -144,7 +146,7 @@ class DashboardController extends Controller
             : collect();
 
         return view('dashboard.lecturer', compact(
-            'courses', 'studentCount', 'pendingReviews', 'recentSubmissions', 'submissionOverview',
+            'courses', 'courseCount', 'studentCount', 'pendingReviews', 'recentSubmissions', 'submissionOverview',
             'coursePerformance', 'averageClass', 'upcomingTasks', 'activeSessions'
         ));
     }

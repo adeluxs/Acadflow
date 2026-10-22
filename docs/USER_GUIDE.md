@@ -1,5 +1,13 @@
 # AcadSyntra User Guide
 
+## Notifications and step-by-step help
+
+Use **Help centre** or **FAQs** to search guides for registration, departmental/institutional adoption, affiliation, memberships, academic access and Research Studio. Expand a guide for steps and links to the actual tools.
+
+The notification bell opens categorised academic updates with filters, read controls and links to the relevant activity. **Notification Settings** lets you choose email, in-app and browser push, categories, timezone and quiet hours, and remove individual subscribed devices. Select **Enable Notifications** in the invitation to request browser permission; **Not Now** postpones it. If permission was denied, change it in the browser's site settings. On supported iPhones/iPads, install the website to the Home Screen first. Browser/OS support determines whether a closed-page notification can appear.
+
+Onboarding reminders start after 12 hours and stop when setup is complete. Optional inactivity reminders are off until you enable engagement reminders, and require unfinished academic work. You can opt out in settings or through an optional email's unsubscribe confirmation. Security and account verification messages remain separate. Super Admins can inspect recorded delivery and engagement metrics under **Notification Analytics**; a provider accepting a message is distinct from confirmed inbox/device delivery.
+
 The platform is now named **AcadSyntra**. The new name and violet book/connection symbol appear on public pages, account screens, dashboards, notifications, emails and new exports. Your account, institution membership, coursework, research and payment history carry over. Existing authenticator-app labels and previously exported documents may retain their historical names; no keys or academic files are replaced as part of the name change. Installed PWA names/icons may require a browser refresh or app update before the device shows the new identity.
 
 **Audience:** students, lecturers, platform members, department administrators, university administrators, super administrators, supervisors, group leaders, creators and support staff  

@@ -44,7 +44,16 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
 });
 
 // Protected API Routes
-Route::prefix('v1')->middleware(['auth:sanctum', 'feature.access', 'api.account.ready'])->group(function () {
+Route::prefix('v1')->middleware(['auth:sanctum', 'academic.context', 'feature.access', 'api.account.ready'])->group(function () {
+    Route::get('/academic/directory',[\App\Http\Controllers\AcademicOrganisationController::class,'directory']);
+    Route::get('/academic/affiliations',[\App\Http\Controllers\AcademicOrganisationController::class,'index']);
+    Route::post('/academic/context',[\App\Http\Controllers\AcademicOrganisationController::class,'switchContext']);
+    Route::post('/academic/memberships/{membership}/end',[\App\Http\Controllers\AcademicOrganisationController::class,'endMembership']);
+    Route::post('/academic/invitations',[\App\Http\Controllers\AcademicOrganisationController::class,'invite']);
+    Route::post('/academic/invitations/{token}/accept',[\App\Http\Controllers\AcademicOrganisationController::class,'acceptInvitation']);
+    Route::post('/academic/invitations/{invitation}/revoke',[\App\Http\Controllers\AcademicOrganisationController::class,'revokeInvitation']);
+    Route::post('/academic/department-affiliations',[\App\Http\Controllers\AcademicOrganisationController::class,'requestAffiliation']);
+    Route::post('/academic/department-affiliations/{affiliation}',[\App\Http\Controllers\AcademicOrganisationController::class,'respondAffiliation']);
     // Progressive institution adoption and affiliation verification
     Route::get('/institutions/search', [InstitutionAdoptionController::class, 'search'])->middleware('throttle:api');
     Route::get('/institution-affiliation', [InstitutionAdoptionController::class, 'status'])->middleware('throttle:api');

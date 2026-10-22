@@ -19,7 +19,8 @@ class ResearchInvitationService
             throw ValidationException::withMessages(['supervisor_invitee_id' => 'Supervisor invitations are available only for institutional research workspaces.']);
         }
 
-        if (! $invitee->is_active || ! $invitee->isLecturer()) {
+        $qualified=app(AcademicOrganisationService::class)->applyMembershipRole($invitee,(int)$project->university_id,null,'lecturer');
+        if (! $invitee->is_active || !$qualified || ! $invitee->isLecturer()) {
             throw ValidationException::withMessages(['supervisor_invitee_id' => 'Choose an active lecturer to invite as supervisor.']);
         }
 

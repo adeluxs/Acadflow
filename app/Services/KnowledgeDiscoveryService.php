@@ -12,7 +12,10 @@ class KnowledgeDiscoveryService
     public function search(array $filters, ?User $user = null): LengthAwarePaginator
     {
         $query = KnowledgePublication::query()
-            ->with(['creator', 'category', 'tags', 'university', 'department', 'document'])
+            ->with(['creator', 'category', 'tags', 'university', 'department',
+                // Cards need a short fallback preview, not complete manuscripts.
+                'document' => fn ($q) => $q->select('id')->selectRaw('SUBSTR(body, 1, 2048) AS body'),
+            ])
             ->where('status', 'published')
             ->whereNotNull('published_at')
             ->where('published_at', '<=', now());

@@ -42,18 +42,18 @@ class AdminController extends Controller
     public function department()
     {
         $departmentId = Auth::user()->department_id;
-        $userCounts = User::query()->where('department_id', $departmentId)
-            ->selectRaw("SUM(CASE WHEN role = 'student' THEN 1 ELSE 0 END) AS students")
-            ->selectRaw("SUM(CASE WHEN role = 'lecturer' THEN 1 ELSE 0 END) AS lecturers")
-            ->first();
+        $department=Department::with('faculty.university')->findOrFail($departmentId);
+        abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment(Auth::user(),$department),403);
+        $members=\App\Models\UserInstitutionAffiliation::approved()->where('department_id',$departmentId);
 
         $stats = [
-            'total_students' => (int) ($userCounts?->students ?? 0),
-            'total_lecturers' => (int) ($userCounts?->lecturers ?? 0),
-            'total_courses' => Department::findOrFail($departmentId)->courses()->count(),
+            'total_students' => (clone $members)->where('affiliation_type','student')->count(),
+            'total_lecturers' => (clone $members)->where('affiliation_type','lecturer')->count(),
+            'total_courses' => $department->courses()->count(),
         ];
-
-        return view('admin.department', compact('stats'));
+        $pending=\App\Models\InstitutionAccessRequest::where('department_id',$departmentId)->whereIn('status',['pending','in_review'])->count();
+        $semester=app(\App\Services\AcademicContextService::class)->activeSemesterForDepartment((int)$departmentId);
+        return view('admin.department', compact('stats','department','pending','semester'));
     }
 
     // Admin: User management
@@ -63,15 +63,11 @@ class AdminController extends Controller
 
         $query = User::query();
 
-        // Filter by scope based on role
-        if ($user->isDepartmentAdmin()) {
-            $query->where('department_id', $user->department_id);
-        } elseif ($user->isUniversityAdmin()) {
-            $query->where('university_id', $user->university_id);
-        }
-
+        // The User organisation boundary resolves approved memberships across
+        // primary profiles; do not narrow these back to self-declared profile IDs.
         if ($request->role) {
-            $query->where('role', $request->role);
+            if($user->isSuperAdmin())$query->where('role',$request->role);
+            else $query->whereHas('institutionAffiliations',fn($q)=>$q->approved()->where('affiliation_type',$request->role)->whereIn('department_id',app(\App\Services\AcademicOrganisationService::class)->departmentIds($user)->select('departments.id')));
         }
 
         if ($request->department_id) {
@@ -110,6 +106,7 @@ class AdminController extends Controller
     {
         $this->authorize('update', $user);
         $actor = $request->user();
+        if(!$actor->isSuperAdmin())return redirect()->route('academic.organisations')->with('info','Manage this person through their scoped membership. Organisation administrators cannot change another account’s global role, identity or active status.');
 
         abort_if($user->isSuperAdmin() && ! $actor->isSuperAdmin(), 403);
         abort_if($actor->id === $user->id && ! $request->boolean('is_active'), 422, 'You cannot deactivate your own account.');
@@ -155,71 +152,12 @@ class AdminController extends Controller
     // Admin: Invite user
     public function inviteUser(Request $request)
     {
-        $this->authorize('create', User::class);
-
-        $validated = $request->validate([
-            'email' => ['required', 'email', 'unique:users,email'],
-            'role' => ['required', 'in:lecturer,student,department_admin'],
-            'department_id' => ['required', 'integer', 'exists:departments,id'],
-        ]);
-
-        if (! Gate::allows('canInviteRole', [User::class, $validated['role']])) {
-            abort(403, 'You cannot invite users with this role.');
-        }
-
-        $inviter = $request->user();
-        $department = Department::with('faculty')->findOrFail($validated['department_id']);
-        $departmentUniversityId = $department->faculty?->university_id;
-
-        if ($inviter->isDepartmentAdmin() && $department->id !== $inviter->department_id) {
-            abort(403, 'You can only invite users to your department.');
-        }
-
-        if ($inviter->isUniversityAdmin() && $departmentUniversityId !== $inviter->university_id) {
-            abort(403, 'You can only invite users to departments in your university.');
-        }
-
-        if ($validated['role'] === 'department_admin') {
-            $commercialAccount = CommercialAccount::query()
-                ->where('university_id', $departmentUniversityId)
-                ->where('status', 'active')
-                ->first();
-            $maxAdmins = data_get($commercialAccount?->metadata, 'max_administrators');
-            if ($maxAdmins !== null) {
-                $currentCount = User::query()
-                    ->where('role', 'department_admin')
-                    ->where('department_id', $department->id)
-                    ->count();
-
-                if ($currentCount >= $maxAdmins) {
-                    return back()->withErrors([
-                        'role' => "Maximum number of administrators ({$maxAdmins}) reached for this institution's commercial access configuration.",
-                    ]);
-                }
-            }
-        }
-
-        $invitedUser = User::create([
-            'uuid' => (string) Str::uuid(),
-            'university_id' => $departmentUniversityId,
-            'department_id' => $department->id,
-            'email' => $validated['email'],
-            'password' => Str::random(40),
-            'role' => $validated['role'],
-            'student_id' => $validated['role'] === 'student' ? Str::upper(Str::random(8)) : null,
-            'first_name' => 'Pending',
-            'last_name' => 'Setup',
-            'email_verified_at' => now(),
-            'is_active' => true,
-        ]);
-
-        $status = Password::sendResetLink(['email' => $invitedUser->email]);
-
-        if ($status !== Password::RESET_LINK_SENT) {
-            return back()->with('error', 'The account was created, but the secure setup email could not be sent. Use the password-reset page to resend it.');
-        }
-
-        return back()->with('success', 'User invited. A secure account-setup link was emailed to them.');
+        $this->authorize('create',User::class);
+        $data=$request->validate(['email'=>['required','email','max:255'],'role'=>['required','in:lecturer,student,department_admin'],'department_id'=>['required','integer','exists:departments,id']]);
+        abort_unless(Gate::allows('canInviteRole',[User::class,$data['role']]),403);
+        $department=Department::with('faculty.university')->findOrFail($data['department_id']);
+        $result=app(\App\Services\AcademicMembershipService::class)->invite($request->user(),$department->faculty->university,$department,$data['role'],$data['email']);
+        return redirect()->route('academic.organisations')->with('success','Secure invitation created. Existing users keep their account. Administrator nominations await Platform Admin verification.')->with('invitation_url',$result['url']);
     }
 
     // Admin: Reports

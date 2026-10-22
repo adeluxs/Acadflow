@@ -18,7 +18,8 @@ class NotificationController extends Controller
     {
         $user = Auth::user();
 
-        $query = $user->notifications()->with('user');
+        $query = $user->notifications()->where('in_app_visible', true);
+        if ($request->filled('category')) $query->where('category', $request->string('category')->toString());
 
         // Filter by read/unread
         if ($request->has('filter')) {
@@ -37,11 +38,12 @@ class NotificationController extends Controller
             $query->where('type', $request->type);
         }
 
-        $notifications = $query->orderBy('created_at', 'desc')->paginate(20);
+        $notifications = $query->orderBy('created_at', 'desc')->orderByDesc('id')->paginate(20)->withQueryString();
         $unreadCount = $user->unreadNotifications()->count();
 
         // Group by type for sidebar
         $typeCounts = $user->notifications()
+            ->where('in_app_visible', true)
             ->selectRaw('type, COUNT(*) as count')
             ->selectRaw('SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) as unread_count')
             ->groupBy('type')
@@ -104,7 +106,7 @@ class NotificationController extends Controller
             abort(403);
         }
 
-        $notification->delete();
+        $notification->update(['in_app_visible' => false, 'read_at' => $notification->read_at ?? now()]);
 
         if (request()->wantsJson()) {
             return response()->json(['message' => 'Deleted']);
@@ -119,7 +121,7 @@ class NotificationController extends Controller
     public function clearAll()
     {
         $user = Auth::user();
-        $user->notifications()->delete();
+        $user->notifications()->where('in_app_visible', true)->update(['in_app_visible' => false, 'read_at' => now()]);
 
         if (request()->wantsJson()) {
             return response()->json(['message' => 'All cleared']);
@@ -136,17 +138,12 @@ class NotificationController extends Controller
         $user = Auth::user();
         $settings = NotificationSetting::firstOrCreate(
             ['user_id' => $user->id],
-            [
-                'email_enabled' => true,
-                'push_enabled' => true,
-                'submission_notifications' => true,
-                'grade_notifications' => true,
-                'attendance_notifications' => true,
-                'billing_notifications' => true,
-            ]
+            app(\App\Services\NotificationPreferences::class)->defaults($user)
         );
 
-        return view('notifications.settings', compact('settings'));
+        $devices = \App\Models\PushSubscription::where('user_id', $user->id)->select(['id', 'user_agent', 'created_at', 'expires_at'])->latest('id')->simplePaginate(10);
+
+        return view('notifications.settings', compact('settings', 'devices'));
     }
 
     /**
@@ -155,7 +152,7 @@ class NotificationController extends Controller
     public function updateSettings(Request $request)
     {
         $user = Auth::user();
-        $settings = NotificationSetting::firstOrCreate(['user_id' => $user->id]);
+        $settings = NotificationSetting::firstOrCreate(['user_id' => $user->id], app(\App\Services\NotificationPreferences::class)->defaults($user));
 
         $validated = $request->validate([
             'email_enabled' => 'boolean',
@@ -164,9 +161,14 @@ class NotificationController extends Controller
             'grade_notifications' => 'boolean',
             'attendance_notifications' => 'boolean',
             'billing_notifications' => 'boolean',
+            'in_app_enabled' => 'boolean', 'academic_alerts' => 'boolean', 'organisation_updates' => 'boolean',
+            'onboarding_reminders' => 'boolean', 'research_updates' => 'boolean', 'engagement_reminders' => 'boolean', 'email_open_tracking' => 'boolean',
+            'timezone' => ['sometimes', 'required', 'timezone'],
+            'quiet_hours_start' => ['nullable', 'date_format:H:i'], 'quiet_hours_end' => ['nullable', 'date_format:H:i', 'required_with:quiet_hours_start'],
         ]);
 
         $settings->update($validated);
+        app(\App\Services\NotificationTrackingService::class)->record('preferences_updated', $user);
 
         return back()->with('success', 'Notification settings updated.');
     }

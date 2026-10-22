@@ -37,6 +37,11 @@ class GenerateStudyPlan implements ShouldQueue
             return;
         }
 
+        if($plan->user && $plan->course){
+            try{app(\App\Services\AcademicOrganisationService::class)->restoreCourseActor($plan->user,$plan->course,'student');}
+            catch(\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface){$plan->update(['status'=>StudyPlan::STATUS_FAILED,'error_code'=>'ACADEMIC_MEMBERSHIP_UNAVAILABLE']);return;}
+        }
+
         $service->generateInto($plan);
     }
 }

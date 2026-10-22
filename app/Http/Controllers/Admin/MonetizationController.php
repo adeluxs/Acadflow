@@ -59,17 +59,19 @@ class MonetizationController extends Controller
             ->map(fn(array $feature,string $key): array => [...$feature,'key'=>$key,'target'=>'ai:'.$key,'pricing_type'=>'ai_usage','rule_key'=>'ai.'.$key])
             ->values();
         $pricingTargets=$pricingFeatures->concat($aiPricingFeatures)->values();
-        $commercialAccounts=CommercialAccount::query()->with('university')->when($scope,fn($q)=>$q->where('university_id',$scope))->latest()->get();
+        $commercialAccounts=CommercialAccount::query()->with(['university','department.faculty.university'])->when($scope,fn($q)=>$q->where('university_id',$scope))->latest()->get();
         $universities=$request->user()->isSuperAdmin()?University::query()->orderBy('name')->get(['id','name']):collect();
         $pendingCommercialRequests=$request->user()->isSuperAdmin()
-            ? CommercialAccountRequest::query()->with(['university','requester'])->whereIn('status',['pending','in_review'])->oldest()->limit(50)->get()
+            ? CommercialAccountRequest::query()->with(['university','department','requester'])->whereIn('status',['pending','in_review'])->oldest()->limit(50)->get()
             : collect();
         $setupRequest=null;
         if($request->user()->isSuperAdmin() && $request->integer('commercial_request')){
-            $setupRequest=CommercialAccountRequest::query()->with(['university','commercialAccount'])->whereKey($request->integer('commercial_request'))->whereIn('status',['pending','in_review'])->first();
+            $setupRequest=CommercialAccountRequest::query()->with(['university','department','commercialAccount'])->whereKey($request->integer('commercial_request'))->whereIn('status',['pending','in_review'])->first();
         }
         $setupUniversityId=(int)($setupRequest?->university_id ?: $request->integer('institution'));
-        $setupAccount=$setupUniversityId>0 ? $commercialAccounts->firstWhere('university_id',$setupUniversityId) : null;
+        $setupDepartmentId=(int)($setupRequest?->department_id ?: $request->integer('department'));
+        $setupAccount=$setupDepartmentId>0 ? $commercialAccounts->firstWhere('department_id',$setupDepartmentId) : ($setupUniversityId>0 ? $commercialAccounts->firstWhere('university_id',$setupUniversityId) : null);
+        if($setupDepartmentId>0 && !$setupUniversityId)$setupUniversityId=(int)\App\Models\Department::findOrFail($setupDepartmentId)->faculty->university_id;
         $setupCurrency=$setupAccount?->currency ?: ($setupUniversityId>0 ? strtoupper((string)SettingService::get('currency',$displayCurrency,$setupUniversityId)) : $displayCurrency);
         $setupCurrency=strtoupper(trim((string)$setupCurrency)) ?: 'NGN';
 
@@ -113,7 +115,7 @@ class MonetizationController extends Controller
             'settings','pricingRules','pricingRuleTitles','pricingFeatures','aiPricingFeatures','pricingTargets','pricingFeatureGroups','commercialAccounts','universities',
             'metrics','scope','displayCurrency','pendingWithdrawals','pendingRefunds','pendingPayoutAccounts',
             'pendingCommercialRequests','setupRequest','setupUniversityId','setupAccount','setupCurrency',
-            'setupChanges','setupMetadata','requestedAddMinor','suggestedTargetMinor','selectedSponsoredFeatures'
+            'setupDepartmentId','setupChanges','setupMetadata','requestedAddMinor','suggestedTargetMinor','selectedSponsoredFeatures'
         ));
     }
 
@@ -214,6 +216,9 @@ class MonetizationController extends Controller
         $featureKeys=array_keys((array) config('monetization.pricing_features', []));
         $data=$request->validate([
             'university_id'=>['required','integer','exists:universities,id'],
+            'department_id'=>['nullable','integer','exists:departments,id'],
+            'plan_key'=>['nullable',Rule::in(array_keys(config('academic_adoption.plans')))],
+            'access_ends_at'=>['nullable','date'],
             'name'=>['nullable','string','max:255'],
             'status'=>['nullable',Rule::in(['active','paused'])],
             'prepaid_balance'=>['required','regex:/^\d+(?:\.\d{1,2})?$/'],
@@ -228,23 +233,33 @@ class MonetizationController extends Controller
         $targetBalance=Money::toMinor($data['prepaid_balance']);
         $universityId=(int)$data['university_id'];
         $university=University::query()->findOrFail($universityId);
-        $existingAccount=CommercialAccount::query()->where('university_id',$universityId)->first();
+        $departmentId=!empty($data['department_id'])?(int)$data['department_id']:null;
+        $department=$departmentId?\App\Models\Department::with('faculty')->findOrFail($departmentId):null;
+        abort_if($department && (int)$department->faculty->university_id!==$universityId,422,'The commercial department belongs to another institution.');
+        if(!empty($data['plan_key']))abort_unless(config('academic_adoption.plans.'.$data['plan_key'].'.scope')===($departmentId?'department':'institution'),422,'Choose a plan for this organisation scope.');
+        $accountScope=$departmentId?['department_id'=>$departmentId]:['university_id'=>$universityId,'department_id'=>null];
+        $existingAccount=CommercialAccount::query()->where($accountScope)->first();
         $currency=strtoupper(trim((string)($existingAccount?->currency ?: SettingService::get('currency','NGN',$universityId)))) ?: 'NGN';
         $relatedRequest=null;
         if(!empty($data['request_id'])){
-            $relatedRequest=CommercialAccountRequest::query()->whereKey((int)$data['request_id'])->where('university_id',$universityId)->whereIn('status',['pending','in_review'])->firstOrFail();
+            $relatedRequest=CommercialAccountRequest::query()->whereKey((int)$data['request_id'])->where('university_id',$universityId)->where('department_id',$departmentId)->whereIn('status',['pending','in_review'])->firstOrFail();
         }
 
-        DB::transaction(function () use ($request,$data,$targetBalance,$universityId,$currency,$ledger,$university,$relatedRequest): void {
-            $account=CommercialAccount::query()->where('university_id',$universityId)->lockForUpdate()->first();
+        DB::transaction(function () use ($request,$data,$targetBalance,$universityId,$currency,$ledger,$university,$department,$departmentId,$accountScope,$relatedRequest): void {
+            if($department)\App\Models\Department::whereKey($department->id)->lockForUpdate()->firstOrFail();
+            else University::whereKey($universityId)->lockForUpdate()->firstOrFail();
+            if($relatedRequest){$relatedRequest=CommercialAccountRequest::query()->lockForUpdate()->findOrFail($relatedRequest->id);abort_unless(in_array($relatedRequest->status,['pending','in_review'],true),422,'This request was already reviewed.');}
+            $account=CommercialAccount::query()->where($accountScope)->lockForUpdate()->first();
             $previous=(int)($account?->prepaid_balance_minor ?? 0);
             $existingMetadata=(array)($account?->metadata ?? []);
             if(!$account){
-                $account=new CommercialAccount(['uuid'=>(string)Str::uuid(),'university_id'=>$universityId]);
+                $account=new CommercialAccount(['uuid'=>(string)Str::uuid(),'university_id'=>$departmentId?null:$universityId,'department_id'=>$departmentId]);
             }
             $account->fill([
-                'name'=>trim((string)($data['name']??'')) ?: $university->name.' Commercial Account',
+                'name'=>trim((string)($data['name']??'')) ?: ($department?->name ?? $university->name).' Commercial Account',
                 'currency'=>$currency,
+                'plan_key'=>$data['plan_key']??$account->plan_key??($departmentId?'department_core':'institution_core'),
+                'access_ends_at'=>$data['access_ends_at']??null,
                 'prepaid_balance_minor'=>$targetBalance,
                 'status'=>$data['status']??'active',
                 'metadata'=>array_merge($existingMetadata,[

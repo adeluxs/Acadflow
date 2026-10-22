@@ -16,6 +16,7 @@ class KnowledgePublication extends Model
     protected function casts(): array { return ['price' => 'decimal:2', 'submitted_at' => 'datetime', 'scheduled_at' => 'datetime', 'published_at' => 'datetime', 'featured_at' => 'datetime', 'pinned_at' => 'datetime', 'metadata' => 'array', 'view_count' => 'integer', 'bookmark_count' => 'integer', 'comment_count' => 'integer', 'share_count' => 'integer', 'download_count' => 'integer', 'reading_time_minutes' => 'integer']; }
     protected static function booted(): void
     {
+        static::addGlobalScope(new \App\Models\Scopes\AcademicContentBoundary());
         static::creating(function (self $model) {
             $model->uuid ??= (string) Str::uuid();
             $model->slug = static::uniqueSlug($model->slug ?: $model->title);

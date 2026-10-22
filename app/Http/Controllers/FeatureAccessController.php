@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\AiUsageCharge;
-use App\Models\CommercialAccount;
 use App\Models\FeatureEntitlement;
 use App\Models\FeatureUsageCharge;
 use App\Services\Commerce\FeatureBillingService;
 use App\Services\Commerce\PricingCatalogService;
 use App\Services\Commerce\WalletService;
+use App\Services\Commerce\AcademicSponsorshipService;
 use App\Services\InstitutionAdoptionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,21 +24,22 @@ class FeatureAccessController extends Controller
     {
         $user = $request->user();
         $wallet = $wallets->account($user);
-        $institutionEligible = (bool) ($user->university_id && $institutionAdoption->canReceiveInstitutionBenefits($user));
-        $commercial = $institutionEligible
-            ? CommercialAccount::query()->where('university_id', $user->university_id)->where('status', 'active')->first()
-            : null;
+        $institutionEligible = $institutionAdoption->canReceiveInstitutionBenefits($user);
+        $sponsors = app(AcademicSponsorshipService::class)->accounts($user);
+        $commercial = $sponsors->first();
+        $definitions = $pricing->featureDefinitions();
+        $aiDefinitions = $pricing->aiDefinitions();
+        $rules = $pricing->activeRules(array_merge(array_map(fn ($key) => 'feature.'.$key, array_keys($definitions)), array_map(fn ($key) => 'ai.'.$key, array_keys($aiDefinitions))));
+        $entitlementQuery = FeatureEntitlement::query()->where('user_id', $user->id)->whereIn('feature', array_keys($definitions))
+            ->where('access_type', '!=', 'institution_sponsored')->where('status', 'active')
+            ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()));
+        $entitlements = FeatureEntitlement::query()->whereIn('id', (clone $entitlementQuery)->selectRaw('MAX(id)')->groupBy('feature'))->get()->keyBy('feature');
 
-        $featureRows = collect($pricing->featureDefinitions())->map(function (array $definition, string $feature) use ($pricing, $user, $commercial): array {
-            $rule = $pricing->featureRule($feature);
+        $featureRows = collect($definitions)->map(function (array $definition, string $feature) use ($pricing, $rules, $entitlements, $sponsors): array {
+            $rule = $rules->get('feature.'.$feature);
             $pricingType = $rule ? $pricing->pricingType($rule) : null;
-            $entitlement = FeatureEntitlement::query()
-                ->where('user_id', $user->id)
-                ->where('feature', $feature)
-                ->where('status', 'active')
-                ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
-                ->latest('id')
-                ->first();
+            $entitlement = $entitlements->get($feature);
 
             return [
                 ...$definition,
@@ -46,12 +47,12 @@ class FeatureAccessController extends Controller
                 'rule' => $rule,
                 'pricing_type' => $pricingType,
                 'entitlement' => $entitlement,
-                'sponsored' => (bool) ($commercial?->sponsorsFeature($feature)),
+                'sponsored' => $sponsors->contains(fn ($account) => $account->sponsorsFeature($feature)),
             ];
         })->values();
 
-        $aiRows = collect($pricing->aiDefinitions())->map(function (array $definition, string $feature) use ($pricing): array {
-            return [...$definition, 'key' => $feature, 'pricing' => $pricing->aiPricing($feature)];
+        $aiRows = collect($aiDefinitions)->map(function (array $definition, string $feature) use ($pricing, $rules): array {
+            return [...$definition, 'key' => $feature, 'pricing' => $pricing->aiPricingFromRule($rules->get('ai.'.$feature))];
         })->values();
 
         $featureUsage = FeatureUsageCharge::query()->where('user_id', $user->id)->latest()->limit(30)->get();

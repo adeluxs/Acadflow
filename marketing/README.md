@@ -18,9 +18,81 @@ routes ─▶ demo seed ─▶ Playwright capture ─▶ sharp cleanup ─▶ st
 | Capture           | Playwright (system Chrome channel)        | ✅ **ran: 35 screenshots**                                                                    |
 | Cleanup / framing | `sharp`                                   | ✅ **ran: 35 frames + contact sheet**                                                         |
 | Storyboard        | `storyboard.mjs`                          | ✅ implemented                                                                                |
-| Video render      | Remotion / FFmpeg                         | ⚠️ scaffold + docs (this machine cannot install Remotion and has no FFmpeg — see Limitations) |
+| Video render      | Chrome native H.264/AAC MP4 encoder         | ✅ `npm run video:render` exports landscape and portrait launch films with original music |
+
+## Finished launch video
+
+`launch-capture.mjs` combines previously verified marketing demo screens with fresh
+Research Studio captures from the **isolated local browser-fixture server**. It
+creates a demonstration project and an interview-guide resource in that fixture
+database. Start the isolated server described in
+[PERFORMANCE_OPERATIONS.md](../docs/PERFORMANCE_OPERATIONS.md#isolated-browser-fixtures-and-profiling)
+at port 8013 before running capture; do not point it at your normal app database.
+
+```sh
+npm run video:launch:capture
+npm run video:render
+```
+
+Output defaults to `marketing/video/launch/2026-10-21/`:
+
+- `acadsyntra-launch-landscape.mp4` — 1920×1080, 52 seconds.
+- `acadsyntra-launch-portrait.mp4` — 1080×1920, 52 seconds.
+- `acadsyntra-launch.srt` — scene captions.
+- `landscape-storyboard.png` and `portrait-storyboard.png` — scene previews.
+- `exports.json`, `sources.json`, and `CREDITS.txt` — export checks and sources.
+
+The music is an original synthesized instrumental; no third-party recordings
+are used. The film uses real demo screens, motion, on-screen copy, and music.
+It contains no voiceover. Every MP4 is checked for duration, dimensions and
+successful playback seeking before the renderer reports success.
+The active launch scene list, layouts and music live in `video/launch.html`;
+`video/render.mjs` records and validates both formats. The older
+`video/storyboard.mjs` remains a separate reference for the original screenshot
+pipeline and does not control these exports.
+
+Use `MARKETING_OUTPUT` to choose a different output folder for both commands,
+`MARKETING_DEMO_URL` to change the isolated capture server, and
+`MARKETING_SOURCE_RUN` to choose an existing verified screenshot run. Set
+`MARKETING_LAUNCH_DATE` to change the displayed date. A website is displayed
+only when `MARKETING_LAUNCH_URL` is explicitly supplied; an unconfirmed address
+is never substituted. For example:
+
+```sh
+MARKETING_LAUNCH_DATE="21 OCTOBER 2026" npm run video:render
+```
+
+The installed Chrome must support MP4 MediaRecorder (H.264/AAC). Override
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` when Chrome lives elsewhere. The new
+renderer does not require FFmpeg, Remotion, a browser download, or network access.
 
 ## Quick start
+
+### Live interaction launch walkthrough
+
+The more interactive version records actual clicks, chapter changes, focus mode,
+typing and autosave, table insertion/removal, library editing and the Studio guide.
+Both desktop and mobile recordings include timestamped cursor and click highlights.
+Use the same isolated fixture server at port 8013 described above, then run:
+
+```sh
+npm run video:interactive:capture
+npm run video:interactive:render
+```
+
+Outputs are in `marketing/video/launch/2026-10-21-interactive/`:
+
+- `acadsyntra-interactive-launch-landscape.mp4` and `acadsyntra-interactive-launch-portrait.mp4` — 52-second H.264/AAC films.
+- `preview.html` — open in a browser for clickable chapters and a format selector.
+- `interactions.json` and `clips/` — captured frame timestamps and actual pointer events.
+- Scene previews, captions, export metadata and credits.
+
+`MARKETING_INTERACTIVE_OUTPUT` overrides the capture and render output folder.
+The capture step also uses the first launch run's brand/screens folder. It creates
+only demonstration projects in the fixture database. Native app captures run at
+approximately 8 fps; the composition, cursor animation and music render at 30 fps.
+`interactive.html` supplies the composition, while `interactive-preview.html`
+supplies the chapter player. No application build is needed for video rendering.
 
 ```bash
 cd acadflow-web
@@ -126,11 +198,10 @@ only as a fallback), burnt-in captions + sidecar `.srt`, loudness ≈ −14 LUFS
 
 ## Limitations (encountered / to plan for)
 
-- **This machine cannot install Remotion** (its native install step references a
-  macOS symbol absent on Big Sur) and **has no FFmpeg**, and **Playwright cannot
-  download its bundled Chromium on macOS 11** — so capture uses the
-  **installed Google Chrome channel**, which works. Render steps therefore must
-  run on a newer macOS/Linux/CI box (or a machine with FFmpeg).
+- The older Remotion/FFmpeg path required tools unavailable on this Mac. The
+  implemented `video:render` path instead uses the installed Chrome's native
+  MP4 encoder and works locally; the optional render approaches above remain
+  alternatives for further editing.
 - Screenshots can't capture canvas/WebGL, embedded PDFs and streaming states
   faithfully; record those live.
 - Auth/2FA/onboarding and service workers can corrupt state — the pipeline

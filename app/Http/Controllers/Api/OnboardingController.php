@@ -42,7 +42,7 @@ class OnboardingController extends Controller
         $state = $onboarding->state($user);
 
         $validated = match ($step) {
-            'path' => $request->validate(['path' => ['required', Rule::in(array_keys(OnboardingService::PUBLIC_ACCOUNT_PATHS))]]),
+            'path' => $request->validate(['path' => ['required', Rule::in(array_keys(OnboardingService::PUBLIC_ACCOUNT_PATHS + OnboardingService::ADOPTION_ACCOUNT_PATHS))]]),
             'profile' => $request->validate([
                 'first_name' => ['required','string','max:100'],
                 'last_name' => ['required','string','max:100'],

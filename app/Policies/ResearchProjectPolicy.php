@@ -92,6 +92,8 @@ class ResearchProjectPolicy
             return false;
         }
 
+        if ($user->isAdmin() && $project->department && !app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,$project->department)) return false;
+
         return ! $user->isDepartmentAdmin() || $user->department_id === $project->department_id;
     }
 }

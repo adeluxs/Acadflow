@@ -32,7 +32,7 @@ class RecommendationService
             Recommendation::where('user_id', $user->id)->delete();
             return $this->trending($user, $limit);
         }
-        $events = DiscoveryEvent::query()
+        $events = DiscoveryEvent::query()->select('target_id')
             ->where('user_id', $user->id)
             ->where('target_type', KnowledgePublication::class)
             ->latest('created_at')
@@ -40,12 +40,12 @@ class RecommendationService
             ->get();
 
         $seenIds = $events->pluck('target_id')->unique();
-        $interestPublications = KnowledgePublication::query()->with('tags')->whereIn('id', $seenIds)->get();
+        $interestPublications = KnowledgePublication::query()->select(['id', 'category_id'])->with('tags:id')->whereIn('id', $seenIds)->get();
         $tagIds = $interestPublications->flatMap->tags->pluck('id')->countBy()->sortDesc()->keys()->take(20);
         $categoryIds = $interestPublications->pluck('category_id')->filter()->countBy()->sortDesc()->keys()->take(10);
 
         $candidates = KnowledgePublication::query()
-            ->with(['tags', 'creator'])
+            ->with('tags:id')
             ->where('status', 'published')
             ->whereNotNull('published_at')
             ->where('published_at', '<=', now())

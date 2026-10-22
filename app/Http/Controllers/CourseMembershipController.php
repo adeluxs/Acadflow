@@ -58,7 +58,7 @@ class CourseMembershipController extends Controller
         ]);
 
         $student = User::query()
-            ->where('role', 'student')
+            ->where(fn($q)=>$q->where('role','student')->orWhereHas('institutionAffiliations',fn($m)=>$m->approved()->where('affiliation_type','student')->where('department_id',$course->department_id)))
             ->where(function ($query) use ($data): void {
                 $query->where('email', $data['student'])
                     ->orWhere('student_id', $data['student'])
@@ -70,6 +70,10 @@ class CourseMembershipController extends Controller
             return back()->withErrors(['student' => 'No student account matches that email, student ID, or username.']);
         }
 
+        if(!$course->isIndependent()){
+            $membership=$student->institutionAffiliations()->approved()->where('department_id',$course->department_id)->where('affiliation_type','student')->first();
+            if($membership)$student->useAcademicAffiliation($membership);
+        }
         $this->assertSameAcademicScope($student, $course, requireDepartment: $this->restrictStudentsToDepartment($student));
         $this->assertCapacity($course, $semester->id);
 

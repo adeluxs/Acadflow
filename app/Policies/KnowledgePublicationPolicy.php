@@ -23,7 +23,7 @@ class KnowledgePublicationPolicy
         }
 
         $visible = $publication->visibility === 'public'
-            || ($publication->visibility === 'institution' && $publication->university_id !== null && $user->university_id !== null && $publication->university_id === $user->university_id);
+            || ($publication->visibility === 'institution' && app(\App\Services\AcademicOrganisationService::class)->canReadRecord($user,$publication));
 
         if (! $visible) {
             return false;
@@ -34,7 +34,7 @@ class KnowledgePublicationPolicy
         // controller and secure media service so premium items can expose a
         // safe catalogue preview without leaking purchased content.
         return $publication->access_type !== 'institution'
-            || ($publication->university_id !== null && $user->university_id !== null && $publication->university_id === $user->university_id);
+            || (app(\App\Services\AcademicOrganisationService::class)->canReadRecord($user,$publication));
     }
 
     public function create(User $user): bool
@@ -71,16 +71,6 @@ class KnowledgePublicationPolicy
             return true;
         }
 
-        if ($user->isUniversityAdmin()) {
-            return $user->university_id !== null
-                && $publication->university_id !== null
-                && $user->university_id === $publication->university_id;
-        }
-
-        return $user->isDepartmentAdmin()
-            && $user->university_id !== null
-            && $publication->university_id !== null
-            && $user->university_id === $publication->university_id
-            && $user->department_id === $publication->department_id;
+        return app(\App\Services\AcademicOrganisationService::class)->canAdministerRecord($user,$publication);
     }
 }

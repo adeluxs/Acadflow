@@ -23,6 +23,7 @@ class Department extends Model
         'is_catalog_template',
         'adoption_status',
         'adopted_at',
+        'adoption_settings',
     ];
 
     protected static function booted(): void
@@ -34,7 +35,7 @@ class Department extends Model
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean', 'is_catalog_template' => 'boolean', 'adopted_at' => 'datetime'];
+        return ['is_active' => 'boolean', 'is_catalog_template' => 'boolean', 'adopted_at' => 'datetime', 'adoption_settings' => 'array'];
     }
 
     public function faculty(): BelongsTo
@@ -61,6 +62,13 @@ class Department extends Model
     public function isIndependentlyActive(): bool
     {
         return $this->adoption_status === 'independent_active';
+    }
+
+    public function institutionAffiliations() { return $this->hasMany(DepartmentInstitutionAffiliation::class); }
+
+    public function isInstitutionManaged(): bool
+    {
+        return $this->adoption_status === 'institution_managed' || ($this->adoption_status === 'institution_affiliated' && (bool)data_get($this->adoption_settings, 'institution_data_access', false));
     }
 
     public function courses(): HasMany

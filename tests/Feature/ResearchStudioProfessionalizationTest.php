@@ -25,8 +25,8 @@ class ResearchStudioProfessionalizationTest extends TestCase
 
     public function test_institutional_controls_are_hidden_until_admin_enables_research_expansion(): void
     {
-        $university = University::factory()->create();
-        $department = Department::factory()->create(['faculty_id' => \App\Models\Faculty::factory()->create(['university_id' => $university->id])->id]);
+        $university = University::factory()->create(['adoption_status'=>'active']);
+        $department = Department::factory()->create(['faculty_id' => \App\Models\Faculty::factory()->create(['university_id' => $university->id])->id,'adoption_status'=>'institution_managed']);
         $student = User::factory()->create([
             'role' => 'student',
             'account_type' => 'student',
@@ -34,6 +34,7 @@ class ResearchStudioProfessionalizationTest extends TestCase
             'department_id' => $department->id,
         ]);
 
+        $this->approveProfile($student);
         $this->actingAs($student)
             ->get(route('research.create'))
             ->assertOk()
@@ -43,6 +44,7 @@ class ResearchStudioProfessionalizationTest extends TestCase
 
         FeatureAccessService::setStatus('research_institutional_expansion', FeatureAccessService::STATUS_ENABLED, $student->id);
 
+        $this->approveProfile($student);
         $this->actingAs($student)
             ->get(route('research.create'))
             ->assertOk()
@@ -54,9 +56,9 @@ class ResearchStudioProfessionalizationTest extends TestCase
     public function test_supervisor_is_invited_and_not_assigned_until_acceptance(): void
     {
         Mail::fake();
-        $university = University::factory()->create();
+        $university = University::factory()->create(['adoption_status'=>'active']);
         $faculty = \App\Models\Faculty::factory()->create(['university_id' => $university->id]);
-        $department = Department::factory()->create(['faculty_id' => $faculty->id]);
+        $department = Department::factory()->create(['faculty_id' => $faculty->id,'adoption_status'=>'institution_managed']);
         $owner = User::factory()->create([
             'role' => 'student',
             'account_type' => 'student',
@@ -72,6 +74,7 @@ class ResearchStudioProfessionalizationTest extends TestCase
         $type = app(IndependentAcademicContextService::class)->ensureResearchType();
         FeatureAccessService::setStatus('research_institutional_expansion', FeatureAccessService::STATUS_ENABLED, $owner->id);
 
+        $this->approveProfile($owner);$this->approveProfile($lecturer);
         $response = $this->actingAs($owner)->post(route('research.store'), [
             'research_type_id' => $type->id,
             'institutional_project' => '1',
@@ -97,8 +100,8 @@ class ResearchStudioProfessionalizationTest extends TestCase
 
     public function test_disabled_institutional_expansion_rejects_institution_payloads(): void
     {
-        $university = University::factory()->create();
-        $department = Department::factory()->create(['faculty_id' => \App\Models\Faculty::factory()->create(['university_id' => $university->id])->id]);
+        $university = University::factory()->create(['adoption_status'=>'active']);
+        $department = Department::factory()->create(['faculty_id' => \App\Models\Faculty::factory()->create(['university_id' => $university->id])->id,'adoption_status'=>'institution_managed']);
         $owner = User::factory()->create(['university_id' => $university->id, 'department_id' => $department->id]);
         $type = app(IndependentAcademicContextService::class)->ensureResearchType();
         FeatureAccessService::setStatus('research_institutional_expansion', FeatureAccessService::STATUS_DISABLED, $owner->id);
@@ -370,6 +373,12 @@ class ResearchStudioProfessionalizationTest extends TestCase
         $service = app(AcademicReferenceService::class);
         $this->assertStringContainsString('First Author', $service->format($reference, 'apa'));
         $this->assertStringContainsString('First Author et al.', $service->inText($reference, 'apa'));
+    }
+
+    private function approveProfile(User $user): void
+    {
+        if(!$user->university_id)return;
+        \App\Models\UserInstitutionAffiliation::firstOrCreate(['user_id'=>$user->id,'university_id'=>$user->university_id,'department_id'=>$user->department_id,'affiliation_type'=>$user->role],['faculty_id'=>$user->department?->faculty_id,'status'=>'verified','verified_at'=>now(),'source'=>'test_review']);
     }
 
 }

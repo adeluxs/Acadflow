@@ -24,14 +24,34 @@ self.addEventListener('notificationclick', (event) => {
         const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
         for (const client of windows) {
             if (new URL(client.url).origin !== self.location.origin) continue;
-            if (client.url !== target && 'navigate' in client) await client.navigate(target);
-            return client.focus();
+            try {
+                if (client.url !== target && 'navigate' in client) await client.navigate(target);
+                return await client.focus();
+            } catch (_) { /* Try another client or open a fresh application window. */ }
         }
         return self.clients.openWindow(target);
     })());
 });
 self.addEventListener('pushsubscriptionchange', (event) => {
-    event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
-        windows.forEach((client) => client.postMessage({ type: 'PUSH_SUBSCRIPTION_CHANGED' }));
-    }));
+    event.waitUntil((async () => {
+        try {
+            const response = await fetch('/browser-push/renew-context', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+            if (!response.ok) throw new Error('Sign in to reconnect notifications.');
+            const context = await response.json();
+            if (!context.available || !context.publicKey) return;
+            const raw = atob(context.publicKey.replace(/-/g, '+').replace(/_/g, '/'));
+            const key = Uint8Array.from(raw, char => char.charCodeAt(0));
+            const subscription = event.newSubscription || await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+            const saved = await fetch('/browser-push/subscribe', {
+                method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': context.csrf_token }, body: JSON.stringify(subscription.toJSON()),
+            });
+            if (!saved.ok) throw new Error('Subscription renewal could not be saved.');
+            if (event.oldSubscription && event.oldSubscription.endpoint !== subscription.endpoint) {
+                await fetch('/browser-push/unsubscribe', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': context.csrf_token }, body: JSON.stringify({ endpoint: event.oldSubscription.endpoint }) });
+            }
+        } catch (_) {
+            const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            windows.forEach(client => client.postMessage({ type: 'PUSH_SUBSCRIPTION_CHANGED' }));
+        }
+    })());
 });

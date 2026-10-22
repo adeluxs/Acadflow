@@ -29,9 +29,9 @@ class SiwesAssignmentTypeAvailabilityTest extends TestCase
     /** @return array<string,\App\Models\Model> */
     private function context(): array
     {
-        $university = University::factory()->create();
+        $university = University::factory()->create(['adoption_status'=>'active']);
         $faculty = Faculty::factory()->create(['university_id' => $university->id]);
-        $department = Department::factory()->create(['faculty_id' => $faculty->id]);
+        $department = Department::factory()->create(['faculty_id' => $faculty->id,'adoption_status'=>'institution_managed']);
         $session = AcademicSession::factory()->create(['university_id' => $university->id, 'is_active' => true]);
         $semester = Semester::factory()->create(['academic_session_id' => $session->id, 'is_active' => true, 'start_date' => now()->subWeek(), 'end_date' => now()->addMonths(3)]);
         $course = Course::factory()->create(['department_id' => $department->id]);
@@ -67,6 +67,7 @@ class SiwesAssignmentTypeAvailabilityTest extends TestCase
             'university_id' => $university->id,
         ]);
 
+        foreach([$lecturer,$student] as $approved)\App\Models\UserInstitutionAffiliation::create(['user_id'=>$approved->id,'university_id'=>$university->id,'department_id'=>$department->id,'faculty_id'=>$faculty->id,'affiliation_type'=>$approved->role,'status'=>'verified','verified_at'=>now()]);
         return compact('university', 'faculty', 'department', 'session', 'semester', 'course', 'lecturer', 'student', 'superAdmin', 'universityAdmin');
     }
 

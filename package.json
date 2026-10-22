@@ -11,6 +11,10 @@
     "video:demo": "bash marketing/video/prepare-demo.sh",
     "video:capture": "node marketing/video/capture.mjs",
     "video:clean": "node marketing/video/clean.mjs",
+    "video:launch:capture": "node marketing/video/launch-capture.mjs",
+    "video:render": "node marketing/video/render.mjs",
+    "video:interactive:capture": "node marketing/video/interactive-capture.mjs",
+    "video:interactive:render": "node marketing/video/interactive-render.mjs",
     "video": "npm run video:capture && npm run video:clean"
   },
     "devDependencies": {

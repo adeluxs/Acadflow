@@ -22,44 +22,32 @@ class InstitutionCommercialAccountController extends Controller
 {
     public function show(Request $request): View
     {
-        abort_unless($request->user()->isUniversityAdmin(), 403);
-        $universityId = (int) $request->user()->university_id;
-        abort_if($universityId <= 0, 403, 'Your administrator account is not linked to an institution.');
-
-        $account = CommercialAccount::query()->where('university_id', $universityId)->first();
-        $requests = CommercialAccountRequest::query()
-            ->where('university_id', $universityId)
-            ->with('reviewer:id,first_name,last_name')
-            ->latest()
-            ->limit(20)
-            ->get();
-        $pricingFeatures = collect((array) config('monetization.pricing_features', []));
-        $currency = strtoupper((string) ($account?->currency ?: SettingService::get('currency', 'NGN', $universityId)));
-        $monthStart = now()->startOfMonth();
-        $institutionAiSpendMinor = (int) AiUsageCharge::query()
-            ->where('university_id', $universityId)
-            ->where('currency', $currency)
-            ->where('metadata->funding_source', 'institution')
-            ->where('created_at', '>=', $monthStart)
-            ->sum('user_charge_minor');
-        $aiRequests = (int) AiUsageCharge::query()
-            ->where('university_id', $universityId)
-            ->where('created_at', '>=', $monthStart)
-            ->count();
-        $memberCount = User::query()->where('university_id', $universityId)->count();
-
-        return view('institution.commercial-account', compact(
-            'account', 'requests', 'pricingFeatures', 'currency', 'institutionAiSpendMinor', 'aiRequests', 'memberCount'
-        ));
+        $actor=$request->user();
+        abort_unless($actor->isUniversityAdmin() || $actor->isDepartmentAdmin(),403);
+        $universityId=(int)$actor->university_id;
+        $departmentId=$actor->isDepartmentAdmin()?(int)$actor->department_id:null;
+        abort_if($universityId<=0 || ($actor->isDepartmentAdmin() && !$departmentId),403);
+        $account=CommercialAccount::query()->when($departmentId,fn($q)=>$q->where('department_id',$departmentId),fn($q)=>$q->where('university_id',$universityId)->whereNull('department_id'))->first();
+        $requests=CommercialAccountRequest::query()->where('university_id',$universityId)->where('department_id',$departmentId)->with('reviewer:id,first_name,last_name')->latest()->limit(20)->get();
+        $pricingFeatures=collect((array)config('monetization.pricing_features',[]));
+        $currency=strtoupper((string)($account?->currency ?: SettingService::get('currency','NGN',$universityId)));
+        $usage=AiUsageCharge::query()->where('metadata->commercial_account_id',$account?->id??0)->where('created_at','>=',now()->startOfMonth());
+        $institutionAiSpendMinor=(int)(clone $usage)->where('currency',$currency)->where('status','completed')->sum('user_charge_minor');
+        $aiRequests=(clone $usage)->count();
+        $memberCount=\App\Models\UserInstitutionAffiliation::approved()->where('university_id',$universityId)->where('department_id',$departmentId)->distinct('user_id')->count('user_id');
+        $organisationName=$departmentId?$actor->department->name:$actor->university->name;
+        return view('institution.commercial-account',compact('account','requests','pricingFeatures','currency','institutionAiSpendMinor','aiRequests','memberCount','organisationName','departmentId'));
     }
 
     public function storeRequest(Request $request, NotificationService $notifications): RedirectResponse
     {
-        abort_unless($request->user()->isUniversityAdmin(), 403);
+        abort_unless($request->user()->isUniversityAdmin() || $request->user()->isDepartmentAdmin(), 403);
         $universityId = (int) $request->user()->university_id;
         abort_if($universityId <= 0, 403);
 
-        $account = CommercialAccount::query()->where('university_id', $universityId)->first();
+        $departmentId=$request->user()->isDepartmentAdmin()?(int)$request->user()->department_id:null;
+        abort_if($request->user()->isDepartmentAdmin() && !$departmentId,403);
+        $account = CommercialAccount::query()->when($departmentId,fn($q)=>$q->where('department_id',$departmentId),fn($q)=>$q->where('university_id',$universityId)->whereNull('department_id'))->first();
         $features = array_keys((array) config('monetization.pricing_features', []));
         $data = $request->validate([
             'request_type' => ['required', Rule::in(['account_setup', 'add_funds', 'change_terms', 'sponsorship'])],
@@ -93,6 +81,7 @@ class InstitutionCommercialAccountController extends Controller
 
         $duplicate = CommercialAccountRequest::query()
             ->where('university_id', $universityId)
+            ->where('department_id', $departmentId)
             ->where('request_type', $data['request_type'])
             ->whereIn('status', ['pending', 'in_review'])
             ->exists();
@@ -114,9 +103,10 @@ class InstitutionCommercialAccountController extends Controller
             default => [],
         };
 
-        $commercialRequest = DB::transaction(function () use ($request, $account, $universityId, $data, $amountMinor, $currency, $requestedChanges): CommercialAccountRequest {
+        $commercialRequest = DB::transaction(function () use ($request, $account, $universityId, $departmentId, $data, $amountMinor, $currency, $requestedChanges): CommercialAccountRequest {
             return CommercialAccountRequest::query()->create([
                 'university_id' => $universityId,
+                'department_id' => $departmentId,
                 'commercial_account_id' => $account?->id,
                 'requested_by_user_id' => $request->user()->id,
                 'request_type' => $data['request_type'],
@@ -128,7 +118,7 @@ class InstitutionCommercialAccountController extends Controller
             ]);
         }, 3);
 
-        User::query()->where('role', 'super_admin')->get()->each(function (User $admin) use ($notifications, $commercialRequest, $request): void {
+        User::withoutGlobalScopes()->where('role', 'super_admin')->get()->each(function (User $admin) use ($notifications, $commercialRequest, $request): void {
             $notifications->send(
                 $admin,
                 NotificationType::SYSTEM_ANNOUNCEMENT,

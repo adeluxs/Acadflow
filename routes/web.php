@@ -111,6 +111,16 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::get('/browser-push/configuration', [\App\Http\Controllers\Api\PushNotificationController::class, 'vapidPublicKey'])->name('browser-push.configuration')->middleware('two-factor.authenticated');
+    Route::post('/browser-push/subscribe', [\App\Http\Controllers\Api\PushNotificationController::class, 'subscribe'])->middleware('throttle:30,1')->name('browser-push.subscribe')->middleware('two-factor.authenticated');
+    Route::post('/browser-push/test', [\App\Http\Controllers\Api\PushNotificationController::class, 'test'])->middleware('throttle:3,1')->name('browser-push.test')->middleware('two-factor.authenticated');
+    Route::get('/notifications/settings', [NotificationController::class, 'settings'])->name('notifications.settings')->middleware('two-factor.authenticated');
+    Route::put('/notifications/settings', [NotificationController::class, 'updateSettings'])->name('notifications.settings.update')->middleware('two-factor.authenticated');
+    Route::get('/browser-push/renew-context', [\App\Http\Controllers\Api\PushNotificationController::class, 'renewContext'])->name('browser-push.renew-context')->middleware('two-factor.authenticated');
+    Route::post('/browser-push/permission', [\App\Http\Controllers\Api\PushNotificationController::class, 'permission'])->middleware('throttle:20,1')->name('browser-push.permission')->middleware('two-factor.authenticated');
+    Route::delete('/browser-push/devices/{subscription}', [\App\Http\Controllers\Api\PushNotificationController::class, 'removeDevice'])->name('browser-push.device.remove')->middleware('two-factor.authenticated');
+    Route::get('/notification-links/{delivery}', [\App\Http\Controllers\NotificationInteractionController::class, 'delivery'])->middleware('signed')->name('notification.delivery.open')->middleware('two-factor.authenticated');
+    Route::get('/notifications/{notification}/open', [\App\Http\Controllers\NotificationInteractionController::class, 'open'])->name('notifications.open')->middleware('two-factor.authenticated');
     Route::post('/browser-push/unsubscribe', [\App\Http\Controllers\Api\PushNotificationController::class, 'unsubscribe'])->name('browser-push.unsubscribe');
     Route::get('/verify-email', EmailVerificationPromptController::class)->name('verification.notice');
     Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
@@ -140,14 +150,22 @@ Route::post('/webhook/payment/{gateway}', [CommerceController::class, 'webhook']
 
 // Protected application routes require verified identity and completed onboarding.
 Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.complete'])->group(function () {
+    require __DIR__.'/academic-organisations.php';
+        Route::post('/admin/billing/semesters/{semester}/generate-invoices', [BillingController::class, 'generateInvoices'])
+            ->name('billing.generate-invoices');
+
+        Route::get('/institution/commercial-account', [InstitutionCommercialAccountController::class, 'show'])
+            ->middleware('role:department_admin,university_admin')
+            ->name('institution.commercial-account');
+        Route::post('/institution/commercial-account/requests', [InstitutionCommercialAccountController::class, 'storeRequest'])
+            ->middleware(['role:department_admin,university_admin', 'throttle:commercial-account-requests'])
+            ->name('institution.commercial-account.requests.store');
+
     Route::middleware('role:super_admin')->group(function () {
         Route::get('/admin/contact', [\App\Http\Controllers\Admin\ContactInboxController::class, 'index'])->name('admin.contact.index');
         Route::patch('/admin/contact/{contactMessage}', [\App\Http\Controllers\Admin\ContactInboxController::class, 'update'])->name('admin.contact.update');
     });
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/browser-push/configuration', [\App\Http\Controllers\Api\PushNotificationController::class, 'vapidPublicKey'])->name('browser-push.configuration');
-    Route::post('/browser-push/subscribe', [\App\Http\Controllers\Api\PushNotificationController::class, 'subscribe'])->middleware('throttle:30,1')->name('browser-push.subscribe');
-    Route::post('/browser-push/test', [\App\Http\Controllers\Api\PushNotificationController::class, 'test'])->middleware('throttle:3,1')->name('browser-push.test');
     Route::get('/institution/onboarding', [InstitutionOnboardingController::class, 'requestForm'])
         ->middleware('throttle:commercial-account-requests')
         ->name('institution.onboarding.request');
@@ -179,8 +197,6 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::put('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
     Route::delete('/notifications', [NotificationController::class, 'clearAll'])->name('notifications.clear');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
-    Route::get('/notifications/settings', [NotificationController::class, 'settings'])->name('notifications.settings');
-    Route::put('/notifications/settings', [NotificationController::class, 'updateSettings'])->name('notifications.settings.update');
     Route::put('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
@@ -727,6 +743,14 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     // Admin notification management (available to department_admin, university_admin, super_admin)
     Route::middleware('role:department_admin,university_admin,super_admin')->group(function () {
         Route::get('/admin/notifications', [NotificationManagementController::class, 'index'])->name('admin.notifications.index');
+        Route::middleware('role:super_admin')->group(function () {
+            Route::get('/admin/notifications/analytics', [\App\Http\Controllers\Admin\NotificationAnalyticsController::class, 'index'])->name('admin.notifications.analytics');
+            Route::get('/admin/notifications/analytics/export', [\App\Http\Controllers\Admin\NotificationAnalyticsController::class, 'export'])->name('admin.notifications.analytics.export');
+            Route::put('/admin/notifications/analytics/settings', [\App\Http\Controllers\Admin\NotificationAnalyticsController::class, 'update'])->name('admin.notifications.analytics.settings');
+            Route::put('/admin/notifications/templates', [\App\Http\Controllers\Admin\NotificationAnalyticsController::class, 'template'])->name('admin.notifications.templates');
+            Route::post('/admin/notifications/deliveries/{delivery}/retry', [\App\Http\Controllers\Admin\NotificationAnalyticsController::class, 'retry'])->name('admin.notifications.delivery.retry');
+        });
+
         Route::post('/admin/notifications/push-keys', [NotificationManagementController::class, 'generatePushKeys'])->name('admin.notifications.push-keys');
         Route::put('/admin/notifications/channels', [NotificationManagementController::class, 'updateChannels'])->name('admin.notifications.update-channels');
         Route::get('/admin/notifications/announce', [NotificationManagementController::class, 'announce'])->name('admin.notifications.announce');
@@ -787,12 +811,6 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::get('/institution/setup', [InstitutionOnboardingController::class, 'institutionDashboard'])
             ->middleware('role:university_admin')
             ->name('institution.setup');
-        Route::get('/institution/commercial-account', [InstitutionCommercialAccountController::class, 'show'])
-            ->middleware('role:university_admin')
-            ->name('institution.commercial-account');
-        Route::post('/institution/commercial-account/requests', [InstitutionCommercialAccountController::class, 'storeRequest'])
-            ->middleware(['role:university_admin', 'throttle:commercial-account-requests'])
-            ->name('institution.commercial-account.requests.store');
         Route::post('/institution/{university}/email-domains', [InstitutionOnboardingController::class, 'proposeDomain'])->name('institution.email-domains.store');
 
         Route::get('/admin/faculties', [AdminController::class, 'faculties'])->name('admin.faculties');
@@ -801,8 +819,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::put('/admin/faculties/{faculty}', [AdminController::class, 'updateFaculty'])->name('admin.faculties.update');
 
         // Generate invoices for a semester
-        Route::post('/admin/billing/semesters/{semester}/generate-invoices', [BillingController::class, 'generateInvoices'])
-            ->name('billing.generate-invoices');
+
     });
 
     // Super Admin routes
@@ -865,3 +882,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 
 // Public publication route is intentionally last so it cannot shadow authoring routes.
 Route::get('/knowledge-hub/{publication}', [KnowledgeHubController::class, 'show'])->name('knowledge.show');
+
+Route::match(['GET', 'POST'], '/notification-unsubscribe/{delivery}', [\App\Http\Controllers\NotificationInteractionController::class, 'unsubscribe'])->middleware(['signed', 'throttle:30,1'])->name('notification.unsubscribe');
+Route::get('/notification-events/pixel/{delivery}', [\App\Http\Controllers\NotificationInteractionController::class, 'pixel'])->middleware(['signed', 'throttle:120,1'])->name('notification.email.pixel');
+Route::post('/webhook/notifications/provider', [\App\Http\Controllers\NotificationInteractionController::class, 'provider'])->middleware('throttle:commerce-webhooks')->name('notification.provider.events');

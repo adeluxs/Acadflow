@@ -119,6 +119,8 @@
 
             <form method="POST" action="{{ route('admin.monetization.commercial-accounts.store') }}" class="mt-5 space-y-6">
                 @csrf
+                @if($setupDepartmentId>0)<input type="hidden" name="department_id" value="{{ $setupDepartmentId }}"><p class="rounded-xl bg-indigo-50 p-3 text-sm font-bold">Department account: {{ $setupRequest?->department?->name ?? $setupAccount?->department?->name }}. Funds remain separate from the institution account.</p>@endif
+                <div class="grid gap-4 sm:grid-cols-2"><label class="text-sm font-semibold">Adoption plan<select name="plan_key" class="mt-1 w-full rounded-xl border-slate-300">@foreach(config('academic_adoption.plans') as $key=>$plan)@if($plan['scope']===($setupDepartmentId?'department':'institution'))<option value="{{ $key }}" @selected(old('plan_key',$setupAccount?->plan_key??data_get($setupRequest?->requested_changes,'plan_key'))===$key)>{{ $plan['name'] }}</option>@endif @endforeach</select></label><label class="text-sm font-semibold">Access end date (optional)<input type="date" name="access_ends_at" value="{{ old('access_ends_at',$setupAccount?->access_ends_at?->format('Y-m-d')) }}" class="mt-1 w-full rounded-xl border-slate-300"></label></div>
                 @if($setupRequest)<input type="hidden" name="request_id" value="{{ $setupRequest->id }}">@endif
 
                 <div class="rounded-2xl border p-5">
@@ -206,7 +208,7 @@
                     <article class="rounded-2xl border p-4">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                                <p class="text-sm font-black text-slate-900">{{ $commercialRequest->university?->name }} · {{ $commercialRequest->label() }}</p>
+                                <p class="text-sm font-black text-slate-900">{{ $commercialRequest->university?->name }} @if($commercialRequest->department)· {{ $commercialRequest->department->name }}@endif · {{ $commercialRequest->label() }}</p>
                                 <p class="mt-1 text-xs text-slate-500">Requested by {{ $commercialRequest->requester?->full_name }} · {{ $commercialRequest->created_at?->diffForHumans() }}</p>
                                 @if($commercialRequest->requested_amount_minor)<p class="mt-2 text-sm font-black text-indigo-700">Requested budget: {{ $commercialRequest->currency }} {{ \App\Support\Money::fromMinor((int)$commercialRequest->requested_amount_minor) }}</p>@endif
                                 <p class="mt-2 text-sm leading-6 text-slate-600">{{ $commercialRequest->message ?: 'No additional message.' }}</p>
@@ -231,8 +233,8 @@
             <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Existing B2B accounts</p><h2 class="mt-1 text-xl font-black text-slate-900">Institution commercial accounts</h2><p class="mt-1 text-sm text-slate-500">Open an account to update negotiated terms. Institution admins see the approved values on their own Commercial Account dashboard.</p></div>
             <div class="mt-5 space-y-3">
                 @forelse($commercialAccounts as $commercialAccount)
-                    <a href="{{ route('admin.monetization',['institution'=>$commercialAccount->university_id]) }}#commercial-account-setup" class="block rounded-2xl border p-4 transition hover:border-indigo-200 hover:bg-indigo-50/30">
-                        <div class="flex items-start justify-between gap-3"><div><p class="font-black text-slate-900">{{ $commercialAccount->university?->name ?? $commercialAccount->name }}</p><p class="mt-1 text-xs text-slate-500">{{ $commercialAccount->name }} · {{ $commercialAccount->currency }}</p></div><span class="rounded-full px-2.5 py-1 text-[11px] font-black {{ $commercialAccount->status==='active'?'bg-emerald-50 text-emerald-700':'bg-slate-100 text-slate-600' }}">{{ ucfirst($commercialAccount->status) }}</span></div>
+                    <a href="{{ route('admin.monetization',['institution'=>$commercialAccount->university_id,'department'=>$commercialAccount->department_id]) }}#commercial-account-setup" class="block rounded-2xl border p-4 transition hover:border-indigo-200 hover:bg-indigo-50/30">
+                        <div class="flex items-start justify-between gap-3"><div><p class="font-black text-slate-900">{{ $commercialAccount->university?->name ?? $commercialAccount->name }}</p><p class="mt-1 text-xs text-slate-500">{{ $commercialAccount->name }} @if($commercialAccount->department)· {{ $commercialAccount->department->name }}@endif · {{ $commercialAccount->currency }}</p></div><span class="rounded-full px-2.5 py-1 text-[11px] font-black {{ $commercialAccount->status==='active'?'bg-emerald-50 text-emerald-700':'bg-slate-100 text-slate-600' }}">{{ ucfirst($commercialAccount->status) }}</span></div>
                         <div class="mt-3 flex flex-wrap gap-3 text-xs text-slate-600"><span>Prepaid: <strong class="text-slate-900">{{ $commercialAccount->currency }} {{ \App\Support\Money::fromMinor((int)$commercialAccount->prepaid_balance_minor) }}</strong></span><span>AI sponsored: <strong class="text-slate-900">{{ data_get($commercialAccount->metadata,'sponsor_ai_usage',false)?'Yes':'No' }}</strong></span><span>Sponsored features: <strong class="text-slate-900">{{ count((array)data_get($commercialAccount->metadata,'sponsored_features',[])) }}</strong></span></div>
                     </a>
                 @empty

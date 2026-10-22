@@ -1,5 +1,9 @@
 # AcadSyntra Developer Guide
 
+## Notification delivery and engagement
+
+Academic and organisation events use the existing central notification service with transactional outbox rows and after-commit jobs on the `notifications` queue. User/category/channel preferences, deduplication, quiet hours and rate limits apply again at delivery. Native account verification/reset mail uses queued notifications separately. Super Admin analytics uses indexed SQL aggregates and short-lived snapshots; meaningful foreground activity drives opt-in reminders. See [NOTIFICATION_OPERATIONS.md](NOTIFICATION_OPERATIONS.md) for migration safety, queue/scheduler commands, provider feedback, metric definitions, test evidence and remaining real-service verification. New notification producers should reuse this pipeline and stable event keys instead of synchronous transport calls.
+
 ## AcadSyntra identity and compatibility
 
 The public product name is **AcadSyntra**. Shared layouts, AI instructions, notification/email copy, PDF/export labels, metadata and manifests use it. Native vector masters and derived icons are in `public/branding/acadsyntra-*`; run `node scripts/generate-brand-assets.mjs` to reproduce PNG, social and favicon outputs. Old public asset URLs remain aliases containing the new artwork. See [BRANDING.md](BRANDING.md) for the palette, migration, verification and intentional technical compatibility names.

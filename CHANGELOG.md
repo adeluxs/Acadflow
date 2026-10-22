@@ -8,6 +8,9 @@
 
 ### Added
 
+- Expanded searchable step-by-step onboarding/help guides, consent-based browser push invitations and device management, category/timezone/quiet-hour preferences, bounded onboarding and useful-work inactivity reminders.
+- Added a central after-commit notification outbox, queued academic/research/organisation events, safe retries and uncertain-outcome handling, signed interactions/unsubscribe, optional provider-confirmation adapter, retention maintenance and queued account mail.
+- Added Super Admin notification analytics with recorded channel delivery, push subscriptions, onboarding and meaningful-activity metrics, interactive charts, scoped filters, streamed CSV, template/settings controls and failure monitoring; added migration-preservation and lifecycle/browser regression coverage.
 - Added 41 modular research designs with saved setup plans, methodology-based or five-chapter structures, ND-to-doctoral project context, instruments/analysis guidance, milestones and scoped official reporting-standard links.
 - Added a private, versioned research planning library, reviewed institutional guideline extraction/heading application, source-bound qualitative coding/theme summaries, reproducible descriptive CSV analysis and assumption-preserving sample-size planning.
 - Added genuine DOCX export, configurable document formatting, contents generation and resource-to-section insertion; retained existing PDF/HTML, scholarly discovery, AI, supervision and institutional workflows.

@@ -62,6 +62,7 @@ class AcademicEvent extends Model
 
     protected static function booted(): void
     {
+        static::addGlobalScope(new \App\Models\Scopes\AcademicContentBoundary());
         static::creating(fn (self $model) => $model->uuid ??= (string) Str::uuid());
     }
 

@@ -489,6 +489,7 @@
     </script>
 
     <?php echo $__env->yieldPushContent('scripts'); ?>
+<?php echo $__env->make('notifications._push-invitation', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
 </body>
 </html>
 <?php /**PATH /Users/user/Desktop/acadflow/acadflow-web/resources/views/layouts/app.blade.php ENDPATH**/ ?>

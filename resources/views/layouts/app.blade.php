@@ -483,5 +483,6 @@
     </script>
 
     @stack('scripts')
+@include('notifications._push-invitation')
 </body>
 </html>

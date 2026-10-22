@@ -15,7 +15,7 @@ class ResearchProject extends Model
     use SoftDeletes;
     protected $fillable = ['uuid', 'university_id', 'department_id', 'workspace_mode', 'academic_session_id', 'semester_id', 'research_type_id', 'research_template_version_id', 'owner_id', 'supervisor_id', 'co_supervisor_id', 'workflow_instance_id', 'title', 'research_area', 'keywords', 'abstract', 'status', 'specialization_type', 'progress', 'expected_completion_date', 'approved_at', 'archived_at', 'last_activity_at', 'metadata'];
     protected function casts(): array { return ['keywords' => 'array', 'progress' => 'decimal:2', 'expected_completion_date' => 'date', 'approved_at' => 'datetime', 'archived_at' => 'datetime', 'last_activity_at' => 'datetime', 'metadata' => 'array']; }
-    protected static function booted(): void { static::creating(fn (self $model) => $model->uuid ??= (string) Str::uuid()); }
+    protected static function booted(): void { static::addGlobalScope(new \App\Models\Scopes\AcademicOrganisationBoundary()); static::creating(fn (self $model) => $model->uuid ??= (string) Str::uuid()); }
     public function isIndependent(): bool { return $this->workspace_mode === 'independent'; }
     public function university(): BelongsTo { return $this->belongsTo(University::class); }
     public function department(): BelongsTo { return $this->belongsTo(Department::class); }

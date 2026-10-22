@@ -42,11 +42,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'webhook/payment/*',
             'commerce/webhook/*',
+            'webhook/notifications/provider',
+            'notification-unsubscribe/*',
         ]);
 
         $middleware->alias([
             'verified' => \App\Http\Middleware\EnsureEmailVerificationRequirement::class,
             'role' => RoleMiddleware::class,
+            'academic.context' => \App\Http\Middleware\ResolveAcademicContext::class,
             'permission' => PermissionMiddleware::class,
             'feature.flag' => FeatureFlagMiddleware::class,
             'feature.access' => FeatureAccessMiddleware::class,
@@ -64,7 +67,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Append to the web group after StartSession rather than making it a
         // pre-session global middleware. Protected API groups add the same
         // middleware after auth:sanctum in routes/api.php.
-        $middleware->web(append: [FeatureAccessMiddleware::class]);
+        $middleware->web(append: [\App\Http\Middleware\ResolveAcademicContext::class, FeatureAccessMiddleware::class, \App\Http\Middleware\RecordMeaningfulActivity::class]);
+        $middleware->prependToPriorityList(\Illuminate\Routing\Middleware\SubstituteBindings::class, \App\Http\Middleware\ResolveAcademicContext::class);
         
         // Add session timeout check (runs on web routes after auth)
         $middleware->append(CheckSessionTimeout::class);

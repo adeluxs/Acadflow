@@ -1,3 +1,4 @@
 <div class="faq-list" data-search-items>
-@foreach($faqs as $faq)<details class="faq-item" data-search-item data-category="{{ $faq['topic'] }}"><summary><span>@if($showTopics ?? false)<small>{{ $faq['topic'] }}</small>@endif{{ $faq['question'] }}</span><span class="faq-plus" aria-hidden="true">+</span></summary><div class="faq-answer"><p>{{ $faq['answer'] }}</p></div></details>@endforeach
+@foreach($faqs as $faq)<details class="faq-item" data-search-item data-category="{{ $faq['topic'] }}"><summary><span>@if($showTopics ?? false)<small>{{ $faq['topic'] }}</small>@endif{{ $faq['question'] }}</span><span class="faq-plus" aria-hidden="true">+</span></summary><div class="faq-answer"><p>{{ $faq['answer'] }}</p>@if(!empty($faq['steps']))<ol style="padding-left:1.4rem;list-style:decimal">@foreach($faq['steps'] as $step)<li style="margin-top:.75rem">{{ $step }}</li>@endforeach</ol>@endif
+@if(!empty($faq['links']))<div style="display:flex;flex-wrap:wrap;gap:1rem;margin-top:1rem">@foreach($faq['links'] as $link)<a class="text-link" href="{{ route($link['route'],$link['params']??[]) }}">{{ $link['label'] }} ↗</a>@endforeach</div>@endif</div></details>@endforeach
 </div>

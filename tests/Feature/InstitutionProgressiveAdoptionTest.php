@@ -53,7 +53,7 @@ class InstitutionProgressiveAdoptionTest extends TestCase
         $this->assertTrue($service->canReceiveInstitutionBenefits($student->fresh()));
     }
 
-    public function test_department_can_adopt_independently_then_migrate_in_place(): void
+    public function test_department_adoption_preserves_independence_when_institution_activates(): void
     {
         $university=University::factory()->create(['adoption_status'=>'unclaimed']);
         $faculty=Faculty::factory()->create(['university_id'=>$university->id]);
@@ -69,7 +69,7 @@ class InstitutionProgressiveAdoptionTest extends TestCase
 
         $university->update(['adoption_status'=>'active']);
         $service->migrateIndependentDepartments($university,$admin);
-        $this->assertSame('institution_managed',$department->fresh()->adoption_status);
+        $this->assertSame('independent_active',$department->fresh()->adoption_status);
         $this->assertDatabaseCount('departments',1);
     }
 

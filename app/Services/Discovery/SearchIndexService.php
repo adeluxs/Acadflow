@@ -19,9 +19,16 @@ class SearchIndexService
     {
         $payload = $this->payloadFor($model);
         $body = trim(strip_tags((string) ($payload['body'] ?? '')));
-        $checksum = hash('sha256', json_encode([$payload['title'], $payload['summary'], $body, $payload['metadata']], JSON_UNESCAPED_UNICODE));
+        // Scope, visibility, access and keywords are part of index identity too;
+        // permission changes must invalidate an otherwise unchanged document.
+        $checksum = hash('sha256', json_encode(array_replace($payload, ['body' => $body]), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return DB::transaction(function () use ($model, $payload, $body, $checksum) {
+            $existing = SearchDocument::query()->where('searchable_type', $model->getMorphClass())
+                ->where('searchable_id', $model->getKey())->lockForUpdate()->first();
+            if ($existing && hash_equals((string) $existing->checksum, $checksum)) {
+                return $existing->load('chunks');
+            }
             $document = SearchDocument::updateOrCreate(
                 ['searchable_type' => $model->getMorphClass(), 'searchable_id' => $model->getKey()],
                 [

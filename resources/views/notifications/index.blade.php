@@ -26,6 +26,7 @@
         </div>
     </div>
 
+    <nav class="mb-5 flex flex-wrap gap-2" aria-label="Notification categories"><a href="{{ route('notifications.index') }}" class="acad-secondary-button">All updates</a>@foreach(config('notification_delivery.categories') as $key=>$label)<a href="{{ route('notifications.index',['category'=>$key]) }}" class="acad-secondary-button" @if(request('category')===$key) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav>
     <!-- Sidebar filters -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div class="md:col-span-1">
@@ -36,7 +37,7 @@
                         <a href="{{ route('notifications.index') }}" 
                            class="flex justify-between {{ !request()->has('filter') && !request()->has('type') ? 'font-bold text-indigo-600' : 'text-gray-600' }}">
                             All
-                             <span class="text-gray-400">{{ $typeCounts->count() ?? $notifications->total() }}</span>
+                             <span class="text-gray-400">{{ $typeCounts->sum('count') }}</span>
                         </a>
                     </li>
                     <li>
@@ -77,19 +78,19 @@
         <div class="md:col-span-3">
             @if($notifications->count() > 0)
                 <div class="space-y-3">
-                    @foreach($notifications as $notification)
+                    @foreach($notifications->getCollection()->groupBy('category') as $category=>$items)
+                    <section class="space-y-3"><h2 class="text-sm font-bold text-slate-600">{{ config('notification_delivery.categories.'.$category,ucfirst($category)) }}</h2>
+                    @foreach($items as $notification)
                         <div class="bg-white rounded-lg shadow p-4 {{ is_null($notification->read_at) ? 'border-l-4 border-blue-500' : '' }}">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
                                     <h4 class="font-semibold {{ is_null($notification->read_at) ? 'text-gray-900' : 'text-gray-700' }}">
-                                        {{ $notification->title }}
+                                        {{ $notification->title }} @if($notification->priority==='high')<span class="ml-2 rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">Priority</span>@endif
                                     </h4>
                                     <p class="text-gray-600 text-sm mt-1">{{ $notification->message }}</p>
                                     <div class="flex items-center gap-2 mt-2 text-xs text-gray-500">
                                         <span>{{ $notification->created_at?->format('M d, Y H:i') ?? '-' }}</span>
-                                        @if($notification->user)
-                                            <span>• {{ $notification->user->full_name }}</span>
-                                        @endif
+                                        <a href="{{ route('notifications.open',$notification) }}" class="font-semibold text-indigo-600">Open update →</a>
                                     </div>
                                 </div>
                                 <div class="flex gap-2">
@@ -109,6 +110,8 @@
                                 </div>
                             </div>
                         </div>
+                    @endforeach
+                    </section>
                     @endforeach
                 </div>
                 <div class="mt-6">

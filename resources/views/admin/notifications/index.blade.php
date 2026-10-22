@@ -69,6 +69,7 @@
         </div>
         <p class="text-sm text-gray-600 mb-6">Enable or disable notification delivery channels system-wide. Individual users can still adjust their own preferences.</p>
 
+        @if(auth()->user()->isSuperAdmin() || auth()->user()->isUniversityAdmin())
         <form action="{{ route('admin.notifications.update-channels') }}" method="POST">
             @csrf
             @method('PUT')
@@ -110,6 +111,7 @@
                 </button>
             </div>
         </form>
+        @else<p class="text-sm text-slate-500">Organisation-wide channel settings are managed by institution administrators. Your announcements are restricted to approved department members.</p>@endif
     </div>
 
     <!-- Channel Breakdown -->

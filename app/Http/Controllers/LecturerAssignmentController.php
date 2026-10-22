@@ -26,6 +26,7 @@ class LecturerAssignmentController extends Controller
         // Check if user is actually a lecturer
         $user = User::findOrFail($validated['user_id']);
         $course->loadMissing('department.faculty');
+        if(!app(\App\Services\AcademicOrganisationService::class)->applyMembershipRole($user,(int)$course->department->faculty->university_id,(int)$course->department_id,'lecturer'))return back()->with('error','Approve this lecturer membership in the course department before assigning teaching.');
         if (! $user->isLecturer()
             || $user->university_id !== $course->department?->faculty?->university_id
             || $user->department_id !== $course->department_id) {

@@ -91,11 +91,12 @@ class StudentImportController extends Controller
         }
 
         $department = Department::query()->with('faculty')->findOrFail($request->integer('department_id'));
+        abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($actor,$department),403);
         $targetUniversityId = (int) $department->faculty->university_id;
         $semester = $request->filled('semester_id')
             ? Semester::query()->with('academicSession')->findOrFail($request->integer('semester_id'))
             : null;
-        if ($semester && (int) $semester->academicSession?->university_id !== $targetUniversityId) {
+        if ($semester && ((int) $semester->academicSession?->university_id !== $targetUniversityId || ($semester->academicSession?->department_id && (int)$semester->academicSession->department_id !== (int)$department->id))) {
             fclose($handle);
             return back()->withInput()->with('error', 'The selected semester and department belong to different institutions.');
         }
@@ -121,12 +122,8 @@ class StudentImportController extends Controller
             }
 
             try {
-                $existing = User::query()->where('email', $email)->first();
-                if ($existing && $existing->university_id && (int) $existing->university_id !== $targetUniversityId && $existing->hasVerifiedInstitutionAffiliation()) {
-                    throw new \RuntimeException('Email is already verified with another institution.');
-                }
-
-                $user = User::query()->updateOrCreate(
+                $existing = User::withoutGlobalScopes()->where('email', $email)->first();
+                $user = $existing ?: User::withoutGlobalScopes()->firstOrCreate(
                     ['email' => $email],
                     [
                         'first_name' => trim((string) ($data['first_name'] ?? '')),

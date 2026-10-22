@@ -25,7 +25,9 @@ class ProfileController extends Controller
 {
     public function show(Request $request)
     {
-        $user = $request->user();
+        $contextUser=$request->user();
+        // Directory identity is personal profile information, not an access grant.
+        $user=User::withoutGlobalScopes()->findOrFail($contextUser->id);
 
         $user->load([
             'university:id,name,short_name,code,timezone,adoption_status',
@@ -65,7 +67,7 @@ class ProfileController extends Controller
                 ->get()
             : collect();
 
-        $permissions = collect(Permission::forRole($user->role))
+        $permissions = collect(Permission::forRole($contextUser->role))
             ->map(fn (Permission $permission): string => Str::headline(str_replace('_', ' ', $permission->value)))
             ->sort()
             ->values();
@@ -103,7 +105,7 @@ class ProfileController extends Controller
             ];
         }
 
-        $verified = $affiliation && $affiliation->status === 'verified';
+        $verified = $affiliation?->isVerified() ?? false;
 
         return [
             'is_member' => true,

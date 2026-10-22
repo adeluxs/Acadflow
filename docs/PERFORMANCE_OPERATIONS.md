@@ -41,6 +41,7 @@ Run separate supervised processes so expensive work cannot occupy every worker. 
 
 ```sh
 php artisan queue:work redis --queue=default --sleep=1 --tries=3 --timeout=300 --max-jobs=1000 --memory=192
+php artisan queue:work redis --queue=notifications --sleep=1 --tries=5 --timeout=300 --max-jobs=1000 --memory=192
 php artisan queue:work redis --queue=ai --sleep=1 --tries=3 --timeout=300 --max-jobs=200 --memory=256
 php artisan queue:work redis --queue=indexing,analytics --sleep=1 --tries=3 --timeout=300 --max-jobs=1000 --memory=192
 php artisan queue:work redis --queue=exports --sleep=1 --tries=2 --timeout=300 --max-jobs=100 --memory=384
