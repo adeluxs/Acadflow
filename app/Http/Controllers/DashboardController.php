@@ -89,9 +89,12 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
+        $studyToday = FeatureAccessService::canAccessFeature('courses', $user)
+            ? app(\App\Services\Student\StudyWorkspaceService::class)->today($user) : null;
+
         return view('dashboard.student', compact(
             'enrollments', 'enrollmentCount', 'submissions', 'submissionCount', 'pendingTasks', 'courseProgress',
-            'cgpa', 'announcements'
+            'cgpa', 'announcements', 'studyToday'
         ));
     }
 

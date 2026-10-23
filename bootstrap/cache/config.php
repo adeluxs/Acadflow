@@ -1008,6 +1008,7 @@
           0 => 'courses.*',
           1 => 'lecturer.courses*',
           2 => 'admin.courses*',
+          3 => 'study.*',
         ),
         'paths' => 
         array (

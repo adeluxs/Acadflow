@@ -305,6 +305,7 @@ class ContextualAssistantService
                 'week_number' => $material->week_number,
                 'type' => $material->type,
                 'authorized_file_text' => $materialText,
+                'authorized_authored_text' => Str::limit(html_entity_decode(strip_tags((string)$material->content), ENT_QUOTES | ENT_HTML5, 'UTF-8'), 16000, '…'),
                 'course' => ['code' => $material->course?->code, 'name' => $material->course?->name, 'level' => $material->course?->level],
             ],
             'grounding_sources' => $sources,

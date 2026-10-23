@@ -10,6 +10,7 @@
     $featureVisible = fn (string $feature): bool => \App\Services\FeatureAccessService::shouldShowInNavigation($feature, $dashboardUser);
 @endphp
 <div class="space-y-5">
+    @if($studyToday)@include('student.study._today', ['today' => $studyToday])@endif
     <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         @foreach([
             ['My Courses',$enrollmentCount,'Enrolled courses','bg-indigo-50 text-indigo-600'],

@@ -22,6 +22,8 @@ See [Editable onboarding and profile completion](EDITABLE_ONBOARDING.md) for ret
 
 ## Current specialist references
 
+- [`STUDENT_STUDY_SPACE.md`](STUDENT_STUDY_SPACE.md) — connected course study, private notes, saved explanations, practice feedback, revision and Today dashboard.
+
 - [`PERFORMANCE_OPERATIONS.md`](PERFORMANCE_OPERATIONS.md) — production tuning, admin performance measurements, index deployment and reproducible verification.
 - [`NOTIFICATION_OPERATIONS.md`](NOTIFICATION_OPERATIONS.md) — delivery architecture, reminders, consent, analytics, testing and production configuration.
 - [`ACADFLOW_2026_08_20_PASSWORD_POLICY_RATE_LIMIT_UX.md`](ACADFLOW_2026_08_20_PASSWORD_POLICY_RATE_LIMIT_UX.md)

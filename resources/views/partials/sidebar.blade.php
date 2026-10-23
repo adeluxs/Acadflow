@@ -35,6 +35,7 @@
             ['Notifications','notifications.index','bell'],
         ],
         'student' => [
+            ['My Study Space','study.index','book'],
             ['My Courses','courses.index','book'],
             ['Assignments','submissions.dashboard','task'],
             ['My Submissions','submissions.dashboard','submit'],

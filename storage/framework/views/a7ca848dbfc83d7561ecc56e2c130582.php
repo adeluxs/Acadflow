@@ -29,6 +29,7 @@
                 </div>
 
                 <div class="flex flex-wrap gap-2">
+                    <?php if(auth()->user()->isStudent() && $isEnrolled): ?><a href="<?php echo e(route('study.index', ['course_id' => $course->id])); ?>" class="rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-black text-white">Study this course →</a><?php endif; ?>
                     <a href="<?php echo e(route('materials.index', $course)); ?>" class="rounded-xl bg-white px-4 py-2.5 text-sm font-black text-indigo-900">
                         Materials
                     </a>

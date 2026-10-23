@@ -8,6 +8,7 @@ use App\Models\Course;
 use App\Models\CourseMaterial;
 use App\Models\PracticeQuiz;
 use App\Services\Ai\PracticeQuizService;
+use App\Services\Student\StudySourceService;
 use Illuminate\Http\Request;
 
 /**
@@ -49,9 +50,8 @@ class PracticeQuizController extends Controller
         $material = null;
         if (! empty($data['material_id'])) {
             $candidate = CourseMaterial::find($data['material_id']);
-            if ($candidate && (int) $candidate->course_id === (int) $course->id) {
-                $material = $candidate;
-            }
+            abort_unless($candidate && (int) $candidate->course_id === (int) $course->id, 404);
+            $material = $candidate;
         }
 
         $quiz = $this->quizzes->generate(
@@ -68,9 +68,9 @@ class PracticeQuizController extends Controller
 
     public function show(Request $request, PracticeQuiz $quiz)
     {
-        abort_unless($quiz->user_id === $request->user()->id, 404);
+        app(StudySourceService::class)->authorizeQuiz($request->user(), $quiz);
 
-        $quiz->load('course:id,uuid,code,name', 'material:id,title');
+        $quiz->load('course:id,uuid,code,name', 'material:id,uuid,course_id,title', 'studySession.note:id,uuid,title');
 
         $attempts = $quiz->attempts()
             ->where('user_id', $request->user()->id)
@@ -83,12 +83,12 @@ class PracticeQuizController extends Controller
 
     public function submit(Request $request, PracticeQuiz $quiz)
     {
-        abort_unless($quiz->user_id === $request->user()->id, 404);
-
-        $attempt = $this->quizzes->gradeAttempt($quiz, $request->user(), (array) $request->input('answers', []));
+        app(StudySourceService::class)->authorizeQuiz($request->user(), $quiz);
+        $data = $request->validate(['answers' => ['nullable', 'array', 'max:15'], 'answers.*' => ['nullable', 'string', 'max:1000'], 'submission_token' => ['nullable', 'uuid']]);
+        $attempt = $this->quizzes->gradeAttempt($quiz, $request->user(), array_map(fn ($value) => $value ?? '', $data['answers'] ?? []), $data['submission_token'] ?? null);
 
         return redirect()->route('practice-quizzes.show', $quiz)
-            ->with('success', 'You scored '.$attempt->score.'/'.$attempt->total.'.');
+            ->with('success', 'You scored '.$attempt->score.'/'.$attempt->total.'. Review your feedback below.');
     }
 
     private function enrolledCourses(Request $request)

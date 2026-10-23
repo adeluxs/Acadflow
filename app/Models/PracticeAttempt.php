@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 
 class PracticeAttempt extends Model
 {
-    protected $fillable = ['uuid', 'quiz_id', 'user_id', 'score', 'total', 'answers', 'started_at', 'completed_at'];
+    protected $fillable = ['uuid', 'quiz_id', 'user_id', 'score', 'total', 'answers', 'started_at', 'completed_at', 'submission_token'];
 
     protected function casts(): array
     {

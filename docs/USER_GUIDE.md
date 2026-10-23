@@ -450,6 +450,16 @@ Uses `citation_assistant`.
 
 Each feature is routed through the same central AI settings. An administrator can configure the global provider/model or an intentional feature-specific override.
 
+### My Study Space and Today
+
+Students can choose **My Study Space** in the sidebar or **Study this material** on a course resource. Read a source, select a confusing passage, request a simple explanation and save it automatically. Then generate short practice from the same source, answer it and review the feedback. A saved quiz can be retaken without another AI generation request; new explanations/quizzes use your existing plan allowance.
+
+You can also paste private notes or import readable PDF, Word and TXT documents where your administrator permits those file types. Notes belong to you and are linked to an enrolled course. Uploads are limited to 5 MB and 20,000 readable characters; scanned images need text extraction first.
+
+The dashboard’s **Today** panel prioritizes an assignment closing soon, due revision or saved work. Missed answers return after one day; successful recall after a gap increases the revision interval, up to 30 days. Feedback shows expected answers and explanations after an attempt. Short written answers use exact wording checks. These practice results do not change official grades or predict exam performance. No extra email/push reminders are enabled automatically.
+
+See [My Study Space](STUDENT_STUDY_SPACE.md) for the complete workflow and current limits.
+
 ### Other contextual AI capabilities
 
 AcadSyntra also has centrally registered AI capabilities for:

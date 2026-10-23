@@ -16,6 +16,7 @@
                 <p class="mt-2 text-sm text-slate-300">{{ $course->code }} · {{ $course->name }}</p>
             </div>
             <div class="flex flex-wrap gap-2">
+                @if(auth()->user()?->isStudent())<form method="POST" action="{{ route('study.materials.start', $material) }}">@csrf<button class="rounded-xl bg-indigo-500 px-5 py-2.5 text-sm font-black text-white">Study this material →</button></form>@endif
                 @if($material->hasFile())
                     <a href="{{ route('materials.download', [$course, $material]) }}" class="rounded-xl bg-white px-5 py-2.5 text-sm font-black text-slate-950 hover:bg-slate-100">Download</a>
                 @endif

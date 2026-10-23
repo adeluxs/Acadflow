@@ -32,7 +32,7 @@ return [
             'category' => 'Core Academic',
             'description' => 'Course lists, course details, lecturer course workspaces, enrolment and invitation flows.',
             'default_status' => 'enabled',
-            'routes' => ['courses.*', 'lecturer.courses*', 'admin.courses*'],
+            'routes' => ['courses.*', 'lecturer.courses*', 'admin.courses*', 'study.*'],
             'paths' => ['api/v1/courses*'],
             'depends_on' => [],
             'impact' => 'Students and lecturers will lose access to course workspaces and course API actions.',

@@ -15,6 +15,7 @@
                 <p class="mt-2 text-sm text-slate-300"><?php echo e($course->code); ?> · <?php echo e($course->name); ?></p>
             </div>
             <div class="flex flex-wrap gap-2">
+                <?php if(auth()->user()?->isStudent()): ?><form method="POST" action="<?php echo e(route('study.materials.start', $material)); ?>"><?php echo csrf_field(); ?><button class="rounded-xl bg-indigo-500 px-5 py-2.5 text-sm font-black text-white">Study this material →</button></form><?php endif; ?>
                 <?php if($material->hasFile()): ?>
                     <a href="<?php echo e(route('materials.download', [$course, $material])); ?>" class="rounded-xl bg-white px-5 py-2.5 text-sm font-black text-slate-950 hover:bg-slate-100">Download</a>
                 <?php endif; ?>

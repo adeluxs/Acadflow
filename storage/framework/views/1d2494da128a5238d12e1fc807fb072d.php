@@ -8,6 +8,7 @@
     $featureVisible = fn (string $feature): bool => \App\Services\FeatureAccessService::shouldShowInNavigation($feature, $dashboardUser);
 ?>
 <div class="space-y-5">
+    <?php if($studyToday): ?><?php echo $__env->make('student.study._today', ['today' => $studyToday], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php endif; ?>
     <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <?php $__currentLoopData = [
             ['My Courses',$enrollmentCount,'Enrolled courses','bg-indigo-50 text-indigo-600'],

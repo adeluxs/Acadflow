@@ -17,11 +17,12 @@ class PracticeQuiz extends Model
     protected $fillable = [
         'uuid', 'user_id', 'course_id', 'material_id', 'title', 'topic',
         'difficulty', 'status', 'questions', 'provider', 'model', 'error_code',
+        'study_session_id', 'next_review_at', 'last_practiced_at', 'review_interval_days',
     ];
 
     protected function casts(): array
     {
-        return ['questions' => 'array'];
+        return ['questions' => 'array', 'next_review_at' => 'datetime', 'last_practiced_at' => 'datetime', 'review_interval_days' => 'integer'];
     }
 
     protected static function booted(): void
@@ -38,6 +39,7 @@ class PracticeQuiz extends Model
     public function material(): BelongsTo { return $this->belongsTo(CourseMaterial::class, 'material_id'); }
 
     public function attempts(): HasMany { return $this->hasMany(PracticeAttempt::class, 'quiz_id'); }
+    public function studySession(): BelongsTo { return $this->belongsTo(StudentStudySession::class, 'study_session_id'); }
 
     public function questionCount(): int
     {

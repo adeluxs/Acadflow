@@ -207,3 +207,22 @@ php vendor/bin/phpunit tests/Feature/StylesheetNavigationTest.php tests/Feature/
 ```
 
 Keep `APP_ENV=local` on the development server. Build assets and clear/rebuild Laravel caches after deployment as described above. Serve worker scripts with revalidation rather than immutable caching; immutable caching is reserved for hashed build assets. The updated worker replaces the old cache during normal page loading, so routine page navigation should not require manual refreshes.
+
+## Student study workspace (2026-10-23)
+
+The connected study flow adds a bounded Today panel to the student dashboard. A local comparison of the committed dashboard controller against the new controller, using the same current layout and isolated fixture, measured:
+
+| Full HTTP render | Warm median | SQL queries | HTML bytes |
+|---|---:|---:|---:|
+| Previous dashboard controller | 56.40 ms | 13 | 36,026 |
+| Dashboard with Today | 89.14 ms | 19 | 40,680 |
+| Study hub, one source session/quiz | 75.06 ms | 13 | 36,749 |
+| Study hub, 40 additional notes/sessions/quizzes | 107.51 ms | 14 | 42,503 |
+
+Today adds six bounded queries and about 4.7 KB to this dashboard fixture. The hub gains one eager-load query when note cards exist; it does not add a query per source/history entry. Dashboard data selects no source content, saved explanation or question/answer JSON. Courses/materials/notes use 12/12/6-item simple pagination; Today loads three sessions and five due quizzes, with a SQL aggregate for seven-day practice. Relevant user/date and revision indexes are part of the restartable study migration.
+
+These are eight warm samples after an initial cold sample, SQLite, PHP 8.5.2, array sessions and the compiled Vite bundle on this workstation. They measure added functionality and bounded work, not an improvement in every request’s latency, a production capacity guarantee or measured retention. Raw samples and the exact baseline method are in [student-study-2026-10-23.json](performance/student-study-2026-10-23.json).
+
+For reproduction, use the isolated testing environment described earlier in this document, with an SQLite path beginning `/private/tmp/acadsyntra-studio-study-`, `CACHE_STORE=array`, `QUEUE_CONNECTION=database`, `MAIL_MAILER=array`, and distinct testing config/route/event cache paths. Never seed the application’s normal database. Prepare `php tests/Browser/prepare-student-study.php`, then run `SESSION_DRIVER=array php scripts/performance/benchmark.php --user=1 --route=/study --runs=9`. Add `--history=40` to fixture preparation for the larger dataset. Use `/dashboard` for the dashboard measurement. The fixture resets only its isolated test session and selected quiz attempts; use a fresh database to reproduce the small dataset. Compare the previous controller in an isolated checkout against the same fixture/layout to reproduce the baseline.
+
+For the browser scenario, use database sessions, set `APP_URL=http://127.0.0.1:8016`, prepare the fixture, serve the application from `public/` with Laravel’s development router, and run `node --test tests/Browser/student-study.test.mjs`. No live AI calls are made by this browser scenario. See [My Study Space](STUDENT_STUDY_SPACE.md) for deployment and behavior limits.

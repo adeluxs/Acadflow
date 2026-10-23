@@ -553,6 +553,15 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 
     // Student study tools (Phase 1 + Phase 2 AI enhancements)
     Route::get('/student/learning-profile', [LearningProfileController::class, 'show'])->name('student.learning-profile');
+    Route::middleware('role:student')->prefix('study')->name('study.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\StudentStudyController::class, 'index'])->name('index');
+        Route::post('/materials/{material}/start', [\App\Http\Controllers\StudentStudyController::class, 'startMaterial'])->middleware('feature.flag:course_materials')->name('materials.start');
+        Route::post('/notes/{note}/start', [\App\Http\Controllers\StudentStudyController::class, 'startNote'])->name('notes.start');
+        Route::post('/notes', [\App\Http\Controllers\StudentStudyController::class, 'import'])->middleware('throttle:20,1')->name('notes.import');
+        Route::get('/sessions/{session}', [\App\Http\Controllers\StudentStudyController::class, 'show'])->name('show');
+        Route::post('/sessions/{session}/explain', [\App\Http\Controllers\StudentStudyController::class, 'explain'])->middleware(['feature.flag:ai_assistant', 'ai.feature:material_assistant', 'throttle:ai'])->name('explain');
+        Route::post('/sessions/{session}/practice', [\App\Http\Controllers\StudentStudyController::class, 'practice'])->middleware(['feature.flag:ai_assistant', 'ai.feature:practice_generator', 'throttle:ai'])->name('practice');
+    });
     Route::put('/student/learning-profile', [LearningProfileController::class, 'update'])->name('student.learning-profile.update');
 
     Route::get('/study-notes', [StudyNoteController::class, 'index'])->name('study-notes.index');

@@ -12,6 +12,9 @@
 
 ### Added
 
+- Added My Study Space and the student Today dashboard: connect published material or private pasted/imported notes to saved explanations, source-based practice, detailed answer feedback and scheduled revision. Reused current AI availability, provider, allowance and billing controls; saved practice grades locally without affecting official grades.
+- Added scoped resume/revision queries, paginated source lists, upload extraction limits, verified source quotations, retry-safe attempts and restartable study-session/revision indexes. Added private-access, AI failure/disablement, migration, performance and mobile/desktop browser coverage with deployment documentation.
+
 - Added Manage Onboarding from dashboards and profiles, immediate editing of completed/skipped sections, applicable-field completion scores, role-specific academic fields, separate organisation setup checklists and preference autosave using existing records.
 - Connected profile management to verified memberships/invitations and existing department module/calendar configuration; bounded institution search replaces full-directory onboarding loads.
 - Added consent-based, infrequent optional profile suggestions and required-field reminder links; completed users with optional gaps are not classified as abandoned. Preserved academic affiliations, work, completion dates and notification preferences across revisits.
