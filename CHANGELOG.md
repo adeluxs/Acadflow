@@ -2,6 +2,8 @@
 
 ### Changed
 
+- Added role-specific **Student Study Tools** and **Lecturer Teaching Studio** fixed-access products to the existing pricing, wallet, entitlement and institutional-sponsorship system. Both remain free until priced; AI generation retains separate per-request prices and free allowances, while core courses, attendance, assignments and submissions remain outside the access gate.
+
 - Fixed independent classroom creation on MySQL by widening `courses.semester` and `courses.level` to match validated values, and bounded course API updates to the database contract.
 
 - Optimized admin users, faculties, institution search, audit history, commercial accounts, pricing history, lecturer assignment and import selectors with scoped pagination, deferred searches and smaller records. Added restartable management indexes, batched settings/summary reads, bounded revenue iteration and less shared activity/audit write work; documented reproducible measurements and deployment steps.

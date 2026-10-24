@@ -565,7 +565,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 
     // Student study tools. Keep the entire legacy and connected study surface
     // behind the student role, including direct URLs that are not in navigation.
-    Route::middleware('role:student')->group(function () {
+    Route::middleware(['role:student', 'paid.feature:student_study_tools'])->group(function () {
         Route::get('/student/learning-profile', [LearningProfileController::class, 'show'])->name('student.learning-profile');
         Route::prefix('study')->name('study.')->group(function () {
             Route::get('/', [StudentStudyController::class, 'index'])->name('index');
@@ -659,7 +659,8 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 
     // Lecturer routes
     Route::middleware('role:lecturer')->group(function () {
-        Route::get('/lecturer/teaching', [LecturerTeachingController::class, 'index'])->name('teaching.index');
+        Route::get('/lecturer/teaching', [LecturerTeachingController::class, 'index'])
+            ->middleware('paid.feature:lecturer_teaching_tools')->name('teaching.index');
         Route::get('/lecturer/courses', [CourseController::class, 'myCourses'])->name('lecturer.courses');
         Route::post('/lecturer/courses/independent', [CourseController::class, 'storeIndependent'])
             ->middleware('throttle:20,1')->name('lecturer.courses.independent.store');
@@ -687,20 +688,20 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         // Lecturer AI Studio: draft/generate/edit course content. Drafts are
         // advisory only and are never persisted by these endpoints.
         Route::post('/lecturer/courses/{course}/ai/content', [LecturerContentAssistantController::class, 'course'])
-            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.content');
+            ->middleware(['paid.feature:lecturer_teaching_tools', 'feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.content');
         Route::post('/lecturer/courses/{course}/materials/{material}/ai', [LecturerContentAssistantController::class, 'material'])
-            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.material');
+            ->middleware(['paid.feature:lecturer_teaching_tools', 'feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.material');
 
         // Queued batch automation and the lecturer draft library. Drafts are
         // advisory until a lecturer explicitly applies one.
         Route::get('/lecturer/courses/{course}/ai/drafts', [LecturerContentAssistantController::class, 'draftsPage'])
-            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant'])->name('lecturer.ai.drafts');
+            ->middleware(['paid.feature:lecturer_teaching_tools', 'feature.flag:ai_assistant', 'ai.feature:lecturer_assistant'])->name('lecturer.ai.drafts');
         Route::post('/lecturer/courses/{course}/ai/batch', [LecturerContentAssistantController::class, 'batch'])
-            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.batch');
+            ->middleware(['paid.feature:lecturer_teaching_tools', 'feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.batch');
         Route::post('/lecturer/courses/{course}/ai/drafts/{draft}/apply', [LecturerContentAssistantController::class, 'applyDraft'])
-            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.drafts.apply');
+            ->middleware(['paid.feature:lecturer_teaching_tools', 'feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.drafts.apply');
         Route::post('/lecturer/courses/{course}/ai/drafts/{draft}/discard', [LecturerContentAssistantController::class, 'discardDraft'])
-            ->middleware(['feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.drafts.discard');
+            ->middleware(['paid.feature:lecturer_teaching_tools', 'feature.flag:ai_assistant', 'ai.feature:lecturer_assistant', 'throttle:ai'])->name('lecturer.ai.drafts.discard');
 
         // Assignment management
         Route::get('/courses/{course}/assignments', [SubmissionTaskController::class, 'indexForCourse'])

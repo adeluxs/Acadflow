@@ -2687,6 +2687,32 @@
   array (
     'pricing_features' => 
     array (
+      'student_study_tools' => 
+      array (
+        'title' => 'Student Study Tools',
+        'category' => 'Learning & Revision',
+        'description' => 'Unlocks My Study Space, private study notes, practice quizzes, flashcards, study plans, mastery, deadline coaching, self-assessment, annotations and reflections. AI generation is billed separately under the applicable assistant price and allowance.',
+        'pricing_type' => 'fixed_access',
+        'default_duration_days' => 30,
+        'unit_label' => 'access period',
+        'roles' => 
+        array (
+          0 => 'student',
+        ),
+      ),
+      'lecturer_teaching_tools' => 
+      array (
+        'title' => 'Lecturer Teaching Studio',
+        'category' => 'Courses & Teaching',
+        'description' => 'Unlocks Teaching Studio priorities, course pulse, student-question signals and the lecturer content-draft workflow. AI generation is billed separately under Lecturer Assistant pricing and allowance.',
+        'pricing_type' => 'fixed_access',
+        'default_duration_days' => 30,
+        'unit_label' => 'access period',
+        'roles' => 
+        array (
+          0 => 'lecturer',
+        ),
+      ),
       'allow_group_submissions' => 
       array (
         'title' => 'Group Submissions',
@@ -2740,6 +2766,26 @@
       array (
         'title' => 'Lecturer Assistant',
         'category' => 'AI Assistants',
+      ),
+      'practice_generator' => 
+      array (
+        'title' => 'Practice Quiz Generator',
+        'category' => 'Student Study Tools',
+      ),
+      'flashcard_generator' => 
+      array (
+        'title' => 'Flashcard Generator',
+        'category' => 'Student Study Tools',
+      ),
+      'study_planner' => 
+      array (
+        'title' => 'Study & Deadline Planner',
+        'category' => 'Student Study Tools',
+      ),
+      'annotation_summary' => 
+      array (
+        'title' => 'Highlight Summary',
+        'category' => 'Student Study Tools',
       ),
       'writing_assistant' => 
       array (

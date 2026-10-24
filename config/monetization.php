@@ -13,6 +13,24 @@ return [
     |
     */
     'pricing_features' => [
+        'student_study_tools' => [
+            'title' => 'Student Study Tools',
+            'category' => 'Learning & Revision',
+            'description' => 'Unlocks My Study Space, private study notes, practice quizzes, flashcards, study plans, mastery, deadline coaching, self-assessment, annotations and reflections. AI generation is billed separately under the applicable assistant price and allowance.',
+            'pricing_type' => 'fixed_access',
+            'default_duration_days' => 30,
+            'unit_label' => 'access period',
+            'roles' => ['student'],
+        ],
+        'lecturer_teaching_tools' => [
+            'title' => 'Lecturer Teaching Studio',
+            'category' => 'Courses & Teaching',
+            'description' => 'Unlocks Teaching Studio priorities, course pulse, student-question signals and the lecturer content-draft workflow. AI generation is billed separately under Lecturer Assistant pricing and allowance.',
+            'pricing_type' => 'fixed_access',
+            'default_duration_days' => 30,
+            'unit_label' => 'access period',
+            'roles' => ['lecturer'],
+        ],
         'allow_group_submissions' => [
             'title' => 'Group Submissions',
             'category' => 'Assignments & Assessment',
@@ -54,6 +72,10 @@ return [
     'ai_features' => [
         'study_assistant' => ['title' => 'Student / Study Assistant', 'category' => 'AI Assistants'],
         'lecturer_assistant' => ['title' => 'Lecturer Assistant', 'category' => 'AI Assistants'],
+        'practice_generator' => ['title' => 'Practice Quiz Generator', 'category' => 'Student Study Tools'],
+        'flashcard_generator' => ['title' => 'Flashcard Generator', 'category' => 'Student Study Tools'],
+        'study_planner' => ['title' => 'Study & Deadline Planner', 'category' => 'Student Study Tools'],
+        'annotation_summary' => ['title' => 'Highlight Summary', 'category' => 'Student Study Tools'],
         'writing_assistant' => ['title' => 'Writing Assistant', 'category' => 'AI Assistants'],
         'citation_assistant' => ['title' => 'Citation Assistant', 'category' => 'AI Assistants'],
         'research_assistant' => ['title' => 'Research Assistant', 'category' => 'Research Studio'],

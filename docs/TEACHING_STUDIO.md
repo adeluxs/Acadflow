@@ -32,7 +32,12 @@ The studio uses 12-item simple pagination and count subqueries for course cards.
 
 AI generation still uses the existing central provider routing, feature switches, allowance and billing controls. Teaching Studio does not send new email or push reminders.
 
+## Monetization
+
+**Lecturer Teaching Studio** is registered in the existing paid-feature catalogue as optional fixed access. It remains free until a super administrator publishes an active price under **Admin → Monetization → Feature Pricing**. Once priced, lecturers can activate a configured access period from **Paid Feature Access**, or receive access through a verified institution or department commercial account that sponsors `lecturer_teaching_tools`.
+
+The package covers the Teaching Studio signals and lecturer content-draft workflow. Core lecturer course management, material publishing, assignment management and submission review remain available outside the package. AI generation remains a separate metered action under Lecturer Assistant pricing and its configured free daily allowance. This keeps workspace access, AI cost and institutional sponsorship visible in the existing ledger instead of introducing a second billing system.
+
 ## Verification
 
-`tests/Feature/LecturerTeachingStudioTest.php` covers direct-URL separation between student and lecturer tools, tenant/course scoping, real action signals, dashboard entry points, pagination and bounded query counts. The relevant student study and core dashboard tests are run alongside it.
-
+`tests/Feature/LecturerTeachingStudioTest.php` covers direct-URL separation between student and lecturer tools, tenant/course scoping, real action signals, dashboard entry points, pagination and bounded query counts. `tests/Feature/StudyTeachingMonetizationTest.php` covers free-until-priced behavior, paid route protection, role-specific catalogues and wallet activation. The relevant student study and core dashboard tests are run alongside them.

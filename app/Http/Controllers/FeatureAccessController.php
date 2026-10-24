@@ -7,15 +7,16 @@ namespace App\Http\Controllers;
 use App\Models\AiUsageCharge;
 use App\Models\FeatureEntitlement;
 use App\Models\FeatureUsageCharge;
+use App\Services\Commerce\AcademicSponsorshipService;
 use App\Services\Commerce\FeatureBillingService;
 use App\Services\Commerce\PricingCatalogService;
 use App\Services\Commerce\WalletService;
-use App\Services\Commerce\AcademicSponsorshipService;
 use App\Services\InstitutionAdoptionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class FeatureAccessController extends Controller
@@ -36,7 +37,11 @@ class FeatureAccessController extends Controller
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()));
         $entitlements = FeatureEntitlement::query()->whereIn('id', (clone $entitlementQuery)->selectRaw('MAX(id)')->groupBy('feature'))->get()->keyBy('feature');
 
-        $featureRows = collect($definitions)->map(function (array $definition, string $feature) use ($pricing, $rules, $entitlements, $sponsors): array {
+        $featureRows = collect($definitions)->filter(function (array $definition) use ($user): bool {
+            $roles = (array) ($definition['roles'] ?? []);
+
+            return $roles === [] || in_array($user->role, $roles, true);
+        })->map(function (array $definition, string $feature) use ($pricing, $rules, $entitlements, $sponsors): array {
             $rule = $rules->get('feature.'.$feature);
             $pricingType = $rule ? $pricing->pricingType($rule) : null;
             $entitlement = $entitlements->get($feature);
@@ -68,6 +73,12 @@ class FeatureAccessController extends Controller
             'feature' => ['required', 'string', Rule::in($features)],
             'request_id' => ['nullable', 'string', 'max:160'],
         ]);
+
+        $definition = (array) config('monetization.pricing_features.'.$data['feature'], []);
+        $roles = (array) ($definition['roles'] ?? []);
+        if ($roles !== [] && ! in_array($request->user()->role, $roles, true)) {
+            throw ValidationException::withMessages(['feature' => 'This paid feature is not available for your account role.']);
+        }
 
         $requestId = trim((string) ($data['request_id'] ?? '')) ?: (string) Str::uuid();
         $billing->purchaseFixedAccess($request->user(), (string) $data['feature'], $requestId);

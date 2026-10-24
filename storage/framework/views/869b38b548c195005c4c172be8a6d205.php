@@ -19,7 +19,7 @@
     <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Non-AI features</p><h2 class="mt-1 text-xl font-black">Feature pricing</h2></div>
     <div class="mt-5 grid gap-4 lg:grid-cols-2">
         <?php $__currentLoopData = $featureRows; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $row): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-            <article class="rounded-2xl border p-5">
+            <article id="feature-<?php echo e($row['key']); ?>" class="rounded-2xl border p-5 <?php echo e(request('feature') === $row['key'] ? 'border-indigo-400 ring-2 ring-indigo-100' : ''); ?>">
                 <div class="flex items-start justify-between gap-4"><div><h3 class="font-black text-slate-900"><?php echo e($row['title']); ?></h3><p class="mt-1 text-sm leading-6 text-slate-500"><?php echo e($row['description']); ?></p></div>
                     <?php if(!$row['rule']): ?><span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Free</span>
                     <?php elseif($row['sponsored']): ?><span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">Institution sponsored</span>

@@ -92,12 +92,14 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        $studyToday = FeatureAccessService::canAccessFeature('courses', $user)
-            ? app(StudyWorkspaceService::class)->today($user) : null;
+        $studyToolsAccessible = $user->hasFeature('student_study_tools');
+        $studyToday = $studyToolsAccessible && FeatureAccessService::canAccessFeature('courses', $user)
+            ? app(StudyWorkspaceService::class)->today($user)
+            : null;
 
         return view('dashboard.student', compact(
             'enrollments', 'enrollmentCount', 'submissions', 'submissionCount', 'pendingTasks', 'courseProgress',
-            'cgpa', 'announcements', 'studyToday'
+            'cgpa', 'announcements', 'studyToday', 'studyToolsAccessible'
         ));
     }
 
@@ -154,15 +156,18 @@ class DashboardController extends Controller
                 ->where('status', 'active')->with(['course'])->get()
             : collect();
 
-        $teachingSignals = app(TeachingWorkspaceService::class)->dashboardSignals(
-            $user,
-            $courses,
-            FeatureAccessService::canAccessFeature('ai_assistant', $user),
-        );
+        $teachingToolsAccessible = $user->hasFeature('lecturer_teaching_tools');
+        $teachingSignals = $teachingToolsAccessible
+            ? app(TeachingWorkspaceService::class)->dashboardSignals(
+                $user,
+                $courses,
+                FeatureAccessService::canAccessFeature('ai_assistant', $user),
+            )
+            : ['openQuestions' => 0, 'readyDrafts' => 0, 'draftsInProgress' => 0, 'coursesWithoutMaterial' => 0];
 
         return view('dashboard.lecturer', compact(
             'courses', 'courseCount', 'studentCount', 'pendingReviews', 'recentSubmissions', 'submissionOverview',
-            'coursePerformance', 'averageClass', 'upcomingTasks', 'activeSessions', 'teachingSignals'
+            'coursePerformance', 'averageClass', 'upcomingTasks', 'activeSessions', 'teachingSignals', 'teachingToolsAccessible'
         ));
     }
 

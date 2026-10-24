@@ -53,6 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'feature.flag' => FeatureFlagMiddleware::class,
             'feature.access' => FeatureAccessMiddleware::class,
+            'paid.feature' => \App\Http\Middleware\EnsurePaidFeatureAccess::class,
             'ai.feature' => EnsureAiFeatureEnabled::class,
             'webhook.verify' => \App\Http\Middleware\VerifyPaymentWebhook::class,
             'onboarding.complete' => EnsureOnboardingComplete::class,

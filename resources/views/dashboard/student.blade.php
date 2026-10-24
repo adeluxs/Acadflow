@@ -10,7 +10,11 @@
     $featureVisible = fn (string $feature): bool => \App\Services\FeatureAccessService::shouldShowInNavigation($feature, $dashboardUser);
 @endphp
 <div class="space-y-5">
-    @if($studyToday)@include('student.study._today', ['today' => $studyToday])@endif
+    @if($studyToday)
+        @include('student.study._today', ['today' => $studyToday])
+    @elseif(!$studyToolsAccessible)
+        <section class="rounded-3xl border border-indigo-200 bg-gradient-to-r from-slate-950 via-indigo-950 to-indigo-800 p-6 text-white shadow-sm"><p class="text-xs font-bold uppercase tracking-widest text-indigo-200">Student Study Tools</p><h2 class="mt-2 text-2xl font-black">Build a study rhythm that remembers where you stopped.</h2><p class="mt-2 max-w-2xl text-sm text-indigo-100">Activate access or use institution sponsorship for connected notes, practice, flashcards, plans, mastery and revision.</p><a href="{{ route('commerce.features', ['feature' => 'student_study_tools']) }}#feature-student_study_tools" class="mt-5 inline-flex rounded-xl bg-white px-5 py-3 text-sm font-black text-indigo-950">View access options →</a></section>
+    @endif
     <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         @foreach([
             ['My Courses',$enrollmentCount,'Enrolled courses','bg-indigo-50 text-indigo-600'],

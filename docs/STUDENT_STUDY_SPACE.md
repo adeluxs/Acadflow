@@ -11,6 +11,12 @@ Students can open **My Study Space** from the sidebar or choose **Study this cou
 
 New explanations and quizzes use the existing AI provider, plan allowance and billing controls. Reopening explanations and retaking a saved quiz make no new AI generation request. Practice scores never alter official grades. Short written answers currently use trimmed, case-insensitive exact matching; a differently worded correct answer may need checking against the source.
 
+## Monetization
+
+**Student Study Tools** is registered in the existing paid-feature catalogue as optional fixed access. It remains free when no active pricing rule exists. A super administrator can publish a price and access duration from **Admin → Monetization → Feature Pricing**; students can then activate it from **Paid Feature Access**, or receive it through a verified institution or department commercial account that sponsors `student_study_tools`.
+
+The access package covers the study workspace, private notes, practice quizzes, flashcards, plans, mastery, deadline coaching, self-assessment, annotations and reflections. It does not block the student’s core courses, attendance, billing or assignment submission routes. AI generation is metered separately through the existing assistant pricing and daily allowance controls. The administrator can set assistant-specific prices for Practice Quiz Generator, Flashcard Generator, Study & Deadline Planner and Highlight Summary. Opening saved work and completing a saved quiz does not create a new AI charge.
+
 Scores below 80% schedule another attempt after one day. A successful first attempt schedules three days; successful recall on a later day doubles the previous interval, up to 30 days. Repeating a successful quiz on the same day does not increase its interval. These are study reminders in the app, not predictions of exam performance. No new email or push reminders are sent by this feature.
 
 ## Private notes and source limits
@@ -51,7 +57,7 @@ Local verification used PHP 8.5.2, isolated SQLite feature/browser databases and
 
 ## Verification and measurements
 
-Backend coverage is in `tests/Feature/ConnectedStudentStudyTest.php`, alongside the existing student-tool and core performance tests. It covers grounding, answer-key visibility, feedback, scheduling, retry deduplication, private imports, rejected uploads, revoked/hidden access, disabled AI, failed AI preservation, bounded history queries and migration restart/rollback.
+Backend coverage is in `tests/Feature/ConnectedStudentStudyTest.php` and `tests/Feature/StudyTeachingMonetizationTest.php`, alongside the existing student-tool and core performance tests. It covers grounding, answer-key visibility, feedback, scheduling, retry deduplication, private imports, rejected uploads, revoked/hidden access, disabled AI, failed AI preservation, bounded history queries, free-until-priced access, wallet purchase, role restrictions and migration restart/rollback.
 
 The isolated browser fixture `tests/Browser/prepare-student-study.php` refuses any non-testing database outside `/private/tmp/acadsyntra-studio-study-*`. The browser scenario `tests/Browser/student-study.test.mjs` exercises real source selection, saved work, form grading, dashboard progress and private note persistence at 390px and 1440px, including repeated navigation with loaded styles. AI generation is mocked in backend tests; the browser uses seeded saved explanations/quizzes to avoid live charges.
 
