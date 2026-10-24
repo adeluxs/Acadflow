@@ -19,6 +19,8 @@ The package covers the study workspace, private notes, practice quizzes, flashca
 
 Students may also buy **Academic AI Plus** alongside Study Pro. AI Plus has a separate shared allowance for writing, citation, research, validation, assignment, submission, academic-integrity, SIWES, project, discussion and Knowledge Hub assistants. Each assistant is labelled with its matching package on **Plans & Usage**, and buying AI Plus does not grant access to projects, courses or content the student is not otherwise permitted to open.
 
+Every registered student is automatically shown **General Free** when the administrator enables it. General Free provides the configured daily successful-AI-request allowance without payment. If a Study Pro or AI Plus purchase exceeds the student’s spending balance, AcadSyntra opens Wallet & Earnings with the required shortfall prefilled and returns to the selected plan after verified funding. The student confirms the plan purchase after returning; wallet funding alone never activates a plan.
+
 Scores below 80% schedule another attempt after one day. A successful first attempt schedules three days; successful recall on a later day doubles the previous interval, up to 30 days. Repeating a successful quiz on the same day does not increase its interval. These are study reminders in the app, not predictions of exam performance. No new email or push reminders are sent by this feature.
 
 ## Private notes and source limits

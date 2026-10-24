@@ -882,6 +882,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::get('/admin/monetization', [MonetizationController::class, 'index'])->name('admin.monetization');
         Route::put('/admin/monetization', [MonetizationController::class, 'update'])->name('admin.monetization.update');
         Route::post('/admin/monetization/pricing-rules', [MonetizationController::class, 'storePricingRule'])->name('admin.monetization.pricing-rules.store');
+        Route::patch('/admin/monetization/pricing-rules/{pricingRule}/status', [MonetizationController::class, 'updatePricingRuleStatus'])->name('admin.monetization.pricing-rules.status');
         Route::post('/admin/monetization/commercial-accounts', [MonetizationController::class, 'storeCommercialAccount'])->name('admin.monetization.commercial-accounts.store');
         Route::post('/admin/monetization/commercial-requests/{commercialRequest}/reject', [MonetizationController::class, 'rejectCommercialAccountRequest'])
             ->name('admin.monetization.commercial-requests.reject');

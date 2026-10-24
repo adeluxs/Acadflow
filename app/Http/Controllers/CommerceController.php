@@ -79,6 +79,11 @@ class CommerceController extends Controller
             if (! in_array($exception->getStatusCode(), [422, 503], true)) throw $exception;
             return redirect()->route('commerce.wallet')->with('error', 'Wallet funding is not yet confirmed. Check its status again before starting another payment.');
         }
+        $packageIntent=$this->activePackagePurchaseIntent($request);
+        if($packageIntent){
+            return redirect()->to(route('commerce.features',['feature'=>$packageIntent['feature'],'resume'=>1]).'#feature-'.$packageIntent['feature'])
+                ->with('success','Wallet funding confirmed. Review the selected plan and choose it again to complete your purchase.');
+        }
         return redirect()->route('commerce.wallet')->with('success','Wallet funding confirmed and your spending balance has been updated.');
     }
 
@@ -126,7 +131,14 @@ class CommerceController extends Controller
             'withdrawal_fee'=>(string)SettingService::getGlobal('withdrawal_fee_percentage','0'),
         ];
         $pendingFunding = \App\Models\WalletFundingRequest::query()->with('transaction')->where('user_id', $request->user()->id)->where('status', 'pending')->latest()->limit(20)->get();
-        return view('commerce.wallet',compact('wallet','accounts','allocations','gateways','walletRules','pendingFunding'));
+        $packagePurchaseIntent=$this->activePackagePurchaseIntent($request);
+        $suggestedFunding=null;
+        if($packagePurchaseIntent){
+            $shortfall=max(0,(int)$packagePurchaseIntent['required_amount_minor']-(int)$wallet->spending_balance_minor);
+            $minimumMinor=Money::toMinor((string)$walletRules['minimum_funding']);
+            $suggestedFunding=Money::fromMinor(max($minimumMinor,$shortfall));
+        }
+        return view('commerce.wallet',compact('wallet','accounts','allocations','gateways','walletRules','pendingFunding','packagePurchaseIntent','suggestedFunding'));
     }
 
     public function fundWallet(Request $request,CommerceService $commerce): RedirectResponse
@@ -134,6 +146,20 @@ class CommerceController extends Controller
         $data=$request->validate(['amount'=>['required','regex:/^\d+(?:\.\d{1,2})?$/'],'gateway'=>['required','string','exists:payment_gateways,code'],'idempotency_key'=>['required','string','max:120']]);
         $result=$commerce->initiateWalletFunding($request->user(),$data['amount'],$data['gateway'],$data['idempotency_key']);
         return redirect()->away((string)$result['authorization_url']);
+    }
+
+    /** @return array<string,mixed>|null */
+    private function activePackagePurchaseIntent(Request $request): ?array
+    {
+        $intent=(array)$request->session()->get('commerce.package_purchase_intent',[]);
+        $feature=(string)($intent['feature']??'');
+        if((int)($intent['user_id']??0)!==(int)$request->user()->id
+            || (int)($intent['expires_at']??0)<now()->timestamp
+            || !data_get(config('monetization.pricing_features.'.$feature,[]),'package',false)){
+            $request->session()->forget('commerce.package_purchase_intent');
+            return null;
+        }
+        return $intent;
     }
 
     public function storePayout(Request $request): RedirectResponse

@@ -7,8 +7,8 @@ namespace App\Services\Commerce;
 use App\Models\PricingRule;
 use App\Services\SettingService;
 use App\Support\Money;
-use Illuminate\Support\Collection;
 use Illuminate\Database\Query\JoinClause;
+use Illuminate\Support\Collection;
 
 class PricingCatalogService
 {
@@ -55,6 +55,7 @@ class PricingCatalogService
     public function pricingType(PricingRule $rule): string
     {
         $type = (string) data_get($rule->metadata, 'pricing_type', '');
+
         return $type === 'fixed_feature_access' ? 'fixed_access' : ($type ?: 'fixed_access');
     }
 
@@ -68,12 +69,13 @@ class PricingCatalogService
     public function aiPricingFromRule(?PricingRule $rule): array
     {
         $enabled = (bool) SettingService::getGlobal('ai_monetization_enabled', false);
+        $freePlanEnabled = (bool) SettingService::getGlobal('general_free_plan_enabled', true);
 
         if ($rule) {
             return [
                 'enabled' => $enabled,
                 'amount_minor' => max(0, (int) ($rule->unit_amount_minor ?? 0)),
-                'free_daily_requests' => max(0, (int) data_get($rule->metadata, 'free_daily_requests', 0)),
+                'free_daily_requests' => $freePlanEnabled ? max(0, (int) data_get($rule->metadata, 'free_daily_requests', 0)) : 0,
                 'currency' => strtoupper((string) ($rule->currency ?: SettingService::getGlobal('currency', 'NGN'))),
                 'rule' => $rule,
                 'feature_specific' => true,
@@ -83,7 +85,7 @@ class PricingCatalogService
         return [
             'enabled' => $enabled,
             'amount_minor' => max(0, Money::toMinor((string) SettingService::getGlobal('ai_request_charge_amount', '25'))),
-            'free_daily_requests' => max(0, (int) SettingService::getGlobal('ai_free_daily_requests', 3)),
+            'free_daily_requests' => $freePlanEnabled ? max(0, (int) SettingService::getGlobal('ai_free_daily_requests', 3)) : 0,
             'currency' => strtoupper((string) SettingService::getGlobal('currency', 'NGN')),
             'rule' => null,
             'feature_specific' => false,
@@ -108,6 +110,7 @@ class PricingCatalogService
                 ];
             }
         }
+
         return $definitions;
     }
 }

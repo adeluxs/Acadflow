@@ -160,6 +160,27 @@ class PaymentGatewayFlowTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_confirmed_wallet_funding_returns_to_the_exact_package_intent(): void
+    {
+        $this->gateway();
+        $this->fakeProvider();
+        $user = User::factory()->create(['role' => 'student', 'account_type' => 'student']);
+        $transaction = $this->funding($user);
+        $intent = [
+            'user_id' => $user->id,
+            'feature' => 'student_study_tools',
+            'billing_period' => 'monthly',
+            'required_amount_minor' => 40_000,
+            'expires_at' => now()->addHour()->timestamp,
+        ];
+
+        $expected = route('commerce.features', ['feature' => 'student_study_tools', 'resume' => 1]).'#feature-student_study_tools';
+        $this->actingAs($user)->withSession(['commerce.package_purchase_intent' => $intent])
+            ->get(route('commerce.wallet.callback', $transaction))
+            ->assertRedirect($expected)->assertSessionHas('success');
+        $this->assertSame(50_000, app(WalletService::class)->account($user)->fresh()->spending_balance_minor);
+    }
+
     public function test_admin_can_save_only_test_keys_and_blank_secrets_preserve_them(): void
     {
         $gateway = $this->gateway(['credentials' => [], 'is_active' => false]);
@@ -412,4 +433,3 @@ class PaymentGatewayFlowTest extends TestCase
         Http::assertSentCount(2);
     }
 }
-

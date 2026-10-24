@@ -40,6 +40,8 @@ The package covers the Teaching Studio signals and lecturer content-draft workfl
 
 Lecturers may buy **Academic AI Plus** alongside Teaching Pro for a separate shared allowance across writing, citation, research, validation, assignment, submission, academic-integrity, SIWES, project, discussion and Knowledge Hub assistants. Package labels on **Plans & Usage** show which allowance applies. AI Plus never bypasses course, project, submission or content authorization.
 
+Lecturers also receive the administrator-controlled **General Free** daily AI allowance. When a Teaching Pro or AI Plus purchase exceeds the spending balance, the wallet page prefills the shortfall and returns to that package after verified funding. Plan activation still requires a final purchase confirmation, preserving the existing idempotent wallet and entitlement transaction.
+
 ## Verification
 
 `tests/Feature/LecturerTeachingStudioTest.php` covers direct-URL separation between student and lecturer tools, tenant/course scoping, real action signals, dashboard entry points, pagination and bounded query counts. `tests/Feature/StudyTeachingMonetizationTest.php` covers free-until-priced behavior, paid route protection, role-specific catalogues and wallet activation. The relevant student study and core dashboard tests are run alongside them.

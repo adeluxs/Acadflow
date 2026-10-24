@@ -17,11 +17,17 @@
     <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">AI spend this month</p><p class="mt-2 text-2xl font-black">{{ $wallet->currency }} {{ \App\Support\Money::fromMinor($aiMonthSpendMinor) }}</p><form method="POST" action="{{ route('commerce.features.ai-spending-limit') }}" class="mt-3">@csrf @method('PUT')<label class="text-xs font-semibold text-slate-600">Monthly limit (0 = no limit)<div class="mt-1 flex gap-2"><input name="ai_monthly_spending_limit" inputmode="decimal" value="{{ old('ai_monthly_spending_limit', $wallet->ai_monthly_spending_limit_minor ? \App\Support\Money::fromMinor((int)$wallet->ai_monthly_spending_limit_minor) : '0') }}" class="min-w-0 flex-1 rounded-lg border-slate-300 text-sm"><button class="rounded-lg bg-slate-900 px-3 text-xs font-bold text-white">Save</button></div></label></form></div>
 </div>
 
+@if($freePlan['enabled'])
+<section class="mt-6 rounded-3xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p class="text-xs font-black uppercase tracking-[.16em] text-emerald-700">Your included plan</p><h2 class="mt-1 text-xl font-black text-emerald-950">General Free</h2><p class="mt-2 max-w-3xl text-sm leading-6 text-emerald-900">Every registered account receives core platform access and {{ number_format($freePlan['daily_ai_requests']) }} free successful AI request(s) each day. Some assistants may have their own administrator-set daily limit. No wallet or card payment is required.</p>@if(!$freePlan['ai_monetization_enabled'])<p class="mt-2 text-xs font-bold text-emerald-800">Extra AI charging is currently disabled, so enabled AI requests are platform-funded.</p>@endif</div><span class="w-fit rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 ring-1 ring-emerald-200">Active automatically</span></div>
+</section>
+@endif
+
 <section class="mt-6 rounded-3xl border bg-white p-6 shadow-sm">
     <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Your plans</p><h2 class="mt-1 text-xl font-black">Choose the tools and AI allowance that fit your work</h2><p class="mt-1 text-sm leading-6 text-slate-600">Study Pro and Teaching Pro are role-specific workspace plans. AI Plus is an optional specialist AI package that students, lecturers and other members can buy alongside them. Each payment covers the tools or allowance shown for that plan.</p></div>
     <div class="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
         <p class="font-black">When can an extra AI charge happen?</p>
-        <p class="mt-1 leading-6">AcadSyntra uses your daily free AI requests first, then the AI requests included in your plan. Only after both are finished can a successful new AI request be charged to your wallet. Your monthly AI spending limit still applies, and a failed request is not charged.</p>
+        <p class="mt-1 leading-6">@if($freePlan['enabled']) AcadSyntra uses your General Free AI requests first, then the AI requests included in your paid plan. Only after both are finished can a successful new AI request be charged to your wallet. @else General Free is currently disabled, so a matching paid-plan allowance is used before any successful AI request can be charged to your wallet. @endif Your monthly AI spending limit still applies, and a failed request is not charged.</p>
     </div>
     <div class="mt-5 grid gap-4 lg:grid-cols-2">
         @forelse($featureRows->where('package', true) as $row)
@@ -61,7 +67,7 @@
 @endif
 
 <section class="mt-6 rounded-3xl border bg-white p-6 shadow-sm">
-    <div><p class="text-xs font-black uppercase tracking-[.16em] text-violet-600">Extra AI usage</p><h2 class="mt-1 text-xl font-black">Prices after your allowances finish</h2><p class="mt-1 text-sm leading-6 text-slate-600">The prices below do not replace your package payment. They apply only to successful AI requests made after your daily free requests and plan-included requests have both been used. Set a monthly limit above to control this extra spending.</p></div>
+    <div><p class="text-xs font-black uppercase tracking-[.16em] text-violet-600">Extra AI usage</p><h2 class="mt-1 text-xl font-black">Prices after your allowances finish</h2><p class="mt-1 text-sm leading-6 text-slate-600">The prices below do not replace your package payment. They apply only to successful AI requests made after {{ $freePlan['enabled'] ? 'your General Free requests and plan-included requests have both' : 'your plan-included requests have' }} been used. Set a monthly limit above to control this extra spending.</p></div>
     <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         @foreach($aiRows as $row)
             <div class="rounded-2xl border p-4"><p class="font-black">{{ $row['title'] }}</p><p class="mt-1 text-xs text-slate-500">{{ $row['category'] }}</p>

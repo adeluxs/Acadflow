@@ -27,6 +27,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MonetizationController extends Controller
@@ -34,7 +35,7 @@ class MonetizationController extends Controller
     private const KEYS=[
         'wallet_minimum_funding_amount'=>'decimal','minimum_withdrawal_amount'=>'decimal','withdrawal_fee_percentage'=>'decimal',
         'knowledge_platform_commission_percentage'=>'decimal','knowledge_institution_revenue_percentage'=>'decimal','creator_earnings_hold_days'=>'integer',
-        'ai_monetization_enabled'=>'boolean','ai_free_daily_requests'=>'integer','ai_request_charge_amount'=>'decimal','ai_local_currency_per_usd_reporting'=>'decimal',
+        'general_free_plan_enabled'=>'boolean','ai_monetization_enabled'=>'boolean','ai_free_daily_requests'=>'integer','ai_request_charge_amount'=>'decimal','ai_local_currency_per_usd_reporting'=>'decimal',
     ];
 
     public function index(Request $request): View
@@ -45,6 +46,15 @@ class MonetizationController extends Controller
         $displayCurrency=strtoupper((string)SettingService::getGlobal('currency','NGN'));
         $settings=[]; foreach(self::KEYS as $key=>$type)$settings[$key]=SettingService::getGlobal($key,$this->default($key));
         $pricingRules=PricingRule::query()->latest()->latest('id')->paginate(50, ['*'], 'pricing_page')->withQueryString();
+        $visibleRuleKeys=$pricingRules->pluck('key')->unique()->values();
+        $latestPricingRuleIds=collect();
+        if($visibleRuleKeys->isNotEmpty()){
+            $latestVersions=PricingRule::query()->whereIn('key',$visibleRuleKeys)->where('scope_type','global')->where('scope_id',0)
+                ->select('key')->selectRaw('MAX(version) AS latest_version')->groupBy('key');
+            $latestPricingRuleIds=PricingRule::query()->joinSub($latestVersions,'latest_pricing',fn($join)=>$join
+                ->on('pricing_rules.key','=','latest_pricing.key')->on('pricing_rules.version','=','latest_pricing.latest_version'))
+                ->pluck('pricing_rules.id')->flip();
+        }
         $pricingRuleTitles=$pricingRules->mapWithKeys(function (PricingRule $rule): array {
             if (str_starts_with($rule->key, 'ai.')) {
                 $featureKey=(string)data_get($rule->metadata,'ai_feature',substr($rule->key,3));
@@ -124,7 +134,7 @@ class MonetizationController extends Controller
             ->when($scope,fn($q)=>$q->whereHas('user',fn($uq)=>$uq->where('university_id',$scope)))
             ->where('is_verified',false)->latest()->limit(50)->get();
         return view('admin.monetization.index',compact(
-            'settings','pricingRules','pricingRuleTitles','pricingFeatures','aiPricingFeatures','pricingTargets','pricingFeatureGroups','commercialAccounts','selectedUniversity',
+            'settings','pricingRules','latestPricingRuleIds','pricingRuleTitles','pricingFeatures','aiPricingFeatures','pricingTargets','pricingFeatureGroups','commercialAccounts','selectedUniversity',
             'metrics','scope','displayCurrency','pendingWithdrawals','pendingRefunds','pendingPayoutAccounts',
             'pendingCommercialRequests','setupRequest','setupUniversityId','setupAccount','setupCurrency',
             'setupDepartmentId','setupChanges','setupMetadata','requestedAddMinor','suggestedTargetMinor','selectedSponsoredFeatures'
@@ -145,8 +155,28 @@ class MonetizationController extends Controller
         if (($platformBasisPoints + $institutionBasisPoints) > 10000) {
             return back()->withErrors(['knowledge_institution_revenue_percentage'=>'Platform and institution commissions together cannot exceed 100%.'])->withInput();
         }
-        foreach(self::KEYS as $key=>$type){$value=$key==='ai_monetization_enabled'?$request->boolean($key):($data[$key]??$this->default($key)); SettingService::set($key,$value,$type,$scope,$request->user()->id);}
+        foreach(self::KEYS as $key=>$type){$value=$type==='boolean'?$request->boolean($key):($data[$key]??$this->default($key)); SettingService::set($key,$value,$type,$scope,$request->user()->id);}
         return back()->with('success','Monetization settings updated and are now authoritative at runtime.');
+    }
+
+    public function updatePricingRuleStatus(Request $request, PricingRule $pricingRule): RedirectResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(),403);
+        $data=$request->validate(['enabled'=>['required','boolean']]);
+        $enabled=(bool)$data['enabled'];
+        DB::transaction(function () use ($request,$pricingRule,$enabled): void {
+            $current=PricingRule::query()->where('key',$pricingRule->key)->where('scope_type','global')->where('scope_id',0)->lockForUpdate()->orderByDesc('version')->firstOrFail();
+            if((int)$current->id !== (int)$pricingRule->id)throw ValidationException::withMessages(['pricing_rule'=>'Only the latest pricing version can be enabled or disabled.']);
+            if((bool)$current->enabled === $enabled)return;
+            PricingRule::query()->where('key',$current->key)->where('scope_type','global')->where('scope_id',0)->where('enabled',true)->update(['enabled'=>false,'ends_at'=>now()]);
+            PricingRule::query()->create([
+                'uuid'=>(string)Str::uuid(),'key'=>$current->key,'name'=>$current->name,'scope_type'=>'global','scope_id'=>0,'version'=>(int)$current->version+1,
+                'supersedes_id'=>$current->id,'currency'=>$current->currency,'unit_amount_minor'=>$current->unit_amount_minor,'percentage_basis_points'=>$current->percentage_basis_points,
+                'enabled'=>$enabled,'metadata'=>array_merge((array)$current->metadata,['changed_by_user_id'=>$request->user()->id,'status_changed_at'=>now()->toIso8601String()]),
+                'starts_at'=>now(),'ends_at'=>$enabled?null:now(),
+            ]);
+        },3);
+        return back()->with('success',$enabled?'Pricing enabled. The package is available immediately.':'Pricing disabled. New purchases stop immediately; existing entitlements remain valid.');
     }
 
     public function storePricingRule(Request $request): RedirectResponse
@@ -365,6 +395,6 @@ class MonetizationController extends Controller
 
     private function default(string $key): mixed
     {
-        return match($key){'wallet_minimum_funding_amount'=>'500','minimum_withdrawal_amount'=>'1000','withdrawal_fee_percentage'=>'0','knowledge_platform_commission_percentage'=>'15','knowledge_institution_revenue_percentage'=>'0','creator_earnings_hold_days'=>3,'ai_monetization_enabled'=>false,'ai_free_daily_requests'=>3,'ai_request_charge_amount'=>'25','ai_local_currency_per_usd_reporting'=>'1500',default=>null};
+        return match($key){'wallet_minimum_funding_amount'=>'500','minimum_withdrawal_amount'=>'1000','withdrawal_fee_percentage'=>'0','knowledge_platform_commission_percentage'=>'15','knowledge_institution_revenue_percentage'=>'0','creator_earnings_hold_days'=>3,'general_free_plan_enabled'=>true,'ai_monetization_enabled'=>false,'ai_free_daily_requests'=>3,'ai_request_charge_amount'=>'25','ai_local_currency_per_usd_reporting'=>'1500',default=>null};
     }
 }

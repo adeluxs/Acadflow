@@ -9,6 +9,7 @@ use App\Models\FeatureEntitlement;
 use App\Models\PricingRule;
 use App\Models\User;
 use App\Services\Commerce\AiUsageBillingService;
+use App\Services\Commerce\PricingCatalogService;
 use App\Services\Commerce\WalletService;
 use App\Services\SettingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -300,6 +301,79 @@ class StudyTeachingMonetizationTest extends TestCase
 
         $this->assertDatabaseMissing('feature_entitlements', ['user_id' => $member->id, 'feature' => 'academic_ai_plus']);
         $this->assertSame(10_000, app(WalletService::class)->account($member)->spending_balance_minor);
+    }
+
+    public function test_general_free_plan_is_visible_to_every_role_and_admin_can_remove_its_allowance(): void
+    {
+        $member = User::factory()->create(['role' => 'member', 'account_type' => 'author_publisher']);
+        app(WalletService::class)->creditSpending($member, 10_000, 'wallet_funding');
+        SettingService::set('general_free_plan_enabled', true, 'boolean', null, $member->id);
+        SettingService::set('ai_monetization_enabled', true, 'boolean', null, $member->id);
+        SettingService::set('ai_free_daily_requests', 1, 'integer', null, $member->id);
+        SettingService::set('ai_request_charge_amount', '25', 'decimal', null, $member->id);
+
+        $this->actingAs($member)->get(route('commerce.features'))
+            ->assertOk()->assertSee('General Free')->assertSee('1 free successful AI request');
+        $free = app(AiUsageBillingService::class)->reserve($member, 'writing_assistant', 'general-free-1');
+        $this->assertSame('free_allowance', $free['source']);
+
+        SettingService::set('general_free_plan_enabled', false, 'boolean', null, $member->id);
+        $this->get(route('commerce.features'))->assertOk()->assertDontSee('Your included plan');
+        $paid = app(AiUsageBillingService::class)->reserve($member, 'citation_assistant', 'general-free-disabled-1');
+        $this->assertSame('user_wallet', $paid['source']);
+        $this->assertSame(2_500, $paid['charge_minor']);
+    }
+
+    public function test_low_balance_sends_user_to_prefilled_wallet_and_preserves_purchase_intent(): void
+    {
+        $student = User::factory()->create(['role' => 'student', 'account_type' => 'student']);
+        $wallets = app(WalletService::class);
+        $wallets->creditSpending($student, 1_000, 'wallet_funding');
+        $this->featureRule('student_study_tools', 4_000, ['included_ai_requests' => 5]);
+
+        $walletUrl = route('commerce.wallet', ['resume_package' => 1]).'#fund-wallet';
+        $this->actingAs($student)->post(route('commerce.features.purchase'), [
+            'feature' => 'student_study_tools',
+            'billing_period' => 'monthly',
+            'request_id' => 'low-balance-plan-1',
+        ])->assertRedirect($walletUrl)->assertSessionHas('commerce.package_purchase_intent', fn (array $intent): bool => $intent['feature'] === 'student_study_tools' && $intent['required_amount_minor'] === 4_000
+        );
+
+        $this->get(route('commerce.wallet', ['resume_package' => 1]))
+            ->assertOk()->assertSee('Finish buying Study Pro')
+            ->assertViewHas('suggestedFunding', '500.00');
+
+        $wallets->creditSpending($student, 3_000, 'wallet_funding');
+        $this->post(route('commerce.features.purchase'), [
+            'feature' => 'student_study_tools',
+            'billing_period' => 'monthly',
+            'request_id' => 'resumed-plan-1',
+        ])->assertRedirect()->assertSessionMissing('commerce.package_purchase_intent');
+        $this->assertDatabaseHas('feature_entitlements', ['user_id' => $student->id, 'feature' => 'student_study_tools', 'status' => 'active']);
+    }
+
+    public function test_admin_can_disable_and_reenable_latest_package_price_without_rewriting_history(): void
+    {
+        $admin = User::factory()->create(['role' => 'super_admin', 'account_type' => 'super_admin']);
+        $first = $this->featureRule('student_study_tools', 4_000, ['included_ai_requests' => 5]);
+
+        $this->actingAs($admin)->patch(route('admin.monetization.pricing-rules.status', $first), ['enabled' => false])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $disabled = PricingRule::query()->where('key', $first->key)->latest('version')->firstOrFail();
+        $this->assertFalse($disabled->enabled);
+        $this->assertSame(2, $disabled->version);
+        $this->assertSame($first->id, $disabled->supersedes_id);
+        $this->assertNull(app(PricingCatalogService::class)->featureRule('student_study_tools'));
+
+        $this->patch(route('admin.monetization.pricing-rules.status', $disabled), ['enabled' => true])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $enabled = PricingRule::query()->where('key', $first->key)->latest('version')->firstOrFail();
+        $this->assertTrue($enabled->enabled);
+        $this->assertSame(3, $enabled->version);
+        $this->assertSame(4_000, $enabled->unit_amount_minor);
+        $this->assertSame(5, data_get($enabled->metadata, 'included_ai_requests'));
+
+        $this->get(route('admin.monetization'))->assertOk()->assertSee('Disable pricing');
     }
 
     private function featureRule(string $feature, int $amountMinor, array $metadata = []): PricingRule

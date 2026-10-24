@@ -3,9 +3,7 @@
 namespace Tests\Feature;
 
 use App\Ai\Contracts\AiResponse;
-use App\Models\AiUsageCharge;
 use App\Models\CommercialAccount;
-use App\Models\FeatureEntitlement;
 use App\Models\FeatureUsageCharge;
 use App\Models\PricingRule;
 use App\Models\University;
@@ -16,6 +14,7 @@ use App\Services\Commerce\FeatureBillingService;
 use App\Services\Commerce\WalletService;
 use App\Services\SettingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class MonetizationRuntimeBillingTest extends TestCase
@@ -46,7 +45,7 @@ class MonetizationRuntimeBillingTest extends TestCase
         try {
             $billing->begin($user, 'attendance_tracking', 'attendance-runtime-1');
             $this->fail('Expected a duplicate paid operation to be blocked.');
-        } catch (\Illuminate\Validation\ValidationException $exception) {
+        } catch (ValidationException $exception) {
             $this->assertStringContainsString('already completed', $exception->validator->errors()->first('feature'));
         }
         $this->assertSame(8_000, $wallets->account($user)->fresh()->spending_balance_minor);
@@ -165,6 +164,7 @@ class MonetizationRuntimeBillingTest extends TestCase
             'knowledge_platform_commission_percentage' => '15',
             'knowledge_institution_revenue_percentage' => '5',
             'creator_earnings_hold_days' => 4,
+            'general_free_plan_enabled' => '1',
             'ai_monetization_enabled' => '1',
             'ai_free_daily_requests' => 2,
             'ai_request_charge_amount' => '30',
@@ -172,6 +172,7 @@ class MonetizationRuntimeBillingTest extends TestCase
         ])->assertRedirect();
 
         $this->assertTrue((bool) SettingService::getGlobal('ai_monetization_enabled', false));
+        $this->assertTrue((bool) SettingService::getGlobal('general_free_plan_enabled', false));
         $this->assertSame(2, (int) SettingService::getGlobal('ai_free_daily_requests', 0));
         $this->assertSame('30', (string) SettingService::getGlobal('ai_request_charge_amount', ''));
         $this->assertSame('600', (string) SettingService::getGlobal('wallet_minimum_funding_amount', ''));

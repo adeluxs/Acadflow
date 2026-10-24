@@ -21,10 +21,11 @@
             <label class="text-sm font-semibold">Creator hold (days)<input type="number" name="creator_earnings_hold_days" value="{{ old('creator_earnings_hold_days',$settings['creator_earnings_hold_days']) }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
             <label class="text-sm font-semibold">Platform marketplace commission (%)<input name="knowledge_platform_commission_percentage" value="{{ old('knowledge_platform_commission_percentage',$settings['knowledge_platform_commission_percentage']) }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
             <label class="text-sm font-semibold">Institution revenue share (%)<input name="knowledge_institution_revenue_percentage" value="{{ old('knowledge_institution_revenue_percentage',$settings['knowledge_institution_revenue_percentage']) }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
-            <label class="text-sm font-semibold">Free AI requests/day<input type="number" name="ai_free_daily_requests" value="{{ old('ai_free_daily_requests',$settings['ai_free_daily_requests']) }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
+            <label class="text-sm font-semibold">General Free AI requests/day<input type="number" name="ai_free_daily_requests" value="{{ old('ai_free_daily_requests',$settings['ai_free_daily_requests']) }}" class="mt-1 w-full rounded-xl border-slate-300"><span class="mt-1 block text-xs font-normal leading-5 text-slate-500">Every registered user receives this daily allowance unless an assistant has its own published free limit.</span></label>
             <label class="text-sm font-semibold">AI charge/request ({{ $displayCurrency }})<input name="ai_request_charge_amount" value="{{ old('ai_request_charge_amount',$settings['ai_request_charge_amount']) }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
             <label class="text-sm font-semibold">{{ $displayCurrency }}/USD reporting rate<input name="ai_local_currency_per_usd_reporting" value="{{ old('ai_local_currency_per_usd_reporting',$settings['ai_local_currency_per_usd_reporting']) }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
-            <input type="hidden" name="ai_monetization_enabled" value="0"><label class="flex items-start gap-3 rounded-xl border p-3"><input type="checkbox" name="ai_monetization_enabled" value="1" class="mt-1" @checked(old('ai_monetization_enabled',$settings['ai_monetization_enabled']))><span><span class="block text-sm font-bold text-slate-800">Charge users for extra AI after all allowances are used</span><span class="mt-1 block text-xs leading-5 text-slate-500">A Study Pro, Teaching Pro or Academic AI Plus payment includes the AI requests configured for that package. When enabled, AcadSyntra uses the daily free allowance first, then the matching package allowance, and charges the user’s wallet only for successful requests after both are exhausted. When disabled, users are not charged AI overage.</span></span></label>
+            <input type="hidden" name="general_free_plan_enabled" value="0"><label class="flex items-start gap-3 rounded-xl border p-3"><input type="checkbox" name="general_free_plan_enabled" value="1" class="mt-1" @checked(old('general_free_plan_enabled',$settings['general_free_plan_enabled']))><span><span class="block text-sm font-bold text-slate-800">Enable General Free plan</span><span class="mt-1 block text-xs leading-5 text-slate-500">Automatically places every registered account on the free plan with the daily AI allowance above. Disabling it removes free AI requests but does not remove core account access.</span></span></label>
+            <input type="hidden" name="ai_monetization_enabled" value="0"><label class="flex items-start gap-3 rounded-xl border p-3"><input type="checkbox" name="ai_monetization_enabled" value="1" class="mt-1" @checked(old('ai_monetization_enabled',$settings['ai_monetization_enabled']))><span><span class="block text-sm font-bold text-slate-800">Charge users for extra AI after all allowances are used</span><span class="mt-1 block text-xs leading-5 text-slate-500">A Study Pro, Teaching Pro or Academic AI Plus payment includes the AI requests configured for that package. When enabled, AcadSyntra uses the General Free allowance first, then the matching package allowance, and charges the user’s wallet only for successful requests after both are exhausted. When disabled, users are not charged AI overage.</span></span></label>
         </div><button class="mt-5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white">Save monetization settings</button>
     </form>
 
@@ -319,7 +320,7 @@
         </div>
         <div class="mt-4 overflow-x-auto">
             <table class="min-w-full text-sm">
-                <thead><tr class="border-b text-left text-slate-500"><th class="p-3">Feature</th><th class="p-3">Pricing type</th><th class="p-3">Price</th><th class="p-3">Version</th><th class="p-3">Status</th><th class="p-3">Published</th></tr></thead>
+                <thead><tr class="border-b text-left text-slate-500"><th class="p-3">Feature</th><th class="p-3">Pricing type</th><th class="p-3">Price</th><th class="p-3">Version</th><th class="p-3">Status</th><th class="p-3">Published</th><th class="p-3">Action</th></tr></thead>
                 <tbody>
                     @forelse($pricingRules as $r)
                         <tr class="border-b align-top last:border-0">
@@ -335,11 +336,12 @@
                                 @endif
                             </td>
                             <td class="p-3">v{{ $r->version }}</td>
-                            <td class="p-3"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold {{ $r->enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600' }}">{{ $r->enabled ? 'Active' : 'Previous / inactive' }}</span></td>
+                            <td class="p-3"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold {{ $r->enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600' }}">{{ $r->enabled ? 'Active' : ($latestPricingRuleIds->has($r->id) ? 'Disabled' : 'Previous') }}</span></td>
                             <td class="p-3 text-slate-500">{{ $r->created_at?->format('d M Y, H:i') ?? '—' }}</td>
+                            <td class="p-3">@if($latestPricingRuleIds->has($r->id))<form method="POST" action="{{ route('admin.monetization.pricing-rules.status',$r) }}">@csrf @method('PATCH')<input type="hidden" name="enabled" value="{{ $r->enabled ? 0 : 1 }}"><button class="rounded-lg px-3 py-2 text-xs font-bold {{ $r->enabled ? 'border border-red-200 text-red-700' : 'bg-emerald-700 text-white' }}">{{ $r->enabled ? 'Disable pricing' : 'Enable pricing' }}</button></form>@else<span class="text-xs text-slate-400">Audit only</span>@endif</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="p-5 text-slate-500">No feature prices have been published yet. Features remain free until an active pricing rule is created.</td></tr>
+                        <tr><td colspan="7" class="p-5 text-slate-500">No feature prices have been published yet. Features remain free until an active pricing rule is created.</td></tr>
                     @endforelse
                 </tbody>
             </table>

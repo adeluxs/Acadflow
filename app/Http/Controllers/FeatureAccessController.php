@@ -34,6 +34,11 @@ class FeatureAccessController extends Controller
         $definitions = $pricing->featureDefinitions();
         $aiDefinitions = $pricing->aiDefinitions();
         $aiMonetizationEnabled = (bool) SettingService::getGlobal('ai_monetization_enabled', false);
+        $freePlan = [
+            'enabled' => (bool) SettingService::getGlobal('general_free_plan_enabled', true),
+            'daily_ai_requests' => max(0, (int) SettingService::getGlobal('ai_free_daily_requests', 3)),
+            'ai_monetization_enabled' => $aiMonetizationEnabled,
+        ];
         $rules = $pricing->activeRules(array_merge(array_map(fn ($key) => 'feature.'.$key, array_keys($definitions)), array_map(fn ($key) => 'ai.'.$key, array_keys($aiDefinitions))));
         $entitlementSummary = FeatureEntitlement::query()->from('feature_entitlements as entitlement_history')
             ->where('entitlement_history.user_id', $user->id)
@@ -103,10 +108,10 @@ class FeatureAccessController extends Controller
             ->whereIn('status', ['reserved', 'completed', 'reconciliation_required'])
             ->sum('user_charge_minor');
 
-        return view('commerce.features', compact('wallet', 'commercial', 'institutionEligible', 'featureRows', 'aiRows', 'featureUsage', 'aiUsage', 'aiMonthSpendMinor'));
+        return view('commerce.features', compact('wallet', 'commercial', 'institutionEligible', 'freePlan', 'featureRows', 'aiRows', 'featureUsage', 'aiUsage', 'aiMonthSpendMinor'));
     }
 
-    public function purchase(Request $request, FeatureBillingService $billing, PricingCatalogService $pricing): RedirectResponse
+    public function purchase(Request $request, FeatureBillingService $billing, PricingCatalogService $pricing, PackageAccessService $packages): RedirectResponse
     {
         $features = array_keys($pricing->featureDefinitions());
         $data = $request->validate([
@@ -118,9 +123,37 @@ class FeatureAccessController extends Controller
         $this->assertRole($request, (string) $data['feature']);
 
         $requestId = trim((string) ($data['request_id'] ?? '')) ?: (string) Str::uuid();
-        $billing->purchaseFixedAccess($request->user(), (string) $data['feature'], $requestId, (string) ($data['billing_period'] ?? 'monthly'));
+        $feature = (string) $data['feature'];
+        $billingPeriod = (string) ($data['billing_period'] ?? 'monthly');
+        try {
+            $billing->purchaseFixedAccess($request->user(), $feature, $requestId, $billingPeriod);
+        } catch (ValidationException $exception) {
+            $amountError = $exception->validator->errors()->first('amount');
+            if ($amountError !== '' && str_contains(strtolower($amountError), 'spending balance')) {
+                $rule = $pricing->featureRule($feature);
+                $offer = $rule && $packages->isPackage($feature) ? $packages->offer($rule, $feature, $billingPeriod) : null;
+                if ($offer) {
+                    $request->session()->put('commerce.package_purchase_intent', [
+                        'user_id' => $request->user()->id,
+                        'feature' => $feature,
+                        'billing_period' => $billingPeriod,
+                        'required_amount_minor' => (int) $offer['amount_minor'],
+                        'expires_at' => now()->addDay()->timestamp,
+                    ]);
 
-        return back()->with('success', 'Paid feature access activated successfully.');
+                    return redirect()->to(route('commerce.wallet', ['resume_package' => 1]).'#fund-wallet')
+                        ->with('info', 'Your wallet balance is too low. Add the suggested amount and AcadSyntra will return you to this plan.');
+                }
+            }
+            throw $exception;
+        }
+
+        $intent = (array) $request->session()->get('commerce.package_purchase_intent', []);
+        if (($intent['feature'] ?? null) === $feature) {
+            $request->session()->forget('commerce.package_purchase_intent');
+        }
+
+        return back()->with('success', 'Your plan is active.');
     }
 
     public function startTrial(Request $request, PackageAccessService $packages, PricingCatalogService $pricing): RedirectResponse

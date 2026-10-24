@@ -15,6 +15,13 @@
     </div>
 @endif
 
+@if($packagePurchaseIntent)
+    <div class="mb-6 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 text-indigo-950">
+        <p class="font-black">Finish buying {{ data_get(config('monetization.pricing_features.'.$packagePurchaseIntent['feature']), 'short_title', data_get(config('monetization.pricing_features.'.$packagePurchaseIntent['feature']), 'title', 'your plan')) }}</p>
+        <p class="mt-1 text-sm leading-6">Your selected {{ str($packagePurchaseIntent['billing_period'])->headline() }} plan costs {{ $wallet->currency }} {{ $fmt((int)$packagePurchaseIntent['required_amount_minor']) }}. Add funds below; after payment confirmation, AcadSyntra will return you to the selected plan.</p>
+    </div>
+@endif
+
 <div class="mb-5 flex flex-wrap gap-3"><a href="{{ route('commerce.features') }}" class="inline-flex items-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white">Paid Feature Access</a><span class="inline-flex items-center text-sm text-slate-500">Review fixed access, pay-per-use and AI pricing before using paid tools.</span></div>
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -40,11 +47,11 @@
 @endif
 
 <div class="mt-6 grid gap-6 lg:grid-cols-2">
-    <form method="POST" action="{{ route('commerce.wallet.fund') }}" class="grid gap-3 rounded-2xl border bg-white p-5 shadow-sm">
+    <form id="fund-wallet" method="POST" action="{{ route('commerce.wallet.fund') }}" class="grid gap-3 rounded-2xl border bg-white p-5 shadow-sm">
         @csrf
         <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
         <div><h2 class="text-lg font-black">Add funds</h2><p class="mt-1 text-sm text-slate-500">Top up once, then use your spending balance for lower-value internal transactions.</p></div>
-        <label class="text-sm font-semibold">Amount ({{ $wallet->currency }})<input required type="number" inputmode="decimal" min="{{ $walletRules['minimum_funding'] }}" step="0.01" name="amount" value="{{ old('amount') }}" class="mt-1 w-full rounded-xl border-slate-300" placeholder="Minimum {{ $walletRules['minimum_funding'] }}"></label>
+        <label class="text-sm font-semibold">Amount ({{ $wallet->currency }})<input required type="number" inputmode="decimal" min="{{ $walletRules['minimum_funding'] }}" step="0.01" name="amount" value="{{ old('amount', $suggestedFunding) }}" class="mt-1 w-full rounded-xl border-slate-300" placeholder="Minimum {{ $walletRules['minimum_funding'] }}"></label>
         <label class="text-sm font-semibold">Payment method<select required name="gateway" class="mt-1 w-full rounded-xl border-slate-300">@forelse($gateways as $gateway)<option value="{{ $gateway->code }}">{{ $gateway->name }}</option>@empty<option disabled>No payment gateway is currently available</option>@endforelse</select></label>
         <button @disabled($gateways->isEmpty()) class="rounded-xl bg-slate-950 px-4 py-2.5 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Continue securely</button>
         <p class="text-xs text-slate-500">Your balance is credited only after AcadSyntra verifies the payment amount and currency directly with the gateway.</p>
