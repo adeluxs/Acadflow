@@ -34,9 +34,9 @@ AI generation still uses the existing central provider routing, feature switches
 
 ## Monetization
 
-**Lecturer Teaching Studio** is registered in the existing paid-feature catalogue as optional fixed access. It remains free until a super administrator publishes an active price under **Admin → Monetization → Feature Pricing**. Once priced, lecturers can activate a configured access period from **Paid Feature Access**, or receive access through a verified institution or department commercial account that sponsors `lecturer_teaching_tools`.
+**Lecturer Teaching Studio** is presented to lecturers as the **Teaching Pro** package. It remains free until a super administrator publishes an active price under **Admin → Monetization → Feature Pricing**. The administrator can offer monthly and semester access, included Lecturer Assistant requests, an optional one-time trial and read-only grace days. Lecturers activate it from **Plans & Usage**, or receive access through a verified institution or department commercial account that sponsors `lecturer_teaching_tools`.
 
-The package covers the Teaching Studio signals and lecturer content-draft workflow. Core lecturer course management, material publishing, assignment management and submission review remain available outside the package. AI generation remains a separate metered action under Lecturer Assistant pricing and its configured free daily allowance. This keeps workspace access, AI cost and institutional sponsorship visible in the existing ledger instead of introducing a second billing system.
+The package covers the Teaching Studio signals and lecturer content-draft workflow. Core lecturer course management, material publishing, assignment management and submission review remain available outside the package. Daily free requests and included package requests are consumed before Lecturer Assistant overage pricing. Lecturers can cap monthly AI spending, and a failed generation restores the reserved package request. Grace access keeps saved studio pages readable while blocking new drafts and other writes until renewal.
 
 ## Verification
 

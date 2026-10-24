@@ -169,6 +169,13 @@ class MonetizationController extends Controller
             'target'=>['required','string',Rule::in($allowedTargets)],
             'amount'=>['required','regex:/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/'],
             'duration_days'=>['nullable','integer','min:0','max:3650'],
+            'semester_amount'=>['nullable','regex:/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/'],
+            'semester_duration_days'=>['nullable','integer','min:1','max:3650'],
+            'included_ai_requests'=>['nullable','integer','min:0','max:100000'],
+            'semester_included_ai_requests'=>['nullable','integer','min:0','max:100000'],
+            'trial_days'=>['nullable','integer','min:0','max:90'],
+            'trial_included_ai_requests'=>['nullable','integer','min:0','max:10000'],
+            'grace_days'=>['nullable','integer','min:0','max:30'],
             'free_daily_requests'=>['nullable','integer','min:0','max:10000'],
             'enabled'=>['nullable','boolean'],
         ],[
@@ -205,6 +212,16 @@ class MonetizationController extends Controller
             $metadata['feature']=$featureKey;
             if($pricingType==='fixed_access'){
                 $metadata['duration_days']=max(0,(int)($data['duration_days']??($definition['default_duration_days']??0)));
+                if((bool)($definition['package']??false)){
+                    $metadata['semester_amount_minor']=max(0,Money::toMinor((string)($data['semester_amount']??'0')));
+                    $metadata['semester_duration_days']=max(1,(int)($data['semester_duration_days']??($definition['default_semester_duration_days']??120)));
+                    $metadata['included_ai_requests']=max(0,(int)($data['included_ai_requests']??0));
+                    $metadata['semester_included_ai_requests']=max(0,(int)($data['semester_included_ai_requests']??0));
+                    $metadata['trial_days']=max(0,(int)($data['trial_days']??($definition['default_trial_days']??0)));
+                    $metadata['trial_included_ai_requests']=max(0,(int)($data['trial_included_ai_requests']??0));
+                    $metadata['grace_days']=max(0,(int)($data['grace_days']??($definition['default_grace_days']??0)));
+                    $metadata['package']=true;
+                }
             }
         }
 

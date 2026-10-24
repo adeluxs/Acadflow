@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class WalletAccount extends Model
@@ -16,6 +18,7 @@ class WalletAccount extends Model
         'available_earnings_minor',
         'lifetime_earnings_minor',
         'recovery_debt_minor',
+        'ai_monthly_spending_limit_minor',
         'available_balance',
         'pending_balance',
         'lifetime_earnings',
@@ -30,6 +33,7 @@ class WalletAccount extends Model
             'available_earnings_minor' => 'integer',
             'lifetime_earnings_minor' => 'integer',
             'recovery_debt_minor' => 'integer',
+            'ai_monthly_spending_limit_minor' => 'integer',
             'available_balance' => 'decimal:2',
             'pending_balance' => 'decimal:2',
             'lifetime_earnings' => 'decimal:2',
@@ -41,9 +45,20 @@ class WalletAccount extends Model
         static::creating(fn (self $model) => $model->uuid ??= (string) Str::uuid());
     }
 
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(User::class); }
-    public function entries(): \Illuminate\Database\Eloquent\Relations\HasMany { return $this->hasMany(WalletLedgerEntry::class); }
-    public function withdrawals(): \Illuminate\Database\Eloquent\Relations\HasMany { return $this->hasMany(WithdrawalRequest::class); }
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function entries(): HasMany
+    {
+        return $this->hasMany(WalletLedgerEntry::class);
+    }
+
+    public function withdrawals(): HasMany
+    {
+        return $this->hasMany(WithdrawalRequest::class);
+    }
 
     public function getRouteKeyName(): string
     {

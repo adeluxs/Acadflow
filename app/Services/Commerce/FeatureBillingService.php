@@ -48,6 +48,7 @@ class FeatureBillingService
                     'feature' => 'This feature requires activation before you can use it. Open Paid Feature Access to activate it.',
                 ]);
             }
+
             return ['source' => 'entitlement', 'charge_minor' => 0, 'request_id' => $requestId, 'feature' => $feature, 'pricing_type' => $type, 'pricing_rule_id' => $rule->id];
         }
 
@@ -61,17 +62,23 @@ class FeatureBillingService
     public function complete(User $user, array $reservation, array $metadata = []): void
     {
         $chargeId = (int) ($reservation['usage_charge_id'] ?? 0);
-        if ($chargeId <= 0) return;
+        if ($chargeId <= 0) {
+            return;
+        }
 
         try {
             DB::transaction(function () use ($user, $chargeId, $metadata): void {
                 $usage = FeatureUsageCharge::query()->whereKey($chargeId)->lockForUpdate()->first();
-                if (! $usage || $usage->status === 'completed') return;
-                if ($usage->status !== 'reserved') return;
+                if (! $usage || $usage->status === 'completed') {
+                    return;
+                }
+                if ($usage->status !== 'reserved') {
+                    return;
+                }
 
                 $amount = (int) $usage->total_amount_minor;
                 if ($amount > 0 && in_array($usage->funding_source, ['user_wallet', 'institution'], true)) {
-                    $attempt=max(1,(int)data_get($usage->metadata,'reservation_attempt',1));
+                    $attempt = max(1, (int) data_get($usage->metadata, 'reservation_attempt', 1));
                     $this->ledger->post('feature-settle:'.$usage->uuid.':'.$attempt, 'feature_usage_settlement', $usage->currency, [
                         ['account_code' => 'feature_revenue_clearing', 'direction' => 'debit', 'amount_minor' => $amount],
                         ['account_code' => 'platform_feature_revenue', 'direction' => 'credit', 'amount_minor' => $amount],
@@ -97,12 +104,16 @@ class FeatureBillingService
     public function release(User $user, array $reservation, array $metadata = []): void
     {
         $chargeId = (int) ($reservation['usage_charge_id'] ?? 0);
-        if ($chargeId <= 0) return;
+        if ($chargeId <= 0) {
+            return;
+        }
 
         try {
             DB::transaction(function () use ($user, $chargeId, $metadata): void {
                 $usage = FeatureUsageCharge::query()->whereKey($chargeId)->lockForUpdate()->first();
-                if (! $usage || $usage->status !== 'reserved') return;
+                if (! $usage || $usage->status !== 'reserved') {
+                    return;
+                }
 
                 $amount = (int) $usage->total_amount_minor;
                 if ($amount > 0 && $usage->funding_source === 'user_wallet') {
@@ -118,7 +129,7 @@ class FeatureBillingService
                 } elseif ($amount > 0 && $usage->funding_source === 'institution' && $usage->commercial_account_id) {
                     $account = CommercialAccount::query()->whereKey($usage->commercial_account_id)->lockForUpdate()->firstOrFail();
                     $account->increment('prepaid_balance_minor', $amount);
-                    $attempt=max(1,(int)data_get($usage->metadata,'reservation_attempt',1));
+                    $attempt = max(1, (int) data_get($usage->metadata, 'reservation_attempt', 1));
                     $this->ledger->post('feature-release:'.$usage->uuid.':'.$attempt, 'feature_usage_release', $usage->currency, [
                         ['account_code' => 'feature_revenue_clearing', 'direction' => 'debit', 'amount_minor' => $amount],
                         ['account_code' => 'institution_prepaid_liability:'.$account->id, 'direction' => 'credit', 'amount_minor' => $amount],
@@ -143,12 +154,16 @@ class FeatureBillingService
 
     public function markReconciliationRequired(int $chargeId, string $reason, array $metadata = []): void
     {
-        if ($chargeId <= 0) return;
+        if ($chargeId <= 0) {
+            return;
+        }
 
         try {
             DB::transaction(function () use ($chargeId, $reason, $metadata): void {
                 $usage = FeatureUsageCharge::query()->whereKey($chargeId)->lockForUpdate()->first();
-                if (! $usage || $usage->status !== 'reserved') return;
+                if (! $usage || $usage->status !== 'reserved') {
+                    return;
+                }
 
                 $usage->forceFill([
                     'status' => 'reconciliation_required',
@@ -167,14 +182,22 @@ class FeatureBillingService
         }
     }
 
-    public function purchaseFixedAccess(User $user, string $feature, string $requestId): FeatureEntitlement
+    public function purchaseFixedAccess(User $user, string $feature, string $requestId, string $billingPeriod = 'monthly'): FeatureEntitlement
     {
         $rule = $this->pricing->featureRule($feature);
         if (! $rule || $this->pricing->pricingType($rule) !== 'fixed_access') {
             throw ValidationException::withMessages(['feature' => 'This feature is not configured for fixed access.']);
         }
 
-        return DB::transaction(function () use ($user, $feature, $requestId, $rule): FeatureEntitlement {
+        $offer = app(PackageAccessService::class)->isPackage($feature)
+            ? app(PackageAccessService::class)->offer($rule, $feature, $billingPeriod)
+            : [
+                'amount_minor' => max(0, (int) $rule->unit_amount_minor),
+                'duration_days' => max(0, (int) data_get($rule->metadata, 'duration_days', 0)),
+                'included_ai_requests' => 0,
+            ];
+
+        return DB::transaction(function () use ($user, $feature, $requestId, $rule, $billingPeriod, $offer): FeatureEntitlement {
             // One user can only make one fixed-access purchase decision at a time.
             // Re-check entitlement after acquiring the lock so double-clicks/tabs
             // cannot purchase the same active access period twice.
@@ -184,12 +207,15 @@ class FeatureBillingService
                 ->where('user_id', $user->id)
                 ->where('feature', $feature)
                 ->where('access_type', '!=', 'institution_sponsored')
+                ->where('access_type', '!=', 'trial')
                 ->where('status', 'active')
                 ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
                 ->latest('id')
                 ->lockForUpdate()
                 ->first();
-            if ($existing) return $existing;
+            if ($existing) {
+                return $existing;
+            }
 
             $existingCharge = FeatureUsageCharge::query()->where('request_id', $requestId)->lockForUpdate()->first();
             if ($existingCharge?->feature_entitlement_id) {
@@ -197,7 +223,8 @@ class FeatureBillingService
             }
 
             if ($this->institutionSponsors($user, $feature)) {
-                $days = max(0, (int) data_get($rule->metadata, 'duration_days', 0));
+                $days = (int) $offer['duration_days'];
+
                 return $this->entitlements->grant(
                     $user,
                     $feature,
@@ -211,7 +238,7 @@ class FeatureBillingService
             $wallet = $this->wallets->account($user);
             $currency = strtoupper((string) $rule->currency);
             $this->assertCurrency($currency, $wallet->currency, 'wallet');
-            $amount = max(0, (int) ($rule->unit_amount_minor ?? 0));
+            $amount = (int) $offer['amount_minor'];
             if ($amount <= 0) {
                 throw ValidationException::withMessages(['feature' => 'This feature price is not valid.']);
             }
@@ -229,7 +256,7 @@ class FeatureBillingService
                 'currency' => $currency,
                 'funding_source' => 'user_wallet',
                 'status' => 'reserved',
-                'metadata' => ['pricing_rule_version' => $rule->version],
+                'metadata' => ['pricing_rule_version' => $rule->version, 'billing_period' => $billingPeriod],
             ]);
 
             $this->wallets->debitSpending(
@@ -242,14 +269,26 @@ class FeatureBillingService
                 ['feature' => $feature, 'feature_request_id' => $requestId]
             );
 
-            $days = max(0, (int) data_get($rule->metadata, 'duration_days', 0));
+            $days = (int) $offer['duration_days'];
+            $includedAi = (int) $offer['included_ai_requests'];
+            FeatureEntitlement::query()
+                ->where('user_id', $user->id)
+                ->where('feature', $feature)
+                ->where('access_type', 'trial')
+                ->where('status', 'active')
+                ->update(['status' => 'converted']);
             $entitlement = $this->entitlements->grant(
                 $user,
                 $feature,
                 'purchased',
-                null,
+                $includedAi,
                 $days > 0 ? now()->addDays($days) : null,
-                ['pricing_rule_id' => $rule->id, 'usage_charge_id' => $usage->id]
+                [
+                    'pricing_rule_id' => $rule->id,
+                    'usage_charge_id' => $usage->id,
+                    'billing_period' => $billingPeriod,
+                    'included_ai_requests_total' => $includedAi,
+                ]
             );
 
             $this->ledger->post('feature-purchase-settle:'.$usage->uuid, 'feature_purchase_settlement', $currency, [
@@ -314,20 +353,20 @@ class FeatureBillingService
                 }
             }
 
-            $attempt=max(1,(int)data_get($existing?->metadata,'reservation_attempt',0)+1);
-            $metadata=array_merge((array)($existing?->metadata??[]),[
-                'pricing_rule_version'=>$rule->version,
-                'reservation_attempt'=>$attempt,
+            $attempt = max(1, (int) data_get($existing?->metadata, 'reservation_attempt', 0) + 1);
+            $metadata = array_merge((array) ($existing?->metadata ?? []), [
+                'pricing_rule_version' => $rule->version,
+                'reservation_attempt' => $attempt,
             ]);
-            if($existing){
-                $usage=$existing;
+            if ($existing) {
+                $usage = $existing;
                 $usage->forceFill([
-                    'user_id'=>$user->id,'university_id'=>$user->university_id,'pricing_rule_id'=>$rule->id,
-                    'commercial_account_id'=>$commercialAccountId,'feature'=>$feature,'pricing_type'=>'pay_per_use',
-                    'quantity'=>$quantity,'unit_amount_minor'=>$unit,'total_amount_minor'=>$total,'currency'=>$currency,
-                    'funding_source'=>$fundingSource,'status'=>'reserved','released_at'=>null,'metadata'=>$metadata,
+                    'user_id' => $user->id, 'university_id' => $user->university_id, 'pricing_rule_id' => $rule->id,
+                    'commercial_account_id' => $commercialAccountId, 'feature' => $feature, 'pricing_type' => 'pay_per_use',
+                    'quantity' => $quantity, 'unit_amount_minor' => $unit, 'total_amount_minor' => $total, 'currency' => $currency,
+                    'funding_source' => $fundingSource, 'status' => 'reserved', 'released_at' => null, 'metadata' => $metadata,
                 ])->save();
-            }else{
+            } else {
                 $usage = FeatureUsageCharge::query()->create([
                     'request_id' => $requestId,
                     'user_id' => $user->id,

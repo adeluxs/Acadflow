@@ -37,6 +37,8 @@ class EntitlementService
             ->exists();
         if ($granted) return true;
 
+        // AcademicSponsorshipService resolves eligible accounts and applies
+        // CommercialAccount::sponsorsFeature($feature) in one bounded lookup.
         if (app(AcademicSponsorshipService::class)->account($user, $feature)) return true;
 
         return false;

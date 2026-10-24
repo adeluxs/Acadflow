@@ -1,7 +1,7 @@
 @extends('layouts.app')
-@section('title','Paid Feature Access')
-@section('page-title','Paid Feature Access')
-@section('page-subtitle','See what is free, sponsored, fixed-access, pay-per-use, or AI-billed before you use it')
+@section('title','Plans & Usage')
+@section('page-title','Plans & Usage')
+@section('page-subtitle','Choose one clear workspace package and stay in control of AI overage')
 @section('content')
 @if(session('success'))
     <div class="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{{ session('success') }}</div>
@@ -10,41 +10,47 @@
     <div class="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
 @endif
 
-<div class="grid gap-4 md:grid-cols-3">
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
     <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Spending balance</p><p class="mt-2 text-3xl font-black">{{ $wallet->currency }} {{ \App\Support\Money::fromMinor((int)$wallet->spending_balance_minor) }}</p><a href="{{ route('commerce.wallet') }}" class="mt-3 inline-flex text-sm font-bold text-indigo-600">Fund wallet →</a></div>
     <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Institution sponsorship</p><p class="mt-2 text-lg font-black">{{ $commercial ? 'Eligible & active' : ($institutionEligible ? 'No active commercial account' : 'Not eligible') }}</p><p class="mt-2 text-sm text-slate-500">Sponsored features/AI use the institution prepaid balance only for verified members of an eligible institution.</p></div>
     <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Billing safety</p><p class="mt-2 text-lg font-black">Reserve → complete → settle</p><p class="mt-2 text-sm text-slate-500">Pay-per-use and AI charges are reserved before execution and released if the protected operation fails.</p></div>
+    <div class="rounded-2xl border bg-white p-5 shadow-sm"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">AI spend this month</p><p class="mt-2 text-2xl font-black">{{ $wallet->currency }} {{ \App\Support\Money::fromMinor($aiMonthSpendMinor) }}</p><form method="POST" action="{{ route('commerce.features.ai-spending-limit') }}" class="mt-3">@csrf @method('PUT')<label class="text-xs font-semibold text-slate-600">Monthly limit (0 = no limit)<div class="mt-1 flex gap-2"><input name="ai_monthly_spending_limit" inputmode="decimal" value="{{ old('ai_monthly_spending_limit', $wallet->ai_monthly_spending_limit_minor ? \App\Support\Money::fromMinor((int)$wallet->ai_monthly_spending_limit_minor) : '0') }}" class="min-w-0 flex-1 rounded-lg border-slate-300 text-sm"><button class="rounded-lg bg-slate-900 px-3 text-xs font-bold text-white">Save</button></div></label></form></div>
 </div>
 
 <section class="mt-6 rounded-3xl border bg-white p-6 shadow-sm">
-    <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Non-AI features</p><h2 class="mt-1 text-xl font-black">Feature pricing</h2></div>
+    <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Your workspace</p><h2 class="mt-1 text-xl font-black">One package, with AI included</h2><p class="mt-1 text-sm text-slate-500">Choose monthly or semester access. Included AI requests are used before any per-request charge.</p></div>
     <div class="mt-5 grid gap-4 lg:grid-cols-2">
-        @foreach($featureRows as $row)
+        @forelse($featureRows->where('package', true) as $row)
             <article id="feature-{{ $row['key'] }}" class="rounded-2xl border p-5 {{ request('feature') === $row['key'] ? 'border-indigo-400 ring-2 ring-indigo-100' : '' }}">
-                <div class="flex items-start justify-between gap-4"><div><h3 class="font-black text-slate-900">{{ $row['title'] }}</h3><p class="mt-1 text-sm leading-6 text-slate-500">{{ $row['description'] }}</p></div>
+                @php($state = data_get($row, 'package_status.state', $row['rule'] ? 'locked' : 'free'))
+                <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-black uppercase tracking-wide text-indigo-600">{{ $row['short_title'] ?? $row['title'] }}</p><h3 class="mt-1 text-xl font-black text-slate-900">{{ $row['title'] }}</h3><p class="mt-2 text-sm leading-6 text-slate-500">{{ $row['description'] }}</p></div>
                     @if(!$row['rule'])<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Free</span>
                     @elseif($row['sponsored'])<span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">Institution sponsored</span>
-                    @elseif($row['pricing_type']==='fixed_access' && $row['entitlement'])<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Active</span>
+                    @elseif($state==='trial')<span class="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">Trial</span>
+                    @elseif($state==='active')<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Active</span>
+                    @elseif($state==='grace')<span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Read-only grace</span>
                     @else<span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Paid</span>@endif
                 </div>
-                @if($row['rule'])
-                    <div class="mt-4 rounded-xl bg-slate-50 p-3 text-sm">
-                        <p class="font-bold">{{ str($row['pricing_type'])->replace('_',' ')->headline() }} · {{ $row['rule']->currency }} {{ \App\Support\Money::fromMinor((int)$row['rule']->unit_amount_minor) }}</p>
-                        @if($row['pricing_type']==='fixed_access')<p class="mt-1 text-xs text-slate-500">Access duration: {{ (int)data_get($row['rule']->metadata,'duration_days',0) > 0 ? data_get($row['rule']->metadata,'duration_days').' days' : 'No expiry' }}</p>@else<p class="mt-1 text-xs text-slate-500">Charged per {{ data_get($row['rule']->metadata,'unit_label',$row['unit_label'] ?? 'use') }} after a successful operation.</p>@endif
-                    </div>
+                @if(in_array($state, ['active','trial'], true) && $row['entitlement'])
+                    <div class="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900"><p class="font-black">Access active{{ $row['entitlement']->expires_at ? ' until '.$row['entitlement']->expires_at->format('d M Y') : '' }}</p><p class="mt-1 text-xs">{{ number_format((int)($row['entitlement']->remaining_units ?? 0)) }} included AI request(s) remaining.</p></div>
+                @elseif($state==='grace')
+                    <div class="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p class="font-black">Saved work remains readable until {{ data_get($row,'package_status.grace_ends_at')?->format('d M Y') }}.</p><p class="mt-1 text-xs">Renew to create, edit or generate new work.</p></div>
                 @endif
-                @if($row['rule'] && $row['pricing_type']==='fixed_access' && !$row['sponsored'] && !$row['entitlement'])
-                    <form method="POST" action="{{ route('commerce.features.purchase') }}" class="mt-4">@csrf<input type="hidden" name="feature" value="{{ $row['key'] }}"><input type="hidden" name="request_id" value="{{ (string)\Illuminate\Support\Str::uuid() }}"><button class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white">Activate access</button></form>
-                @elseif($row['entitlement'])
-                    <p class="mt-3 text-xs font-semibold text-emerald-700">Active{{ $row['entitlement']->expires_at ? ' until '.$row['entitlement']->expires_at->format('d M Y, H:i') : ' with no expiry' }}.</p>
+                @if($row['rule'] && !$row['sponsored'] && !in_array($state, ['active','trial'], true))
+                    <div class="mt-4 grid gap-3 sm:grid-cols-2">@foreach($row['offers'] as $period => $offer)<form method="POST" action="{{ route('commerce.features.purchase') }}" class="rounded-xl border bg-slate-50 p-4">@csrf<input type="hidden" name="feature" value="{{ $row['key'] }}"><input type="hidden" name="billing_period" value="{{ $period }}"><input type="hidden" name="request_id" value="{{ (string)\Illuminate\Support\Str::uuid() }}"><p class="text-xs font-black uppercase text-slate-500">{{ $offer['label'] }}</p><p class="mt-1 text-lg font-black">{{ $row['rule']->currency }} {{ \App\Support\Money::fromMinor($offer['amount_minor']) }}</p><p class="mt-1 text-xs text-slate-500">{{ $offer['duration_days'] }} days · {{ number_format($offer['included_ai_requests']) }} AI requests</p><button class="mt-3 w-full rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white">Choose {{ strtolower($offer['label']) }}</button></form>@endforeach</div>
+                    @if($row['trial_days'] > 0 && !$row['trial_used'])<form method="POST" action="{{ route('commerce.features.trial') }}" class="mt-3">@csrf<input type="hidden" name="feature" value="{{ $row['key'] }}"><button class="text-sm font-black text-indigo-700">Start {{ $row['trial_days'] }}-day trial →</button></form>@endif
                 @endif
             </article>
-        @endforeach
+        @empty<p class="text-sm text-slate-500">No role-specific package is available for this account.</p>@endforelse
     </div>
 </section>
 
+@if($featureRows->where('package', false)->isNotEmpty())
+<details class="mt-6 rounded-3xl border bg-white p-6 shadow-sm"><summary class="cursor-pointer font-black text-slate-900">Additional usage-based features</summary><p class="mt-2 text-sm text-slate-500">These specialist actions keep their individual pricing and sponsorship controls.</p><div class="mt-5 grid gap-4 lg:grid-cols-2">@foreach($featureRows->where('package', false) as $row)<article class="rounded-2xl border p-4"><div class="flex justify-between gap-3"><div><h3 class="font-black">{{ $row['title'] }}</h3><p class="mt-1 text-xs leading-5 text-slate-500">{{ $row['description'] }}</p></div><span class="h-fit rounded-full px-2.5 py-1 text-xs font-bold {{ $row['rule'] ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700' }}">{{ $row['rule'] ? ($row['sponsored'] ? 'Sponsored' : ($row['entitlement'] ? 'Active' : 'Paid')) : 'Free' }}</span></div>@if($row['rule'])<p class="mt-3 text-sm font-bold">{{ $row['rule']->currency }} {{ \App\Support\Money::fromMinor((int)$row['rule']->unit_amount_minor) }} · {{ str($row['pricing_type'])->replace('_',' ') }}</p>@if($row['pricing_type']==='fixed_access' && !$row['sponsored'] && !$row['entitlement'])<form method="POST" action="{{ route('commerce.features.purchase') }}" class="mt-3">@csrf<input type="hidden" name="feature" value="{{ $row['key'] }}"><input type="hidden" name="request_id" value="{{ (string)\Illuminate\Support\Str::uuid() }}"><button class="rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white">Activate access</button></form>@endif @endif</article>@endforeach</div></details>
+@endif
+
 <section class="mt-6 rounded-3xl border bg-white p-6 shadow-sm">
-    <div><p class="text-xs font-black uppercase tracking-[.16em] text-violet-600">AI usage</p><h2 class="mt-1 text-xl font-black">Assistant pricing</h2><p class="mt-1 text-sm text-slate-500">Assistant-specific pricing overrides the global AI price. If no override exists, the global free allowance and request charge apply.</p></div>
+    <div><p class="text-xs font-black uppercase tracking-[.16em] text-violet-600">AI overage</p><h2 class="mt-1 text-xl font-black">What happens after included requests</h2><p class="mt-1 text-sm text-slate-500">Daily free requests apply first, then package requests. A wallet charge occurs only after both allowances are exhausted.</p></div>
     <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         @foreach($aiRows as $row)
             <div class="rounded-2xl border p-4"><p class="font-black">{{ $row['title'] }}</p><p class="mt-1 text-xs text-slate-500">{{ $row['category'] }}</p>

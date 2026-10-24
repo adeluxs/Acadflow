@@ -30,7 +30,7 @@ $checks = [
     'document metering' => [$root.'/app/Http/Controllers/ExportController.php', "'document_generation'"],
     'group/rubric metering' => [$root.'/app/Http/Controllers/SubmissionTaskController.php', "'allow_group_submissions'"],
     'feature access route' => [$root.'/routes/web.php', "name('commerce.features')"],
-    'feature access page' => [$root.'/resources/views/commerce/features.blade.php', 'Paid Feature Access'],
+    'feature access page' => [$root.'/resources/views/commerce/features.blade.php', "@section('page-title','Plans & Usage')"],
     'wallet feature link' => [$root.'/resources/views/commerce/wallet.blade.php', "route('commerce.features')"],
     'feature ledger routing' => [$root.'/app/Services/Commerce/WalletService.php', "str_contains(\$entryType,'feature_')=>'feature_revenue_clearing'"],
 ];

@@ -2690,27 +2690,50 @@
       'student_study_tools' => 
       array (
         'title' => 'Student Study Tools',
+        'short_title' => 'Study Pro',
         'category' => 'Learning & Revision',
-        'description' => 'Unlocks My Study Space, private study notes, practice quizzes, flashcards, study plans, mastery, deadline coaching, self-assessment, annotations and reflections. AI generation is billed separately under the applicable assistant price and allowance.',
+        'description' => 'Unlocks My Study Space, private study notes, practice quizzes, flashcards, study plans, mastery, deadline coaching, self-assessment, annotations and reflections. Included AI requests are used before any AI overage price.',
         'pricing_type' => 'fixed_access',
-        'default_duration_days' => 30,
         'unit_label' => 'access period',
         'roles' => 
         array (
           0 => 'student',
         ),
+        'package' => true,
+        'default_duration_days' => 30,
+        'default_semester_duration_days' => 120,
+        'default_trial_days' => 0,
+        'default_grace_days' => 7,
+        'ai_features' => 
+        array (
+          0 => 'study_assistant',
+          1 => 'material_assistant',
+          2 => 'practice_generator',
+          3 => 'flashcard_generator',
+          4 => 'study_planner',
+          5 => 'annotation_summary',
+        ),
       ),
       'lecturer_teaching_tools' => 
       array (
         'title' => 'Lecturer Teaching Studio',
+        'short_title' => 'Teaching Pro',
         'category' => 'Courses & Teaching',
-        'description' => 'Unlocks Teaching Studio priorities, course pulse, student-question signals and the lecturer content-draft workflow. AI generation is billed separately under Lecturer Assistant pricing and allowance.',
+        'description' => 'Unlocks Teaching Studio priorities, course pulse, student-question signals and the lecturer content-draft workflow. Included AI requests are used before any Lecturer Assistant overage price.',
         'pricing_type' => 'fixed_access',
-        'default_duration_days' => 30,
         'unit_label' => 'access period',
         'roles' => 
         array (
           0 => 'lecturer',
+        ),
+        'package' => true,
+        'default_duration_days' => 30,
+        'default_semester_duration_days' => 120,
+        'default_trial_days' => 0,
+        'default_grace_days' => 7,
+        'ai_features' => 
+        array (
+          0 => 'lecturer_assistant',
         ),
       ),
       'allow_group_submissions' => 

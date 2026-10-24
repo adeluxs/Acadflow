@@ -49,7 +49,7 @@
                         <?php $__currentLoopData = $pricingFeatureGroups; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $category => $features): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                             <optgroup label="<?php echo e($category); ?>">
                                 <?php $__currentLoopData = $features; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $feature): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                    <option value="<?php echo e($feature['target']); ?>" data-pricing-type="<?php echo e($feature['pricing_type'] ?? 'fixed_access'); ?>" data-description="<?php echo e($feature['description'] ?? (($feature['pricing_type'] ?? null)==='ai_usage' ? 'Provider-backed AI assistant with assistant-specific pricing and free allowance.' : '')); ?>" <?php if(old('target') === $feature['target']): echo 'selected'; endif; ?>><?php echo e($feature['title']); ?></option>
+                                    <option value="<?php echo e($feature['target']); ?>" data-pricing-type="<?php echo e($feature['pricing_type'] ?? 'fixed_access'); ?>" data-package="<?php echo e(!empty($feature['package']) ? '1' : '0'); ?>" data-description="<?php echo e($feature['description'] ?? (($feature['pricing_type'] ?? null)==='ai_usage' ? 'Provider-backed AI assistant with assistant-specific pricing and free allowance.' : '')); ?>" <?php if(old('target') === $feature['target']): echo 'selected'; endif; ?>><?php echo e($feature['title']); ?></option>
                                 <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                             </optgroup>
                         <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
@@ -69,7 +69,19 @@
                 </label>
 
                 <div id="fixed-access-fields" class="hidden rounded-2xl border border-slate-200 p-4">
-                    <label class="block"><span class="text-sm font-bold text-slate-800">Access duration (days)</span><span class="mt-1 block text-xs text-slate-500">Use 0 for non-expiring access.</span><input type="number" min="0" max="3650" name="duration_days" value="<?php echo e(old('duration_days',30)); ?>" class="mt-2 w-full rounded-xl border-slate-300"></label>
+                    <label class="block"><span class="text-sm font-bold text-slate-800">Monthly access duration (days)</span><span class="mt-1 block text-xs text-slate-500">The main price above is the monthly package price. Use 0 for non-expiring access on ordinary fixed features.</span><input type="number" min="0" max="3650" name="duration_days" value="<?php echo e(old('duration_days',30)); ?>" class="mt-2 w-full rounded-xl border-slate-300"></label>
+                </div>
+                <div id="package-fields" class="hidden rounded-2xl border border-indigo-200 bg-indigo-50/40 p-4">
+                    <p class="text-sm font-black text-indigo-950">Simple package options</p><p class="mt-1 text-xs leading-5 text-indigo-800">Users see one package with monthly or semester access. Included AI requests are consumed before paid AI overage.</p>
+                    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                        <label class="text-sm font-semibold">Monthly included AI requests<input type="number" min="0" max="100000" name="included_ai_requests" value="<?php echo e(old('included_ai_requests',0)); ?>" class="mt-1 w-full rounded-xl border-slate-300"></label>
+                        <label class="text-sm font-semibold">Semester price (<?php echo e($displayCurrency); ?>)<input inputmode="decimal" name="semester_amount" value="<?php echo e(old('semester_amount')); ?>" placeholder="Leave blank to hide" class="mt-1 w-full rounded-xl border-slate-300"></label>
+                        <label class="text-sm font-semibold">Semester duration (days)<input type="number" min="1" max="3650" name="semester_duration_days" value="<?php echo e(old('semester_duration_days',120)); ?>" class="mt-1 w-full rounded-xl border-slate-300"></label>
+                        <label class="text-sm font-semibold">Semester included AI requests<input type="number" min="0" max="100000" name="semester_included_ai_requests" value="<?php echo e(old('semester_included_ai_requests',0)); ?>" class="mt-1 w-full rounded-xl border-slate-300"></label>
+                        <label class="text-sm font-semibold">Trial days<input type="number" min="0" max="90" name="trial_days" value="<?php echo e(old('trial_days',0)); ?>" class="mt-1 w-full rounded-xl border-slate-300"></label>
+                        <label class="text-sm font-semibold">Trial included AI requests<input type="number" min="0" max="10000" name="trial_included_ai_requests" value="<?php echo e(old('trial_included_ai_requests',0)); ?>" class="mt-1 w-full rounded-xl border-slate-300"></label>
+                        <label class="text-sm font-semibold">Read-only grace days<input type="number" min="0" max="30" name="grace_days" value="<?php echo e(old('grace_days',7)); ?>" class="mt-1 w-full rounded-xl border-slate-300"></label>
+                    </div>
                 </div>
                 <div id="ai-usage-fields" class="hidden rounded-2xl border border-violet-200 bg-violet-50/50 p-4">
                     <label class="block"><span class="text-sm font-bold text-slate-800">Free successful requests/day</span><span class="mt-1 block text-xs text-slate-500">This overrides the global AI free allowance for this assistant only.</span><input type="number" min="0" max="10000" name="free_daily_requests" value="<?php echo e(old('free_daily_requests',0)); ?>" class="mt-2 w-full rounded-xl border-slate-300"></label>
@@ -363,14 +375,17 @@
         const select = document.getElementById('pricing-feature-select');
         const help = document.getElementById('pricing-feature-help');
         const fixedFields = document.getElementById('fixed-access-fields');
+        const packageFields = document.getElementById('package-fields');
         const aiFields = document.getElementById('ai-usage-fields');
         if (!select || !help) return;
 
         const refreshPricingFeatureHelp = () => {
             const option = select.options[select.selectedIndex];
             const type = option?.dataset?.pricingType || '';
+            const isPackage = option?.dataset?.package === '1';
             help.textContent = option?.dataset?.description || 'Select a feature to see what this pricing rule controls.';
             fixedFields?.classList.toggle('hidden', type !== 'fixed_access');
+            packageFields?.classList.toggle('hidden', !isPackage);
             aiFields?.classList.toggle('hidden', type !== 'ai_usage');
         };
 

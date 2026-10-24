@@ -26,7 +26,9 @@ class AiUsageBillingService
     /** @return array<string,mixed> */
     public function reserve(?User $user, string $feature, string $requestId): array
     {
-        if (! $user) return ['source' => 'platform', 'charge_minor' => 0, 'request_id' => $requestId];
+        if (! $user) {
+            return ['source' => 'platform', 'charge_minor' => 0, 'request_id' => $requestId];
+        }
 
         $pricing = $this->pricing->aiPricing($feature);
         if (! $pricing['enabled']) {
@@ -56,12 +58,19 @@ class AiUsageBillingService
                 // Reconciliation-required requests delivered a valid answer and
                 // therefore also count. Released/failed reservations do not.
                 ->whereIn('status', ['reserved', 'completed', 'reconciliation_required']);
-            if ($pricing['feature_specific']) $usedQuery->where('feature', $feature);
+            if ($pricing['feature_specific']) {
+                $usedQuery->where('feature', $feature);
+            }
             $used = $usedQuery->count();
             $free = (int) $pricing['free_daily_requests'];
-            $charge = $used < $free ? 0 : (int) $pricing['amount_minor'];
+            $packageEntitlement = $used < $free
+                ? null
+                : app(PackageAccessService::class)->consumeIncludedAi($user, $feature);
+            $charge = ($used < $free || $packageEntitlement) ? 0 : (int) $pricing['amount_minor'];
             $currency = strtoupper((string) $pricing['currency']);
-            $source = $charge > 0 ? 'user_wallet' : ($used < $free ? 'free_allowance' : 'platform');
+            $source = $charge > 0
+                ? 'user_wallet'
+                : ($used < $free ? 'free_allowance' : ($packageEntitlement ? 'package_allowance' : 'platform'));
             $commercialAccountId = null;
 
             if ($charge > 0) {
@@ -80,6 +89,17 @@ class AiUsageBillingService
                     if ($this->wallets->totalSpendableMinor($user) < $charge) {
                         throw ValidationException::withMessages(['ai' => 'Your balance is too low for this AI request. Add funds and try again.']);
                     }
+                    $monthlyLimit = (int) ($wallet->ai_monthly_spending_limit_minor ?? 0);
+                    if ($monthlyLimit > 0) {
+                        $monthSpend = (int) AiUsageCharge::query()
+                            ->where('user_id', $user->id)
+                            ->where('created_at', '>=', now()->startOfMonth())
+                            ->whereIn('status', ['reserved', 'completed', 'reconciliation_required'])
+                            ->sum('user_charge_minor');
+                        if (($monthSpend + $charge) > $monthlyLimit) {
+                            throw ValidationException::withMessages(['ai' => 'This request would exceed your monthly AI spending limit. Increase the limit or wait until next month.']);
+                        }
+                    }
                 }
             }
 
@@ -91,6 +111,7 @@ class AiUsageBillingService
                 'pricing_rule_version' => $pricing['rule']?->version,
                 'free_daily_requests' => $free,
                 'feature_specific_allowance' => (bool) $pricing['feature_specific'],
+                'package_entitlement_id' => $packageEntitlement?->id,
                 'reservation_attempt' => $attempt,
             ]);
 
@@ -148,13 +169,19 @@ class AiUsageBillingService
 
     public function release(?User $user, array $reservation): void
     {
-        if (! $user) return;
+        if (! $user) {
+            return;
+        }
         $requestId = (string) ($reservation['request_id'] ?? '');
-        if ($requestId === '') return;
+        if ($requestId === '') {
+            return;
+        }
 
         DB::transaction(function () use ($user, $requestId): void {
             $usage = AiUsageCharge::query()->where('request_id', $requestId)->lockForUpdate()->first();
-            if (! $usage || $usage->status !== 'reserved') return;
+            if (! $usage || $usage->status !== 'reserved') {
+                return;
+            }
 
             $charge = (int) $usage->user_charge_minor;
             $source = (string) data_get($usage->metadata, 'funding_source', 'platform');
@@ -180,6 +207,8 @@ class AiUsageBillingService
                         ['account_code' => 'institution_prepaid_liability:'.$account->id, 'direction' => 'credit', 'amount_minor' => $charge],
                     ], $user, ['ai_usage_charge_id' => $usage->id, 'ai_request_id' => $requestId]);
                 }
+            } elseif ($source === 'package_allowance') {
+                app(PackageAccessService::class)->restoreIncludedAi((int) data_get($usage->metadata, 'package_entitlement_id', 0));
             }
 
             $usage->forceFill([
@@ -193,6 +222,7 @@ class AiUsageBillingService
     {
         if (! $response->success) {
             $this->release($user, $reservation);
+
             return;
         }
 
@@ -203,7 +233,9 @@ class AiUsageBillingService
 
         DB::transaction(function () use ($user, $feature, $response, $reservation, $requestId, $providerCostMicroUsd, $providerCostLocalMinor): void {
             $usage = AiUsageCharge::query()->where('request_id', $requestId)->lockForUpdate()->first();
-            if ($usage?->status === 'completed') return;
+            if ($usage?->status === 'completed') {
+                return;
+            }
 
             $charge = (int) ($usage?->user_charge_minor ?? $reservation['charge_minor'] ?? 0);
             $currency = strtoupper((string) ($usage?->currency ?? $reservation['currency'] ?? SettingService::getGlobal('currency', 'NGN')));
@@ -257,11 +289,15 @@ class AiUsageBillingService
 
     public function markReconciliationRequired(string $requestId, string $reason = 'settlement_failed'): void
     {
-        if (trim($requestId) === '') return;
+        if (trim($requestId) === '') {
+            return;
+        }
 
         DB::transaction(function () use ($requestId, $reason): void {
             $usage = AiUsageCharge::query()->where('request_id', $requestId)->lockForUpdate()->first();
-            if (! $usage || ! in_array($usage->status, ['reserved', 'released'], true)) return;
+            if (! $usage || ! in_array($usage->status, ['reserved', 'released'], true)) {
+                return;
+            }
 
             $previousStatus = (string) $usage->status;
             $usage->forceFill([

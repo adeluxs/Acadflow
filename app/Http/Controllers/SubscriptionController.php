@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\DB;
  */
 class SubscriptionController extends Controller
 {
+    // Compatibility callbacks remain for payments initiated before subscription retirement.
     public function __construct(private PaymentGatewayManager $paymentGatewayManager, private LedgerService $ledger) {}
 
     public function paymentCallback(string $transactionUuid)

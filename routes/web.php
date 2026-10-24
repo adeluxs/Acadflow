@@ -409,6 +409,8 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::get('/commerce/wallet', [CommerceController::class, 'wallet'])->name('commerce.wallet');
     Route::get('/commerce/features', [FeatureAccessController::class, 'index'])->name('commerce.features');
     Route::post('/commerce/features/purchase', [FeatureAccessController::class, 'purchase'])->name('commerce.features.purchase');
+    Route::post('/commerce/features/trial', [FeatureAccessController::class, 'startTrial'])->name('commerce.features.trial');
+    Route::put('/commerce/features/ai-spending-limit', [FeatureAccessController::class, 'updateAiSpendingLimit'])->name('commerce.features.ai-spending-limit');
     Route::post('/commerce/wallet/fund', [CommerceController::class, 'fundWallet'])->middleware('throttle:payments')->name('commerce.wallet.fund');
     Route::get('/commerce/wallet/funding/callback/{transaction}', [CommerceController::class, 'walletFundingCallback'])->name('commerce.wallet.callback');
     Route::post('/commerce/payout-accounts', [CommerceController::class, 'storePayout'])->name('commerce.payout-accounts.store');
