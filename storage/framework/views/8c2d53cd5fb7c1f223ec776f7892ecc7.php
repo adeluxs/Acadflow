@@ -24,6 +24,7 @@
 
     $primary = match($user?->role) {
         'lecturer' => [
+            ['Teaching Studio','teaching.index','ai'],
             ['Courses','lecturer.courses','book'],
             ['Assignments','submissions.lecturer-index','task'],
             ['Attendance','attendance.lecturer','calendar'],

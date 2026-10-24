@@ -1007,8 +1007,9 @@
         array (
           0 => 'courses.*',
           1 => 'lecturer.courses*',
-          2 => 'admin.courses*',
-          3 => 'study.*',
+          2 => 'teaching.*',
+          3 => 'admin.courses*',
+          4 => 'study.*',
         ),
         'paths' => 
         array (

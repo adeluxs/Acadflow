@@ -271,8 +271,11 @@ class CourseMaterialController extends Controller
         $this->authorize('view', $material);
 
         $material->load(['uploader', 'accessLogs.user']);
-        // Students only ever see their own highlights and notes.
-        $material->setRelation('annotations', $material->annotations()->where('user_id', Auth::id())->latest()->get());
+        // Personal study annotations are a student workspace. Avoid loading them
+        // for lecturers and other roles viewing the shared material page.
+        if (Auth::user()?->isStudent()) {
+            $material->setRelation('annotations', $material->annotations()->where('user_id', Auth::id())->latest()->get());
+        }
 
         // Log view
         $material->accessLogs()->create([

@@ -4,22 +4,24 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\AttendanceSession;
-use App\Models\ResearchProject;
-use App\Models\KnowledgePublication;
-use App\Models\KnowledgeCommunityMember;
-use App\Models\AcademicEventRegistration;
 use App\Models\AcademicChallengeEntry;
+use App\Models\AcademicEventRegistration;
+use App\Models\AttendanceSession;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\GroupMember;
 use App\Models\Invoice;
+use App\Models\KnowledgeCommunityMember;
+use App\Models\KnowledgePublication;
+use App\Models\Notification;
+use App\Models\ResearchProject;
 use App\Models\Submission;
 use App\Models\SubmissionTask;
-use App\Models\Notification;
+use App\Models\User;
 use App\Services\AcademicPerformanceService;
 use App\Services\FeatureAccessService;
-use App\Models\User;
+use App\Services\Lecturer\TeachingWorkspaceService;
+use App\Services\Student\StudyWorkspaceService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
@@ -73,6 +75,7 @@ class DashboardController extends Controller
         $courseProgress = $enrollments->map(function ($enrollment) use ($allTaskCounts, $doneTaskCounts) {
             $total = (int) ($allTaskCounts[$enrollment->course_id] ?? 0);
             $done = (int) ($doneTaskCounts[$enrollment->course_id] ?? 0);
+
             return [
                 'course' => $enrollment->course,
                 'progress' => $total > 0 ? min(100, (int) round(($done / $total) * 100)) : 0,
@@ -90,7 +93,7 @@ class DashboardController extends Controller
             ->get();
 
         $studyToday = FeatureAccessService::canAccessFeature('courses', $user)
-            ? app(\App\Services\Student\StudyWorkspaceService::class)->today($user) : null;
+            ? app(StudyWorkspaceService::class)->today($user) : null;
 
         return view('dashboard.student', compact(
             'enrollments', 'enrollmentCount', 'submissions', 'submissionCount', 'pendingTasks', 'courseProgress',
@@ -110,6 +113,7 @@ class DashboardController extends Controller
             ->withCount([
                 'enrollments as enrolled_students_count' => fn (Builder $query) => $query->where('status', 'enrolled'),
                 'submissionTasks as assignment_count',
+                'materials as visible_materials_count' => fn (Builder $query) => $query->where('is_visible', true),
             ])
             ->orderBy('code')->orderBy('id')->limit(6)
             ->get();
@@ -140,7 +144,9 @@ class DashboardController extends Controller
 
         $upcomingTasks = SubmissionTask::query()->whereIn('course_id', $courseIds)
             ->whereIn('status', ['published', 'draft'])
-            ->where(function (Builder $query): void { $query->where('close_at', '>=', now())->orWhere('due_date', '>=', now()); })
+            ->where(function (Builder $query): void {
+                $query->where('close_at', '>=', now())->orWhere('due_date', '>=', now());
+            })
             ->with('course')->orderByRaw('COALESCE(close_at, due_date) ASC')->limit(5)->get();
 
         $activeSessions = FeatureAccessService::canAccessFeature('attendance', $user)
@@ -148,9 +154,15 @@ class DashboardController extends Controller
                 ->where('status', 'active')->with(['course'])->get()
             : collect();
 
+        $teachingSignals = app(TeachingWorkspaceService::class)->dashboardSignals(
+            $user,
+            $courses,
+            FeatureAccessService::canAccessFeature('ai_assistant', $user),
+        );
+
         return view('dashboard.lecturer', compact(
             'courses', 'courseCount', 'studentCount', 'pendingReviews', 'recentSubmissions', 'submissionOverview',
-            'coursePerformance', 'averageClass', 'upcomingTasks', 'activeSessions'
+            'coursePerformance', 'averageClass', 'upcomingTasks', 'activeSessions', 'teachingSignals'
         ));
     }
 
@@ -178,7 +190,6 @@ class DashboardController extends Controller
 
         return view('dashboard.admin', compact('stats'));
     }
-
 
     public function member()
     {
@@ -247,29 +258,49 @@ class DashboardController extends Controller
 
     private function scopeUsers(Builder $query, User $user): Builder
     {
-        if ($user->isDepartmentAdmin()) return $query->where('university_id', $user->university_id)->where('department_id', $user->department_id);
-        if ($user->isUniversityAdmin()) return $query->where('university_id', $user->university_id);
+        if ($user->isDepartmentAdmin()) {
+            return $query->where('university_id', $user->university_id)->where('department_id', $user->department_id);
+        }
+        if ($user->isUniversityAdmin()) {
+            return $query->where('university_id', $user->university_id);
+        }
+
         return $query;
     }
 
     private function scopeCourses(Builder $query, User $user): Builder
     {
-        if ($user->isDepartmentAdmin()) return $query->where('department_id', $user->department_id);
-        if ($user->isUniversityAdmin()) return $query->whereHas('department.faculty', fn (Builder $q) => $q->where('university_id', $user->university_id));
+        if ($user->isDepartmentAdmin()) {
+            return $query->where('department_id', $user->department_id);
+        }
+        if ($user->isUniversityAdmin()) {
+            return $query->whereHas('department.faculty', fn (Builder $q) => $q->where('university_id', $user->university_id));
+        }
+
         return $query;
     }
 
     private function scopeSubmissions(Builder $query, User $user): Builder
     {
-        if ($user->isDepartmentAdmin()) return $query->whereHas('course', fn (Builder $q) => $q->where('department_id', $user->department_id));
-        if ($user->isUniversityAdmin()) return $query->whereHas('course.department.faculty', fn (Builder $q) => $q->where('university_id', $user->university_id));
+        if ($user->isDepartmentAdmin()) {
+            return $query->whereHas('course', fn (Builder $q) => $q->where('department_id', $user->department_id));
+        }
+        if ($user->isUniversityAdmin()) {
+            return $query->whereHas('course.department.faculty', fn (Builder $q) => $q->where('university_id', $user->university_id));
+        }
+
         return $query;
     }
 
     private function scopeInvoices(Builder $query, User $user): Builder
     {
-        if ($user->isDepartmentAdmin()) return $query->whereHas('user', fn (Builder $q) => $q->where('university_id', $user->university_id)->where('department_id', $user->department_id));
-        if ($user->isUniversityAdmin()) return $query->whereHas('user', fn (Builder $q) => $q->where('university_id', $user->university_id));
+        if ($user->isDepartmentAdmin()) {
+            return $query->whereHas('user', fn (Builder $q) => $q->where('university_id', $user->university_id)->where('department_id', $user->department_id));
+        }
+        if ($user->isUniversityAdmin()) {
+            return $query->whereHas('user', fn (Builder $q) => $q->where('university_id', $user->university_id));
+        }
+
         return $query;
     }
 }

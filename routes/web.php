@@ -1,78 +1,91 @@
 <?php
 
-use App\Http\Controllers\Admin\NotificationManagementController;
-use App\Http\Controllers\Admin\MonetizationController;
-use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AcademicOrganisationController;
 use App\Http\Controllers\AccountSecurityController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\AttendanceController;
-use App\Http\Controllers\BillingController;
-use App\Http\Controllers\CourseController;
-use App\Http\Controllers\CourseMembershipController;
-use App\Http\Controllers\CourseMaterialController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DiscussionController;
-use App\Http\Controllers\EngagementModerationController;
-use App\Http\Controllers\ExportController;
-use App\Http\Controllers\FeatureAccessController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\OnboardingController;
-use App\Http\Controllers\PublicPageController;
-use App\Http\Controllers\SettingsController;
-use App\Http\Controllers\SubmissionController;
-use App\Http\Controllers\SubmissionTaskController;
-use App\Http\Controllers\SubscriptionController;
-use App\Http\Controllers\WebAuthController;
-use App\Http\Controllers\GroupController;
-use App\Http\Controllers\LecturerAssignmentController;
-use App\Http\Controllers\KnowledgeHubController;
-use App\Http\Controllers\InstitutionCommercialAccountController;
-use App\Http\Controllers\InstitutionOnboardingController;
-use App\Http\Controllers\InstitutionAccessController;
-use App\Http\Controllers\KnowledgePublicationController;
-use App\Http\Controllers\MediaController;
-use App\Http\Controllers\CommerceController;
-use App\Http\Controllers\KnowledgeEcosystemController;
-use App\Http\Controllers\ResearchProjectController;
-use App\Http\Controllers\ResearchConfigurationController;
-use App\Http\Controllers\ResearchSectionController;
-use App\Http\Controllers\ResearchWorkspaceController;
-use App\Http\Controllers\ResearchSpecializedController;
+use App\Http\Controllers\Admin\ContactInboxController;
+use App\Http\Controllers\Admin\MonetizationController;
+use App\Http\Controllers\Admin\NotificationAnalyticsController;
+use App\Http\Controllers\Admin\NotificationManagementController;
 use App\Http\Controllers\Admin\PaymentGatewayController;
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AdminLookupController;
+use App\Http\Controllers\AiController;
+use App\Http\Controllers\AiPromptController;
+use App\Http\Controllers\Api\PushNotificationController;
+use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\TwoFactorAuthenticationController;
 use App\Http\Controllers\Auth\VerifyEmailController;
-use App\Http\Controllers\StudentImportController;
-use App\Http\Controllers\AiController;
+use App\Http\Controllers\BillingController;
+use App\Http\Controllers\CommerceController;
 use App\Http\Controllers\ContextualAiController;
-use App\Http\Controllers\AiPromptController;
-use App\Http\Controllers\LecturerContentAssistantController;
-use App\Http\Controllers\SubmissionGradingAssistantController;
-use App\Http\Controllers\LearningProfileController;
-use App\Http\Controllers\StudyNoteController;
-use App\Http\Controllers\PracticeQuizController;
-use App\Http\Controllers\FlashcardController;
-use App\Http\Controllers\StudyPlanController;
-use App\Http\Controllers\MasteryController;
-use App\Http\Controllers\SelfAssessmentController;
-use App\Http\Controllers\StudyReflectionController;
-use App\Http\Controllers\MaterialAnnotationController;
+use App\Http\Controllers\CourseController;
+use App\Http\Controllers\CourseMaterialController;
+use App\Http\Controllers\CourseMembershipController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeadlineCoachController;
+use App\Http\Controllers\DiscussionController;
+use App\Http\Controllers\EngagementModerationController;
+use App\Http\Controllers\ExportController;
+use App\Http\Controllers\FeatureAccessController;
+use App\Http\Controllers\FlashcardController;
+use App\Http\Controllers\GroupController;
+use App\Http\Controllers\InstitutionAccessController;
+use App\Http\Controllers\InstitutionCommercialAccountController;
+use App\Http\Controllers\InstitutionOnboardingController;
+use App\Http\Controllers\KnowledgeEcosystemController;
+use App\Http\Controllers\KnowledgeHubController;
+use App\Http\Controllers\KnowledgePublicationController;
+use App\Http\Controllers\LearningProfileController;
+use App\Http\Controllers\LecturerAssignmentController;
+use App\Http\Controllers\LecturerContentAssistantController;
+use App\Http\Controllers\LecturerTeachingController;
+use App\Http\Controllers\MasteryController;
+use App\Http\Controllers\MaterialAnnotationController;
+use App\Http\Controllers\MediaController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\NotificationInteractionController;
+use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PracticeQuizController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicContactController;
+use App\Http\Controllers\PublicPageController;
+use App\Http\Controllers\ResearchConfigurationController;
+use App\Http\Controllers\ResearchExportController;
+use App\Http\Controllers\ResearchPlanController;
+use App\Http\Controllers\ResearchProjectController;
+use App\Http\Controllers\ResearchSectionController;
+use App\Http\Controllers\ResearchSpecializedController;
+use App\Http\Controllers\ResearchWorkspaceController;
+use App\Http\Controllers\SelfAssessmentController;
+use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\StudentImportController;
+use App\Http\Controllers\StudentStudyController;
+use App\Http\Controllers\StudyNoteController;
+use App\Http\Controllers\StudyPlanController;
+use App\Http\Controllers\StudyReflectionController;
+use App\Http\Controllers\SubmissionController;
+use App\Http\Controllers\SubmissionGradingAssistantController;
+use App\Http\Controllers\SubmissionTaskController;
+use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\WebAuthController;
+use App\Http\Middleware\PreventResearchCaching;
+use App\Services\PublicWebsite;
 use Illuminate\Support\Facades\Route;
 
 // PWA manifest (dynamic)
 Route::get('/manifest.webmanifest', [SettingsController::class, 'pwaManifest'])->middleware('feature.flag:pwa_enabled')->name('pwa.manifest');
 
 // Public routes
-Route::get('/information/{page}', [PublicPageController::class, 'show'])->whereIn('page', ['help','documentation','status','about','careers','api','source','changelog','security','terms','privacy','cookies','licenses'])->name('public.page');
+Route::get('/information/{page}', [PublicPageController::class, 'show'])->whereIn('page', ['help', 'documentation', 'status', 'about', 'careers', 'api', 'source', 'changelog', 'security', 'terms', 'privacy', 'cookies', 'licenses'])->name('public.page');
 Route::get('/', [PublicPageController::class, 'home'])->name('home');
-foreach (\App\Services\PublicWebsite::PATHS as $slug => $path) {
+foreach (PublicWebsite::PATHS as $slug => $path) {
     Route::get('/'.$path, [PublicPageController::class, 'show'])->defaults('page', $slug)->name('public.'.$slug);
 }
-Route::post('/contact', [\App\Http\Controllers\PublicContactController::class, 'store'])->middleware('throttle:public-contact')->name('public.contact.store');
+Route::post('/contact', [PublicContactController::class, 'store'])->middleware('throttle:public-contact')->name('public.contact.store');
 Route::get('/sitemap.xml', [PublicPageController::class, 'sitemap'])->name('public.sitemap');
 Route::get('/robots.txt', [PublicPageController::class, 'robots'])->name('public.robots');
 Route::get('/knowledge-hub', [KnowledgeHubController::class, 'index'])
@@ -97,7 +110,7 @@ Route::middleware('feature.flag:knowledge_hub')->group(function () {
 Route::get('/media/{asset}/preview', [MediaController::class, 'preview'])->middleware('throttle:secure-downloads')->name('media.preview');
 Route::get('/media/download/{token}', [MediaController::class, 'download'])->middleware('throttle:secure-downloads')->name('media.download');
 Route::post('/commerce/webhook/{gateway}', [CommerceController::class, 'webhook'])
-    ->middleware(['throttle:commerce-webhooks','webhook.verify'])
+    ->middleware(['throttle:commerce-webhooks', 'webhook.verify'])
     ->name('commerce.webhook');
 Route::middleware('guest')->group(function () {
     Route::get('/login', [WebAuthController::class, 'showLoginForm'])->name('login');
@@ -111,17 +124,17 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('/browser-push/configuration', [\App\Http\Controllers\Api\PushNotificationController::class, 'vapidPublicKey'])->name('browser-push.configuration')->middleware('two-factor.authenticated');
-    Route::post('/browser-push/subscribe', [\App\Http\Controllers\Api\PushNotificationController::class, 'subscribe'])->middleware('throttle:30,1')->name('browser-push.subscribe')->middleware('two-factor.authenticated');
-    Route::post('/browser-push/test', [\App\Http\Controllers\Api\PushNotificationController::class, 'test'])->middleware('throttle:3,1')->name('browser-push.test')->middleware('two-factor.authenticated');
+    Route::get('/browser-push/configuration', [PushNotificationController::class, 'vapidPublicKey'])->name('browser-push.configuration')->middleware('two-factor.authenticated');
+    Route::post('/browser-push/subscribe', [PushNotificationController::class, 'subscribe'])->middleware('throttle:30,1')->name('browser-push.subscribe')->middleware('two-factor.authenticated');
+    Route::post('/browser-push/test', [PushNotificationController::class, 'test'])->middleware('throttle:3,1')->name('browser-push.test')->middleware('two-factor.authenticated');
     Route::get('/notifications/settings', [NotificationController::class, 'settings'])->name('notifications.settings')->middleware('two-factor.authenticated');
     Route::put('/notifications/settings', [NotificationController::class, 'updateSettings'])->name('notifications.settings.update')->middleware('two-factor.authenticated');
-    Route::get('/browser-push/renew-context', [\App\Http\Controllers\Api\PushNotificationController::class, 'renewContext'])->name('browser-push.renew-context')->middleware('two-factor.authenticated');
-    Route::post('/browser-push/permission', [\App\Http\Controllers\Api\PushNotificationController::class, 'permission'])->middleware('throttle:20,1')->name('browser-push.permission')->middleware('two-factor.authenticated');
-    Route::delete('/browser-push/devices/{subscription}', [\App\Http\Controllers\Api\PushNotificationController::class, 'removeDevice'])->name('browser-push.device.remove')->middleware('two-factor.authenticated');
-    Route::get('/notification-links/{delivery}', [\App\Http\Controllers\NotificationInteractionController::class, 'delivery'])->middleware('signed')->name('notification.delivery.open')->middleware('two-factor.authenticated');
-    Route::get('/notifications/{notification}/open', [\App\Http\Controllers\NotificationInteractionController::class, 'open'])->name('notifications.open')->middleware('two-factor.authenticated');
-    Route::post('/browser-push/unsubscribe', [\App\Http\Controllers\Api\PushNotificationController::class, 'unsubscribe'])->name('browser-push.unsubscribe');
+    Route::get('/browser-push/renew-context', [PushNotificationController::class, 'renewContext'])->name('browser-push.renew-context')->middleware('two-factor.authenticated');
+    Route::post('/browser-push/permission', [PushNotificationController::class, 'permission'])->middleware('throttle:20,1')->name('browser-push.permission')->middleware('two-factor.authenticated');
+    Route::delete('/browser-push/devices/{subscription}', [PushNotificationController::class, 'removeDevice'])->name('browser-push.device.remove')->middleware('two-factor.authenticated');
+    Route::get('/notification-links/{delivery}', [NotificationInteractionController::class, 'delivery'])->middleware('signed')->name('notification.delivery.open')->middleware('two-factor.authenticated');
+    Route::get('/notifications/{notification}/open', [NotificationInteractionController::class, 'open'])->name('notifications.open')->middleware('two-factor.authenticated');
+    Route::post('/browser-push/unsubscribe', [PushNotificationController::class, 'unsubscribe'])->name('browser-push.unsubscribe');
     Route::get('/verify-email', EmailVerificationPromptController::class)->name('verification.notice');
     Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
         ->middleware(['signed', 'throttle:verification'])
@@ -138,7 +151,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated'])->prefix('onb
     Route::get('/', [OnboardingController::class, 'show'])->name('show');
     Route::get('/manage', [OnboardingController::class, 'manage'])->name('manage');
     Route::post('/dismiss', [OnboardingController::class, 'dismiss'])->name('dismiss');
-    Route::get('/directory', [\App\Http\Controllers\AcademicOrganisationController::class, 'directory'])->middleware('throttle:60,1')->name('directory');
+    Route::get('/directory', [AcademicOrganisationController::class, 'directory'])->middleware('throttle:60,1')->name('directory');
     Route::post('/back', [OnboardingController::class, 'back'])->name('back');
     Route::post('/complete', [OnboardingController::class, 'complete'])->name('complete');
     Route::get('/recommendations', [OnboardingController::class, 'recommendations'])->name('recommendations');
@@ -148,25 +161,25 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated'])->prefix('onb
 
 // Payment gateway webhooks must be reachable without a signed-in browser session.
 Route::post('/webhook/payment/{gateway}', [CommerceController::class, 'webhook'])
-    ->middleware(['throttle:commerce-webhooks','webhook.verify'])
+    ->middleware(['throttle:commerce-webhooks', 'webhook.verify'])
     ->name('webhook.payment');
 
 // Protected application routes require verified identity and completed onboarding.
 Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.complete'])->group(function () {
     require __DIR__.'/academic-organisations.php';
-        Route::post('/admin/billing/semesters/{semester}/generate-invoices', [BillingController::class, 'generateInvoices'])
-            ->name('billing.generate-invoices');
+    Route::post('/admin/billing/semesters/{semester}/generate-invoices', [BillingController::class, 'generateInvoices'])
+        ->name('billing.generate-invoices');
 
-        Route::get('/institution/commercial-account', [InstitutionCommercialAccountController::class, 'show'])
-            ->middleware('role:department_admin,university_admin')
-            ->name('institution.commercial-account');
-        Route::post('/institution/commercial-account/requests', [InstitutionCommercialAccountController::class, 'storeRequest'])
-            ->middleware(['role:department_admin,university_admin', 'throttle:commercial-account-requests'])
-            ->name('institution.commercial-account.requests.store');
+    Route::get('/institution/commercial-account', [InstitutionCommercialAccountController::class, 'show'])
+        ->middleware('role:department_admin,university_admin')
+        ->name('institution.commercial-account');
+    Route::post('/institution/commercial-account/requests', [InstitutionCommercialAccountController::class, 'storeRequest'])
+        ->middleware(['role:department_admin,university_admin', 'throttle:commercial-account-requests'])
+        ->name('institution.commercial-account.requests.store');
 
     Route::middleware('role:super_admin')->group(function () {
-        Route::get('/admin/contact', [\App\Http\Controllers\Admin\ContactInboxController::class, 'index'])->name('admin.contact.index');
-        Route::patch('/admin/contact/{contactMessage}', [\App\Http\Controllers\Admin\ContactInboxController::class, 'update'])->name('admin.contact.update');
+        Route::get('/admin/contact', [ContactInboxController::class, 'index'])->name('admin.contact.index');
+        Route::patch('/admin/contact/{contactMessage}', [ContactInboxController::class, 'update'])->name('admin.contact.update');
     });
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/institution/onboarding', [InstitutionOnboardingController::class, 'requestForm'])
@@ -180,7 +193,6 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::post('/institution/onboarding/department', [InstitutionOnboardingController::class, 'submitDepartmentRequest'])->middleware('throttle:commercial-account-requests')->name('institution.onboarding.department.store');
     Route::get('/institution/access', [InstitutionAccessController::class, 'show'])->name('institution.access');
     Route::post('/institution/access', [InstitutionAccessController::class, 'store'])->middleware('throttle:commercial-account-requests')->name('institution.access.store');
-
 
     Route::get('/subscription', [CommerceController::class, 'subscriptionRetired'])->name('subscription-retired');
     Route::get('/account/security', [AccountSecurityController::class, 'show'])->name('security.show');
@@ -204,7 +216,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
     // Research Studio: shared formal research workspace and workflow
-    Route::prefix('research-studio')->name('research.')->middleware(['feature.flag:research_studio', \App\Http\Middleware\PreventResearchCaching::class])->group(function () {
+    Route::prefix('research-studio')->name('research.')->middleware(['feature.flag:research_studio', PreventResearchCaching::class])->group(function () {
         Route::get('/', [ResearchProjectController::class, 'index'])->name('index');
         Route::get('/configuration', [ResearchConfigurationController::class, 'index'])->name('configuration.index');
         Route::post('/configuration/workflows', [ResearchConfigurationController::class, 'storeWorkflow'])->name('configuration.workflows.store');
@@ -216,8 +228,8 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::post('/templates/versions/{template}/activate', [ResearchWorkspaceController::class, 'activateTemplate'])->name('templates.activate');
         Route::get('/create', [ResearchProjectController::class, 'create'])->name('create');
         Route::get('/create/options', [ResearchProjectController::class, 'creationOptions'])->middleware('throttle:60,1')->name('create.options');
-        Route::get('/exports/{export}', [\App\Http\Controllers\ResearchExportController::class, 'show'])->name('exports.show');
-        Route::get('/exports/{export}/download', [\App\Http\Controllers\ResearchExportController::class, 'download'])->middleware('throttle:secure-downloads')->name('exports.download');
+        Route::get('/exports/{export}', [ResearchExportController::class, 'show'])->name('exports.show');
+        Route::get('/exports/{export}/download', [ResearchExportController::class, 'download'])->middleware('throttle:secure-downloads')->name('exports.download');
         Route::post('/', [ResearchProjectController::class, 'store'])->name('store');
         Route::get('/{research}', [ResearchProjectController::class, 'show'])->name('show');
         Route::put('/{research}', [ResearchProjectController::class, 'update'])->name('update');
@@ -250,18 +262,18 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::get('/{research}/archives/{archive}', [ResearchWorkspaceController::class, 'downloadArchive'])->name('archives.download');
         Route::post('/{research}/amendments', [ResearchWorkspaceController::class, 'requestAmendment'])->name('amendments.store');
         Route::post('/{research}/amendments/{amendment}/review', [ResearchWorkspaceController::class, 'reviewAmendment'])->name('amendments.review');
-        Route::get('/{research}/plan', [\App\Http\Controllers\ResearchPlanController::class, 'show'])->name('plan');
-        Route::put('/{research}/plan', [\App\Http\Controllers\ResearchPlanController::class, 'update'])->name('plan.update');
-        Route::post('/{research}/resources', [\App\Http\Controllers\ResearchPlanController::class, 'storeResource'])->name('resources.store');
-        Route::put('/{research}/resources/{resource}', [\App\Http\Controllers\ResearchPlanController::class, 'saveResource'])->name('resources.save');
-        Route::get('/{research}/resources/{resource}/download', [\App\Http\Controllers\ResearchPlanController::class, 'download'])->name('resources.download');
-        Route::post('/{research}/resources/{resource}/restore/{version}', [\App\Http\Controllers\ResearchPlanController::class, 'restoreResource'])->name('resources.restore');
-        Route::post('/{research}/resources/{resource}/structure', [\App\Http\Controllers\ResearchPlanController::class, 'applyGuideline'])->name('resources.structure');
-        Route::post('/{research}/resources/{resource}/insert', [\App\Http\Controllers\ResearchPlanController::class, 'insertResource'])->name('resources.insert');
-        Route::patch('/{research}/resources/{resource}/archive', [\App\Http\Controllers\ResearchPlanController::class, 'archiveResource'])->name('resources.archive');
-        Route::post('/{research}/analysis/coding', [\App\Http\Controllers\ResearchPlanController::class, 'codeExcerpt'])->name('analysis.coding');
-        Route::post('/{research}/analysis/describe', [\App\Http\Controllers\ResearchPlanController::class, 'analyse'])->middleware('throttle:10,1')->name('analysis.describe');
-        Route::post('/{research}/analysis/sample-size', [\App\Http\Controllers\ResearchPlanController::class, 'sampleSize'])->middleware('throttle:10,1')->name('analysis.sample-size');
+        Route::get('/{research}/plan', [ResearchPlanController::class, 'show'])->name('plan');
+        Route::put('/{research}/plan', [ResearchPlanController::class, 'update'])->name('plan.update');
+        Route::post('/{research}/resources', [ResearchPlanController::class, 'storeResource'])->name('resources.store');
+        Route::put('/{research}/resources/{resource}', [ResearchPlanController::class, 'saveResource'])->name('resources.save');
+        Route::get('/{research}/resources/{resource}/download', [ResearchPlanController::class, 'download'])->name('resources.download');
+        Route::post('/{research}/resources/{resource}/restore/{version}', [ResearchPlanController::class, 'restoreResource'])->name('resources.restore');
+        Route::post('/{research}/resources/{resource}/structure', [ResearchPlanController::class, 'applyGuideline'])->name('resources.structure');
+        Route::post('/{research}/resources/{resource}/insert', [ResearchPlanController::class, 'insertResource'])->name('resources.insert');
+        Route::patch('/{research}/resources/{resource}/archive', [ResearchPlanController::class, 'archiveResource'])->name('resources.archive');
+        Route::post('/{research}/analysis/coding', [ResearchPlanController::class, 'codeExcerpt'])->name('analysis.coding');
+        Route::post('/{research}/analysis/describe', [ResearchPlanController::class, 'analyse'])->middleware('throttle:10,1')->name('analysis.describe');
+        Route::post('/{research}/analysis/sample-size', [ResearchPlanController::class, 'sampleSize'])->middleware('throttle:10,1')->name('analysis.sample-size');
         Route::get('/{research}/export/docx', [ResearchWorkspaceController::class, 'exportDocx'])->middleware('throttle:research-exports')->name('export.docx');
         Route::get('/{research}/export/html', [ResearchWorkspaceController::class, 'exportHtml'])->name('export.html');
         Route::get('/{research}/export/pdf', [ResearchWorkspaceController::class, 'exportPdf'])->middleware('throttle:research-exports')->name('export.pdf');
@@ -463,18 +475,18 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         // Student submission routes
         Route::get('/submissions/dashboard', [SubmissionController::class, 'dashboard'])->name('submissions.dashboard');
         Route::post('submissions/{submission}/upload', [SubmissionController::class, 'upload'])
-          ->name('submissions.upload');
+            ->name('submissions.upload');
 
         Route::resource('submissions', SubmissionController::class)->except(['show']);
 
         Route::post('submissions/{submission}/replace-files', [SubmissionController::class, 'replaceFiles'])
-          ->name('submissions.replace-files');
+            ->name('submissions.replace-files');
 
         Route::get('submission-versions/{version}/download', [SubmissionController::class, 'download'])
-           ->name('submission-versions.download');
+            ->name('submission-versions.download');
 
         Route::post('submissions/{submission}/submit', [SubmissionController::class, 'submit'])
-        ->name('submissions.submit');
+            ->name('submissions.submit');
 
         Route::get('/courses/{course}/assignments/{task}/showForStudent', [SubmissionTaskController::class, 'showForStudent'])
             ->name('submission-tasks.student.show');
@@ -551,63 +563,66 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::post('/ai/writing', [AiController::class, 'writingAssistant'])->middleware('throttle:ai')->name('ai.writing');
     Route::post('/ai/citation', [AiController::class, 'citationAssistant'])->middleware('throttle:ai')->name('ai.citation');
 
-    // Student study tools (Phase 1 + Phase 2 AI enhancements)
-    Route::get('/student/learning-profile', [LearningProfileController::class, 'show'])->name('student.learning-profile');
-    Route::middleware('role:student')->prefix('study')->name('study.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\StudentStudyController::class, 'index'])->name('index');
-        Route::post('/materials/{material}/start', [\App\Http\Controllers\StudentStudyController::class, 'startMaterial'])->middleware('feature.flag:course_materials')->name('materials.start');
-        Route::post('/notes/{note}/start', [\App\Http\Controllers\StudentStudyController::class, 'startNote'])->name('notes.start');
-        Route::post('/notes', [\App\Http\Controllers\StudentStudyController::class, 'import'])->middleware('throttle:20,1')->name('notes.import');
-        Route::get('/sessions/{session}', [\App\Http\Controllers\StudentStudyController::class, 'show'])->name('show');
-        Route::post('/sessions/{session}/explain', [\App\Http\Controllers\StudentStudyController::class, 'explain'])->middleware(['feature.flag:ai_assistant', 'ai.feature:material_assistant', 'throttle:ai'])->name('explain');
-        Route::post('/sessions/{session}/practice', [\App\Http\Controllers\StudentStudyController::class, 'practice'])->middleware(['feature.flag:ai_assistant', 'ai.feature:practice_generator', 'throttle:ai'])->name('practice');
-    });
-    Route::put('/student/learning-profile', [LearningProfileController::class, 'update'])->name('student.learning-profile.update');
+    // Student study tools. Keep the entire legacy and connected study surface
+    // behind the student role, including direct URLs that are not in navigation.
+    Route::middleware('role:student')->group(function () {
+        Route::get('/student/learning-profile', [LearningProfileController::class, 'show'])->name('student.learning-profile');
+        Route::prefix('study')->name('study.')->group(function () {
+            Route::get('/', [StudentStudyController::class, 'index'])->name('index');
+            Route::post('/materials/{material}/start', [StudentStudyController::class, 'startMaterial'])->middleware('feature.flag:course_materials')->name('materials.start');
+            Route::post('/notes/{note}/start', [StudentStudyController::class, 'startNote'])->name('notes.start');
+            Route::post('/notes', [StudentStudyController::class, 'import'])->middleware('throttle:20,1')->name('notes.import');
+            Route::get('/sessions/{session}', [StudentStudyController::class, 'show'])->name('show');
+            Route::post('/sessions/{session}/explain', [StudentStudyController::class, 'explain'])->middleware(['feature.flag:ai_assistant', 'ai.feature:material_assistant', 'throttle:ai'])->name('explain');
+            Route::post('/sessions/{session}/practice', [StudentStudyController::class, 'practice'])->middleware(['feature.flag:ai_assistant', 'ai.feature:practice_generator', 'throttle:ai'])->name('practice');
+        });
+        Route::put('/student/learning-profile', [LearningProfileController::class, 'update'])->name('student.learning-profile.update');
 
-    Route::get('/study-notes', [StudyNoteController::class, 'index'])->name('study-notes.index');
-    Route::post('/study-notes', [StudyNoteController::class, 'store'])->name('study-notes.store');
-    Route::delete('/study-notes/{note}', [StudyNoteController::class, 'destroy'])->name('study-notes.destroy');
+        Route::get('/study-notes', [StudyNoteController::class, 'index'])->name('study-notes.index');
+        Route::post('/study-notes', [StudyNoteController::class, 'store'])->name('study-notes.store');
+        Route::delete('/study-notes/{note}', [StudyNoteController::class, 'destroy'])->name('study-notes.destroy');
 
-    Route::middleware('feature.flag:ai_assistant')->group(function () {
-        Route::get('/practice-quizzes', [PracticeQuizController::class, 'index'])->name('practice-quizzes.index');
-        Route::post('/practice-quizzes', [PracticeQuizController::class, 'store'])
-            ->middleware(['ai.feature:practice_generator', 'throttle:ai'])->name('practice-quizzes.store');
-        Route::get('/practice-quizzes/{quiz}', [PracticeQuizController::class, 'show'])->name('practice-quizzes.show');
-        Route::post('/practice-quizzes/{quiz}/submit', [PracticeQuizController::class, 'submit'])->name('practice-quizzes.submit');
+        Route::middleware('feature.flag:ai_assistant')->group(function () {
+            Route::get('/practice-quizzes', [PracticeQuizController::class, 'index'])->name('practice-quizzes.index');
+            Route::post('/practice-quizzes', [PracticeQuizController::class, 'store'])
+                ->middleware(['ai.feature:practice_generator', 'throttle:ai'])->name('practice-quizzes.store');
+            Route::get('/practice-quizzes/{quiz}', [PracticeQuizController::class, 'show'])->name('practice-quizzes.show');
+            Route::post('/practice-quizzes/{quiz}/submit', [PracticeQuizController::class, 'submit'])->name('practice-quizzes.submit');
 
-        Route::get('/flashcards', [FlashcardController::class, 'index'])->name('flashcards.index');
-        Route::post('/flashcards', [FlashcardController::class, 'store'])
-            ->middleware(['ai.feature:flashcard_generator', 'throttle:ai'])->name('flashcards.store');
-        Route::get('/flashcards/{deck}', [FlashcardController::class, 'show'])->name('flashcards.show');
-        Route::post('/flashcards/{deck}/review', [FlashcardController::class, 'review'])->name('flashcards.review');
+            Route::get('/flashcards', [FlashcardController::class, 'index'])->name('flashcards.index');
+            Route::post('/flashcards', [FlashcardController::class, 'store'])
+                ->middleware(['ai.feature:flashcard_generator', 'throttle:ai'])->name('flashcards.store');
+            Route::get('/flashcards/{deck}', [FlashcardController::class, 'show'])->name('flashcards.show');
+            Route::post('/flashcards/{deck}/review', [FlashcardController::class, 'review'])->name('flashcards.review');
 
-        Route::get('/study-plans', [StudyPlanController::class, 'index'])->name('study-plans.index');
-        Route::post('/study-plans', [StudyPlanController::class, 'store'])
-            ->middleware(['ai.feature:study_planner', 'throttle:ai'])->name('study-plans.store');
-        Route::get('/study-plans/{plan}', [StudyPlanController::class, 'show'])->name('study-plans.show');
+            Route::get('/study-plans', [StudyPlanController::class, 'index'])->name('study-plans.index');
+            Route::post('/study-plans', [StudyPlanController::class, 'store'])
+                ->middleware(['ai.feature:study_planner', 'throttle:ai'])->name('study-plans.store');
+            Route::get('/study-plans/{plan}', [StudyPlanController::class, 'show'])->name('study-plans.show');
 
-        // Phase 3: mastery analytics and deadline coach
-        Route::get('/student/mastery', [MasteryController::class, 'show'])->name('mastery.index');
-        Route::post('/student/mastery/recompute', [MasteryController::class, 'recompute'])->name('mastery.recompute');
+            // Phase 3: mastery analytics and deadline coach
+            Route::get('/student/mastery', [MasteryController::class, 'show'])->name('mastery.index');
+            Route::post('/student/mastery/recompute', [MasteryController::class, 'recompute'])->name('mastery.recompute');
 
-        Route::get('/student/deadline-coach', [DeadlineCoachController::class, 'index'])->name('deadline-coach.index');
-        Route::post('/student/deadline-coach', [DeadlineCoachController::class, 'store'])
-            ->middleware(['ai.feature:study_planner', 'throttle:ai'])->name('deadline-coach.store');
-        Route::get('/student/deadline-coach/{plan}', [DeadlineCoachController::class, 'show'])->name('deadline-coach.show');
+            Route::get('/student/deadline-coach', [DeadlineCoachController::class, 'index'])->name('deadline-coach.index');
+            Route::post('/student/deadline-coach', [DeadlineCoachController::class, 'store'])
+                ->middleware(['ai.feature:study_planner', 'throttle:ai'])->name('deadline-coach.store');
+            Route::get('/student/deadline-coach/{plan}', [DeadlineCoachController::class, 'show'])->name('deadline-coach.show');
 
-        // Phase 3: rubric self-assessment
-        Route::get('/courses/{course}/assignments/{task}/self-assessment', [SelfAssessmentController::class, 'show'])->name('self-assessment.show');
-        Route::post('/courses/{course}/assignments/{task}/self-assessment', [SelfAssessmentController::class, 'store'])->name('self-assessment.store');
+            // Phase 3: rubric self-assessment
+            Route::get('/courses/{course}/assignments/{task}/self-assessment', [SelfAssessmentController::class, 'show'])->name('self-assessment.show');
+            Route::post('/courses/{course}/assignments/{task}/self-assessment', [SelfAssessmentController::class, 'store'])->name('self-assessment.store');
 
-        // Phase 4: material annotations and highlight summaries
-        Route::post('/courses/{course}/materials/{material}/annotations', [MaterialAnnotationController::class, 'store'])->name('annotations.store');
-        Route::delete('/annotations/{annotation}', [MaterialAnnotationController::class, 'destroy'])->name('annotations.destroy');
-        Route::post('/courses/{course}/materials/{material}/annotations/summary', [MaterialAnnotationController::class, 'summarize'])
-            ->middleware(['ai.feature:annotation_summary', 'throttle:ai'])->name('annotations.summary');
+            // Phase 4: material annotations and highlight summaries
+            Route::post('/courses/{course}/materials/{material}/annotations', [MaterialAnnotationController::class, 'store'])->name('annotations.store');
+            Route::delete('/annotations/{annotation}', [MaterialAnnotationController::class, 'destroy'])->name('annotations.destroy');
+            Route::post('/courses/{course}/materials/{material}/annotations/summary', [MaterialAnnotationController::class, 'summarize'])
+                ->middleware(['ai.feature:annotation_summary', 'throttle:ai'])->name('annotations.summary');
 
-        // Phase 4: reflection journal
-        Route::get('/student/reflections', [StudyReflectionController::class, 'index'])->name('reflections.index');
-        Route::post('/student/reflections', [StudyReflectionController::class, 'store'])->name('reflections.store');
+            // Phase 4: reflection journal
+            Route::get('/student/reflections', [StudyReflectionController::class, 'index'])->name('reflections.index');
+            Route::post('/student/reflections', [StudyReflectionController::class, 'store'])->name('reflections.store');
+        });
     });
 
     // Specialized contextual assistants. Each endpoint performs model-level
@@ -631,7 +646,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 
     // Admin routes (department_admin, university_admin, super_admin)
     Route::middleware('role:department_admin,university_admin,super_admin')->group(function () {
-        Route::get('/admin/lookups', \App\Http\Controllers\AdminLookupController::class)->middleware('throttle:120,1')->name('admin.lookups');
+        Route::get('/admin/lookups', AdminLookupController::class)->middleware('throttle:120,1')->name('admin.lookups');
         Route::get('/admin/ai/settings', [AiController::class, 'settings'])->name('ai.settings');
         Route::post('/admin/ai/settings', [AiController::class, 'updateSettings'])->name('ai.settings.update');
         Route::post('/admin/ai/providers/{provider}/test', [AiController::class, 'testProvider'])->middleware('throttle:10,1')->name('ai.providers.test');
@@ -644,6 +659,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 
     // Lecturer routes
     Route::middleware('role:lecturer')->group(function () {
+        Route::get('/lecturer/teaching', [LecturerTeachingController::class, 'index'])->name('teaching.index');
         Route::get('/lecturer/courses', [CourseController::class, 'myCourses'])->name('lecturer.courses');
         Route::post('/lecturer/courses/independent', [CourseController::class, 'storeIndependent'])
             ->middleware('throttle:20,1')->name('lecturer.courses.independent.store');
@@ -757,11 +773,11 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::middleware('role:department_admin,university_admin,super_admin')->group(function () {
         Route::get('/admin/notifications', [NotificationManagementController::class, 'index'])->name('admin.notifications.index');
         Route::middleware('role:super_admin')->group(function () {
-            Route::get('/admin/notifications/analytics', [\App\Http\Controllers\Admin\NotificationAnalyticsController::class, 'index'])->name('admin.notifications.analytics');
-            Route::get('/admin/notifications/analytics/export', [\App\Http\Controllers\Admin\NotificationAnalyticsController::class, 'export'])->name('admin.notifications.analytics.export');
-            Route::put('/admin/notifications/analytics/settings', [\App\Http\Controllers\Admin\NotificationAnalyticsController::class, 'update'])->name('admin.notifications.analytics.settings');
-            Route::put('/admin/notifications/templates', [\App\Http\Controllers\Admin\NotificationAnalyticsController::class, 'template'])->name('admin.notifications.templates');
-            Route::post('/admin/notifications/deliveries/{delivery}/retry', [\App\Http\Controllers\Admin\NotificationAnalyticsController::class, 'retry'])->name('admin.notifications.delivery.retry');
+            Route::get('/admin/notifications/analytics', [NotificationAnalyticsController::class, 'index'])->name('admin.notifications.analytics');
+            Route::get('/admin/notifications/analytics/export', [NotificationAnalyticsController::class, 'export'])->name('admin.notifications.analytics.export');
+            Route::put('/admin/notifications/analytics/settings', [NotificationAnalyticsController::class, 'update'])->name('admin.notifications.analytics.settings');
+            Route::put('/admin/notifications/templates', [NotificationAnalyticsController::class, 'template'])->name('admin.notifications.templates');
+            Route::post('/admin/notifications/deliveries/{delivery}/retry', [NotificationAnalyticsController::class, 'retry'])->name('admin.notifications.delivery.retry');
         });
 
         Route::post('/admin/notifications/push-keys', [NotificationManagementController::class, 'generatePushKeys'])->name('admin.notifications.push-keys');
@@ -896,6 +912,6 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 // Public publication route is intentionally last so it cannot shadow authoring routes.
 Route::get('/knowledge-hub/{publication}', [KnowledgeHubController::class, 'show'])->name('knowledge.show');
 
-Route::match(['GET', 'POST'], '/notification-unsubscribe/{delivery}', [\App\Http\Controllers\NotificationInteractionController::class, 'unsubscribe'])->middleware(['signed', 'throttle:30,1'])->name('notification.unsubscribe');
-Route::get('/notification-events/pixel/{delivery}', [\App\Http\Controllers\NotificationInteractionController::class, 'pixel'])->middleware(['signed', 'throttle:120,1'])->name('notification.email.pixel');
-Route::post('/webhook/notifications/provider', [\App\Http\Controllers\NotificationInteractionController::class, 'provider'])->middleware('throttle:commerce-webhooks')->name('notification.provider.events');
+Route::match(['GET', 'POST'], '/notification-unsubscribe/{delivery}', [NotificationInteractionController::class, 'unsubscribe'])->middleware(['signed', 'throttle:30,1'])->name('notification.unsubscribe');
+Route::get('/notification-events/pixel/{delivery}', [NotificationInteractionController::class, 'pixel'])->middleware(['signed', 'throttle:120,1'])->name('notification.email.pixel');
+Route::post('/webhook/notifications/provider', [NotificationInteractionController::class, 'provider'])->middleware('throttle:commerce-webhooks')->name('notification.provider.events');

@@ -460,6 +460,12 @@ The dashboard’s **Today** panel prioritizes an assignment closing soon, due re
 
 See [My Study Space](STUDENT_STUDY_SPACE.md) for the complete workflow and current limits.
 
+### Teaching Studio for lecturers
+
+Lecturers see **Teaching Studio** instead of student study tools. It brings together the next useful teaching actions: submissions waiting for feedback, open student questions, courses without visible material and AI drafts awaiting review. Course pulse shows student, material, assignment and review counts for each assigned course, with direct links to prepare material, create an assignment, answer questions or open the course.
+
+AI can help draft lesson plans, outlines, quizzes, rubrics, summaries and rewrites through the existing material editor. Generated content is never published automatically; review and apply it first. When AI is unavailable, review, discussion and manual preparation remain available. Teaching Studio does not rank lecturers or claim to measure teaching quality. See [Teaching Studio](TEACHING_STUDIO.md) for details.
+
 ### Other contextual AI capabilities
 
 AcadSyntra also has centrally registered AI capabilities for:

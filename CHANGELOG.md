@@ -12,6 +12,9 @@
 
 ### Added
 
+- Added a lecturer-only Teaching Studio with a prioritized feedback/question/preparation loop, bounded course pulse, dashboard entry point and direct access to existing review, discussion, material, assignment and AI-draft workflows. It remains useful without AI and does not rank lecturers.
+- Restricted all legacy and connected study routes to students, including direct URLs, and made AI Assistant shortcuts role-specific so lecturers see teaching tools while students retain private study tools.
+
 - Added My Study Space and the student Today dashboard: connect published material or private pasted/imported notes to saved explanations, source-based practice, detailed answer feedback and scheduled revision. Reused current AI availability, provider, allowance and billing controls; saved practice grades locally without affecting official grades.
 - Added scoped resume/revision queries, paginated source lists, upload extraction limits, verified source quotations, retry-safe attempts and restartable study-session/revision indexes. Added private-access, AI failure/disablement, migration, performance and mobile/desktop browser coverage with deployment documentation.
 

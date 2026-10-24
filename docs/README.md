@@ -23,6 +23,7 @@ See [Editable onboarding and profile completion](EDITABLE_ONBOARDING.md) for ret
 ## Current specialist references
 
 - [`STUDENT_STUDY_SPACE.md`](STUDENT_STUDY_SPACE.md) — connected course study, private notes, saved explanations, practice feedback, revision and Today dashboard.
+- [`TEACHING_STUDIO.md`](TEACHING_STUDIO.md) — lecturer priorities, course pulse, feedback queues, student questions and preparation tools.
 
 - [`PERFORMANCE_OPERATIONS.md`](PERFORMANCE_OPERATIONS.md) — production tuning, admin performance measurements, index deployment and reproducible verification.
 - [`NOTIFICATION_OPERATIONS.md`](NOTIFICATION_OPERATIONS.md) — delivery architecture, reminders, consent, analytics, testing and production configuration.

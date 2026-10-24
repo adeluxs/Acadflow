@@ -142,6 +142,7 @@
                 </ul>
             </div>
 
+            @if(auth()->user()?->isStudent())
             <div class="rounded-[2rem] border border-indigo-100 bg-indigo-50/50 p-5 text-sm shadow-sm">
                 <h2 class="font-black text-slate-950">Study tools</h2>
                 <p class="mt-1 text-xs leading-5 text-slate-600">Each tool opens with a short guide. Use them together to build a daily revision habit.</p>
@@ -156,6 +157,18 @@
                     <a href="{{ route('reflections.index') }}" class="rounded-xl bg-white px-3 py-2.5 shadow-sm">Reflection journal</a>
                 </div>
             </div>
+            @elseif(auth()->user()?->isLecturer())
+            <div class="rounded-[2rem] border border-indigo-100 bg-indigo-50/50 p-5 text-sm shadow-sm">
+                <h2 class="font-black text-slate-950">Lecturer tools</h2>
+                <p class="mt-1 text-xs leading-5 text-slate-600">Return to teaching priorities, course preparation and drafts awaiting your review.</p>
+                <div class="mt-3 grid gap-2 text-xs font-bold text-indigo-700">
+                    <a href="{{ route('teaching.index') }}" class="rounded-xl bg-white px-3 py-2.5 shadow-sm">Teaching Studio</a>
+                    <a href="{{ route('submissions.lecturer-index') }}" class="rounded-xl bg-white px-3 py-2.5 shadow-sm">Review submissions</a>
+                    <a href="{{ route('lecturer.courses') }}" class="rounded-xl bg-white px-3 py-2.5 shadow-sm">Manage courses</a>
+                    <a href="{{ route('ai.lecturer.layout.preferences') }}" class="rounded-xl bg-white px-3 py-2.5 shadow-sm">Document standards</a>
+                </div>
+            </div>
+            @endif
 
             <div class="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 text-xs leading-5 text-amber-900">
                 <strong>Academic safeguard:</strong> {{ $assistantExperience['safeguard'] ?? 'Review AI-generated content before relying on it.' }}
