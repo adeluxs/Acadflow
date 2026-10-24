@@ -13,6 +13,7 @@ use App\Services\Commerce\PackageAccessService;
 use App\Services\Commerce\PricingCatalogService;
 use App\Services\Commerce\WalletService;
 use App\Services\InstitutionAdoptionService;
+use App\Services\SettingService;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,6 +33,7 @@ class FeatureAccessController extends Controller
         $commercial = $sponsors->first();
         $definitions = $pricing->featureDefinitions();
         $aiDefinitions = $pricing->aiDefinitions();
+        $aiMonetizationEnabled = (bool) SettingService::getGlobal('ai_monetization_enabled', false);
         $rules = $pricing->activeRules(array_merge(array_map(fn ($key) => 'feature.'.$key, array_keys($definitions)), array_map(fn ($key) => 'ai.'.$key, array_keys($aiDefinitions))));
         $entitlementSummary = FeatureEntitlement::query()->from('feature_entitlements as entitlement_history')
             ->where('entitlement_history.user_id', $user->id)
@@ -47,7 +49,7 @@ class FeatureAccessController extends Controller
             $roles = (array) ($definition['roles'] ?? []);
 
             return $roles === [] || in_array($user->role, $roles, true);
-        })->map(function (array $definition, string $feature) use ($user, $pricing, $packages, $rules, $entitlements, $sponsors): array {
+        })->map(function (array $definition, string $feature) use ($user, $pricing, $packages, $rules, $entitlements, $sponsors, $aiDefinitions, $aiMonetizationEnabled): array {
             $rule = $rules->get('feature.'.$feature);
             $pricingType = $rule ? $pricing->pricingType($rule) : null;
             $latestEntitlement = $entitlements->get($feature);
@@ -76,11 +78,22 @@ class FeatureAccessController extends Controller
                 'offers' => $rule && data_get($definition, 'package', false) ? $packages->offers($rule, $feature) : [],
                 'trial_days' => $rule ? max(0, (int) data_get($rule->metadata, 'trial_days', data_get($definition, 'default_trial_days', 0))) : 0,
                 'trial_used' => (bool) ($latestEntitlement?->trial_used ?? false),
+                'available_for_purchase' => ! data_get($definition, 'requires_ai_monetization', false) || $aiMonetizationEnabled,
+                'ai_tools' => collect((array) ($definition['ai_features'] ?? []))->map(fn (string $aiFeature): array => [
+                    'key' => $aiFeature,
+                    'title' => data_get($aiDefinitions, $aiFeature.'.title', str($aiFeature)->replace('_', ' ')->title()->toString()),
+                ])->values()->all(),
             ];
         })->values();
 
-        $aiRows = collect($aiDefinitions)->map(function (array $definition, string $feature) use ($pricing, $rules): array {
-            return [...$definition, 'key' => $feature, 'pricing' => $pricing->aiPricingFromRule($rules->get('ai.'.$feature))];
+        $offeredPackages = $featureRows->where('package', true)->filter(fn (array $row): bool => (bool) $row['rule'] && $row['available_for_purchase']);
+        $aiRows = collect($aiDefinitions)->map(function (array $definition, string $feature) use ($pricing, $rules, $offeredPackages): array {
+            $includedIn = $offeredPackages
+                ->filter(fn (array $package): bool => in_array($feature, array_column($package['ai_tools'], 'key'), true))
+                ->map(fn (array $package): string => (string) ($package['short_title'] ?? $package['title']))
+                ->values()->all();
+
+            return [...$definition, 'key' => $feature, 'pricing' => $pricing->aiPricingFromRule($rules->get('ai.'.$feature)), 'included_in_packages' => $includedIn];
         })->values();
 
         $featureUsage = FeatureUsageCharge::query()->where('user_id', $user->id)->latest()->limit(30)->get();

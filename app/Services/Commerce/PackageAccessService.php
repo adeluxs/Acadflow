@@ -7,6 +7,7 @@ namespace App\Services\Commerce;
 use App\Models\FeatureEntitlement;
 use App\Models\PricingRule;
 use App\Models\User;
+use App\Services\SettingService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -170,6 +171,10 @@ class PackageAccessService
     {
         $rule = $this->pricing->featureRule($feature);
         $definition = $this->definition($feature);
+        if (data_get($definition, 'requires_ai_monetization', false)
+            && ! (bool) SettingService::getGlobal('ai_monetization_enabled', false)) {
+            throw ValidationException::withMessages(['feature' => 'This AI package is unavailable while extra AI charging is disabled.']);
+        }
         $days = max(0, (int) data_get($rule?->metadata, 'trial_days', data_get($definition, 'default_trial_days', 0)));
         if (! $rule || ! $this->isPackage($feature) || $days <= 0) {
             throw ValidationException::withMessages(['feature' => 'A trial is not currently available for this package.']);

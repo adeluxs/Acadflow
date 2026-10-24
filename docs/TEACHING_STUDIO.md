@@ -38,6 +38,8 @@ AI generation still uses the existing central provider routing, feature switches
 
 The package covers the Teaching Studio signals and lecturer content-draft workflow. Core lecturer course management, material publishing, assignment management and submission review remain available outside the package. Daily free requests and included package requests are consumed before Lecturer Assistant overage pricing. Lecturers can cap monthly AI spending, and a failed generation restores the reserved package request. Grace access keeps saved studio pages readable while blocking new drafts and other writes until renewal.
 
+Lecturers may buy **Academic AI Plus** alongside Teaching Pro for a separate shared allowance across writing, citation, research, validation, assignment, submission, academic-integrity, SIWES, project, discussion and Knowledge Hub assistants. Package labels on **Plans & Usage** show which allowance applies. AI Plus never bypasses course, project, submission or content authorization.
+
 ## Verification
 
 `tests/Feature/LecturerTeachingStudioTest.php` covers direct-URL separation between student and lecturer tools, tenant/course scoping, real action signals, dashboard entry points, pagination and bounded query counts. `tests/Feature/StudyTeachingMonetizationTest.php` covers free-until-priced behavior, paid route protection, role-specific catalogues and wallet activation. The relevant student study and core dashboard tests are run alongside them.

@@ -2,7 +2,7 @@
 
 ### Changed
 
-- Added role-specific **Study Pro** and **Teaching Pro** packages to the existing pricing, wallet, entitlement and institutional-sponsorship system. Both remain free until priced and can offer monthly/semester access, included AI requests, one-time trials and read-only grace. Daily free requests and package allowances apply before AI overage, users can set a monthly AI spending limit, and failed generation restores reserved package allowance. Core courses, attendance, assignments and submissions remain outside the access gate.
+- Added role-specific **Study Pro** and **Teaching Pro** packages plus the optional cross-role **Academic AI Plus** specialist allowance to the existing pricing, wallet, entitlement and institutional-sponsorship system. Students and lecturers can buy AI Plus alongside their workspace package, while researchers, independent professionals, authors/publishers and other member accounts can buy it directly. Packages can offer monthly/semester access, included AI requests and one-time trials. Daily free requests and the matching package allowance apply before AI overage, users can set a monthly AI spending limit, and failed generation restores reserved package allowance. Underlying workspace and content permissions remain enforced.
 
 - Fixed independent classroom creation on MySQL by widening `courses.semester` and `courses.level` to match validated values, and bounded course API updates to the database contract.
 

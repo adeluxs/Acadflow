@@ -17,6 +17,8 @@ New explanations and quizzes use the existing AI provider, plan allowance and bi
 
 The package covers the study workspace, private notes, practice quizzes, flashcards, plans, mastery, deadline coaching, self-assessment, annotations and reflections. It does not block the student’s core courses, attendance, billing or assignment submission routes. Daily free AI requests apply first, followed by package requests; assistant-specific overage pricing applies only after both allowances are exhausted. Students can set a monthly AI spending limit. Failed generation restores a reserved package request, and package access remains free until a price is activated. After expiry, configured grace access permits reading saved work while all create, edit and generation requests require renewal.
 
+Students may also buy **Academic AI Plus** alongside Study Pro. AI Plus has a separate shared allowance for writing, citation, research, validation, assignment, submission, academic-integrity, SIWES, project, discussion and Knowledge Hub assistants. Each assistant is labelled with its matching package on **Plans & Usage**, and buying AI Plus does not grant access to projects, courses or content the student is not otherwise permitted to open.
+
 Scores below 80% schedule another attempt after one day. A successful first attempt schedules three days; successful recall on a later day doubles the previous interval, up to 30 days. Repeating a successful quiz on the same day does not increase its interval. These are study reminders in the app, not predictions of exam performance. No new email or push reminders are sent by this feature.
 
 ## Private notes and source limits

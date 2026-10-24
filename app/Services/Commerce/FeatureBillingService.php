@@ -10,6 +10,7 @@ use App\Models\FeatureUsageCharge;
 use App\Models\PricingRule;
 use App\Models\User;
 use App\Services\InstitutionAdoptionService;
+use App\Services\SettingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -184,6 +185,11 @@ class FeatureBillingService
 
     public function purchaseFixedAccess(User $user, string $feature, string $requestId, string $billingPeriod = 'monthly'): FeatureEntitlement
     {
+        if (data_get(config('monetization.pricing_features.'.$feature, []), 'requires_ai_monetization', false)
+            && ! (bool) SettingService::getGlobal('ai_monetization_enabled', false)) {
+            throw ValidationException::withMessages(['feature' => 'This AI package is unavailable while extra AI charging is disabled.']);
+        }
+
         $rule = $this->pricing->featureRule($feature);
         if (! $rule || $this->pricing->pricingType($rule) !== 'fixed_access') {
             throw ValidationException::withMessages(['feature' => 'This feature is not configured for fixed access.']);

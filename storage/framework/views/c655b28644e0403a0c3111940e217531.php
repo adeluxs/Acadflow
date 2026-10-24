@@ -71,7 +71,7 @@
 </section>
 <?php endif; ?>
 
-<?php if (! $__env->hasRenderedOnce('f4eacc8f-3d45-4499-8262-87405dc9efac')): $__env->markAsRenderedOnce('f4eacc8f-3d45-4499-8262-87405dc9efac'); ?>
+<?php if (! $__env->hasRenderedOnce('d40f8c1a-e22d-4f3d-96d6-8069db4a3a4a')): $__env->markAsRenderedOnce('d40f8c1a-e22d-4f3d-96d6-8069db4a3a4a'); ?>
 <?php $__env->startPush('scripts'); ?>
 <script>
 // Contextual assistant behavior is loaded from resources/js/contextual-assistant.js

@@ -13069,3 +13069,30 @@ Context: {\"exception\":{\"errorInfo\":[\"HY000\",13,\"database or disk is full\
 "} 
 [2026-10-24 04:29:03] testing.WARNING: Cross-institution submission enrollment detected {"user_id":1,"course_id":1,"course_university_id":1,"user_university_id":null} 
 [2026-10-24 04:29:03] testing.WARNING: Cross-institution submission enrollment detected {"user_id":1,"course_id":1,"course_university_id":1,"user_university_id":null} 
+[2026-10-24 12:34:34] local.ERROR: Writing to /Users/user/.config/psysh/psysh_history is not allowed. {"exception":"[object] (ErrorException(code: 0): Writing to /Users/user/.config/psysh/psysh_history is not allowed. at /Users/user/Desktop/acadflow/acadflow-web/vendor/psy/psysh/src/ConfigPaths.php:480)
+[stacktrace]
+#0 /Users/user/Desktop/acadflow/acadflow-web/vendor/laravel/framework/src/Illuminate/Foundation/Bootstrap/HandleExceptions.php(262): Illuminate\\Foundation\\Bootstrap\\HandleExceptions->handleError(1024, 'Writing to /Use...', '/Users/user/Des...', 480)
+#1 [internal function]: Illuminate\\Foundation\\Bootstrap\\HandleExceptions->{closure:Illuminate\\Foundation\\Bootstrap\\HandleExceptions::forwardsTo():261}(1024, 'Writing to /Use...', '/Users/user/Des...', 480)
+#2 /Users/user/Desktop/acadflow/acadflow-web/vendor/psy/psysh/src/ConfigPaths.php(480): trigger_error('Writing to /Use...', 1024)
+#3 /Users/user/Desktop/acadflow/acadflow-web/vendor/psy/psysh/src/Configuration.php(1068): Psy\\ConfigPaths::touchFileWithMkdir('/Users/user/.co...')
+#4 /Users/user/Desktop/acadflow/acadflow-web/vendor/psy/psysh/src/Configuration.php(1106): Psy\\Configuration->setHistoryFile('/Users/user/.co...')
+#5 /Users/user/Desktop/acadflow/acadflow-web/vendor/psy/psysh/src/Configuration.php(1285): Psy\\Configuration->getHistoryFile()
+#6 /Users/user/Desktop/acadflow/acadflow-web/vendor/psy/psysh/src/Shell.php(192): Psy\\Configuration->getReadline()
+#7 /Users/user/Desktop/acadflow/acadflow-web/vendor/psy/psysh/src/Shell.php(2213): Psy\\Shell->boot()
+#8 /Users/user/Desktop/acadflow/acadflow-web/vendor/laravel/tinker/src/Console/TinkerCommand.php(77): Psy\\Shell->execute('dump(config('mo...')
+#9 /Users/user/Desktop/acadflow/acadflow-web/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#10 /Users/user/Desktop/acadflow/acadflow-web/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::{closure:Illuminate\\Container\\BoundMethod::call():35}()
+#11 /Users/user/Desktop/acadflow/acadflow-web/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(96): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#12 /Users/user/Desktop/acadflow/acadflow-web/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#13 /Users/user/Desktop/acadflow/acadflow-web/vendor/laravel/framework/src/Illuminate/Container/Container.php(799): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#14 /Users/user/Desktop/acadflow/acadflow-web/vendor/laravel/framework/src/Illuminate/Console/Command.php(211): Illuminate\\Container\\Container->call(Array)
+#15 /Users/user/Desktop/acadflow/acadflow-web/vendor/symfony/console/Command/Command.php(341): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#16 /Users/user/Desktop/acadflow/acadflow-web/vendor/laravel/framework/src/Illuminate/Console/Command.php(180): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#17 /Users/user/Desktop/acadflow/acadflow-web/vendor/symfony/console/Application.php(1117): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 /Users/user/Desktop/acadflow/acadflow-web/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 /Users/user/Desktop/acadflow/acadflow-web/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#20 /Users/user/Desktop/acadflow/acadflow-web/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#21 /Users/user/Desktop/acadflow/acadflow-web/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#22 /Users/user/Desktop/acadflow/acadflow-web/artisan(13): Illuminate\\Foundation\\Application->handleCommand(Object(Symfony\\Component\\Console\\Input\\ArgvInput))
+#23 {main}
+"} 

@@ -2700,6 +2700,7 @@
           0 => 'student',
         ),
         'package' => true,
+        'package_kind' => 'workspace',
         'default_duration_days' => 30,
         'default_semester_duration_days' => 120,
         'default_trial_days' => 0,
@@ -2727,6 +2728,7 @@
           0 => 'lecturer',
         ),
         'package' => true,
+        'package_kind' => 'workspace',
         'default_duration_days' => 30,
         'default_semester_duration_days' => 120,
         'default_trial_days' => 0,
@@ -2734,6 +2736,45 @@
         'ai_features' => 
         array (
           0 => 'lecturer_assistant',
+        ),
+      ),
+      'academic_ai_plus' => 
+      array (
+        'title' => 'Academic AI Plus',
+        'short_title' => 'AI Plus',
+        'category' => 'Cross-platform AI',
+        'description' => 'A shared allowance for specialist writing, citation, research, assessment, project, discussion and Knowledge Hub AI tools. Available to students, lecturers and other members alongside their role-specific package. Tool access still follows each workspace and content permission.',
+        'pricing_type' => 'fixed_access',
+        'unit_label' => 'access period',
+        'roles' => 
+        array (
+          0 => 'student',
+          1 => 'lecturer',
+          2 => 'member',
+        ),
+        'package' => true,
+        'package_kind' => 'ai_addon',
+        'catalogue_requires_price' => true,
+        'requires_ai_monetization' => true,
+        'default_duration_days' => 30,
+        'default_semester_duration_days' => 120,
+        'default_trial_days' => 0,
+        'default_grace_days' => 0,
+        'ai_features' => 
+        array (
+          0 => 'writing_assistant',
+          1 => 'citation_assistant',
+          2 => 'research_assistant',
+          3 => 'research_validator',
+          4 => 'assignment_assistant',
+          5 => 'submission_validator',
+          6 => 'plagiarism',
+          7 => 'siwes_assistant',
+          8 => 'project_assistant',
+          9 => 'discussion_assistant',
+          10 => 'knowledge_publication_validator',
+          11 => 'knowledge_moderation',
+          12 => 'knowledge_companion',
         ),
       ),
       'allow_group_submissions' => 

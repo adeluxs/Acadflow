@@ -18,7 +18,7 @@
 </div>
 
 <section class="mt-6 rounded-3xl border bg-white p-6 shadow-sm">
-    <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Your workspace</p><h2 class="mt-1 text-xl font-black">Your plan pays for the tools and includes AI usage</h2><p class="mt-1 text-sm leading-6 text-slate-600">Your monthly or semester payment unlocks the workspace tools for that period and gives you the number of AI requests shown on the plan. You are not charged again while free or included AI requests remain.</p></div>
+    <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Your plans</p><h2 class="mt-1 text-xl font-black">Choose the tools and AI allowance that fit your work</h2><p class="mt-1 text-sm leading-6 text-slate-600">Study Pro and Teaching Pro are role-specific workspace plans. AI Plus is an optional specialist AI package that students, lecturers and other members can buy alongside them. Each payment covers the tools or allowance shown for that plan.</p></div>
     <div class="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
         <p class="font-black">When can an extra AI charge happen?</p>
         <p class="mt-1 leading-6">AcadSyntra uses your daily free AI requests first, then the AI requests included in your plan. Only after both are finished can a successful new AI request be charged to your wallet. Your monthly AI spending limit still applies, and a failed request is not charged.</p>
@@ -27,20 +27,27 @@
         @forelse($featureRows->where('package', true) as $row)
             <article id="feature-{{ $row['key'] }}" class="rounded-2xl border p-5 {{ request('feature') === $row['key'] ? 'border-indigo-400 ring-2 ring-indigo-100' : '' }}">
                 @php($state = data_get($row, 'package_status.state', $row['rule'] ? 'locked' : 'free'))
-                <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-black uppercase tracking-wide text-indigo-600">{{ $row['short_title'] ?? $row['title'] }}</p><h3 class="mt-1 text-xl font-black text-slate-900">{{ $row['title'] }}</h3><p class="mt-2 text-sm leading-6 text-slate-500">{{ $row['description'] }}</p></div>
-                    @if(!$row['rule'])<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Free</span>
+                <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-black uppercase tracking-wide text-indigo-600">{{ ($row['package_kind'] ?? 'workspace') === 'ai_addon' ? 'Optional AI package' : 'Role workspace package' }}</p><h3 class="mt-1 text-xl font-black text-slate-900">{{ $row['title'] }}</h3><p class="mt-2 text-sm leading-6 text-slate-500">{{ $row['description'] }}</p></div>
+                    @if(!$row['rule'] && ($row['catalogue_requires_price'] ?? false))<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">Not offered yet</span>
+                    @elseif(!$row['rule'])<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Free</span>
                     @elseif($row['sponsored'])<span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">Institution sponsored</span>
                     @elseif($state==='trial')<span class="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">Trial</span>
                     @elseif($state==='active')<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Active</span>
                     @elseif($state==='grace')<span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Read-only grace</span>
+                    @elseif(!$row['available_for_purchase'])<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">Purchases paused</span>
                     @else<span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Paid</span>@endif
                 </div>
+                @if($row['ai_tools'] !== [])
+                    <details class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3"><summary class="cursor-pointer text-sm font-bold text-slate-800">{{ count($row['ai_tools']) }} AI tool(s) use this plan’s allowance</summary><div class="mt-3 flex flex-wrap gap-2">@foreach($row['ai_tools'] as $tool)<span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">{{ $tool['title'] }}</span>@endforeach</div></details>
+                @endif
                 @if(in_array($state, ['active','trial'], true) && $row['entitlement'])
                     <div class="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900"><p class="font-black">Access active{{ $row['entitlement']->expires_at ? ' until '.$row['entitlement']->expires_at->format('d M Y') : '' }}</p><p class="mt-1 text-xs">{{ number_format((int)($row['entitlement']->remaining_units ?? 0)) }} included AI request(s) remaining.</p></div>
                 @elseif($state==='grace')
                     <div class="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p class="font-black">Saved work remains readable until {{ data_get($row,'package_status.grace_ends_at')?->format('d M Y') }}.</p><p class="mt-1 text-xs">Renew to create, edit or generate new work.</p></div>
                 @endif
-                @if($row['rule'] && !$row['sponsored'] && !in_array($state, ['active','trial'], true))
+                @if(!$row['available_for_purchase'] && !in_array($state, ['active','trial'], true))
+                    <p class="mt-4 rounded-xl bg-slate-100 p-3 text-xs leading-5 text-slate-600">This allowance package is not needed while extra AI charging is disabled. You can continue using enabled AI tools under the current platform-funded setting.</p>
+                @elseif($row['rule'] && !$row['sponsored'] && !in_array($state, ['active','trial'], true))
                     <div class="mt-4 grid gap-3 sm:grid-cols-2">@foreach($row['offers'] as $period => $offer)<form method="POST" action="{{ route('commerce.features.purchase') }}" class="rounded-xl border bg-slate-50 p-4">@csrf<input type="hidden" name="feature" value="{{ $row['key'] }}"><input type="hidden" name="billing_period" value="{{ $period }}"><input type="hidden" name="request_id" value="{{ (string)\Illuminate\Support\Str::uuid() }}"><p class="text-xs font-black uppercase text-slate-500">{{ $offer['label'] }}</p><p class="mt-1 text-lg font-black">{{ $row['rule']->currency }} {{ \App\Support\Money::fromMinor($offer['amount_minor']) }}</p><p class="mt-1 text-xs font-semibold text-slate-700">Workspace tools for {{ $offer['duration_days'] }} days</p><p class="mt-1 text-xs text-slate-500">Includes {{ number_format($offer['included_ai_requests']) }} AI request(s). Extra AI is charged only after free and included requests finish.</p><button class="mt-3 w-full rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white">Choose {{ strtolower($offer['label']) }}</button></form>@endforeach</div>
                     @if($row['trial_days'] > 0 && !$row['trial_used'])<form method="POST" action="{{ route('commerce.features.trial') }}" class="mt-3">@csrf<input type="hidden" name="feature" value="{{ $row['key'] }}"><button class="text-sm font-black text-indigo-700">Start {{ $row['trial_days'] }}-day trial →</button></form>@endif
                 @endif
@@ -58,6 +65,7 @@
     <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         @foreach($aiRows as $row)
             <div class="rounded-2xl border p-4"><p class="font-black">{{ $row['title'] }}</p><p class="mt-1 text-xs text-slate-500">{{ $row['category'] }}</p>
+                @if($row['included_in_packages'] !== [])<div class="mt-2 flex flex-wrap gap-1">@foreach($row['included_in_packages'] as $package)<span class="rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-bold text-indigo-700">Included in {{ $package }}</span>@endforeach</div>@else<span class="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600">No package allowance</span>@endif
                 @if(!$row['pricing']['enabled'])<p class="mt-3 text-sm font-bold text-emerald-700">AI monetization disabled</p>
                 @else<p class="mt-3 text-sm font-bold">{{ $row['pricing']['currency'] }} {{ \App\Support\Money::fromMinor((int)$row['pricing']['amount_minor']) }} / successful request</p><p class="mt-1 text-xs text-slate-500">{{ $row['pricing']['free_daily_requests'] }} free successful request(s) per day{{ $row['pricing']['feature_specific'] ? ' for this assistant' : ' across global AI pricing' }}.</p>@endif
             </div>

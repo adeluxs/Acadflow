@@ -50,7 +50,7 @@ class StudyTeachingMonetizationTest extends TestCase
         $this->get(route('courses.index'))->assertOk();
         $this->get(route('commerce.features', ['feature' => 'student_study_tools']))
             ->assertOk()->assertSee('Student Study Tools')
-            ->assertSee('Your plan pays for the tools and includes AI usage')
+            ->assertSee('Choose the tools and AI allowance that fit your work')
             ->assertSee('Only after both are finished can a successful new AI request be charged to your wallet.')
             ->assertViewHas('featureRows', fn ($rows) => $rows->pluck('key')->contains('student_study_tools')
                 && ! $rows->pluck('key')->contains('lecturer_teaching_tools'));
@@ -219,6 +219,87 @@ class StudyTeachingMonetizationTest extends TestCase
         $this->assertSame(7, data_get($rule->metadata, 'trial_days'));
         $this->assertSame(5, data_get($rule->metadata, 'grace_days'));
         $this->assertTrue((bool) data_get($rule->metadata, 'package'));
+    }
+
+    public function test_ai_plus_is_available_to_students_lecturers_and_other_members_alongside_role_packages(): void
+    {
+        $this->featureRule('academic_ai_plus', 3_000, ['included_ai_requests' => 12]);
+        $this->featureRule('student_study_tools', 4_000, ['included_ai_requests' => 5]);
+        $wallets = app(WalletService::class);
+
+        foreach ([
+            'student' => ['account_type' => 'student', 'ai_feature' => 'writing_assistant'],
+            'lecturer' => ['account_type' => 'lecturer', 'ai_feature' => 'research_assistant'],
+            'member' => ['account_type' => 'researcher', 'ai_feature' => 'citation_assistant'],
+        ] as $role => $case) {
+            $user = User::factory()->create(['role' => $role, 'account_type' => $case['account_type']]);
+            $wallets->creditSpending($user, 10_000, 'wallet_funding');
+            SettingService::set('ai_monetization_enabled', true, 'boolean', null, $user->id);
+            SettingService::set('ai_free_daily_requests', 0, 'integer', null, $user->id);
+
+            $response = $this->actingAs($user)->get(route('commerce.features'));
+            $response->assertOk()->assertSee('Academic AI Plus')->assertSee('Included in AI Plus')
+                ->assertViewHas('featureRows', fn ($rows) => $rows->pluck('key')->contains('academic_ai_plus')
+                    && ($rows->pluck('key')->contains('student_study_tools') === ($role === 'student'))
+                    && ($rows->pluck('key')->contains('lecturer_teaching_tools') === ($role === 'lecturer')));
+
+            $this->post(route('commerce.features.purchase'), [
+                'feature' => 'academic_ai_plus',
+                'request_id' => 'ai-plus-'.$role,
+            ])->assertRedirect()->assertSessionHasNoErrors();
+
+            $this->assertDatabaseHas('feature_entitlements', [
+                'user_id' => $user->id,
+                'feature' => 'academic_ai_plus',
+                'status' => 'active',
+                'remaining_units' => 12,
+            ]);
+
+            $reservation = app(AiUsageBillingService::class)->reserve($user, $case['ai_feature'], 'ai-plus-use-'.$role);
+            $this->assertSame('package_allowance', $reservation['source']);
+            $this->assertSame(0, $reservation['charge_minor']);
+        }
+    }
+
+    public function test_ai_plus_does_not_consume_allowance_for_role_specific_ai_tools(): void
+    {
+        $student = User::factory()->create(['role' => 'student', 'account_type' => 'student']);
+        $this->featureRule('academic_ai_plus', 3_000, ['included_ai_requests' => 10]);
+        $wallets = app(WalletService::class);
+        $wallets->creditSpending($student, 10_000, 'wallet_funding');
+        SettingService::set('ai_monetization_enabled', true, 'boolean', null, $student->id);
+        SettingService::set('ai_free_daily_requests', 0, 'integer', null, $student->id);
+        $this->actingAs($student)->post(route('commerce.features.purchase'), [
+            'feature' => 'academic_ai_plus',
+            'request_id' => 'ai-plus-boundary-purchase',
+        ])->assertSessionHasNoErrors();
+
+        SettingService::set('ai_request_charge_amount', '25', 'decimal', null, $student->id);
+        $reservation = app(AiUsageBillingService::class)->reserve($student, 'practice_generator', 'ai-plus-boundary-use');
+
+        $this->assertSame('user_wallet', $reservation['source']);
+        $this->assertSame(2_500, $reservation['charge_minor']);
+        $this->assertSame(10, FeatureEntitlement::query()->where('user_id', $student->id)->where('feature', 'academic_ai_plus')->value('remaining_units'));
+    }
+
+    public function test_ai_plus_cannot_be_sold_while_ai_overage_charging_is_disabled(): void
+    {
+        $member = User::factory()->create(['role' => 'member', 'account_type' => 'independent_professional']);
+        SettingService::set('ai_monetization_enabled', false, 'boolean', null, $member->id);
+        $this->featureRule('academic_ai_plus', 3_000, ['included_ai_requests' => 10, 'trial_days' => 3]);
+        app(WalletService::class)->creditSpending($member, 10_000, 'wallet_funding');
+
+        $this->actingAs($member)->get(route('commerce.features'))
+            ->assertOk()->assertSee('Purchases paused')->assertSee('allowance package is not needed');
+        $this->post(route('commerce.features.purchase'), [
+            'feature' => 'academic_ai_plus',
+            'request_id' => 'disabled-ai-plus-purchase',
+        ])->assertSessionHasErrors('feature');
+        $this->post(route('commerce.features.trial'), ['feature' => 'academic_ai_plus'])
+            ->assertSessionHasErrors('feature');
+
+        $this->assertDatabaseMissing('feature_entitlements', ['user_id' => $member->id, 'feature' => 'academic_ai_plus']);
+        $this->assertSame(10_000, app(WalletService::class)->account($member)->spending_balance_minor);
     }
 
     private function featureRule(string $feature, int $amountMinor, array $metadata = []): PricingRule
