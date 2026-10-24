@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('title','Plans & Usage')
 @section('page-title','Plans & Usage')
-@section('page-subtitle','Choose one clear workspace package and stay in control of AI overage')
+@section('page-subtitle','Pay for your workspace tools, receive included AI requests, and control any extra AI spending')
 @section('content')
 @if(session('success'))
     <div class="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{{ session('success') }}</div>
@@ -18,7 +18,11 @@
 </div>
 
 <section class="mt-6 rounded-3xl border bg-white p-6 shadow-sm">
-    <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Your workspace</p><h2 class="mt-1 text-xl font-black">One package, with AI included</h2><p class="mt-1 text-sm text-slate-500">Choose monthly or semester access. Included AI requests are used before any per-request charge.</p></div>
+    <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Your workspace</p><h2 class="mt-1 text-xl font-black">Your plan pays for the tools and includes AI usage</h2><p class="mt-1 text-sm leading-6 text-slate-600">Your monthly or semester payment unlocks the workspace tools for that period and gives you the number of AI requests shown on the plan. You are not charged again while free or included AI requests remain.</p></div>
+    <div class="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+        <p class="font-black">When can an extra AI charge happen?</p>
+        <p class="mt-1 leading-6">AcadSyntra uses your daily free AI requests first, then the AI requests included in your plan. Only after both are finished can a successful new AI request be charged to your wallet. Your monthly AI spending limit still applies, and a failed request is not charged.</p>
+    </div>
     <div class="mt-5 grid gap-4 lg:grid-cols-2">
         @forelse($featureRows->where('package', true) as $row)
             <article id="feature-{{ $row['key'] }}" class="rounded-2xl border p-5 {{ request('feature') === $row['key'] ? 'border-indigo-400 ring-2 ring-indigo-100' : '' }}">
@@ -37,7 +41,7 @@
                     <div class="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p class="font-black">Saved work remains readable until {{ data_get($row,'package_status.grace_ends_at')?->format('d M Y') }}.</p><p class="mt-1 text-xs">Renew to create, edit or generate new work.</p></div>
                 @endif
                 @if($row['rule'] && !$row['sponsored'] && !in_array($state, ['active','trial'], true))
-                    <div class="mt-4 grid gap-3 sm:grid-cols-2">@foreach($row['offers'] as $period => $offer)<form method="POST" action="{{ route('commerce.features.purchase') }}" class="rounded-xl border bg-slate-50 p-4">@csrf<input type="hidden" name="feature" value="{{ $row['key'] }}"><input type="hidden" name="billing_period" value="{{ $period }}"><input type="hidden" name="request_id" value="{{ (string)\Illuminate\Support\Str::uuid() }}"><p class="text-xs font-black uppercase text-slate-500">{{ $offer['label'] }}</p><p class="mt-1 text-lg font-black">{{ $row['rule']->currency }} {{ \App\Support\Money::fromMinor($offer['amount_minor']) }}</p><p class="mt-1 text-xs text-slate-500">{{ $offer['duration_days'] }} days · {{ number_format($offer['included_ai_requests']) }} AI requests</p><button class="mt-3 w-full rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white">Choose {{ strtolower($offer['label']) }}</button></form>@endforeach</div>
+                    <div class="mt-4 grid gap-3 sm:grid-cols-2">@foreach($row['offers'] as $period => $offer)<form method="POST" action="{{ route('commerce.features.purchase') }}" class="rounded-xl border bg-slate-50 p-4">@csrf<input type="hidden" name="feature" value="{{ $row['key'] }}"><input type="hidden" name="billing_period" value="{{ $period }}"><input type="hidden" name="request_id" value="{{ (string)\Illuminate\Support\Str::uuid() }}"><p class="text-xs font-black uppercase text-slate-500">{{ $offer['label'] }}</p><p class="mt-1 text-lg font-black">{{ $row['rule']->currency }} {{ \App\Support\Money::fromMinor($offer['amount_minor']) }}</p><p class="mt-1 text-xs font-semibold text-slate-700">Workspace tools for {{ $offer['duration_days'] }} days</p><p class="mt-1 text-xs text-slate-500">Includes {{ number_format($offer['included_ai_requests']) }} AI request(s). Extra AI is charged only after free and included requests finish.</p><button class="mt-3 w-full rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white">Choose {{ strtolower($offer['label']) }}</button></form>@endforeach</div>
                     @if($row['trial_days'] > 0 && !$row['trial_used'])<form method="POST" action="{{ route('commerce.features.trial') }}" class="mt-3">@csrf<input type="hidden" name="feature" value="{{ $row['key'] }}"><button class="text-sm font-black text-indigo-700">Start {{ $row['trial_days'] }}-day trial →</button></form>@endif
                 @endif
             </article>
@@ -50,7 +54,7 @@
 @endif
 
 <section class="mt-6 rounded-3xl border bg-white p-6 shadow-sm">
-    <div><p class="text-xs font-black uppercase tracking-[.16em] text-violet-600">AI overage</p><h2 class="mt-1 text-xl font-black">What happens after included requests</h2><p class="mt-1 text-sm text-slate-500">Daily free requests apply first, then package requests. A wallet charge occurs only after both allowances are exhausted.</p></div>
+    <div><p class="text-xs font-black uppercase tracking-[.16em] text-violet-600">Extra AI usage</p><h2 class="mt-1 text-xl font-black">Prices after your allowances finish</h2><p class="mt-1 text-sm leading-6 text-slate-600">The prices below do not replace your package payment. They apply only to successful AI requests made after your daily free requests and plan-included requests have both been used. Set a monthly limit above to control this extra spending.</p></div>
     <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         @foreach($aiRows as $row)
             <div class="rounded-2xl border p-4"><p class="font-black">{{ $row['title'] }}</p><p class="mt-1 text-xs text-slate-500">{{ $row['category'] }}</p>

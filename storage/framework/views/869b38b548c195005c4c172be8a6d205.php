@@ -1,6 +1,6 @@
 <?php $__env->startSection('title','Plans & Usage'); ?>
 <?php $__env->startSection('page-title','Plans & Usage'); ?>
-<?php $__env->startSection('page-subtitle','Choose one clear workspace package and stay in control of AI overage'); ?>
+<?php $__env->startSection('page-subtitle','Pay for your workspace tools, receive included AI requests, and control any extra AI spending'); ?>
 <?php $__env->startSection('content'); ?>
 <?php if(session('success')): ?>
     <div class="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800"><?php echo e(session('success')); ?></div>
@@ -17,7 +17,11 @@
 </div>
 
 <section class="mt-6 rounded-3xl border bg-white p-6 shadow-sm">
-    <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Your workspace</p><h2 class="mt-1 text-xl font-black">One package, with AI included</h2><p class="mt-1 text-sm text-slate-500">Choose monthly or semester access. Included AI requests are used before any per-request charge.</p></div>
+    <div><p class="text-xs font-black uppercase tracking-[.16em] text-indigo-600">Your workspace</p><h2 class="mt-1 text-xl font-black">Your plan pays for the tools and includes AI usage</h2><p class="mt-1 text-sm leading-6 text-slate-600">Your monthly or semester payment unlocks the workspace tools for that period and gives you the number of AI requests shown on the plan. You are not charged again while free or included AI requests remain.</p></div>
+    <div class="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+        <p class="font-black">When can an extra AI charge happen?</p>
+        <p class="mt-1 leading-6">AcadSyntra uses your daily free AI requests first, then the AI requests included in your plan. Only after both are finished can a successful new AI request be charged to your wallet. Your monthly AI spending limit still applies, and a failed request is not charged.</p>
+    </div>
     <div class="mt-5 grid gap-4 lg:grid-cols-2">
         <?php $__empty_0 = true; $__currentLoopData = $featureRows->where('package', true); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $row): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_0 = false; ?>
             <article id="feature-<?php echo e($row['key']); ?>" class="rounded-2xl border p-5 <?php echo e(request('feature') === $row['key'] ? 'border-indigo-400 ring-2 ring-indigo-100' : ''); ?>">
@@ -36,7 +40,7 @@
                     <div class="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p class="font-black">Saved work remains readable until <?php echo e(data_get($row,'package_status.grace_ends_at')?->format('d M Y')); ?>.</p><p class="mt-1 text-xs">Renew to create, edit or generate new work.</p></div>
                 <?php endif; ?>
                 <?php if($row['rule'] && !$row['sponsored'] && !in_array($state, ['active','trial'], true)): ?>
-                    <div class="mt-4 grid gap-3 sm:grid-cols-2"><?php $__currentLoopData = $row['offers']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $period => $offer): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><form method="POST" action="<?php echo e(route('commerce.features.purchase')); ?>" class="rounded-xl border bg-slate-50 p-4"><?php echo csrf_field(); ?><input type="hidden" name="feature" value="<?php echo e($row['key']); ?>"><input type="hidden" name="billing_period" value="<?php echo e($period); ?>"><input type="hidden" name="request_id" value="<?php echo e((string)\Illuminate\Support\Str::uuid()); ?>"><p class="text-xs font-black uppercase text-slate-500"><?php echo e($offer['label']); ?></p><p class="mt-1 text-lg font-black"><?php echo e($row['rule']->currency); ?> <?php echo e(\App\Support\Money::fromMinor($offer['amount_minor'])); ?></p><p class="mt-1 text-xs text-slate-500"><?php echo e($offer['duration_days']); ?> days · <?php echo e(number_format($offer['included_ai_requests'])); ?> AI requests</p><button class="mt-3 w-full rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white">Choose <?php echo e(strtolower($offer['label'])); ?></button></form><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></div>
+                    <div class="mt-4 grid gap-3 sm:grid-cols-2"><?php $__currentLoopData = $row['offers']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $period => $offer): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><form method="POST" action="<?php echo e(route('commerce.features.purchase')); ?>" class="rounded-xl border bg-slate-50 p-4"><?php echo csrf_field(); ?><input type="hidden" name="feature" value="<?php echo e($row['key']); ?>"><input type="hidden" name="billing_period" value="<?php echo e($period); ?>"><input type="hidden" name="request_id" value="<?php echo e((string)\Illuminate\Support\Str::uuid()); ?>"><p class="text-xs font-black uppercase text-slate-500"><?php echo e($offer['label']); ?></p><p class="mt-1 text-lg font-black"><?php echo e($row['rule']->currency); ?> <?php echo e(\App\Support\Money::fromMinor($offer['amount_minor'])); ?></p><p class="mt-1 text-xs font-semibold text-slate-700">Workspace tools for <?php echo e($offer['duration_days']); ?> days</p><p class="mt-1 text-xs text-slate-500">Includes <?php echo e(number_format($offer['included_ai_requests'])); ?> AI request(s). Extra AI is charged only after free and included requests finish.</p><button class="mt-3 w-full rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white">Choose <?php echo e(strtolower($offer['label'])); ?></button></form><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></div>
                     <?php if($row['trial_days'] > 0 && !$row['trial_used']): ?><form method="POST" action="<?php echo e(route('commerce.features.trial')); ?>" class="mt-3"><?php echo csrf_field(); ?><input type="hidden" name="feature" value="<?php echo e($row['key']); ?>"><button class="text-sm font-black text-indigo-700">Start <?php echo e($row['trial_days']); ?>-day trial →</button></form><?php endif; ?>
                 <?php endif; ?>
             </article>
@@ -49,7 +53,7 @@
 <?php endif; ?>
 
 <section class="mt-6 rounded-3xl border bg-white p-6 shadow-sm">
-    <div><p class="text-xs font-black uppercase tracking-[.16em] text-violet-600">AI overage</p><h2 class="mt-1 text-xl font-black">What happens after included requests</h2><p class="mt-1 text-sm text-slate-500">Daily free requests apply first, then package requests. A wallet charge occurs only after both allowances are exhausted.</p></div>
+    <div><p class="text-xs font-black uppercase tracking-[.16em] text-violet-600">Extra AI usage</p><h2 class="mt-1 text-xl font-black">Prices after your allowances finish</h2><p class="mt-1 text-sm leading-6 text-slate-600">The prices below do not replace your package payment. They apply only to successful AI requests made after your daily free requests and plan-included requests have both been used. Set a monthly limit above to control this extra spending.</p></div>
     <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <?php $__currentLoopData = $aiRows; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $row): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
             <div class="rounded-2xl border p-4"><p class="font-black"><?php echo e($row['title']); ?></p><p class="mt-1 text-xs text-slate-500"><?php echo e($row['category']); ?></p>

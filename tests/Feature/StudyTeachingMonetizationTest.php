@@ -50,6 +50,8 @@ class StudyTeachingMonetizationTest extends TestCase
         $this->get(route('courses.index'))->assertOk();
         $this->get(route('commerce.features', ['feature' => 'student_study_tools']))
             ->assertOk()->assertSee('Student Study Tools')
+            ->assertSee('Your plan pays for the tools and includes AI usage')
+            ->assertSee('Only after both are finished can a successful new AI request be charged to your wallet.')
             ->assertViewHas('featureRows', fn ($rows) => $rows->pluck('key')->contains('student_study_tools')
                 && ! $rows->pluck('key')->contains('lecturer_teaching_tools'));
         $this->get(route('dashboard'))->assertOk()->assertSee('View access options');
