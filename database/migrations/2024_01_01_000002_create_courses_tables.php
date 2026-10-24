@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         // Academic Session & Semester
-        if (!Schema::hasTable('academic_sessions')) {
+        if (! Schema::hasTable('academic_sessions')) {
             Schema::create('academic_sessions', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique()->index();
@@ -24,7 +24,7 @@ return new class extends Migration
             });
         }
 
-        if (!Schema::hasTable('semesters')) {
+        if (! Schema::hasTable('semesters')) {
             Schema::create('semesters', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique()->index();
@@ -40,7 +40,7 @@ return new class extends Migration
         }
 
         // Courses
-        if (!Schema::hasTable('courses')) {
+        if (! Schema::hasTable('courses')) {
             Schema::create('courses', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique()->index();
@@ -49,8 +49,8 @@ return new class extends Migration
                 $table->string('name');
                 $table->text('description')->nullable();
                 $table->integer('credit_hours')->default(3);
-                $table->string('level', 10);
-                $table->string('semester', 10);
+                $table->string('level', 30);
+                $table->string('semester', 30);
                 $table->enum('type', ['compulsory', 'elective'])->default('compulsory');
                 $table->integer('max_capacity')->nullable();
                 $table->json('submission_types')->default(json_encode(['assignment', 'project', 'siwes']));
@@ -61,7 +61,7 @@ return new class extends Migration
         }
 
         // Enrollments
-        if (!Schema::hasTable('enrollments')) {
+        if (! Schema::hasTable('enrollments')) {
             Schema::create('enrollments', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
@@ -75,7 +75,7 @@ return new class extends Migration
         }
 
         // Lecturer Course Assignments
-        if (!Schema::hasTable('lecturer_course_assignments')) {
+        if (! Schema::hasTable('lecturer_course_assignments')) {
             Schema::create('lecturer_course_assignments', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('course_id')->constrained('courses')->cascadeOnDelete();

@@ -18,9 +18,9 @@
                 @csrf
                 <label class="sm:col-span-2 text-xs font-semibold text-slate-700">Course name<input name="name" value="{{ old('name') }}" required maxlength="255" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="Research Methods"></label>
                 <label class="text-xs font-semibold text-slate-700">Course code<input name="code" value="{{ old('code') }}" required maxlength="20" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="RES101"></label>
-                <label class="text-xs font-semibold text-slate-700">Level<input name="level" value="{{ old('level', 'General') }}" maxlength="20" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="General"></label>
+                <label class="text-xs font-semibold text-slate-700">Level<input name="level" value="{{ old('level', 'General') }}" maxlength="{{ \App\Models\Course::LEVEL_MAX_LENGTH }}" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="General"></label>
                 <label class="text-xs font-semibold text-slate-700">Credits<input type="number" min="1" max="30" name="credit_hours" value="{{ old('credit_hours', 3) }}" class="mt-1 w-full rounded-xl border-slate-300 bg-white"></label>
-                <label class="text-xs font-semibold text-slate-700">Max students<input type="number" min="1" name="max_capacity" value="{{ old('max_capacity') }}" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="Optional"></label>
+                <label class="text-xs font-semibold text-slate-700">Max students<input type="number" min="1" max="{{ \App\Models\Course::MAX_CAPACITY }}" name="max_capacity" value="{{ old('max_capacity') }}" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="Optional"></label>
                 <label class="sm:col-span-2 text-xs font-semibold text-slate-700">Description<textarea name="description" rows="2" class="mt-1 w-full rounded-xl border-slate-300 bg-white" placeholder="What students will learn">{{ old('description') }}</textarea></label>
                 <button class="sm:col-span-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white hover:bg-indigo-700">Create classroom</button>
             </form>

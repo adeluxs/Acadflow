@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Course;
 use App\Models\Enrollment;
+use App\Models\LecturerCourseAssignment;
 use App\Models\ResearchProject;
 use App\Models\User;
 use App\Policies\ResearchProjectPolicy;
@@ -19,7 +20,9 @@ class IndependentFirstLaunchTest extends TestCase
     public function test_public_personas_do_not_require_institutional_onboarding(): void
     {
         $this->assertSame(['student', 'lecturer', 'researcher', 'independent_professional', 'author_publisher', 'other'], array_keys(OnboardingService::PUBLIC_ACCOUNT_PATHS));
-        foreach (array_keys(OnboardingService::PUBLIC_ACCOUNT_PATHS) as $path) $this->assertNotContains($path, OnboardingService::INSTITUTIONAL_PATHS);
+        foreach (array_keys(OnboardingService::PUBLIC_ACCOUNT_PATHS) as $path) {
+            $this->assertNotContains($path, OnboardingService::INSTITUTIONAL_PATHS);
+        }
         $this->assertNotContains('student', OnboardingService::INSTITUTIONAL_PATHS);
         $this->assertNotContains('lecturer', OnboardingService::INSTITUTIONAL_PATHS);
         $this->assertNotContains('researcher', OnboardingService::INSTITUTIONAL_PATHS);
@@ -71,6 +74,38 @@ class IndependentFirstLaunchTest extends TestCase
 
         $this->assertTrue($student->fresh()->canAccessCourse($course));
         $this->assertNull($student->fresh()->university_id, 'Independent enrollment must not attach the student to the synthetic institution.');
+    }
+
+    public function test_lecturer_can_create_an_independent_classroom_with_the_default_semester_and_a_descriptive_level(): void
+    {
+        $lecturer = User::factory()->create([
+            'role' => 'lecturer',
+            'account_type' => 'lecturer',
+            'university_id' => null,
+            'department_id' => null,
+        ]);
+
+        $response = $this->actingAs($lecturer)->post(route('lecturer.courses.independent.store'), [
+            'name' => 'Machine Learning',
+            'code' => 'ML101',
+            'description' => 'Learning machine models.',
+            'credit_hours' => 3,
+            'level' => 'Postgraduate Diploma',
+            'type' => 'elective',
+            'pass_mark' => 40,
+        ]);
+
+        $course = Course::query()->where('code', 'ML101')->firstOrFail();
+        $response->assertRedirect(route('courses.show', $course));
+        $this->assertSame('Independent', $course->semester);
+        $this->assertSame('Postgraduate Diploma', $course->level);
+        $this->assertDatabaseHas('lecturer_course_assignments', [
+            'course_id' => $course->id,
+            'user_id' => $lecturer->id,
+            'is_coordinator' => true,
+        ]);
+        $this->assertSame(1, LecturerCourseAssignment::query()->where('course_id', $course->id)->count());
+
     }
 
     public function test_independent_research_is_visible_only_to_explicit_participants(): void

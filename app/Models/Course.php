@@ -4,16 +4,24 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\Scopes\AcademicOrganisationBoundary;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo as BelongsToRelation;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class Course extends Model
 {
     use HasFactory;
+
+    public const LEVEL_MAX_LENGTH = 30;
+
+    public const SEMESTER_MAX_LENGTH = 30;
+
+    public const MAX_CAPACITY = 1000000;
+
     protected $fillable = [
         'uuid',
         'department_id',
@@ -36,7 +44,7 @@ class Course extends Model
 
     protected static function booted(): void
     {
-        static::addGlobalScope(new \App\Models\Scopes\AcademicOrganisationBoundary());
+        static::addGlobalScope(new AcademicOrganisationBoundary);
         static::creating(function (self $course) {
             if (empty($course->uuid)) {
                 $course->uuid = (string) Str::uuid();

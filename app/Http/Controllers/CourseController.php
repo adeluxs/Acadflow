@@ -12,16 +12,18 @@ use App\Models\LecturerCourseAssignment;
 use App\Models\Semester;
 use App\Models\User;
 use App\Services\AcademicContextService;
+use App\Services\AcademicOrganisationService;
+use App\Services\AdminLookupService;
 use App\Services\CourseMembershipScope;
-use App\Services\IndependentAcademicContextService;
 use App\Services\FeatureAccessService;
+use App\Services\IndependentAcademicContextService;
 use App\Services\SettingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\View\View;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
 class CourseController extends Controller
 {
@@ -173,7 +175,6 @@ class CourseController extends Controller
         return view('courses.lecturer', compact('courses', 'availableCourses'));
     }
 
-
     public function storeIndependent(Request $request, IndependentAcademicContextService $independent): RedirectResponse
     {
         $user = $request->user();
@@ -184,10 +185,10 @@ class CourseController extends Controller
             'code' => ['required', 'string', 'max:20', Rule::unique('courses', 'code')],
             'description' => ['nullable', 'string', 'max:5000'],
             'credit_hours' => ['nullable', 'integer', 'min:1', 'max:30'],
-            'level' => ['nullable', 'string', 'max:20'],
-            'semester' => ['nullable', 'string', 'max:20'],
+            'level' => ['nullable', 'string', 'max:'.Course::LEVEL_MAX_LENGTH],
+            'semester' => ['nullable', 'string', 'max:'.Course::SEMESTER_MAX_LENGTH],
             'type' => ['nullable', Rule::in(['compulsory', 'elective'])],
-            'max_capacity' => ['nullable', 'integer', 'min:1'],
+            'max_capacity' => ['nullable', 'integer', 'min:1', 'max:'.Course::MAX_CAPACITY],
             'pass_mark' => ['nullable', 'integer', 'min:0', 'max:100'],
         ]);
 
@@ -246,7 +247,9 @@ class CourseController extends Controller
         $user = Auth::user();
         $data = $this->validatedCourseData($request);
         $department = Department::query()->with('faculty')->findOrFail($data['department_id']);
-        if($user->isAdmin())abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,$department),403);
+        if ($user->isAdmin()) {
+            abort_unless(app(AcademicOrganisationService::class)->canManageDepartment($user, $department), 403);
+        }
 
         $this->assertDepartmentScope($user, $department);
         Course::create($data);
@@ -265,7 +268,7 @@ class CourseController extends Controller
             ->orderBy('user_id')
             ->paginate(25, ['*'], 'students_page')
             ->withQueryString();
-        $lecturers = app(\App\Services\AdminLookupService::class)->query(Auth::user(), 'lecturers', ['course_id' => $course->id])->limit(20)->get();
+        $lecturers = app(AdminLookupService::class)->query(Auth::user(), 'lecturers', ['course_id' => $course->id])->limit(20)->get();
 
         return view('courses.admin-show', compact('course', 'lecturers', 'enrollments'));
     }
@@ -273,8 +276,8 @@ class CourseController extends Controller
     public function update(Request $request, Course $course): RedirectResponse
     {
         $this->assertDepartmentScope(Auth::user(), $course->department()->with('faculty')->firstOrFail());
-        $data=$this->validatedCourseData($request,$course);
-        $this->assertDepartmentScope(Auth::user(),Department::with('faculty')->findOrFail($data['department_id']));
+        $data = $this->validatedCourseData($request, $course);
+        $this->assertDepartmentScope(Auth::user(), Department::with('faculty')->findOrFail($data['department_id']));
         $course->update($data);
 
         return redirect()->route('admin.courses')->with('success', 'Course updated successfully.');
@@ -297,12 +300,12 @@ class CourseController extends Controller
                     ->ignore($course?->id),
             ],
             'department_id' => ['required', 'exists:departments,id'],
-            'description' => ['nullable', 'string'],
+            'description' => ['nullable', 'string', 'max:5000'],
             'credit_hours' => ['required', 'integer', 'min:1', 'max:30'],
-            'level' => ['required', 'string', 'max:10'],
+            'level' => ['required', 'string', 'max:'.Course::LEVEL_MAX_LENGTH],
             'type' => ['required', 'in:compulsory,elective'],
-            'semester' => ['required', 'string', 'max:10'],
-            'max_capacity' => ['nullable', 'integer', 'min:1'],
+            'semester' => ['required', 'string', 'max:'.Course::SEMESTER_MAX_LENGTH],
+            'max_capacity' => ['nullable', 'integer', 'min:1', 'max:'.Course::MAX_CAPACITY],
             'pass_mark' => ['nullable', 'integer', 'min:0', 'max:100'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
@@ -310,7 +313,9 @@ class CourseController extends Controller
 
     protected function assertDepartmentScope(User $user, Department $department): void
     {
-        if($user->isAdmin())abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,$department),403);
+        if ($user->isAdmin()) {
+            abort_unless(app(AcademicOrganisationService::class)->canManageDepartment($user, $department), 403);
+        }
         if ($user->isDepartmentAdmin() && $department->id !== $user->department_id) {
             abort(403, 'Access denied.');
         }
@@ -370,5 +375,4 @@ class CourseController extends Controller
     {
         return (bool) SettingService::get('restrict_course_membership_to_department', true, $user->university_id);
     }
-
 }

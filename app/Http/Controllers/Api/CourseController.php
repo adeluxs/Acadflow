@@ -7,8 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\Department;
 use App\Models\LecturerCourseAssignment;
-use App\Models\Semester;
 use App\Services\AcademicContextService;
+use App\Services\AcademicOrganisationService;
 use App\Services\IndependentAcademicContextService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -53,9 +53,9 @@ class CourseController extends Controller
             'department_id' => 'nullable|required_if:access_mode,institutional|exists:departments,id',
             'code' => 'required|string|max:20|unique:courses,code',
             'name' => 'required|string|max:255', 'description' => 'nullable|string|max:5000',
-            'credit_hours' => 'nullable|integer|min:1|max:30', 'level' => 'nullable|string|max:20',
-            'semester' => 'nullable|string|max:20', 'type' => 'nullable|in:compulsory,elective',
-            'max_capacity' => 'nullable|integer|min:1', 'pass_mark' => 'nullable|integer|min:0|max:100',
+            'credit_hours' => 'nullable|integer|min:1|max:30', 'level' => 'nullable|string|max:'.Course::LEVEL_MAX_LENGTH,
+            'semester' => 'nullable|string|max:'.Course::SEMESTER_MAX_LENGTH, 'type' => 'nullable|in:compulsory,elective',
+            'max_capacity' => 'nullable|integer|min:1|max:'.Course::MAX_CAPACITY, 'pass_mark' => 'nullable|integer|min:0|max:100',
             'submission_types' => 'nullable|array', 'submission_types.*' => 'in:assignment,project,siwes,group,seminar',
         ]);
 
@@ -89,6 +89,7 @@ class CourseController extends Controller
                     'semester_id' => $context['semester']->id,
                     'is_coordinator' => true,
                 ]);
+
                 return $course;
             });
 
@@ -97,9 +98,13 @@ class CourseController extends Controller
 
         abort_unless(! empty($validated['department_id']), 422, 'Department is required for institutional courses.');
         $department = Department::with('faculty')->findOrFail($validated['department_id']);
-        if($user->isAdmin())abort_unless(app(\App\Services\AcademicOrganisationService::class)->canManageDepartment($user,$department),403);
+        if ($user->isAdmin()) {
+            abort_unless(app(AcademicOrganisationService::class)->canManageDepartment($user, $department), 403);
+        }
         abort_unless($user->isSuperAdmin() || ($user->university_id && $department->faculty?->university_id === $user->university_id), 403);
-        if ($user->isDepartmentAdmin()) abort_unless($department->id === $user->department_id, 403);
+        if ($user->isDepartmentAdmin()) {
+            abort_unless($department->id === $user->department_id, 403);
+        }
 
         $course = Course::create([
             'uuid' => (string) Str::uuid(), 'department_id' => $department->id,
@@ -119,12 +124,13 @@ class CourseController extends Controller
         $this->assertCourseTenant($request->user(), $course);
         $this->authorize('update', $course);
         $validated = $request->validate([
-            'name' => 'nullable|string', 'description' => 'nullable|string', 'credit_hours' => 'nullable|integer|min:1|max:12',
-            'level' => 'nullable|string', 'semester' => 'nullable|string', 'type' => 'nullable|in:compulsory,elective',
-            'max_capacity' => 'nullable|integer|min:1', 'pass_mark' => 'nullable|integer|min:0|max:100',
-            'submission_types' => 'nullable|array', 'submission_types.*' => 'in:assignment,project,siwes,group,seminar', 'is_active' => 'nullable|boolean',
+            'name' => 'sometimes|required|string|max:255', 'description' => 'sometimes|nullable|string|max:5000', 'credit_hours' => 'sometimes|required|integer|min:1|max:30',
+            'level' => 'sometimes|required|string|max:'.Course::LEVEL_MAX_LENGTH, 'semester' => 'sometimes|required|string|max:'.Course::SEMESTER_MAX_LENGTH, 'type' => 'sometimes|required|in:compulsory,elective',
+            'max_capacity' => 'sometimes|nullable|integer|min:1|max:'.Course::MAX_CAPACITY, 'pass_mark' => 'sometimes|required|integer|min:0|max:100',
+            'submission_types' => 'sometimes|required|array', 'submission_types.*' => 'in:assignment,project,siwes,group,seminar', 'is_active' => 'sometimes|required|boolean',
         ]);
         $course->update($validated);
+
         return response()->json($course);
     }
 
@@ -133,6 +139,7 @@ class CourseController extends Controller
         $this->assertCourseTenant($request->user(), $course);
         $this->authorize('delete', $course);
         $course->delete();
+
         return response()->json(['message' => 'Course deleted successfully.']);
     }
 
@@ -144,15 +151,20 @@ class CourseController extends Controller
         $this->authorize('enroll', $course);
         $user = Auth::user();
         $semester = $academicContext->activeSemesterForCourse($course);
-        if (! $semester) return response()->json(['message' => 'No active semester available.'], 422);
+        if (! $semester) {
+            return response()->json(['message' => 'No active semester available.'], 422);
+        }
         abort_unless($semester->academicSession?->university_id === $course->department?->faculty?->university_id, 422, 'The active semester does not belong to this course institution.');
 
         $existing = $course->enrollments()->where('user_id', $user->id)->where('semester_id', $semester->id)->first();
-        if ($existing) return response()->json(['message' => 'Already enrolled'], 409);
+        if ($existing) {
+            return response()->json(['message' => 'Already enrolled'], 409);
+        }
         if ($course->max_capacity && $course->enrollments()->where('semester_id', $semester->id)->where('status', 'enrolled')->count() >= $course->max_capacity) {
             return response()->json(['message' => 'Course capacity has been reached.'], 422);
         }
         $course->enrollments()->create(['user_id' => $user->id, 'semester_id' => $semester->id, 'status' => 'enrolled', 'enrolled_at' => now()]);
+
         return response()->json(['message' => 'Enrolled successfully']);
     }
 
@@ -160,6 +172,7 @@ class CourseController extends Controller
     {
         $this->assertCourseTenant($request->user(), $course);
         abort_unless($request->user()->isAdmin() || $course->lecturerAssignments()->where('user_id', $request->user()->id)->exists(), 403);
+
         return $course->enrollments()->with('user')->paginate(50);
     }
 
@@ -167,8 +180,11 @@ class CourseController extends Controller
     {
         abort_unless($request->user()->isAdmin() || $request->user()->isLecturer(), 403);
         $query = $this->scopeCourseQuery(Course::query()->withCount('enrollments'), $request->user());
-        if ($request->user()->isLecturer()) $query->whereHas('lecturerAssignments', fn ($scope) => $scope->where('user_id', $request->user()->id));
+        if ($request->user()->isLecturer()) {
+            $query->whereHas('lecturerAssignments', fn ($scope) => $scope->where('user_id', $request->user()->id));
+        }
         $query->when($request->filled('department_id'), fn ($scope) => $scope->where('department_id', $request->integer('department_id')));
+
         return $query->paginate(100);
     }
 }

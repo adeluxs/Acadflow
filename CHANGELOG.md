@@ -2,6 +2,8 @@
 
 ### Changed
 
+- Fixed independent classroom creation on MySQL by widening `courses.semester` and `courses.level` to match validated values, and bounded course API updates to the database contract.
+
 - Optimized admin users, faculties, institution search, audit history, commercial accounts, pricing history, lecturer assignment and import selectors with scoped pagination, deferred searches and smaller records. Added restartable management indexes, batched settings/summary reads, bounded revenue iteration and less shared activity/audit write work; documented reproducible measurements and deployment steps.
 
 - Retained and redesigned Creator Profile as the Knowledge Hub author workspace, with clear identity/expertise/visibility sections, live reader preview, optional ORCID import and scoped review history. Refreshed the public reader page with biography, expertise, links and public published work.
