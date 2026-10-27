@@ -74,7 +74,7 @@
         ],
         'super_admin' => [
             ['Institutions','admin.universities','building'],['Users','admin.users','users'],['Website enquiries','admin.contact.index','chat'],['System Settings','admin.settings','settings'],
-            ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Monetization','admin.monetization','wallet'],
+            ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Monetization','admin.monetization','wallet'],['Knowledge Admin','admin.knowledge.index','book'],
             ['Reports','admin.reports','grade'],['Notifications','admin.notifications.index','bell'],['Notification Analytics','admin.notifications.analytics','bell'],['Institution onboarding','admin.institution-onboarding','building'],['User onboarding','admin.onboarding.index','users'],
         ],
         default => [],

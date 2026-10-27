@@ -390,6 +390,12 @@ Public access and institution/premium restrictions vary by publication.
 
 Creators can draft content and submit it through the configured publication/moderation process. Approved Research Studio work can be published into a linked Knowledge Hub draft through the Research → Knowledge Hub feature.
 
+Publication Studio now covers research, tutorials, campus experiences, personal knowledge, creative work and serialized stories. Formats and subjects are separate, so story writers are not asked for research-only metadata. Series support ordered chapters, continue-reading progress and a mix of free and premium access.
+
+Free publishing remains available when enabled. Creators who want to sell a publication or chapter must apply from **Creator profile**, confirm ownership or permission, accept the selling terms and pass administrator review. Approval to sell does not approve an individual publication. **Publication Studio** shows publishing, reader and sales summaries; **Earnings** opens the existing wallet and withdrawal history.
+
+Use **Promote work** to buy a time-limited campaign for your public published content. Paid placements always say **Sponsored** and do not mean AcadSyntra verified, endorsed or peer-reviewed the work. The campaign page reports impressions and clicks. Payment uses the existing wallet or available gateway.
+
 ### Publication Validator
 
 AI can assist with publication quality/academic validation where configured.

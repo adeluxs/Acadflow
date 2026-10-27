@@ -3,6 +3,7 @@
 use App\Http\Controllers\AcademicOrganisationController;
 use App\Http\Controllers\AccountSecurityController;
 use App\Http\Controllers\Admin\ContactInboxController;
+use App\Http\Controllers\Admin\KnowledgeManagementController;
 use App\Http\Controllers\Admin\MonetizationController;
 use App\Http\Controllers\Admin\NotificationAnalyticsController;
 use App\Http\Controllers\Admin\NotificationManagementController;
@@ -39,6 +40,9 @@ use App\Http\Controllers\InstitutionOnboardingController;
 use App\Http\Controllers\KnowledgeEcosystemController;
 use App\Http\Controllers\KnowledgeHubController;
 use App\Http\Controllers\KnowledgePublicationController;
+use App\Http\Controllers\KnowledgePromotionController;
+use App\Http\Controllers\KnowledgeSeriesController;
+use App\Http\Controllers\KnowledgeCreatorMonetizationController;
 use App\Http\Controllers\LearningProfileController;
 use App\Http\Controllers\LecturerAssignmentController;
 use App\Http\Controllers\LecturerContentAssistantController;
@@ -92,6 +96,9 @@ Route::get('/knowledge-hub', [KnowledgeHubController::class, 'index'])
     ->middleware('feature.flag:knowledge_hub')
     ->name('knowledge.index');
 Route::middleware('feature.flag:knowledge_hub')->group(function () {
+    Route::get('/knowledge-hub/promotions/{campaign}/visit', [KnowledgePromotionController::class, 'click'])->middleware('throttle:120,1')->name('knowledge.promotions.click');
+    Route::get('/knowledge-hub/series', [KnowledgeSeriesController::class, 'index'])->name('knowledge.series.index');
+    Route::get('/knowledge-hub/series/{series}', [KnowledgeSeriesController::class, 'show'])->name('knowledge.series.show');
     Route::get('/knowledge-hub/search', [KnowledgeEcosystemController::class, 'search'])->name('knowledge.search');
     Route::get('/knowledge-hub/creators/{creator:uuid}', [KnowledgeEcosystemController::class, 'creator'])->name('knowledge.creator');
     Route::get('/knowledge-hub/leaderboard', [KnowledgeEcosystemController::class, 'leaderboard'])->name('knowledge.leaderboard');
@@ -320,6 +327,18 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
 
     // Shared Knowledge Hub ecosystem, engagement, learning, events and creator tools.
     Route::middleware('feature.flag:knowledge_hub')->group(function () {
+        Route::get('/knowledge-hub/my-series', [KnowledgeSeriesController::class, 'index'])->name('knowledge.series.manage');
+        Route::get('/knowledge-hub/create/series', [KnowledgeSeriesController::class, 'create'])->name('knowledge.series.create');
+        Route::post('/knowledge-hub/series', [KnowledgeSeriesController::class, 'store'])->name('knowledge.series.store');
+        Route::get('/knowledge-hub/series/{series}/edit', [KnowledgeSeriesController::class, 'edit'])->name('knowledge.series.edit');
+        Route::put('/knowledge-hub/series/{series}', [KnowledgeSeriesController::class, 'update'])->name('knowledge.series.update');
+        Route::post('/knowledge-hub/series/{series}/follow', [KnowledgeSeriesController::class, 'follow'])->name('knowledge.series.follow');
+        Route::put('/knowledge-hub/series/{series}/chapters/{publication}/progress', [KnowledgeSeriesController::class, 'progress'])->name('knowledge.series.progress');
+        Route::post('/knowledge-hub/creator/monetization', [KnowledgeCreatorMonetizationController::class, 'store'])->name('knowledge.monetization.apply');
+        Route::get('/knowledge-hub/promotions', [KnowledgePromotionController::class, 'index'])->name('knowledge.promotions.index');
+        Route::post('/knowledge-hub/promotions', [KnowledgePromotionController::class, 'store'])->name('knowledge.promotions.store');
+        Route::get('/knowledge-hub/promotions/{campaign}/checkout', [KnowledgePromotionController::class, 'checkout'])->name('knowledge.promotions.checkout');
+        Route::post('/knowledge-hub/promotions/{campaign}/purchase', [CommerceController::class, 'purchasePromotion'])->middleware('throttle:commerce')->name('commerce.purchase-promotion');
         Route::get('/knowledge-hub/creator/edit', [KnowledgeEcosystemController::class, 'editCreator'])->name('knowledge.creator.edit');
         Route::put('/knowledge-hub/creator', [KnowledgeEcosystemController::class, 'updateCreator'])->name('knowledge.creator.update');
         Route::post('/knowledge-hub/creator/orcid/sync', [KnowledgeEcosystemController::class, 'syncOrcid'])->name('knowledge.creator.orcid.sync');
@@ -886,6 +905,16 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::post('/admin/monetization/commercial-accounts', [MonetizationController::class, 'storeCommercialAccount'])->name('admin.monetization.commercial-accounts.store');
         Route::post('/admin/monetization/commercial-requests/{commercialRequest}/reject', [MonetizationController::class, 'rejectCommercialAccountRequest'])
             ->name('admin.monetization.commercial-requests.reject');
+        Route::get('/admin/knowledge-hub', [KnowledgeManagementController::class, 'index'])->name('admin.knowledge.index');
+        Route::put('/admin/knowledge-hub/settings', [KnowledgeManagementController::class, 'updateSettings'])->name('admin.knowledge.settings');
+        Route::post('/admin/knowledge-hub/publication-types', [KnowledgeManagementController::class, 'storeType'])->name('admin.knowledge.types.store');
+        Route::put('/admin/knowledge-hub/publication-types/{publicationType}', [KnowledgeManagementController::class, 'updateType'])->name('admin.knowledge.types.update');
+        Route::post('/admin/knowledge-hub/categories', [KnowledgeManagementController::class, 'storeCategory'])->name('admin.knowledge.categories.store');
+        Route::put('/admin/knowledge-hub/categories/{category}', [KnowledgeManagementController::class, 'updateCategory'])->name('admin.knowledge.categories.update');
+        Route::patch('/admin/knowledge-hub/monetization-applications/{application}', [KnowledgeManagementController::class, 'reviewApplication'])->name('admin.knowledge.applications.review');
+        Route::post('/admin/knowledge-hub/promotion-packages', [KnowledgeManagementController::class, 'storePromotionPackage'])->name('admin.knowledge.promotion-packages.store');
+        Route::put('/admin/knowledge-hub/promotion-packages/{promotionPackage}', [KnowledgeManagementController::class, 'updatePromotionPackage'])->name('admin.knowledge.promotion-packages.update');
+        Route::patch('/admin/knowledge-hub/promotions/{campaign}', [KnowledgeManagementController::class, 'reviewPromotion'])->name('admin.knowledge.promotions.review');
 
         // Payment gateway setting route
         Route::prefix('admin')->name('admin.')->group(function () {

@@ -507,5 +507,6 @@
 
     @stack('scripts')
 @include('notifications._push-invitation')
+@include('partials.whatsapp-support')
 </body>
 </html>

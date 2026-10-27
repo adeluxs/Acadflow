@@ -1,6 +1,6 @@
 <?php $__env->startSection('title', 'Knowledge Hub'); ?>
 <?php $__env->startSection('page-title', 'Knowledge Hub'); ?>
-<?php $__env->startSection('page-subtitle', 'Discover trusted academic work, communities and learning resources.'); ?>
+<?php $__env->startSection('page-subtitle', 'Learn from research, campus experience, stories and practical knowledge.'); ?>
 
 <?php $__env->startSection('content'); ?>
 <?php echo $__env->make('knowledge._nav', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
@@ -14,13 +14,13 @@
             <div>
                 <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-indigo-100 backdrop-blur">
                     <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/15">✦</span>
-                    Academic discovery, publishing and collaboration
+                    Learn · Share · Earn
                 </div>
                 <h1 class="mt-5 max-w-3xl text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">
-                    Turn your institution's knowledge into something people can actually use.
+                    Knowledge, stories and skills worth returning to.
                 </h1>
                 <p class="mt-4 max-w-2xl text-sm leading-7 text-indigo-100/90 sm:text-base">
-                    Explore research outputs, study guides, tutorials, learning paths and community knowledge from authorized academic sources.
+                    Explore credible research, campus life, serialized stories, personal growth and professional knowledge. Free and paid work is clearly labelled.
                 </p>
 
                 <form method="GET" action="<?php echo e(route('knowledge.index')); ?>" class="mt-7 rounded-2xl border border-white/15 bg-white/10 p-3 shadow-lg backdrop-blur-sm">
@@ -40,14 +40,15 @@
                         </select>
                         <select name="type" class="rounded-xl border-white/20 bg-white/95 px-3 py-3 text-sm font-medium text-slate-800">
                             <option value="">All resource types</option>
-                            <?php $__currentLoopData = ['academic_article','research_output','study_guide','tutorial','case_study','career_guide','digital_resource']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $type): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                <option value="<?php echo e($type); ?>" <?php if(request('type') === $type): echo 'selected'; endif; ?>><?php echo e(ucwords(str_replace('_', ' ', $type))); ?></option>
+                            <?php $__currentLoopData = $publicationTypes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $type): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <option value="<?php echo e($type->slug); ?>" <?php if(request('type') === $type->slug): echo 'selected'; endif; ?>><?php echo e($type->name); ?></option>
                             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                         </select>
                         <button class="rounded-xl bg-white px-5 py-3 text-sm font-black text-indigo-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                             Search
                         </button>
                     </div>
+                    <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><select name="access" class="rounded-xl border-white/20 bg-white/95 px-3 py-2.5 text-sm text-slate-800"><option value="">Free and paid</option><option value="free" <?php if(request('access')==='free'): echo 'selected'; endif; ?>>Free</option><option value="paid" <?php if(request('access')==='paid'): echo 'selected'; endif; ?>>Paid</option></select><select name="recency" class="rounded-xl border-white/20 bg-white/95 px-3 py-2.5 text-sm text-slate-800"><option value="">Any time</option><option value="week" <?php if(request('recency')==='week'): echo 'selected'; endif; ?>>This week</option><option value="month" <?php if(request('recency')==='month'): echo 'selected'; endif; ?>>This month</option></select><select name="sort" class="rounded-xl border-white/20 bg-white/95 px-3 py-2.5 text-sm text-slate-800"><option value="recent">Most recent</option><option value="popular" <?php if(request('sort')==='popular'): echo 'selected'; endif; ?>>Popular</option></select><?php if(auth()->guard()->check()): ?><select name="feed" class="rounded-xl border-white/20 bg-white/95 px-3 py-2.5 text-sm text-slate-800"><option value="">Explore</option><option value="following" <?php if(request('feed')==='following'): echo 'selected'; endif; ?>>Following</option><option value="saved" <?php if(request('feed')==='saved'): echo 'selected'; endif; ?>>Saved</option><option value="mine" <?php if(request('feed')==='mine'): echo 'selected'; endif; ?>>My publications</option></select><?php endif; ?></div>
                 </form>
             </div>
 
@@ -68,15 +69,37 @@
         </div>
     </section>
 
+    <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><?php $__currentLoopData = ['academics_research'=>['Academics & Research','Research, papers and learning resources'],'campus_student_life'=>['Campus & Student Life','Academic hustle and real campus experience'],'stories_creativity'=>['Stories & Creativity','Fiction, poetry and serialized stories'],'life_personal_growth'=>['Life & Personal Growth','Resilience, relationships and life lessons'],'skills_business_professional'=>['Skills, Business & Careers','Tutorials, technology and professional knowledge']]; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $area=>[$label,$description]): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><a href="<?php echo e(route('knowledge.index',['area'=>$area])); ?>" class="rounded-2xl border bg-white p-4 shadow-sm transition hover:border-indigo-300"><h2 class="text-sm font-black text-slate-900"><?php echo e($label); ?></h2><p class="mt-2 text-xs leading-5 text-slate-500"><?php echo e($description); ?></p></a><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></section>
+
     <?php if(auth()->guard()->check()): ?>
         <section class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <p class="text-sm font-black text-slate-900">Share what you know</p>
-                <p class="mt-1 text-sm text-slate-500">Publish academic resources or manage drafts, moderation and analytics.</p>
+                <p class="mt-1 text-sm text-slate-500">Publish research, stories, campus experiences or practical guides, and manage every draft in one studio.</p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="<?php echo e(route('knowledge.manage')); ?>" class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Manage publications</a>
                 <a href="<?php echo e(route('knowledge.manage.create')); ?>" class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700">Create publication</a>
+                <a href="<?php echo e(route('knowledge.series.create')); ?>" class="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm">Create series</a>
+            </div>
+        </section>
+    <?php endif; ?>
+
+    <?php if($sponsored->isNotEmpty()): ?>
+        <section aria-labelledby="sponsored-heading">
+            <div class="mb-4 flex items-end justify-between gap-3">
+                <div><p class="text-xs font-black uppercase tracking-[.18em] text-amber-700">Paid placement</p><h2 id="sponsored-heading" class="mt-1 text-2xl font-black text-slate-950">Sponsored publications</h2></div>
+                <p class="text-xs text-slate-500">Promotion does not indicate academic review or endorsement.</p>
+            </div>
+            <div class="grid gap-4 md:grid-cols-3">
+                <?php $__currentLoopData = $sponsored; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $campaign): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <a href="<?php echo e(route('knowledge.promotions.click', $campaign)); ?>" class="rounded-2xl border border-amber-200 bg-amber-50/50 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                        <span class="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-amber-800">Sponsored</span>
+                        <h3 class="mt-4 line-clamp-2 text-lg font-black text-slate-950"><?php echo e($campaign->publication?->title); ?></h3>
+                        <p class="mt-3 text-sm text-slate-600"><?php echo e($campaign->publication?->creator?->full_name ?: 'Knowledge Hub creator'); ?></p>
+                        <p class="mt-1 text-xs text-slate-400"><?php echo e($campaign->publication?->category?->name ?: 'Knowledge publication'); ?></p>
+                    </a>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
             </div>
         </section>
     <?php endif; ?>
@@ -117,9 +140,9 @@
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
                 <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Library</p>
-                <h2 class="mt-1 text-2xl font-black tracking-tight text-slate-950">Explore academic resources</h2>
+                <h2 class="mt-1 text-2xl font-black tracking-tight text-slate-950">Explore knowledge and stories</h2>
             </div>
-            <?php if(request()->hasAny(['q','category','type','access'])): ?>
+            <?php if(request()->hasAny(['q','category','type','access','area','feed','recency','sort'])): ?>
                 <a href="<?php echo e(route('knowledge.index')); ?>" class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">Clear filters</a>
             <?php endif; ?>
         </div>

@@ -4,26 +4,35 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Admin\PaymentGatewayController;
+use App\Models\CommerceEntitlement;
 use App\Models\CommerceOrder;
-use App\Models\CommerceRefund;
+use App\Models\CommerceRevenueAllocation;
+use App\Models\CreatorMonetizationApplication;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentGateway;
 use App\Models\Semester;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Models\UserSubscription;
 use App\Models\WalletFundingRequest;
 use App\Services\Commerce\CommerceService;
 use App\Services\Commerce\WalletService;
+use App\Services\Knowledge\PublicationService;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Services\PaymentService;
+use App\Services\SettingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class PaymentGatewayFlowTest extends TestCase
@@ -33,12 +42,12 @@ class PaymentGatewayFlowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        \App\Services\SettingService::flushRequestCache();
-        Http::swap(new \Illuminate\Http\Client\Factory());
+        SettingService::flushRequestCache();
+        Http::swap(new Factory);
         Http::preventStrayRequests();
-        \Illuminate\Support\Facades\Route::middleware('web')->put('/__gateway/{paymentGateway}', [\App\Http\Controllers\Admin\PaymentGatewayController::class, 'update']);
-        \Illuminate\Support\Facades\Route::middleware('web')->get('/__gateway/{paymentGateway}', [\App\Http\Controllers\Admin\PaymentGatewayController::class, 'edit']);
-        \Illuminate\Support\Facades\Route::middleware('web')->post('/__gateway/{paymentGateway}/test', [\App\Http\Controllers\Admin\PaymentGatewayController::class, 'testConnection']);
+        Route::middleware('web')->put('/__gateway/{paymentGateway}', [PaymentGatewayController::class, 'update']);
+        Route::middleware('web')->get('/__gateway/{paymentGateway}', [PaymentGatewayController::class, 'edit']);
+        Route::middleware('web')->post('/__gateway/{paymentGateway}/test', [PaymentGatewayController::class, 'testConnection']);
     }
 
     private function gateway(array $overrides = []): PaymentGateway
@@ -52,13 +61,14 @@ class PaymentGatewayFlowTest extends TestCase
 
     private function fakeProvider(string $status = 'success', array $overrides = []): void
     {
-        Http::swap(new \Illuminate\Http\Client\Factory());
+        Http::swap(new Factory);
         Http::preventStrayRequests();
         Http::fake(function ($request) use ($status, $overrides) {
             if (str_ends_with($request->url(), '/transaction/initialize')) {
                 return Http::response(['status' => true, 'data' => ['reference' => $request['reference'], 'access_code' => 'access', 'authorization_url' => 'https://checkout.paystack.com/access']]);
             }
             $reference = rawurldecode(basename($request->url()));
+
             return Http::response(['status' => true, 'data' => array_merge(['reference' => $reference, 'status' => $status, 'amount' => 50000, 'currency' => 'NGN'], $overrides)]);
         });
     }
@@ -66,12 +76,14 @@ class PaymentGatewayFlowTest extends TestCase
     private function webhook(array $payload, string $path = '/commerce/webhook/paystack', ?string $signature = null)
     {
         $raw = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
         return $this->call('POST', $path, [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json', 'HTTP_X_PAYSTACK_SIGNATURE' => $signature ?? hash_hmac('sha512', $raw, 'sk_test_example')], $raw);
     }
 
     private function funding(User $user): Transaction
     {
         $result = app(CommerceService::class)->initiateWalletFunding($user, '500', 'paystack', 'fund-'.$user->id);
+
         return Transaction::where('uuid', $result['transaction_uuid'])->firstOrFail();
     }
 
@@ -154,7 +166,7 @@ class PaymentGatewayFlowTest extends TestCase
         try {
             app(CommerceService::class)->initiateWalletFunding($other, '500', 'paystack', 'shared-key');
             $this->fail('Another user must not receive this checkout.');
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+        } catch (HttpException $exception) {
             $this->assertSame(403, $exception->getStatusCode());
         }
         Http::assertSentCount(1);
@@ -312,7 +324,7 @@ class PaymentGatewayFlowTest extends TestCase
         $order = $this->paidOrder($buyer, $gateway);
         $refund = app(CommerceService::class)->requestRefund($order, $buyer, '400', 'First', 'reserve-1');
         $refund->update(['status' => 'processing']);
-        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $this->expectException(HttpException::class);
         app(CommerceService::class)->requestRefund($order, $buyer, '200', 'Second', 'reserve-2');
     }
 
@@ -332,9 +344,10 @@ class PaymentGatewayFlowTest extends TestCase
         $this->gateway();
         $this->fakeProvider();
         $seller = User::factory()->create();
+        CreatorMonetizationApplication::create(['user_id' => $seller->id, 'status' => 'approved', 'ownership_declaration' => true, 'terms_accepted' => true, 'submitted_at' => now(), 'reviewed_at' => now()]);
         $buyer = User::factory()->create(['onboarding_completed_at' => now()]);
-        $publication = app(\App\Services\Knowledge\PublicationService::class)->createDraft([
-            'title' => 'Premium research guide', 'body' => '<p>Research guide</p>', 'visibility' => 'public', 'access_type' => 'premium', 'price' => '500',
+        $publication = app(PublicationService::class)->createDraft([
+            'title' => 'Premium research guide', 'body' => '<p>Research guide</p>', 'visibility' => 'public', 'access_type' => 'premium', 'price' => '500', 'ownership_declaration' => true,
         ], $seller);
         $publication->update(['status' => 'published', 'published_at' => now()->subMinute(), 'price' => '500', 'access_type' => 'premium']);
         $commerce = app(CommerceService::class);
@@ -348,9 +361,9 @@ class PaymentGatewayFlowTest extends TestCase
         $this->webhook($event)->assertOk();
         $this->webhook($event)->assertOk();
         $this->assertSame('paid', $order->fresh()->payment_status);
-        $this->assertSame(1, \App\Models\CommerceEntitlement::where('user_id', $buyer->id)->count());
+        $this->assertSame(1, CommerceEntitlement::where('user_id', $buyer->id)->count());
         $this->assertSame(1, DB::table('wallet_ledger_entries')->where('entry_type', 'sale_earning')->count());
-        $this->assertSame(50000, (int) \App\Models\CommerceRevenueAllocation::sum('amount_minor'));
+        $this->assertSame(50000, (int) CommerceRevenueAllocation::sum('amount_minor'));
         $other = User::factory()->create(['onboarding_completed_at' => now()]);
         $this->actingAs($other)->get(route('commerce.callback', $tx))->assertForbidden();
     }
@@ -376,7 +389,7 @@ class PaymentGatewayFlowTest extends TestCase
         $gateway = $this->gateway();
         $this->fakeProvider('pending');
         $user = User::factory()->create();
-        $tx = Transaction::create(['user_id' => $user->id, 'payment_gateway_id' => $gateway->id, 'transactionable_type' => \App\Models\UserSubscription::class, 'transactionable_id' => 999, 'amount' => '500', 'amount_minor' => 50000, 'currency' => 'NGN', 'type' => 'payment', 'status' => 'processing', 'gateway_transaction_id' => 'LEGACY-1']);
+        $tx = Transaction::create(['user_id' => $user->id, 'payment_gateway_id' => $gateway->id, 'transactionable_type' => UserSubscription::class, 'transactionable_id' => 999, 'amount' => '500', 'amount_minor' => 50000, 'currency' => 'NGN', 'type' => 'payment', 'status' => 'processing', 'gateway_transaction_id' => 'LEGACY-1']);
         $this->webhook(['event' => 'charge.success', 'data' => ['reference' => $tx->gateway_transaction_id]], '/webhook/payment/paystack')->assertStatus(503);
         $this->assertSame('processing', $tx->fresh()->status);
     }
@@ -399,6 +412,7 @@ class PaymentGatewayFlowTest extends TestCase
         $order = CommerceOrder::create(['buyer_id' => $buyer->id, 'order_number' => 'ORDER-'.$buyer->id, 'currency' => 'NGN', 'subtotal' => '500', 'subtotal_minor' => 50000, 'total_amount' => '500', 'total_amount_minor' => 50000, 'status' => 'completed', 'payment_status' => 'paid']);
         $tx = Transaction::create(['user_id' => $buyer->id, 'payment_gateway_id' => $gateway->id, 'transactionable_type' => CommerceOrder::class, 'transactionable_id' => $order->id, 'amount' => '500', 'amount_minor' => 50000, 'currency' => 'NGN', 'type' => 'payment', 'status' => 'completed', 'gateway_transaction_id' => 'PAID-'.$buyer->id, 'metadata' => ['payment_source' => 'gateway']]);
         $order->update(['transaction_id' => $tx->id]);
+
         return $order->fresh('transaction');
     }
 

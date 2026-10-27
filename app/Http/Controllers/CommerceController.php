@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CommerceOrder;
 use App\Models\CommerceRefund;
 use App\Models\KnowledgePublication;
+use App\Models\KnowledgePromotionCampaign;
 use App\Models\LearningPath;
 use App\Models\PaymentGateway;
 use App\Models\PayoutAccount;
@@ -46,6 +47,12 @@ class CommerceController extends Controller
     public function purchaseLearningPath(Request $request,LearningPath $path,CommerceService $commerce): RedirectResponse
     {
         return $this->beginPurchase($request,$path,$commerce);
+    }
+
+    public function purchasePromotion(Request $request, KnowledgePromotionCampaign $campaign, CommerceService $commerce): RedirectResponse
+    {
+        abort_unless($campaign->creator_id === $request->user()->id, 403);
+        return $this->beginPurchase($request, $campaign, $commerce);
     }
 
     private function beginPurchase(Request $request,\Illuminate\Database\Eloquent\Model $purchasable,CommerceService $commerce): RedirectResponse
@@ -179,6 +186,7 @@ class CommerceController extends Controller
 
     public function requestWithdrawal(Request $request,CommerceService $commerce): RedirectResponse
     {
+        abort_unless((bool) SettingService::getGlobal('knowledge_withdrawals_enabled', true), 403, 'Creator withdrawals are currently paused.');
         $data=$request->validate(['payout_account_id'=>['required','integer','exists:payout_accounts,id'],'amount'=>['required','regex:/^\d+(?:\.\d{1,2})?$/'],'idempotency_key'=>['required','string','max:120']]);
         $commerce->requestWithdrawal($request->user(),(int)$data['payout_account_id'],$data['amount'],$data['idempotency_key']); return back()->with('success','Withdrawal request submitted.');
     }

@@ -74,5 +74,6 @@
     </div>
     <div class="site-container footer-bottom"><p>© {{ date('Y') }} {{ $siteName }}.</p><span>Make room for your next idea.</span><a href="#main-content">Back to top ↑</a></div>
 </footer>
+@include('partials.whatsapp-support')
 </body>
 </html>

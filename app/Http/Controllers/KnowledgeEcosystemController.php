@@ -88,8 +88,12 @@ class KnowledgeEcosystemController extends Controller
         $profile = $creator->creatorProfile;
         $verificationRequests = $creator->verificationRequests()->latest('id')->limit(5)
             ->get(['id', 'verification_type', 'status', 'review_note', 'created_at', 'reviewed_at']);
+        $monetizationApplication = \App\Models\CreatorMonetizationApplication::query()->where('user_id', $creator->id)->latest('id')->first();
+        $payoutAccounts = $creator->payoutAccounts()->where('is_verified', true)->latest()->get(['id', 'provider', 'bank_name', 'account_number', 'currency']);
+        $monetizationEnabled = (bool) \App\Services\SettingService::getGlobal('knowledge_publisher_monetization_enabled', true);
+        $commission = (string) \App\Services\SettingService::getGlobal('knowledge_platform_commission_percentage', '15');
 
-        return view('knowledge.creator-edit', compact('creator', 'profile', 'verificationRequests'));
+        return view('knowledge.creator-edit', compact('creator', 'profile', 'verificationRequests', 'monetizationApplication', 'payoutAccounts', 'monetizationEnabled', 'commission'));
     }
 
     public function updateCreator(Request $request, CreatorService $creators): RedirectResponse
@@ -725,6 +729,7 @@ class KnowledgeEcosystemController extends Controller
 
     public function commentPublication(Request $request, KnowledgePublication $publication, EngagementService $engagement): RedirectResponse
     {
+        abort_unless((bool) \App\Services\SettingService::getGlobal('knowledge_comments_enabled', true), 404);
         $this->authorize('view',$publication);$data=$request->validate(['body'=>['required','string','max:10000'],'parent_id'=>['nullable','integer','exists:engagement_comments,id']]);$engagement->comment($publication,$request->user(),$data['body'],['parent_id'=>$data['parent_id']??null,'visibility'=>$publication->visibility,'thread_title'=>$publication->title]);return back()->with('success','Comment added.');
     }
 
@@ -735,6 +740,7 @@ class KnowledgeEcosystemController extends Controller
 
     public function reactPublication(Request $request, KnowledgePublication $publication, EngagementService $engagement): RedirectResponse
     {
+        abort_unless((bool) \App\Services\SettingService::getGlobal('knowledge_reactions_enabled', true), 404);
         $this->authorize('view',$publication);$data=$request->validate(['reaction'=>['required','in:like,helpful,insightful,celebrate']]);$engagement->react($publication,$request->user(),$data['reaction']);return back()->with('success','Reaction updated.');
     }
 
@@ -750,6 +756,7 @@ class KnowledgeEcosystemController extends Controller
 
     public function followPublication(Request $request, KnowledgePublication $publication, EngagementService $engagement): RedirectResponse
     {
+        abort_unless((bool) \App\Services\SettingService::getGlobal('knowledge_follows_enabled', true), 404);
         $this->authorize('view',$publication);$active=$engagement->subscribe($publication,$request->user());return back()->with('success',$active?'Publication followed.':'Publication unfollowed.');
     }
 }

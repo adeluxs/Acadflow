@@ -2,19 +2,21 @@
 
 namespace Tests\Feature\Knowledge;
 
+use App\Ai\AiManager;
+use App\Models\CreatorMonetizationApplication;
 use App\Models\Department;
 use App\Models\Faculty;
+use App\Models\KnowledgePublication;
 use App\Models\University;
 use App\Models\User;
+use App\Services\Ai\AiRuntimeConfigService;
 use App\Services\Ai\GroundedCompanionService;
 use App\Services\Discovery\SearchIndexService;
 use App\Services\Knowledge\PublicationService;
 use App\Services\SettingService;
-use App\Services\Ai\AiRuntimeConfigService;
-use App\Ai\AiManager;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class GroundedCompanionIntelligenceTest extends TestCase
@@ -147,7 +149,7 @@ class GroundedCompanionIntelligenceTest extends TestCase
         app(GroundedCompanionService::class)->ask($publication, 'Summarize the main argument.', $user);
     }
 
-    /** @return array{0:\App\Models\KnowledgePublication,1:User} */
+    /** @return array{0:KnowledgePublication,1:User} */
     private function publishedPublication(string $accessType = 'free'): array
     {
         $university = University::factory()->create();
@@ -163,6 +165,9 @@ class GroundedCompanionIntelligenceTest extends TestCase
             'department_id' => $department->id,
             'role' => 'student',
         ]);
+        if ($accessType === 'premium') {
+            CreatorMonetizationApplication::create(['user_id' => $creator->id, 'status' => 'approved', 'ownership_declaration' => true, 'terms_accepted' => true, 'submitted_at' => now(), 'reviewed_at' => now()]);
+        }
 
         $publication = app(PublicationService::class)->createDraft([
             'title' => 'Photosynthesis and Chlorophyll in Plant Energy Conversion',
@@ -172,6 +177,7 @@ class GroundedCompanionIntelligenceTest extends TestCase
             'visibility' => 'institution',
             'access_type' => $accessType,
             'price' => $accessType === 'premium' ? 1000 : null,
+            'ownership_declaration' => $accessType === 'premium',
             'tags' => ['Photosynthesis', 'Chlorophyll', 'Plant Biology'],
         ], $creator);
         $publication->update(['status' => 'published', 'published_at' => now()->subMinute()]);

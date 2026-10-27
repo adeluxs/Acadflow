@@ -30,5 +30,6 @@
 </main>
 @include('notifications._push-invitation')
 @stack('scripts')
+@include('partials.whatsapp-support')
 </body>
 </html>

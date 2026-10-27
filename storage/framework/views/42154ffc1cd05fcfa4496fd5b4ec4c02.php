@@ -3,6 +3,9 @@
 <?php $__env->startSection('page-subtitle', ucwords(str_replace('_', ' ', $publication->content_type)).' · '.($publication->creator?->full_name ?: 'Academic contributor')); ?>
 
 <?php $__env->startSection('content'); ?>
+<?php if($publication->series): ?>
+<div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50 px-5 py-4 text-sm"><div><p class="text-xs font-black uppercase tracking-wider text-violet-700"><?php echo e($publication->series->title); ?></p><p class="mt-1 font-bold text-violet-950">Chapter <?php echo e($publication->chapter_number); ?></p></div><a href="<?php echo e(route('knowledge.series.show',$publication->series)); ?>" class="font-black text-violet-700">Table of contents →</a></div>
+<?php endif; ?>
 <?php
     $commerceCurrency = strtoupper((string) \App\Services\SettingService::get('currency', 'NGN', auth()->user()?->university_id));
 ?>
@@ -13,7 +16,8 @@
         <div class="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-400"></div>
         <div class="p-6 sm:p-8 lg:p-10">
             <div class="flex flex-wrap items-center gap-2 text-xs">
-                <span class="rounded-full bg-indigo-50 px-3 py-1.5 font-bold text-indigo-700"><?php echo e($publication->category?->name ?? ucwords(str_replace('_', ' ', $publication->content_type))); ?></span>
+                <span class="rounded-full bg-indigo-50 px-3 py-1.5 font-bold text-indigo-700"><?php echo e($publication->publicationType?->name ?? ucwords(str_replace('_', ' ', $publication->content_type))); ?></span>
+                <?php if($publication->publicationType?->is_academic): ?><span class="rounded-full bg-blue-50 px-3 py-1.5 font-bold text-blue-700">Academic content · review status: <?php echo e(str($publication->status)->headline()); ?></span><?php elseif(in_array($publication->publicationType?->area,['stories_creativity','life_personal_growth'],true)): ?><span class="rounded-full bg-violet-50 px-3 py-1.5 font-bold text-violet-700"><?php echo e($publication->publicationType?->area==='stories_creativity'?'Creative work':'Personal experience'); ?></span><?php endif; ?>
                 <?php $__currentLoopData = $publication->tags; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $tag): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                     <span class="rounded-full bg-slate-100 px-3 py-1.5 font-medium text-slate-600">#<?php echo e($tag->name); ?></span>
                 <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
@@ -88,6 +92,7 @@
             <div><strong>Research provenance verified.</strong> This publication was derived from the approved Research Studio project <strong><?php echo e($publication->sourceResearchProject->title); ?></strong>.</div>
         </div>
     <?php endif; ?>
+    <?php if($publication->content_warning): ?><div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><strong>Content note:</strong> <?php echo e($publication->content_warning); ?></div><?php endif; ?>
 
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <main class="space-y-6">
@@ -97,6 +102,10 @@
                         <?php echo app(\App\Services\RichTextSanitizer::class)->sanitize((string) ($publication->document?->body ?? '')); ?>
 
                     </div>
+                    <?php if($publication->series): ?>
+                        <div class="mt-8 grid gap-3 border-t border-slate-100 pt-6 sm:grid-cols-2"><?php if($previousChapter): ?><a href="<?php echo e(route('knowledge.show',$previousChapter)); ?>" class="rounded-2xl border p-4 text-sm"><span class="text-xs font-bold text-slate-400">← Previous chapter</span><strong class="mt-1 block text-slate-900"><?php echo e($previousChapter->title); ?></strong></a><?php else: ?><div></div><?php endif; ?> <?php if($nextChapter): ?><a href="<?php echo e(route('knowledge.show',$nextChapter)); ?>" class="rounded-2xl border p-4 text-right text-sm"><span class="text-xs font-bold text-slate-400">Next chapter →</span><strong class="mt-1 block text-slate-900"><?php echo e($nextChapter->title); ?></strong></a><?php endif; ?></div>
+                        <?php if(auth()->guard()->check()): ?><form method="POST" action="<?php echo e(route('knowledge.series.progress',[$publication->series,$publication])); ?>" class="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-violet-50 p-4"><?php echo csrf_field(); ?> <?php echo method_field('PUT'); ?><label class="text-sm font-bold text-violet-950">Reading progress <select name="progress_percent" class="ml-2 rounded-xl border-violet-200 bg-white text-sm"><?php $__currentLoopData = [25,50,75,100]; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $percent): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><option value="<?php echo e($percent); ?>"><?php echo e($percent); ?>%</option><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></select></label><button class="rounded-xl bg-violet-700 px-4 py-2 text-sm font-bold text-white">Save progress</button></form><?php endif; ?>
+                    <?php endif; ?>
                 <?php else: ?>
                     <div class="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-6">
                         <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">🔒</div>

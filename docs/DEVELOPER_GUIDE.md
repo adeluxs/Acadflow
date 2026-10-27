@@ -515,7 +515,7 @@ Onboarding retains its six saved steps and completed-user bypass. `/onboarding/m
 
 ### Knowledge Hub
 
-Knowledge Hub includes `KnowledgePublication`, categories/tags, citations, bookmarks, follows, comments/reactions/shares, creator profiles, reputation, communities/posts/polls, learning paths, reading lists, events, challenges and certificates. Publication indexing connects the hub to search and Grounded AI.
+Knowledge Hub includes `KnowledgePublication`, database-managed publication types and subject categories, series/chapters/reading progress, citations, bookmarks, follows, comments/reactions/shares, creator profiles, reviewed selling eligibility, paid sponsored campaigns, reputation, communities/posts/polls, learning paths, reading lists, events, challenges and certificates. Publication indexing connects the hub to search and Grounded AI. Paid publications, premium chapters and promotion campaigns reuse shared commerce, verified settlement and the financial ledger. See [Knowledge Hub creator economy and storytelling](KNOWLEDGE_HUB_CREATOR_ECONOMY.md).
 
 ### Notifications
 

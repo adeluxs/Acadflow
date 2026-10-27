@@ -33,10 +33,7 @@ class KnowledgeDiscoveryService
             }
         });
 
-
-        if (! $user) {
-            $query->where('access_type', 'free');
-        } else {
+        if ($user) {
             $query->where(function ($access) use ($user) {
                 $access->where('access_type', '!=', 'institution')
                     ->orWhere(function ($institution) use ($user) {
@@ -45,10 +42,9 @@ class KnowledgeDiscoveryService
                     });
             });
 
-            if (! FeatureAccessService::canAccessFeature('knowledge_hub_premium', $user)
-                || ! $user->hasFeature('knowledge_hub_premium')) {
-                $query->where('access_type', '!=', 'premium');
-            }
+        }
+        if (! (bool) SettingService::getGlobal('knowledge_paid_content_enabled', true)) {
+            $query->where('access_type', '!=', 'premium');
         }
 
         if ($term = trim((string) ($filters['q'] ?? ''))) {
@@ -63,13 +59,39 @@ class KnowledgeDiscoveryService
             $query->whereHas('category', fn ($q) => $q->where('slug', $category));
         }
         if ($type = $filters['type'] ?? null) {
-            $query->where('content_type', $type);
+            $query->where(fn ($typeQuery) => $typeQuery->where('content_type', $type)->orWhereHas('publicationType', fn ($publicationType) => $publicationType->where('slug', $type)));
+        }
+        if ($area = $filters['area'] ?? null) {
+            $query->whereHas('publicationType', fn ($typeQuery) => $typeQuery->where('area', $area));
         }
         if ($access = $filters['access'] ?? null) {
-            $query->where('access_type', $access);
+            $query->where('access_type', $access === 'paid' ? 'premium' : $access);
+        }
+        if (($filters['recency'] ?? null) === 'week') {
+            $query->where('published_at', '>=', now()->subWeek());
+        }
+        if (($filters['recency'] ?? null) === 'month') {
+            $query->where('published_at', '>=', now()->subMonth());
+        }
+        if ($user && ($filters['feed'] ?? null) === 'saved') {
+            $query->whereHas('bookmarks', fn ($bookmark) => $bookmark->where('user_id', $user->id));
+        }
+        if ($user && ($filters['feed'] ?? null) === 'mine') {
+            $query->where('creator_id', $user->id);
+        }
+        if ($user && ($filters['feed'] ?? null) === 'following') {
+            $query->whereExists(function ($subscription) use ($user) {
+                $subscription->selectRaw('1')->from('engagement_subscriptions')->whereColumn('engagement_subscriptions.subscribable_id', 'knowledge_publications.id')->where('engagement_subscriptions.subscribable_type', KnowledgePublication::class)->where('engagement_subscriptions.user_id', $user->id)->where('engagement_subscriptions.is_muted', false);
+            });
         }
 
-        return $query->orderByDesc('published_at')->paginate(15)->withQueryString();
+        if (($filters['sort'] ?? null) === 'popular') {
+            $query->orderByDesc('bookmark_count')->orderByDesc('view_count');
+        } else {
+            $query->orderByDesc('published_at');
+        }
+
+        return $query->paginate(15)->withQueryString();
     }
 
     public function recordView(KnowledgePublication $publication, ?User $user, array $metadata = []): void

@@ -2,6 +2,7 @@
     $knowledgeNavigation = [
         ['route' => 'knowledge.index', 'pattern' => 'knowledge.index', 'label' => 'Discover'],
         ['route' => 'knowledge.search', 'pattern' => 'knowledge.search', 'label' => 'Search'],
+        ['route' => 'knowledge.series.index', 'pattern' => 'knowledge.series.*', 'label' => 'Stories & series'],
         ['route' => 'knowledge.communities.index', 'pattern' => 'knowledge.communities.*', 'label' => 'Communities'],
         ['route' => 'knowledge.learning.index', 'pattern' => 'knowledge.learning.*', 'label' => 'Learning paths'],
         ['route' => 'knowledge.reading.index', 'pattern' => 'knowledge.reading.*', 'label' => 'Reading lists'],
@@ -27,6 +28,8 @@
             <a href="{{ route('knowledge.creator.edit') }}" class="inline-flex items-center rounded-xl px-3.5 py-2 text-sm font-semibold transition {{ request()->routeIs('knowledge.creator.edit') ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950' }}" @if(request()->routeIs('knowledge.creator.edit')) aria-current="page" @endif>
                 Creator profile
             </a>
+            <a href="{{ route('knowledge.manage') }}" class="inline-flex items-center rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950">My publications</a>
+            <a href="{{ route('knowledge.promotions.index') }}" class="inline-flex items-center rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950">Promote</a>
         @endauth
     </div>
 </nav>

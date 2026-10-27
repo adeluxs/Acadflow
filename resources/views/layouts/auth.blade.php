@@ -101,5 +101,6 @@
 })();
 </script>
 @stack('scripts')
+@include('partials.whatsapp-support')
 </body>
 </html>
