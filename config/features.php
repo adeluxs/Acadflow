@@ -17,6 +17,16 @@ return [
     |
     */
     'definitions' => [
+        'campus_ambassadors' => [
+            'title' => 'Campus ambassadors',
+            'category' => 'Community',
+            'description' => 'Student ambassador applications, referrals, activity reports and reviewed rewards.',
+            'default_status' => 'enabled',
+            'routes' => ['ambassadors.*', 'public.ambassadors'],
+            'paths' => [],
+            'depends_on' => [],
+            'impact' => 'Applications, referral links and ambassador dashboards become unavailable. Platform administrators can still manage existing records.',
+        ],
         'dashboard' => [
             'title' => 'Dashboards',
             'category' => 'Core Academic',

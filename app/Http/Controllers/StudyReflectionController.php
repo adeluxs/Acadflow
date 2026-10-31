@@ -52,6 +52,8 @@ class StudyReflectionController extends Controller
             'reflection' => $data['reflection'],
         ]);
 
+        app(\App\Services\AmbassadorQualificationService::class)->recordStudyAction($user, 'reflection', $reflection->reflection);
+
         try {
             $feedback = $this->coach->feedback($user, $reflection);
             if (is_string($feedback) && trim($feedback) !== '') {

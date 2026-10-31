@@ -50,6 +50,16 @@
 
     {{-- PWA Install Prompt --}}
     @if($pwaAvailable)
+    <template id="acadsyntra-update-template">
+        <div id="acadsyntra-update-toast" class="fixed top-4 right-4 left-4 sm:left-auto z-50 sm:max-w-sm rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl" role="status" aria-live="polite">
+            <p class="text-sm font-semibold text-slate-900">{{ $siteName }} has been updated</p>
+            <p class="mt-1 text-xs text-slate-600" data-update-message>A new version is available. Refresh to enjoy the latest improvements.</p>
+            <div class="mt-3 flex items-center gap-2">
+                <button type="button" class="acad-primary-button" data-update-refresh>Refresh now</button>
+                <button type="button" class="rounded-xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100" data-update-later>Later</button>
+            </div>
+        </div>
+    </template>
     <div id="pwa-install-prompt" class="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 hidden">
         <div class="rounded-2xl border border-slate-200 bg-white shadow-2xl p-4">
             <div class="flex items-start justify-between gap-4 mb-4">
@@ -290,6 +300,12 @@
                     @if(request()->routeIs('dashboard'))
                         @include('onboarding._banner')
                     @endif
+                    @if(session('ambassador_join_intent') && request()->routeIs('dashboard') && auth()->user()?->isStudent())
+                        <div class="alert alert-info" role="status">Ready to continue? <a href="{{ route('ambassadors.index') }}#apply">Finish your Campus Ambassador application.</a></div>
+                    @endif
+                    @if(auth()->user()?->has_ambassador_referral && ! auth()->user()->hasVerifiedEmail() && request()->routeIs('dashboard'))
+                        <div class="alert alert-info" role="status">You joined through an ambassador invitation. <a href="{{ route('ambassadors.index') }}">Verify your email and view your invitation progress.</a></div>
+                    @endif
                     @yield('content')
                 </div>
             </main>
@@ -373,35 +389,105 @@
                 if (document.readyState === 'complete') recoverStyles();
                 else window.addEventListener('load', recoverStyles, { once: true });
             });
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register(@json($pwaWorkerUrl), { updateViaCache: 'none' })
-                    .then((registration) => {
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            if (!newWorker) return;
+            // Update notice: non-blocking, never tied to navigation or the loader.
+            // An updated worker waits (no skipWaiting on install) until the user
+            // chooses Refresh now; Later hides this version for the tab session.
+            const UPDATE_DISMISSED_KEY = 'acadsyntra_update_dismissed';
+            const UPDATE_CHECKED_KEY = 'acadsyntra_update_checked_at';
+            const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
+            let refreshRequested = false;
 
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    showUpdateNotification();
-                                }
-                            });
-                        });
-                    })
-                    .catch((error) => console.error('SW registration failed:', error));
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                // Reload only for this tab's own explicit request: no reload loops.
+                if (!refreshRequested) return;
+                refreshRequested = false;
+                location.reload();
             });
-        }
 
-        function showUpdateNotification() {
-            const notification = document.createElement('div');
-            notification.className = 'fixed top-4 right-4 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-50 max-w-sm';
-            notification.innerHTML = `
-                <p class="text-sm font-medium text-slate-900 mb-2">New version available</p>
-                <p class="text-xs text-slate-500 mb-3">Reload to get the latest update.</p>
-                <button onclick="location.reload()" class="acad-primary-button">
-                    Update Now
-                </button>
-            `;
-            document.body.appendChild(notification);
+            // Remember which forms have unsaved edits so Refresh now can warn first.
+            document.addEventListener('input', (event) => {
+                const form = event.target?.form;
+                if (form && (form.method || 'get').toLowerCase() !== 'get') form.dataset.acadUnsaved = '1';
+            }, true);
+            document.addEventListener('submit', (event) => { delete event.target?.dataset?.acadUnsaved; }, true);
+
+            const workerVersion = (worker) => new Promise((resolve) => {
+                const channel = new MessageChannel();
+                const timer = setTimeout(() => resolve('unknown'), 1500);
+                channel.port1.onmessage = (event) => { clearTimeout(timer); resolve(String(event.data?.version || 'unknown')); };
+                try { worker.postMessage({ type: 'GET_VERSION' }, [channel.port2]); }
+                catch (_) { clearTimeout(timer); resolve('unknown'); }
+            });
+
+            const offerUpdate = async (registration, worker) => {
+                // First install has nothing to replace, so there is nothing to announce.
+                if (!worker || !navigator.serviceWorker.controller) return;
+                const version = await workerVersion(worker);
+                let dismissed = null;
+                try { dismissed = sessionStorage.getItem(UPDATE_DISMISSED_KEY); } catch (_) {}
+                if (dismissed === version || document.getElementById('acadsyntra-update-toast')) return;
+                const template = document.getElementById('acadsyntra-update-template');
+                if (!template) return;
+                const toast = template.content.firstElementChild.cloneNode(true);
+                const refresh = toast.querySelector('[data-update-refresh]');
+                const message = toast.querySelector('[data-update-message]');
+                toast.querySelector('[data-update-later]').addEventListener('click', () => {
+                    try { sessionStorage.setItem(UPDATE_DISMISSED_KEY, version); } catch (_) {}
+                    toast.remove();
+                });
+                refresh.addEventListener('click', () => {
+                    if (!refresh.dataset.confirmed && document.querySelector('form[data-acad-unsaved="1"]')) {
+                        refresh.dataset.confirmed = '1';
+                        message.textContent = 'You have unsaved changes on this page. Save them first, or refresh anyway.';
+                        refresh.textContent = 'Refresh anyway';
+                        return;
+                    }
+                    refresh.disabled = true;
+                    const waiting = registration.waiting;
+                    if (!waiting) { location.reload(); return; }
+                    refreshRequested = true;
+                    waiting.postMessage({ type: 'SKIP_WAITING' });
+                    // If activation is slow or blocked, a plain reload still picks up new pages.
+                    setTimeout(() => { if (refreshRequested) location.reload(); }, 4000);
+                });
+                document.body.appendChild(toast);
+            };
+
+            const watch = (registration) => {
+                if (registration.waiting) void offerUpdate(registration, registration.waiting);
+                registration.addEventListener('updatefound', () => {
+                    const worker = registration.installing;
+                    worker?.addEventListener('statechange', () => {
+                        if (worker.state === 'installed') void offerUpdate(registration, worker);
+                    });
+                });
+            };
+
+            const startWorker = async () => {
+                try {
+                    const workerUrl = new URL(@json($pwaWorkerUrl), location.href).href;
+                    let registration = await navigator.serviceWorker.getRegistration('/');
+                    const current = registration && [registration.active, registration.waiting, registration.installing]
+                        .some((worker) => worker?.scriptURL === workerUrl);
+                    if (!current) {
+                        registration = await navigator.serviceWorker.register(workerUrl, { updateViaCache: 'none' });
+                    }
+                    watch(registration);
+                    // A deploy check is a small background request, at most every 30 minutes,
+                    // independent of page navigation; failures are ignored.
+                    let checkedAt = 0;
+                    try { checkedAt = Number(sessionStorage.getItem(UPDATE_CHECKED_KEY) || 0); } catch (_) {}
+                    if (current && Date.now() - checkedAt > UPDATE_CHECK_INTERVAL_MS) {
+                        try { sessionStorage.setItem(UPDATE_CHECKED_KEY, String(Date.now())); } catch (_) {}
+                        registration.update().catch(() => {});
+                    }
+                } catch (error) {
+                    console.warn('Offline support is unavailable in this browser session.', error);
+                }
+            };
+            window.addEventListener('load', () => {
+                (window.requestIdleCallback || ((callback) => setTimeout(callback, 1)))(() => void startWorker(), { timeout: 3000 });
+            }, { once: true });
         }
         @elseif(!auth()->check() || !app(\App\Services\PushNotificationService::class)->availableFor(auth()->user()))
         // If PWA is switched off after users previously installed it, actively

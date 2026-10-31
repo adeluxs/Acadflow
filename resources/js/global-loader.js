@@ -140,6 +140,42 @@ export function installAxiosLoader() {
     });
 }
 
+// A document navigation normally replaces this page, which clears the overlay.
+// When it does not (an unsaved-work prompt answered "Stay", a 204/attachment
+// response, Esc/Stop, a slow server), the overlay must never trap the user.
+const NAVIGATION_WATCHDOG_MS = 10000;
+const SUBMIT_WATCHDOG_MS = 45000;
+let navigationToken = null;
+let navigationWatchdog = null;
+
+function endNavigation() {
+    clearTimeout(navigationWatchdog);
+    navigationWatchdog = null;
+    if (navigationToken) end(navigationToken);
+    navigationToken = null;
+}
+
+function beginNavigation(message, delay, watchdogMs) {
+    endNavigation();
+    navigationToken = begin(message, { delay });
+    // Release the full-screen overlay; the browser's own progress indicator
+    // and the thin navigation bar still show that the request is running.
+    navigationWatchdog = window.setTimeout(endNavigation, watchdogMs);
+}
+
+/**
+ * Listen once for this navigation's beforeunload, after every page handler
+ * (listeners added now run last). A cancelled beforeunload means the browser
+ * showed a "Leave site?" prompt; if the user stayed, no navigation follows.
+ */
+function watchUnloadPrompt() {
+    const state = { prompted: false };
+    const listener = (event) => { state.prompted = event.defaultPrevented || (typeof event.returnValue === 'string' && event.returnValue !== ''); };
+    window.addEventListener('beforeunload', listener, { once: true });
+    state.done = () => window.removeEventListener('beforeunload', listener);
+    return state;
+}
+
 function installNavigationLoader() {
     document.addEventListener('click', (event) => {
         if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -152,26 +188,37 @@ function installNavigationLoader() {
         if (url.pathname === location.pathname && url.search === location.search && (url.hash || url.href.endsWith('#'))) return;
         // Attachments leave the current document open, so no navigation will hide an overlay.
         if (/\/(?:download|export)(?:[/.]|$)/i.test(url.pathname)) return;
+        const prompt = watchUnloadPrompt();
         setTimeout(() => {
-            if (!event.defaultPrevented) begin('Loading page…', { delay: 180 });
+            prompt.done();
+            if (prompt.prompted) window.dispatchEvent(new CustomEvent('acadflow:navigation-cancelled'));
+            if (event.defaultPrevented || prompt.prompted) return;
+            beginNavigation('Loading page…', 400, NAVIGATION_WATCHDOG_MS);
         }, 0);
     });
 
     document.addEventListener('submit', (event) => {
         const form = event.target;
         if (!(form instanceof HTMLFormElement) || form.dataset.noLoader === '1') return;
+        const prompt = watchUnloadPrompt();
 
         setTimeout(() => {
-            if (event.defaultPrevented) return;
+            prompt.done();
+            if (prompt.prompted) window.dispatchEvent(new CustomEvent('acadflow:navigation-cancelled'));
+            if (event.defaultPrevented || prompt.prompted) return;
             const target = event.submitter?.formTarget || form.target || document.querySelector('base[target]')?.target;
             if (target && target.toLowerCase() !== '_self') return;
             const method = String(event.submitter?.getAttribute('formmethod') || form.method || 'get').toUpperCase();
             if (method === 'DIALOG') return;
-            begin(new URL(form.action).pathname === '/logout' ? 'Signing out…' : method === 'GET' ? 'Searching…' : 'Saving changes…', { delay: 100 });
+            const label = new URL(form.action).pathname === '/logout' ? 'Signing out…' : method === 'GET' ? 'Searching…' : 'Saving changes…';
+            beginNavigation(label, method === 'GET' ? 400 : 100, method === 'GET' ? NAVIGATION_WATCHDOG_MS : SUBMIT_WATCHDOG_MS);
         }, 0);
     }, true);
 
-    window.addEventListener('pageshow', reset);
+    // bfcache restores, history traversal and returning to the tab all mean
+    // this document is still (or again) the one in front of the user.
+    window.addEventListener('pageshow', () => { endNavigation(); reset(); });
+    window.addEventListener('popstate', endNavigation);
 }
 
 export function initGlobalLoader() {

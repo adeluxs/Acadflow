@@ -68,7 +68,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Append to the web group after StartSession rather than making it a
         // pre-session global middleware. Protected API groups add the same
         // middleware after auth:sanctum in routes/api.php.
-        $middleware->web(append: [\App\Http\Middleware\ResolveAcademicContext::class, FeatureAccessMiddleware::class, \App\Http\Middleware\RecordMeaningfulActivity::class]);
+        $middleware->web(append: [\App\Http\Middleware\AmbassadorBrowserSignal::class, \App\Http\Middleware\ResolveAcademicContext::class, FeatureAccessMiddleware::class, \App\Http\Middleware\RecordMeaningfulActivity::class]);
         $middleware->prependToPriorityList(\Illuminate\Routing\Middleware\SubstituteBindings::class, \App\Http\Middleware\ResolveAcademicContext::class);
         
         // Add session timeout check (runs on web routes after auth)

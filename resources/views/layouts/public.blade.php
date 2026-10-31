@@ -5,7 +5,9 @@
     if (!preg_match('/^#[0-9a-f]{6}$/i', $primaryColor)) $primaryColor = '#4f46e5';
     $canonical = ($slug ?? 'home') === 'home' ? route('home') : (isset(\App\Services\PublicWebsite::PATHS[$slug]) ? route('public.'.$slug) : route('public.page', ['page' => $slug]));
     $description = $page['description'] ?? $page['intro'];
-    $nav = ['home' => ['Home', route('home')], 'features' => ['Features', route('public.features')], 'how-it-works' => ['How it works', route('public.how-it-works')], 'about' => ['About', route('public.about')], 'contact' => ['Contact', route('public.contact')], 'faq' => ['FAQs', route('public.faq')]];
+    $nav = ['home' => ['Home', route('home')], 'features' => ['Features', route('public.features')], 'how-it-works' => ['How it works', route('public.how-it-works')], 'about' => ['About', route('public.about')], 'ambassadors' => ['Campus Ambassador', route('public.ambassadors')], 'contact' => ['Contact', route('public.contact')], 'faq' => ['FAQs', route('public.faq')]];
+    $ambassadorsOpen = \App\Services\FeatureAccessService::effectiveStatus('campus_ambassadors', null) === \App\Services\FeatureAccessService::STATUS_ENABLED;
+    if (! $ambassadorsOpen) unset($nav['ambassadors']);
     $schema = [
         '@context' => 'https://schema.org', '@graph' => [
             ['@type' => 'WebSite', '@id' => route('home').'#website', 'url' => route('home'), 'name' => $siteName],
@@ -13,7 +15,7 @@
         ],
     ];
     if (($slug ?? '') === 'home') $schema['@graph'][] = ['@type' => 'SoftwareApplication', 'name' => $siteName, 'applicationCategory' => 'EducationalApplication', 'operatingSystem' => 'Web', 'url' => route('home'), 'description' => $description];
-    if (in_array($slug ?? '', ['faq', 'help'], true)) $schema['@graph'][] = ['@type' => 'FAQPage', 'mainEntity' => array_map(fn ($faq) => ['@type' => 'Question', 'name' => $faq['question'], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $faq['answer']]], $faqs)];
+    if (in_array($slug ?? '', ['faq', 'help', 'ambassadors'], true)) $schema['@graph'][] = ['@type' => 'FAQPage', 'mainEntity' => array_map(fn ($faq) => ['@type' => 'Question', 'name' => $faq['question'], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $faq['answer']]], $faqs)];
     $configuredLogo = trim((string) \App\Services\SettingService::getGlobal('site_logo', ''));
     $logo = (str_starts_with($configuredLogo, '/') && !str_starts_with($configuredLogo, '//')) || filter_var($configuredLogo, FILTER_VALIDATE_URL) && str_starts_with($configuredLogo, 'https://') ? $configuredLogo : asset('branding/acadsyntra-mark.png');
 @endphp
@@ -42,6 +44,7 @@
     <link rel="icon" href="{{ asset('branding/acadsyntra-icon-32.png') }}" type="image/png">
     <link rel="apple-touch-icon" href="{{ asset('branding/acadsyntra-icon-180.png') }}">
     @vite(['resources/css/public.css', 'resources/js/public-website.js'])
+    @stack('styles')
     <style>:root { --brand: {{ $primaryColor }}; }</style>
     <script type="application/ld+json">{!! json_encode($schema, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES) !!}</script>
 </head>
@@ -68,7 +71,7 @@
     <div class="site-container footer-grid">
         <div class="footer-intro"><a class="site-brand" href="{{ route('home') }}"><img src="{{ $logo }}" width="36" height="36" alt=""><span>{{ $siteName }}</span><span class="brand-dot"></span></a><p>A clearer path through learning,<br>research and knowledge sharing.</p><a class="text-link" href="{{ route('public.contact') }}">Talk to the team <span aria-hidden="true">↗</span></a></div>
         <nav aria-label="Product links"><h2>Product</h2><a href="{{ route('public.features') }}">Features</a><a href="{{ route('public.how-it-works') }}">How it works</a><a href="{{ route('register') }}">Getting started</a><a href="{{ route('public.page', ['page' => 'documentation']) }}">Product guide</a></nav>
-        <nav aria-label="Company links"><h2>Company</h2><a href="{{ route('public.about') }}">About us</a><a href="{{ route('public.contact') }}">Contact us</a><a href="{{ route('public.faq') }}">FAQs</a></nav>
+        <nav aria-label="Company links"><h2>Company</h2>@if($ambassadorsOpen)<a href="{{ route('public.ambassadors') }}">Campus ambassadors</a>@endif<a href="{{ route('public.about') }}">About us</a><a href="{{ route('public.contact') }}">Contact us</a><a href="{{ route('public.faq') }}">FAQs</a></nav>
         <nav aria-label="Support links"><h2>Support</h2><a href="{{ route('public.help') }}">Help center</a><a href="{{ route('public.contact') }}">Support contact</a><a href="{{ route('public.page', ['page' => 'security']) }}">Security</a>@if($supportEmail)<a href="mailto:{{ $supportEmail }}">{{ $supportEmail }}</a>@endif</nav>
         <nav aria-label="Legal links"><h2>Legal</h2><a href="{{ route('public.privacy') }}">Privacy policy</a><a href="{{ route('public.terms') }}">Terms of service</a><a href="{{ route('public.cookies') }}">Cookie policy</a><a href="{{ route('public.disclaimer') }}">Disclaimer</a></nav>
     </div>

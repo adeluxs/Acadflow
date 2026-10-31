@@ -3350,3 +3350,63 @@ img {
     }
 }
 
+
+/* Campus Ambassador promotion (homepage). No images or animation: no layout shift. */
+.ambassador-promo {
+    display: grid;
+    grid-template-columns: minmax(0,1.2fr) minmax(0,1fr);
+    gap: 40px;
+    align-items: center;
+    padding: 48px;
+    border-radius: var(--radius);
+    background: var(--lavender);
+    border: 1px solid #ded9ff;
+}
+.ambassador-promo h2 {
+    margin: 10px 0 8px;
+    font-size: clamp(28px,3.4vw,40px);
+    line-height: 1.12;
+    letter-spacing: -.02em;
+}
+.ambassador-promo .ambassador-tagline {
+    margin: 0 0 14px;
+    font-size: 18px;
+    font-weight: 650;
+    color: #3d3a8f;
+}
+.ambassador-promo p {
+    color: #45495e;
+}
+.ambassador-promo ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 14px;
+}
+.ambassador-promo li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #fff;
+    font-weight: 600;
+    font-size: 14px;
+}
+.ambassador-promo li .icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    color: var(--brand);
+}
+.ambassador-promo .button-row {
+    margin-top: 22px;
+}
+@media (max-width: 860px) {
+    .ambassador-promo {
+        grid-template-columns: 1fr;
+        padding: 28px 22px;
+        gap: 26px;
+    }
+}

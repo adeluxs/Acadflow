@@ -111,6 +111,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
             'two_factor_recovery_codes' => 'array',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'has_ambassador_referral' => 'boolean',
         ];
     }
 
@@ -249,6 +250,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
     ];
 
     protected $hidden = [
+        'has_ambassador_referral',
         'password',
         'remember_token',
     ];

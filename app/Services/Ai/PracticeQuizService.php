@@ -163,6 +163,11 @@ class PracticeQuizService
                 TopicMastery::updateOrCreate(['user_id' => $user->id, 'course_id' => $quiz->course_id, 'topic' => $quiz->topic], ['mastery' => $totals->total ? (int) round($totals->correct / $totals->total * 100) : 0, 'signals' => ['correct' => (int) $totals->correct, 'total' => (int) $totals->total]]);
             }
 
+            $answered = array_filter($answers, fn ($answer) => $answer['selected'] !== '');
+            if (count($answered) >= 3) {
+                $content = collect($questions)->pluck('question')->implode(' ').' '.collect($answers)->pluck('selected')->implode(' ');
+                app(\App\Services\AmbassadorQualificationService::class)->recordStudyAction($user, 'practice_quiz', $content);
+            }
             return $attempt;
         });
     }

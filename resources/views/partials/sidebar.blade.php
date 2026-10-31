@@ -73,7 +73,7 @@
             ['Reports','admin.reports','grade'],['Notifications','admin.notifications.index','bell'],
         ],
         'super_admin' => [
-            ['Institutions','admin.universities','building'],['Users','admin.users','users'],['Website enquiries','admin.contact.index','chat'],['System Settings','admin.settings','settings'],
+            ['Institutions','admin.universities','building'],['Users','admin.users','users'],['Campus Ambassadors','admin.ambassadors.index','trophy'],['Website enquiries','admin.contact.index','chat'],['System Settings','admin.settings','settings'],
             ['AI Settings','ai.settings','ai'],['AI Analytics','ai.analytics','grade'],['Monetization','admin.monetization','wallet'],['Knowledge Admin','admin.knowledge.index','book'],
             ['Reports','admin.reports','grade'],['Notifications','admin.notifications.index','bell'],['Notification Analytics','admin.notifications.analytics','bell'],['Institution onboarding','admin.institution-onboarding','building'],['User onboarding','admin.onboarding.index','users'],
         ],
@@ -96,6 +96,7 @@
     ] : [
         ['My Profile','profile.show','profile'],['Preferences','notifications.settings','settings'],['Security','security.show','settings']
     ];
+    if (! $user?->isAdmin()) $secondary[] = ['Campus Ambassador','ambassadors.index','trophy'];
 
     $render = function(array $items) use ($icons, $user) {
         foreach($items as [$label,$routeName,$icon]) {

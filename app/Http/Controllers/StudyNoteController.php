@@ -59,6 +59,8 @@ class StudyNoteController extends Controller
             'source' => $data['source'] ?? StudyNote::SOURCE_MANUAL,
         ]);
 
+        app(\App\Services\AmbassadorQualificationService::class)->recordStudyAction($user, 'study_note', $note->content);
+
         AuditLog::log('study_note_created', $user->id, StudyNote::class, $note->id, null, ['source' => $note->source], $request->ip(), $request->userAgent());
 
         if ($request->wantsJson()) {

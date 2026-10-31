@@ -129,6 +129,7 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'account_type' => ['required', 'in:'.implode(',', array_keys(OnboardingService::ACCOUNT_PATHS))],
+            'referral_code' => ['nullable', 'string', 'regex:/^[a-zA-Z0-9]{16}$/'],
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'username' => ['required', 'alpha_dash', 'min:3', 'max:60', 'unique:users,username'],
@@ -136,30 +137,35 @@ class AuthController extends Controller
             'password' => array_values(array_unique(array_merge(SettingService::getPasswordRules(), ['confirmed']))),
         ]);
 
-        $user = User::create([
-            'uuid' => (string) Str::uuid(),
-            'first_name' => trim($validated['first_name']),
-            'last_name' => trim($validated['last_name']),
-            'username' => Str::lower($validated['username']),
-            'email' => Str::lower($validated['email']),
-            'password' => $validated['password'],
-            'account_type' => $validated['account_type'],
-            'role' => match ($validated['account_type']) {
-                'student' => 'student',
-                'lecturer' => 'lecturer',
-                default => 'member',
-            },
-            'is_active' => true,
-        ]);
+        $user = \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $request): User {
+            $user = User::create([
+                'uuid' => (string) Str::uuid(),
+                'first_name' => trim($validated['first_name']),
+                'last_name' => trim($validated['last_name']),
+                'username' => Str::lower($validated['username']),
+                'email' => Str::lower($validated['email']),
+                'password' => $validated['password'],
+                'account_type' => $validated['account_type'],
+                'role' => match ($validated['account_type']) {
+                    'student' => 'student',
+                    'lecturer' => 'lecturer',
+                    default => 'member',
+                },
+                'is_active' => true,
+            ]);
 
-        UserOnboardingState::create([
-            'user_id' => $user->id,
-            'path' => $validated['account_type'],
-            'current_step' => 2,
-            'data' => ['path' => $validated['account_type'], 'first_name' => $user->first_name, 'last_name' => $user->last_name, 'username' => $user->username],
-            'started_at' => now(),
-            'last_saved_at' => now(),
-        ]);
+            UserOnboardingState::create([
+                'user_id' => $user->id,
+                'path' => $validated['account_type'],
+                'current_step' => 2,
+                'data' => ['path' => $validated['account_type'], 'first_name' => $user->first_name, 'last_name' => $user->last_name, 'username' => $user->username],
+                'started_at' => now(),
+                'last_saved_at' => now(),
+            ]);
+
+            app(\App\Services\AmbassadorService::class)->attributeRegistration($user, $request);
+            return $user;
+        });
 
         event(new Registered($user));
         $token = $user->createToken('onboarding-client', ['account:onboarding'])->plainTextToken;

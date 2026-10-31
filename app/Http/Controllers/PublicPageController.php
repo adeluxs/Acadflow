@@ -38,8 +38,15 @@ class PublicPageController extends Controller
             $data['formToken'] = $token;
         }
 
+        if ($slug === 'ambassadors') {
+            $data['faqs'] = PublicWebsite::ambassadorFaqs();
+            $data['ambassadorApplication'] = $request->user()
+                ? \App\Models\AmbassadorApplication::where('user_id', $request->user()->id)->first(['id', 'status'])
+                : null;
+        }
+
         $template = match ($slug) {
-            'features', 'how-it-works', 'contact' => $slug,
+            'features', 'how-it-works', 'contact', 'ambassadors' => $slug,
             'faq', 'help' => 'help',
             default => 'page',
         };

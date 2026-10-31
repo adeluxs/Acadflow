@@ -1,6 +1,17 @@
 ## [Unreleased]
 
+### Fixed
+
+- Navigation could be held up by the update notice and the full-screen loader. A deploy no longer swaps the service worker under an open page (no `skipWaiting()` on install); the "AcadSyntra has been updated" notice is non-blocking with Refresh now / Later, remembers dismissal per version, warns about unsaved forms and reloads at most once. The loader no longer stays up after a cancelled navigation ("Stay" on an unsaved-work prompt) and releases itself after 10 s for links (45 s for form posts). Browser-push housekeeping is silent, reuses the active worker instead of re-registering a different script, and re-syncs once per tab session instead of on every page.
+
 ### Changed
+
+- Campus ambassador programme completed: "Campus Ambassador" in the public main menu (desktop and mobile), a homepage promotion section, a full public programme page with eligibility, steps and FAQ (with FAQ structured data), a sign-in/registration-preserving join link and a state-aware call to action. Applications reuse profile details, record faculty and an optional HTTPS profile link, link the institution only from an approved membership, are limited to student accounts, and can be withdrawn and resubmitted. Super Admin can publish programme activities, filter applications by institution and date, and see a programme audit trail. Activity reports can link an activity and attach private JPG/PNG/WebP/PDF evidence (content-sniffed, 5 MB, private disk, owner/Super Admin only). Unknown and suspended referral links now behave like valid ones without attribution, so the link no longer reveals whether a code is active.
+- `PERFORMANCE_SERVER_TIMING=true` now also reports the database query count and time in the `Server-Timing` header (counts only, no SQL).
+
+- Campus ambassador fraud controls: verified-email and sustained-study qualification, private referral review with duplicate-account signals, and one-referral-per-reward checks at award and fulfilment.
+
+- Added a campus ambassador programme with a public recruitment page, student applications, platform review, referral links and WhatsApp sharing, private activation/retention metrics, activity reports, and audited rewards. Study credits use the existing wallet ledger with duplicate-fulfilment protection; external rewards require a delivery reference.
 
 - Expanded Knowledge Hub into five admin-managed content areas with separate database-managed publication types, adaptive academic/story metadata, broader discovery filters, and credibility labels kept separate from popularity and payment.
 - Added serialized story series, ordered free/premium chapters, reader progress and navigation while reusing publication moderation and commerce entitlements.

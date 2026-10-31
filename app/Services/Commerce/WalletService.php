@@ -230,6 +230,7 @@ class WalletService
             'spending'=>'user_spending_liability','pending_earnings'=>'user_pending_earnings_liability',default=>'user_available_earnings_liability'
         };
         $counter = match(true){
+            $entryType === 'ambassador_reward' => 'ambassador_marketing_expense',
             str_contains($entryType,'fund')=>'payment_clearing',
             str_contains($entryType,'ai_')=>'ai_revenue_clearing',
             str_contains($entryType,'feature_')=>'feature_revenue_clearing',

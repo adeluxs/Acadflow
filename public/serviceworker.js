@@ -9,6 +9,9 @@
  * - preserve offline write queue/background sync support.
  */
 
+// Bump WORKER_VERSION whenever this file changes. Pages show the "updated"
+// notice once per version and only switch workers when the user chooses to.
+const WORKER_VERSION = '2026-10-31.1';
 const CACHE_NAME = 'acadflow-pwa-v8-asset-integrity';
 const STATIC_CACHE = 'acadflow-static-v8-asset-integrity';
 const API_CACHE = 'acadflow-api-v8-asset-integrity';
@@ -26,12 +29,15 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+    // No skipWaiting() here. An updated worker waits until the user chooses
+    // "Refresh now" (SKIP_WAITING message) or every AcadSyntra tab is closed,
+    // so a deploy never swaps the worker underneath an open page or an
+    // in-flight navigation.
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then((cache) => Promise.all(STATIC_ASSETS.map(async (asset) => {
                 try { await cache.add(asset); } catch (_) { /* optional asset */ }
             })))
-            .then(() => self.skipWaiting())
     );
 });
 
@@ -329,14 +335,18 @@ function generateId() {
 // Listen for messages from clients
 self.addEventListener('message', (event) => {
     const { data } = event;
-    
-    if (data.type === 'SKIP_WAITING') {
+
+    if (data?.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
-    
-    if (data.type === 'CACHE_URLS') {
+
+    if (data?.type === 'GET_VERSION') {
+        event.ports?.[0]?.postMessage({ version: WORKER_VERSION });
+    }
+
+    if (data?.type === 'CACHE_URLS') {
         event.waitUntil(
-            caches.open(DYNAMIC_CACHE).then((cache) => {
+            caches.open(CACHE_NAME).then((cache) => {
                 return cache.addAll(data.urls);
             })
         );

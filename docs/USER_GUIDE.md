@@ -1,5 +1,13 @@
 # AcadSyntra User Guide
 
+## Campus ambassadors
+
+Open **Campus Ambassador** in your sidebar to apply as a course rep, student leader or volunteer. Provide your campus details, a first-month plan and the programme declaration. After platform approval, your dashboard provides an invitation link, a WhatsApp sharing message, onboarding guidance, referral results, activity reports and reward history.
+
+Share your link with interested classmates, help them get started, and submit reports about useful activities or feedback. Referral counts are aggregate: classmates’ personal activity is not shared with you. Rewards require review; collecting signups alone does not guarantee payment.
+
+Super Admin can use **Campus Ambassadors** to review applications, approve or reject reports, suspend or reinstate ambassadors, and record rewards. The referral review queue requires verified email and study activity on three separate days, including a return after seven days. Investigate any risk flags and record independent verification before qualifying a referral. Performance bonuses must link a qualified referral; each referral can support one pending or fulfilled award. Check the current reward screen before sending external payments; changed evidence can block fulfilment. **Credit study wallet now** fulfils a study-credit award through the existing wallet. For data allowances, bonuses or recognition, complete delivery separately and enter the delivery reference before marking the award fulfilled. See [CAMPUS_AMBASSADORS.md](CAMPUS_AMBASSADORS.md) for the full workflow.
+
 ## Notifications and step-by-step help
 
 Use **Help centre** or **FAQs** to search guides for registration, departmental/institutional adoption, affiliation, memberships, academic access and Research Studio. Expand a guide for steps and links to the actual tools.

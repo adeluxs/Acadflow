@@ -10,6 +10,9 @@
 
     <form method="POST" action="{{ route('store-register') }}" class="space-y-5" data-loading-form>
         @csrf
+        @if(is_array(session('ambassador_referral')) && (session('ambassador_referral.expires_at', 0) > now()->timestamp))
+            <p class="rounded-xl bg-indigo-50 p-4 text-sm text-indigo-800">An ambassador invited you. Your signup can count towards their programme rewards after verification and review. We use a first-party browser cookie and hashed signup signals to check duplicate accounts; your personal activity details are not shared with the ambassador.</p>
+        @endif
         <div>
             <label for="account_type" class="mb-2 block text-sm font-semibold text-slate-800">I am joining as</label>
             <select id="account_type" aria-invalid="{{ $errors->has('account_type') ? 'true' : 'false' }}" @error('account_type') aria-describedby="account_type-error" @enderror name="account_type" required class="w-full rounded-2xl border-slate-300 px-4 py-3 focus:border-indigo-500 focus:ring-indigo-500">

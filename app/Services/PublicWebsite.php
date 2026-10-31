@@ -9,6 +9,7 @@ class PublicWebsite
     public const PATHS = [
         'features' => 'features', 'how-it-works' => 'how-it-works', 'about' => 'about',
         'contact' => 'contact', 'faq' => 'faqs', 'help' => 'help',
+        'ambassadors' => 'ambassadors',
         'privacy' => 'privacy', 'terms' => 'terms', 'cookies' => 'cookies', 'disclaimer' => 'disclaimer',
     ];
 
@@ -44,6 +45,23 @@ class PublicWebsite
             ['title' => 'Start with the work in front of you', 'body' => 'Open a course, create a research project or explore Knowledge Hub. Your role and the modules enabled for your account shape what you see.', 'detail' => 'Use your dashboard as the starting point rather than keeping a separate list of disconnected tools.'],
             ['title' => 'Build, discuss and improve', 'body' => 'Work through course tasks, write project sections, collect references and invite the right feedback.', 'detail' => 'Versioned research sections, submission records and review steps keep the context attached to the work.'],
             ['title' => 'Take the next step', 'body' => 'Submit an assignment, address a correction or publish eligible knowledge. Keep learning with resources and communities relevant to you.', 'detail' => 'Approvals, visibility and institutional rules still apply. AI assistance supports people making these decisions.'],
+        ];
+    }
+
+    /** Answers reflect the programme's implemented rules (see docs/CAMPUS_AMBASSADORS.md). */
+    public static function ambassadorFaqs(): array
+    {
+        return [
+            ['question' => 'Who can apply?', 'answer' => 'Students with an active AcadSyntra student account who have completed onboarding. The programme suits course representatives, student leaders and student volunteers. Lecturer and administrator accounts cannot apply.'],
+            ['question' => 'Must I be an existing AcadSyntra user?', 'answer' => 'You need a free AcadSyntra account. If you do not have one yet, select Become a Campus Ambassador to register first; after onboarding you can return to the application.'],
+            ['question' => 'Can students from institutions not yet on AcadSyntra apply?', 'answer' => 'Yes. Enter your institution and department on the application. Becoming an ambassador does not register your institution or give you any institution or department administration access.'],
+            ['question' => 'Is the programme free to join?', 'answer' => 'Yes. Applying and taking part cost nothing.'],
+            ['question' => 'How are applications reviewed?', 'answer' => 'The AcadSyntra platform team reviews each application and leaves a decision note on your Campus Ambassador page. You can withdraw a pending application at any time.'],
+            ['question' => 'What does an ambassador do?', 'answer' => 'Ambassadors introduce AcadSyntra to classmates, run short demos or study sessions, help new students get started, take part in activities published by the team and submit activity reports and student feedback.'],
+            ['question' => 'Are rewards available?', 'answer' => 'Rewards are discretionary and recorded only after review. They can include study wallet credit, data allowances, performance bonuses or recognition. There is no fixed commission, and joining, posting links or collecting signups does not guarantee any reward.'],
+            ['question' => 'How are referrals tracked?', 'answer' => 'Approved ambassadors receive a personal invitation link. A new account created from that link within 30 days in the same browser session is attributed to the ambassador. Referrals count towards performance rewards only after the new student verifies their email, studies on several days in their first month and the team reviews the referral. Ambassadors see totals, never classmates’ private activity.'],
+            ['question' => 'What happens if my application is not approved?', 'answer' => 'You will see the team’s feedback on your Campus Ambassador page. You can update your details and resubmit.'],
+            ['question' => 'Can I reapply?', 'answer' => 'Yes, after a rejection or after withdrawing an application. Suspended ambassadors cannot start a new application while the suspension is in place.'],
         ];
     }
 

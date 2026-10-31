@@ -179,20 +179,28 @@ function initializeDuplicateSubmitProtection() {
     }, true);
 }
 
+function restoreSubmittedForms() {
+    document.querySelectorAll('form[data-submitting="1"]').forEach((form) => {
+        delete form.dataset.submitting;
+        form.removeAttribute('aria-busy');
+        form.querySelectorAll('[data-submitter-mirror]').forEach(input => input.remove());
+        form.querySelectorAll('[aria-disabled="true"]').forEach(control => {
+            control.disabled = false;
+            control.removeAttribute('aria-disabled');
+            if (control.dataset.originalText) control.textContent = control.dataset.originalText;
+        });
+    });
+}
+
 export function initPerformanceUX() {
     initializeLinkAcceleration();
     initializeDuplicateSubmitProtection();
     window.addEventListener('pageshow', finishNavigationFeedback);
-    window.addEventListener('pageshow', () => {
-        document.querySelectorAll('form[data-submitting="1"]').forEach((form) => {
-            delete form.dataset.submitting;
-            form.removeAttribute('aria-busy');
-            form.querySelectorAll('[data-submitter-mirror]').forEach(input => input.remove());
-            form.querySelectorAll('[aria-disabled="true"]').forEach(control => {
-                control.disabled = false;
-                control.removeAttribute('aria-disabled');
-                if (control.dataset.originalText) control.textContent = control.dataset.originalText;
-            });
-        });
+    window.addEventListener('pageshow', restoreSubmittedForms);
+    // The user answered "Stay" to an unsaved-work prompt: this page remains,
+    // so its link/progress state and submit buttons must work again.
+    window.addEventListener('acadflow:navigation-cancelled', () => {
+        finishNavigationFeedback();
+        restoreSubmittedForms();
     });
 }

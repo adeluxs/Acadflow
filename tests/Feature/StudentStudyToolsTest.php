@@ -58,6 +58,42 @@ class StudentStudyToolsTest extends TestCase
         $this->assertSame(1, $attempt->total);
     }
 
+    public function test_referral_quiz_activity_requires_three_answers_and_retries_do_not_add_days(): void
+    {
+        $ctx = $this->makeContext();
+        $user = $ctx['student'];
+        $application = \App\Models\AmbassadorApplication::create([
+            'user_id' => User::factory()->create()->id, 'status' => 'approved', 'institution' => 'Campus',
+            'department' => 'Computer Science', 'study_level' => '200', 'leadership_role' => 'course_rep',
+            'phone' => '+2348000000000', 'community_size' => 50, 'statement' => 'Help classmates study effectively.', 'terms_accepted_at' => now(),
+        ]);
+        $user->forceFill(['has_ambassador_referral' => true])->save();
+        \App\Models\AmbassadorReferral::create([
+            'ambassador_application_id' => $application->id, 'user_id' => $user->id,
+            'registered_at' => now(), 'retention_starts_at' => now()->addDays(7), 'retention_ends_at' => now()->addDays(30),
+        ]);
+        $quiz = PracticeQuiz::create([
+            'user_id' => $user->id, 'course_id' => $ctx['course']->id, 'title' => 'Practice quiz', 'status' => 'ready',
+            'questions' => array_fill(0, 3, ['question' => 'Which database normal form eliminates repeating groups from a table?', 'answer' => 'First normal form']),
+        ]);
+        $service = app(PracticeQuizService::class);
+        $service->gradeAttempt($quiz, $user, [0 => 'First normal form', 1 => 'First normal form']);
+        $this->assertDatabaseCount('ambassador_referral_days', 0);
+        $token = (string) \Illuminate\Support\Str::uuid();
+        $service->gradeAttempt($quiz, $user, array_fill(0, 3, 'First normal form'), $token);
+        $this->assertDatabaseCount('ambassador_referral_days', 1);
+        $this->travel(1)->days();
+        $service->gradeAttempt($quiz, $user, array_fill(0, 3, 'First normal form'), $token);
+        $this->assertDatabaseCount('ambassador_referral_days', 1);
+        $this->mock(\App\Services\Student\ReflectionCoachService::class, function ($mock): void {
+            $mock->shouldReceive('feedback')->once()->andThrow(new \RuntimeException('Optional AI unavailable'));
+        });
+        $this->actingAs($user)->post(route('reflections.store'), [
+            'reflection' => 'Today I improved my understanding of how database normalization removes repeating groups and why it makes updates easier to manage.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('ambassador_referral_days', 2);
+    }
+
     public function test_flashcard_generation_and_review_rescheduling(): void
     {
         $ctx = $this->makeContext();

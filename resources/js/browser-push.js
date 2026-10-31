@@ -23,7 +23,8 @@ export async function initBrowserPush() {
         try {
             const response = await fetch(url, {
                 method: data === undefined ? 'GET' : 'POST', credentials: 'same-origin', signal: controller.signal,
-                headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                // Background housekeeping must never raise the full-screen loader.
+                headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'X-AcadFlow-Loader': 'silent' },
                 ...(data === undefined ? {} : { body: JSON.stringify(data) }),
             });
             const result = await response.json().catch(() => ({}));
@@ -32,7 +33,13 @@ export async function initBrowserPush() {
         } finally { clearTimeout(timer); }
     };
     const registration = async () => {
-        await navigator.serviceWorker.register(document.querySelector('meta[name="push-worker-url"]').content, { scope: '/', updateViaCache: 'none' });
+        // Both AcadSyntra workers handle push. Re-registering a different script
+        // at the same scope would replace the active worker on every page and
+        // surface a false "new version" notice, so reuse whichever is active.
+        const current = await navigator.serviceWorker.getRegistration('/');
+        if (!current?.active) {
+            await navigator.serviceWorker.register(document.querySelector('meta[name="push-worker-url"]').content, { scope: '/', updateViaCache: 'none' });
+        }
         return Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => setTimeout(() => reject(new Error('Browser notifications are still starting. Try again shortly.')), 10000))]);
     };
     const existing = async () => {
@@ -109,8 +116,15 @@ export async function initBrowserPush() {
         try {
             const subscription = await existing();
             if (subscription && Notification.permission === 'granted') {
-                await registration();
-                await api('/browser-push/subscribe', subscription.toJSON());
+                // Reconcile once per tab session per account/endpoint, not on every page view.
+                const syncKey = `acadflow_push_synced:${document.querySelector('meta[name="push-account-id"]')?.content || ''}:${subscription.endpoint}`;
+                let synced = false;
+                try { synced = sessionStorage.getItem('acadflow_push_synced') === syncKey; } catch (_) {}
+                if (!synced) {
+                    await registration();
+                    await api('/browser-push/subscribe', subscription.toJSON());
+                    try { sessionStorage.setItem('acadflow_push_synced', syncKey); } catch (_) {}
+                }
             }
             show(Notification.permission === 'denied' ? 'Notifications are blocked in browser settings. Allow them there before enabling this device.' : subscription ? 'This browser is enrolled for notifications.' : 'Enable this browser to receive notifications when AcadSyntra is closed.');
         } catch (_) { show('This browser needs to reconnect. Use Enable this browser to try again.'); }

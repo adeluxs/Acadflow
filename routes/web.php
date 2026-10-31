@@ -90,6 +90,8 @@ foreach (PublicWebsite::PATHS as $slug => $path) {
     Route::get('/'.$path, [PublicPageController::class, 'show'])->defaults('page', $slug)->name('public.'.$slug);
 }
 Route::post('/contact', [PublicContactController::class, 'store'])->middleware('throttle:public-contact')->name('public.contact.store');
+Route::get('/r/{code}', [\App\Http\Controllers\AmbassadorController::class, 'referral'])->where('code', '[a-z0-9]{16}')->middleware('throttle:60,1')->name('ambassadors.referral');
+Route::get('/ambassadors/join', [\App\Http\Controllers\AmbassadorController::class, 'join'])->middleware('throttle:30,1')->name('ambassadors.join');
 Route::get('/sitemap.xml', [PublicPageController::class, 'sitemap'])->name('public.sitemap');
 Route::get('/robots.txt', [PublicPageController::class, 'robots'])->name('public.robots');
 Route::get('/knowledge-hub', [KnowledgeHubController::class, 'index'])
@@ -174,6 +176,7 @@ Route::post('/webhook/payment/{gateway}', [CommerceController::class, 'webhook']
 // Protected application routes require verified identity and completed onboarding.
 Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.complete'])->group(function () {
     require __DIR__.'/academic-organisations.php';
+    require __DIR__.'/ambassadors.php';
     Route::post('/admin/billing/semesters/{semester}/generate-invoices', [BillingController::class, 'generateInvoices'])
         ->name('billing.generate-invoices');
 

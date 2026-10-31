@@ -15,12 +15,23 @@ final class RequestCorrelationId
     {
         $requestId = UserFacingError::requestId($request);
         $request->attributes->set('request_started_at', microtime(true));
+        $profiling = (bool) config('performance.server_timing');
+        $queries = 0;
+        $queryMs = 0.0;
+        if ($profiling) {
+            // Counts only; SQL text and bindings never leave the server.
+            \Illuminate\Support\Facades\DB::listen(function ($query) use (&$queries, &$queryMs): void {
+                $queries++;
+                $queryMs += (float) $query->time;
+            });
+        }
         $response = $next($request);
         $response->headers->set('X-Request-Id', $requestId);
 
         $duration = (microtime(true) - $request->attributes->get('request_started_at')) * 1000;
-        if (config('performance.server_timing')) {
+        if ($profiling) {
             $response->headers->set('Server-Timing', 'app;dur='.number_format($duration, 2, '.', ''), false);
+            $response->headers->set('Server-Timing', 'db;desc="'.$queries.' queries";dur='.number_format($queryMs, 2, '.', ''), false);
         }
         if (config('performance.log_slow_requests') && $duration >= config('performance.slow_request_ms', 1000)) {
             \Illuminate\Support\Facades\Log::warning('Slow application request', [

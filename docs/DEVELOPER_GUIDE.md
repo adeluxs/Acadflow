@@ -1,5 +1,9 @@
 # AcadSyntra Developer Guide
 
+## Campus ambassadors
+
+The campus ambassador programme adds student applications, approved referral links, private aggregate engagement reporting, activity reviews and audited rewards. Wallet credits reuse the existing ledger; external allowances and recognition require recorded delivery. `AmbassadorQualificationService` records bounded, deduplicated study days, evaluates hashed signup signals, and enforces current admin qualification at referral-backed award creation and fulfilment. The anti-fraud migration is required even for existing programme installations. See [CAMPUS_AMBASSADORS.md](CAMPUS_AMBASSADORS.md) for routes, metric definitions, permissions, deployment and tests.
+
 ## Notification delivery and engagement
 
 Academic and organisation events use the existing central notification service with transactional outbox rows and after-commit jobs on the `notifications` queue. User/category/channel preferences, deduplication, quiet hours and rate limits apply again at delivery. Native account verification/reset mail uses queued notifications separately. Super Admin analytics uses indexed SQL aggregates and short-lived snapshots; meaningful foreground activity drives opt-in reminders. See [NOTIFICATION_OPERATIONS.md](NOTIFICATION_OPERATIONS.md) for migration safety, queue/scheduler commands, provider feedback, metric definitions, test evidence and remaining real-service verification. New notification producers should reuse this pipeline and stable event keys instead of synchronous transport calls.
