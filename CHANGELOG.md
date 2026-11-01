@@ -2,6 +2,8 @@
 
 ### Fixed
 
+- Campus ambassador migrations failed on MySQL/MariaDB servers with `explicit_defaults_for_timestamp=OFF` (error 1067 "Invalid default value for 'retention_starts_at'"), and on such servers `terms_accepted_at` would silently get `ON UPDATE CURRENT_TIMESTAMP`. Required moments now use `dateTime`. The programme migration completes the leftovers of a failed earlier run (keeping any rows), and rollback drops the reward foreign key before its index.
+- Added `/refresh-app`, a self-service recovery page for a browser stuck on an old cached version. It sends `Clear-Site-Data: "cache", "storage"` (removes this site's caches, local storage and service workers in that browser) and keeps sign-in cookies; the service worker never intercepts it.
 - Navigation could be held up by the update notice and the full-screen loader. A deploy no longer swaps the service worker under an open page (no `skipWaiting()` on install); the "AcadSyntra has been updated" notice is non-blocking with Refresh now / Later, remembers dismissal per version, warns about unsaved forms and reloads at most once. The loader no longer stays up after a cancelled navigation ("Stay" on an unsaved-work prompt) and releases itself after 10 s for links (45 s for form posts). Browser-push housekeeping is silent, reuses the active worker instead of re-registering a different script, and re-syncs once per tab session instead of on every page.
 
 ### Changed

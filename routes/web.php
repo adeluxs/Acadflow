@@ -94,6 +94,9 @@ Route::get('/r/{code}', [\App\Http\Controllers\AmbassadorController::class, 'ref
 Route::get('/ambassadors/join', [\App\Http\Controllers\AmbassadorController::class, 'join'])->middleware('throttle:30,1')->name('ambassadors.join');
 Route::get('/sitemap.xml', [PublicPageController::class, 'sitemap'])->name('public.sitemap');
 Route::get('/robots.txt', [PublicPageController::class, 'robots'])->name('public.robots');
+// Self-service recovery for a browser stuck on an old cached version: clears this
+// site's caches, storage and service workers in the browser, keeps sign-in cookies.
+Route::get('/refresh-app', [PublicPageController::class, 'refreshApp'])->middleware('throttle:10,1')->name('app.refresh');
 Route::get('/knowledge-hub', [KnowledgeHubController::class, 'index'])
     ->middleware('feature.flag:knowledge_hub')
     ->name('knowledge.index');

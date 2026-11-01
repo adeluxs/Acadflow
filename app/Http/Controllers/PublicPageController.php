@@ -63,6 +63,14 @@ class PublicPageController extends Controller
         return response()->view('public.sitemap', compact('urls'))->header('Content-Type', 'application/xml; charset=UTF-8');
     }
 
+    /** Clears this site's browser caches, storage and service workers; sign-in cookies are kept. */
+    public function refreshApp()
+    {
+        return response()->view('public.refresh-app')
+            ->header('Clear-Site-Data', '"cache", "storage"')
+            ->header('Cache-Control', 'no-store');
+    }
+
     public function robots()
     {
         return response("User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /dashboard\nDisallow: /api/\nDisallow: /login\nDisallow: /register\nSitemap: ".route('public.sitemap')."\n")

@@ -26,7 +26,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('ambassador_referral_id')->constrained()->cascadeOnDelete();
             $table->date('activity_date');
-            $table->timestamp('occurred_at');
+            $table->dateTime('occurred_at'); // dateTime: see the programme migration note on strict MySQL
             $table->string('kind', 30);
             $table->string('content_hash', 64);
             $table->unique(['ambassador_referral_id', 'activity_date'], 'amb_ref_unique_day');
@@ -42,8 +42,10 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('ambassador_rewards', function (Blueprint $table) {
+            // MySQL: the foreign key must go before the index it relies on.
+            $table->dropForeign(['referral_id']);
             $table->dropIndex(['referral_id', 'status']);
-            $table->dropConstrainedForeignId('referral_id');
+            $table->dropColumn('referral_id');
         });
         Schema::dropIfExists('ambassador_referral_days');
         Schema::table('ambassador_referrals', function (Blueprint $table) {

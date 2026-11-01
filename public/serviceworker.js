@@ -83,6 +83,8 @@ self.addEventListener('fetch', (event) => {
     }
 
     if (url.pathname.startsWith('/ai/')) return;
+    // The recovery page must always reach the server, even from a broken worker.
+    if (url.pathname === '/refresh-app') return;
 
     if (request.mode === 'navigate') {
         event.respondWith(handleNavigationRequest(event));

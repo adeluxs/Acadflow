@@ -2,16 +2,37 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /*
+     * Required moments use dateTime, not timestamp: on MySQL/MariaDB servers with
+     * explicit_defaults_for_timestamp=OFF (common on cPanel) a NOT NULL timestamp
+     * gets an implicit default/ON UPDATE clause or fails with error 1067.
+     *
+     * Re-runnable: an earlier failed attempt on such a server left the users column
+     * and an empty ambassador_applications table behind without recording the
+     * migration. Those leftovers are detected and completed here.
+     */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table): void {
-            $table->boolean('has_ambassador_referral')->default(false);
-        });
-        Schema::create('ambassador_applications', function (Blueprint $table): void {
+        if (! Schema::hasColumn('users', 'has_ambassador_referral')) {
+            Schema::table('users', function (Blueprint $table): void {
+                $table->boolean('has_ambassador_referral')->default(false);
+            });
+        }
+
+        if (Schema::hasTable('ambassador_applications') && ! Schema::hasTable('ambassador_referrals')) {
+            if (DB::table('ambassador_applications')->doesntExist()) {
+                Schema::drop('ambassador_applications');
+            } else {
+                Schema::table('ambassador_applications', fn (Blueprint $table) => $table->dateTime('terms_accepted_at')->change());
+            }
+        }
+
+        if (! Schema::hasTable('ambassador_applications')) Schema::create('ambassador_applications', function (Blueprint $table): void {
             $table->id();
             $table->uuid('uuid')->unique();
             $table->foreignId('user_id')->unique()->constrained()->restrictOnDelete();
@@ -24,26 +45,26 @@ return new class extends Migration
             $table->string('phone', 40);
             $table->unsignedInteger('community_size');
             $table->text('statement');
-            $table->timestamp('terms_accepted_at');
+            $table->dateTime('terms_accepted_at');
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->text('review_note')->nullable();
             $table->timestamp('reviewed_at')->nullable();
             $table->timestamps();
         });
 
-        Schema::create('ambassador_referrals', function (Blueprint $table): void {
+        if (! Schema::hasTable('ambassador_referrals')) Schema::create('ambassador_referrals', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('ambassador_application_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->unique()->constrained()->cascadeOnDelete();
-            $table->timestamp('registered_at');
-            $table->timestamp('retention_starts_at');
-            $table->timestamp('retention_ends_at');
+            $table->dateTime('registered_at');
+            $table->dateTime('retention_starts_at');
+            $table->dateTime('retention_ends_at');
             $table->timestamp('activated_at')->nullable();
             $table->timestamp('retained_at')->nullable();
             $table->index(['ambassador_application_id', 'registered_at'], 'ambassador_referrals_app_registered');
         });
 
-        Schema::create('ambassador_reports', function (Blueprint $table): void {
+        if (! Schema::hasTable('ambassador_reports')) Schema::create('ambassador_reports', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('ambassador_application_id')->constrained()->cascadeOnDelete();
             $table->uuid('submission_key');
@@ -63,7 +84,7 @@ return new class extends Migration
             $table->index('status');
         });
 
-        Schema::create('ambassador_rewards', function (Blueprint $table): void {
+        if (! Schema::hasTable('ambassador_rewards')) Schema::create('ambassador_rewards', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('ambassador_application_id')->constrained()->restrictOnDelete();
             $table->string('award_key', 80);
