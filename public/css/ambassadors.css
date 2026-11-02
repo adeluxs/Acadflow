@@ -65,3 +65,6 @@
 .amb-status-card{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
 .amb-hero .amb-button:not(.amb-button-primary){background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
 @media(max-width:900px){.amb-public-steps{grid-template-columns:1fr}.amb-filter{grid-template-columns:1fr}}
+.amb-reward-steps{grid-template-columns:repeat(2,minmax(0,1fr))!important;margin-top:16px!important}
+.amb-shell .amb-grid .amb-card h3{font-size:1.05rem}
+@media(max-width:900px){.amb-reward-steps{grid-template-columns:1fr!important}}

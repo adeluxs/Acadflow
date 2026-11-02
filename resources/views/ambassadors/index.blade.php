@@ -33,6 +33,13 @@
             $referralUrl = route('ambassadors.referral', $application->referral_code);
             $shareMessage = "I’m an AcadSyntra campus ambassador. Join me to explore tools for study, research and sharing academic resources. Participation is optional, and I may earn programme rewards from referrals. Get started: ".$referralUrl;
         @endphp
+        @php($rewardRule = \App\Services\AmbassadorService::referralRewardRule())
+        @if($rewardRule)
+            <section class="amb-card amb-section" id="how-you-earn"><h2>How you earn</h2>
+                @include('ambassadors._how-rewards-work', ['rule' => $rewardRule])
+                <div class="amb-actions"><a class="amb-button" href="{{ route('commerce.wallet') }}">Open my wallet</a></div>
+            </section>
+        @endif
         <div class="amb-grid amb-section">
             <section class="amb-card"><h2>Your invitation link</h2><p class="amb-muted">Share with interested classmates. New registrations through this link count towards your results.</p><div class="amb-fields"><label class="amb-field amb-wide">Select and copy your link<input readonly value="{{ $referralUrl }}" onclick="this.select()"></label><label class="amb-field amb-wide">Ready-to-share message<textarea rows="5" readonly onclick="this.select()">{{ $shareMessage }}</textarea></label></div><div class="amb-actions"><a class="amb-button amb-button-primary" href="https://wa.me/?text={{ rawurlencode($shareMessage) }}" target="_blank" rel="noopener noreferrer">Share on WhatsApp ↗</a></div><p class="amb-muted">Referral code: {{ $application->referral_code }}</p></section>
             <section class="amb-card"><h2>Your starter guide</h2><ol><li>Try the study or knowledge tools yourself.</li><li>Choose one useful task and invite a small group.</li><li>Run a 10-minute demo using materials you can share.</li><li>Help interested students sign up and complete onboarding.</li><li>Check in after a week and submit feedback.</li></ol><p class="amb-muted">Use aggregate attendance counts. Do not put classmates’ names, phone numbers, passwords or private academic records in your reports.</p><div class="amb-actions"><a href="{{ route('public.features') }}">Product overview</a><a href="{{ route('public.help') }}">Help centre</a><a href="{{ route('public.contact') }}">Contact the team</a></div></section>

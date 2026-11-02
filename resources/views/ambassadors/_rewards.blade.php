@@ -1,5 +1,5 @@
 <section class="amb-card amb-section" id="rewards">
-    <h2>Rewards</h2><p class="amb-muted">Pending awards are approved commitments awaiting fulfilment. Study wallet credits become available when fulfilled. Data allowances, bonuses and recognition are delivered by the team separately.</p>
+    <h2>Rewards</h2><p class="amb-muted">Referral cash is added to your withdrawable wallet earnings and study wallet credit to your spending balance as soon as they are paid. Data allowances, bonuses and recognition are delivered by the team separately.</p>
     @forelse($rewards as $reward)
         <article class="amb-item">
             <div class="amb-item-head"><div><h3>{{ $reward->title }}</h3><p class="amb-muted">{{ \App\Models\AmbassadorReward::KINDS[$reward->kind] }}@if($reward->amount_minor) · {{ $reward->currency }} {{ \App\Support\Money::fromMinor($reward->amount_minor) }}@endif</p></div><span class="amb-badge amb-badge-{{ $reward->status }}">{{ $reward->status }}</span></div>

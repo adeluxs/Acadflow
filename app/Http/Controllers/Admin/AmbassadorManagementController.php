@@ -53,7 +53,31 @@ class AmbassadorManagementController extends Controller
         $auditTrail = AuditLog::query()->select(['id', 'user_id', 'action', 'model_type', 'model_id', 'created_at'])
             ->where('action', 'like', 'ambassador.%')->with('user:id,first_name,last_name')->latest('id')->limit(15)->get();
         $filters = ['q' => $search, 'from' => $data['from'] ?? '', 'to' => $data['to'] ?? ''];
-        return response()->view('admin.ambassadors.index', compact('applications', 'status', 'work', 'metrics', 'pendingReports', 'pendingRewards', 'pendingReferrals', 'activeTasks', 'auditTrail', 'filters'))->header('Cache-Control', 'no-store');
+        $rewardRule = AmbassadorService::referralRewardRule();
+        $ruleSettings = ['enabled' => (bool) $rewardRule, 'cash' => (string) \App\Services\SettingService::getGlobal('ambassador_referral_cash_reward', '200'), 'credit' => (string) \App\Services\SettingService::getGlobal('ambassador_referral_credit_reward', '300')];
+        // One grouped query for programme payout totals.
+        $paidTotals = AmbassadorReward::where('status', 'fulfilled')->whereIn('kind', ['referral_cash', 'wallet_credit'])
+            ->groupBy('kind')->selectRaw('kind, SUM(amount_minor) as total')->pluck('total', 'kind');
+        return response()->view('admin.ambassadors.index', compact('applications', 'status', 'work', 'metrics', 'pendingReports', 'pendingRewards', 'pendingReferrals', 'activeTasks', 'auditTrail', 'filters', 'rewardRule', 'ruleSettings', 'paidTotals'))->header('Cache-Control', 'no-store');
+    }
+
+    /** The automatic per-referral reward rule (global settings, audited). */
+    public function updateRewardRule(Request $request)
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403);
+        $data = $request->validate([
+            'enabled' => ['sometimes', 'boolean'],
+            'cash' => ['required', 'regex:/^\d{1,6}(\.\d{1,2})?$/'],
+            'credit' => ['required', 'regex:/^\d{1,6}(\.\d{1,2})?$/'],
+        ]);
+        $before = AmbassadorService::referralRewardRule();
+        $actor = $request->user()->id;
+        \App\Services\SettingService::set('ambassador_referral_rewards_enabled', $request->boolean('enabled'), 'boolean', null, $actor);
+        \App\Services\SettingService::set('ambassador_referral_cash_reward', $data['cash'], 'string', null, $actor);
+        \App\Services\SettingService::set('ambassador_referral_credit_reward', $data['credit'], 'string', null, $actor);
+        \App\Services\SettingService::flushRequestCache();
+        AuditLog::log('ambassador.reward_rule.updated', $actor, null, null, $before ? \Illuminate\Support\Arr::only($before, ['cash_minor', 'credit_minor']) : null, ['enabled' => $request->boolean('enabled'), 'cash' => $data['cash'], 'credit' => $data['credit']]);
+        return back()->with('success', 'Referral reward rule saved. It applies to referrals qualified from now on.');
     }
 
     public function tasks(Request $request)
@@ -152,8 +176,16 @@ class AmbassadorManagementController extends Controller
             'acknowledge_risks' => ['sometimes', 'boolean'],
             'evidence_signature' => ['required', 'string', 'size:64'],
         ]);
-        $qualification->review($referral, $request->user(), $data['status'], $data['review_note'], $request->boolean('acknowledge_risks'), $data['evidence_signature']);
-        return back()->with('success', 'Referral review recorded.');
+        $rewards = $qualification->review($referral, $request->user(), $data['status'], $data['review_note'], $request->boolean('acknowledge_risks'), $data['evidence_signature']);
+        $message = 'Referral review recorded.';
+        if (in_array('paid', $rewards, true)) {
+            $rule = AmbassadorService::referralRewardRule();
+            $parts = array_filter([($rewards['referral_cash'] ?? null) === 'paid' ? $rule['cash_label'].' withdrawable cash' : null,
+                ($rewards['wallet_credit'] ?? null) === 'paid' ? $rule['credit_label'].' study wallet credit' : null]);
+            $message .= ' Paid automatically: '.implode(' and ', $parts).'.';
+        }
+        if (in_array('pending', $rewards, true)) $message .= ' Some automatic rewards could not be paid and are waiting in the Rewards list.';
+        return back()->with('success', $message);
     }
 
     public function award(Request $request, AmbassadorApplication $application, AmbassadorService $service)

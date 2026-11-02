@@ -29,6 +29,9 @@ class AmbassadorProgrammeTest extends TestCase
         parent::setUp();
         SettingService::flushRequestCache();
         FeatureAccessService::flushRequestCache();
+        // These suites cover manual awards; the automatic referral rule has its own suite.
+        SettingService::set('ambassador_referral_rewards_enabled', false, 'boolean');
+        SettingService::flushRequestCache();
     }
 
     private function application(?User $user = null, string $status = 'approved'): AmbassadorApplication

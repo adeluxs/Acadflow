@@ -6,6 +6,18 @@
 @section('content')
 <div class="amb-shell">
     <div class="amb-hero"><p class="amb-eyebrow">Programme management</p><h1>Build a campus community that lasts.</h1><p>Review real contributions alongside referral results. Reward useful work and sustained participation.</p><div class="amb-actions"><a class="amb-button" href="{{ route('public.ambassadors') }}">View recruitment page</a><a class="amb-button" href="{{ route('admin.ambassadors.tasks.index') }}">Programme activities ({{ $activeTasks }} open)</a></div></div>
+    <section class="amb-card amb-section" id="reward-rule"><h2>Automatic referral reward</h2>
+        <p class="amb-muted">Paid once per invited student, the moment you click <strong>Qualify referral</strong> (verified email, study on 3 separate days in the first month, your review). Cash goes to the ambassador’s withdrawable earnings balance; study credit can only be spent on AcadSyntra. You can change these amounts or switch them off at any time; changes apply to referrals qualified from then on, and the public page and ambassador dashboards update immediately. <a href="{{ route('public.ambassadors') }}#rewards">See how ambassadors see it</a>.</p>
+        <form method="POST" action="{{ route('admin.ambassadors.reward-rule.update') }}">@csrf @method('PATCH')
+            <div class="amb-fields">
+                <label class="amb-field">Withdrawable cash per qualified referral (₦)<input type="number" name="cash" min="0" max="999999" step="0.01" value="{{ old('cash', $ruleSettings['cash']) }}" required>@error('cash')<small class="amb-error">{{ $message }}</small>@enderror</label>
+                <label class="amb-field">Study wallet credit per qualified referral (₦)<input type="number" name="credit" min="0" max="999999" step="0.01" value="{{ old('credit', $ruleSettings['credit']) }}" required>@error('credit')<small class="amb-error">{{ $message }}</small>@enderror</label>
+                <label class="amb-check amb-wide"><input type="hidden" name="enabled" value="0"><input type="checkbox" name="enabled" value="1" @checked($ruleSettings['enabled'])> Pay these rewards automatically when I qualify a referral</label>
+            </div>
+            <div class="amb-actions"><button class="amb-button amb-button-primary" onclick="return confirm('Save the referral reward rule? It is shown publicly and applies to referrals qualified from now on.')">Save reward rule</button>
+                <span class="amb-muted">Paid so far: ₦{{ number_format(($paidTotals['referral_cash'] ?? 0) / 100) }} cash · ₦{{ number_format(($paidTotals['wallet_credit'] ?? 0) / 100) }} study credit</span></div>
+        </form>
+    </section>
     @include('ambassadors._metrics')
     <div class="amb-actions"><a class="amb-button" href="{{ route('admin.ambassadors.index', ['status' => 'all', 'work' => 'referrals']) }}">{{ $pendingReferrals }} referrals awaiting review</a><a class="amb-button" href="{{ route('admin.ambassadors.index', ['status' => 'all', 'work' => 'reports']) }}">{{ $pendingReports }} reports awaiting review</a><a class="amb-button" href="{{ route('admin.ambassadors.index', ['status' => 'all', 'work' => 'rewards']) }}">{{ $pendingRewards }} rewards awaiting fulfilment</a></div>
     <section class="amb-card amb-section"><h2>Ambassador applications</h2>

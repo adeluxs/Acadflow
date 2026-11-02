@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Added
+
+- Automatic campus ambassador referral reward: when Super Admin qualifies a referral, the ambassador is paid ₦200 withdrawable cash (wallet earnings balance) and ₦300 study wallet credit (spending balance, not withdrawable) in the same transaction. Amounts and the on/off switch are editable under Campus Ambassadors → Automatic referral reward (audited). Each referral pays once per reward type, re-qualifying never pays twice, and a part that cannot be paid stays pending. The public page, FAQ, homepage and ambassador dashboard show the live amounts and conditions. New reward type "Referral cash (withdrawable)". A plain-language "How ambassador rewards are paid" section (four steps, withdrawable vs study credit, live withdrawal minimum and fee, a 5-student worked example and what does not count) appears on the public page and the ambassador dashboard. No migration needed.
+
 ### Fixed
 
 - Campus ambassador migrations failed on MySQL/MariaDB servers with `explicit_defaults_for_timestamp=OFF` (error 1067 "Invalid default value for 'retention_starts_at'"), and on such servers `terms_accepted_at` would silently get `ON UPDATE CURRENT_TIMESTAMP`. Required moments now use `dateTime`. The programme migration completes the leftovers of a failed earlier run (keeping any rows), and rollback drops the reward foreign key before its index.

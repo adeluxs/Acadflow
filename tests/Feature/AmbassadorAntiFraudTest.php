@@ -28,6 +28,9 @@ class AmbassadorAntiFraudTest extends TestCase
         parent::setUp();
         SettingService::flushRequestCache();
         FeatureAccessService::flushRequestCache();
+        // These suites cover manual awards; the automatic referral rule has its own suite.
+        SettingService::set('ambassador_referral_rewards_enabled', false, 'boolean');
+        SettingService::flushRequestCache();
         $this->travelTo(now()->startOfSecond());
     }
 

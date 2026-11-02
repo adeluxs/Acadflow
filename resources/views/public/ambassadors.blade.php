@@ -1,6 +1,7 @@
 @extends('layouts.public')
 @push('styles')<link rel="stylesheet" href="{{ asset('css/ambassadors.css') }}">@endpush
 @php
+    $rewardRule = \App\Services\AmbassadorService::referralRewardRule();
     // One call to action that matches where this visitor is in the programme.
     $state = auth()->check() ? ($ambassadorApplication?->status ?? 'none') : 'guest';
     $isStudent = auth()->user()?->isStudent();
@@ -39,9 +40,20 @@
             <li>Get recognised for real contributions to your campus community.</li>
             <li>Take part in educational technology advocacy and shape the product with your feedback.</li>
             <li>Access official programme activities and resources.</li>
+            @if($rewardRule)
+            <li><strong>Earn for every student you bring:</strong> {{ collect([$rewardRule['cash_minor'] > 0 ? $rewardRule['cash_label'].' cash you can withdraw' : null, $rewardRule['credit_minor'] > 0 ? $rewardRule['credit_label'].' study wallet credit' : null])->filter()->implode(' + ') }} for each invited student who verifies their email, studies on 3 separate days in their first month and passes review.</li>
+            @else
             <li>Be considered for discretionary incentives after review, such as study wallet credit, data allowances or recognition.</li>
-        </ul><p class="amb-muted">There is no fixed commission, salary or guaranteed reward. Rewards are reviewed individually and are never earned by signups alone.</p></article>
+            @endif
+        </ul><p class="amb-muted">{{ $rewardRule ? 'Rewards are paid automatically once the team confirms each referral. Signups alone, duplicate or fake accounts never earn rewards; there is no salary.' : 'There is no fixed commission, salary or guaranteed reward. Rewards are reviewed individually and are never earned by signups alone.' }}</p></article>
     </div>
+
+    @if($rewardRule)
+    <section class="amb-card amb-section" id="rewards"><h2>How ambassador rewards are paid</h2>
+        <p class="amb-muted">For every classmate you bring who becomes a real, active student: {{ collect([$rewardRule['cash_minor'] > 0 ? $rewardRule['cash_label'].' cash' : null, $rewardRule['credit_minor'] > 0 ? $rewardRule['credit_label'].' study wallet credit' : null])->filter()->implode(' + ') }}.</p>
+        @include('ambassadors._how-rewards-work', ['rule' => $rewardRule])
+    </section>
+    @endif
 
     <section class="amb-card amb-section" id="how-to-join"><h2>How to become an ambassador</h2>
         <ol class="amb-public-steps">

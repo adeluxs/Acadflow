@@ -11,6 +11,7 @@ use App\Models\AmbassadorReward;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Services\Commerce\WalletService;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -20,6 +21,66 @@ use Illuminate\Validation\ValidationException;
 
 class AmbassadorService
 {
+    public const REFERRAL_REWARD_CURRENCY = 'NGN';
+
+    /**
+     * The automatic per-referral reward rule, or null when switched off.
+     * Paid once per referral when a Super Admin qualifies it: a withdrawable
+     * cash amount (earnings balance) plus study wallet credit (spending balance).
+     */
+    public static function referralRewardRule(): ?array
+    {
+        if (! filter_var(SettingService::getGlobal('ambassador_referral_rewards_enabled', true), FILTER_VALIDATE_BOOL)) return null;
+        $cash = Money::toMinorRounded((string) SettingService::getGlobal('ambassador_referral_cash_reward', '200'));
+        $credit = Money::toMinorRounded((string) SettingService::getGlobal('ambassador_referral_credit_reward', '300'));
+        if ($cash <= 0 && $credit <= 0) return null;
+        $minimum = Money::toMinorRounded((string) SettingService::getGlobal('minimum_withdrawal_amount', '1000'));
+        $naira = fn (int $minor) => '₦'.number_format(max(0, $minor) / 100, $minor % 100 ? 2 : 0);
+        return ['cash_minor' => max(0, $cash), 'credit_minor' => max(0, $credit), 'currency' => self::REFERRAL_REWARD_CURRENCY,
+            'cash_label' => $naira($cash), 'credit_label' => $naira($credit),
+            // Wallet rules that decide when the cash part can be withdrawn.
+            'min_withdrawal_minor' => max(0, $minimum), 'min_withdrawal_label' => $naira($minimum),
+            'withdrawal_fee_percent' => (string) SettingService::getGlobal('withdrawal_fee_percentage', '0'),
+            'referrals_to_withdraw' => $cash > 0 ? max(1, (int) ceil($minimum / $cash)) : null,
+            'naira' => $naira];
+    }
+
+    /**
+     * Creates and pays the rule's rewards for a just-qualified referral. Each part
+     * has a fixed award key per referral, so re-qualifying never pays twice and a
+     * cancelled part is not recreated. A part that cannot be paid stays pending.
+     *
+     * @return array<string,string> kind => paid|pending|skipped
+     */
+    public function issueReferralRewards(AmbassadorReferral $referral, User $actor): array
+    {
+        $rule = self::referralRewardRule();
+        if (! $rule) return [];
+        $application = AmbassadorApplication::whereKey($referral->ambassador_application_id)->firstOrFail();
+        $results = [];
+        foreach ([['referral_cash', $rule['cash_minor'], 'cash', 'Referral reward (withdrawable)'],
+                  ['wallet_credit', $rule['credit_minor'], 'credit', 'Referral study wallet credit']] as [$kind, $minor, $suffix, $title]) {
+            if ($minor <= 0) continue;
+            $key = 'referral-'.$referral->id.'-'.$suffix;
+            $reward = AmbassadorReward::where('ambassador_application_id', $application->id)->where('award_key', $key)->first();
+            if (! $reward) {
+                $reward = $this->award($application, $actor, ['award_key' => $key, 'kind' => $kind, 'title' => $title,
+                    'reason' => 'Automatic reward for qualified referral #'.$referral->id.'.', 'amount_minor' => $minor,
+                    'currency' => $rule['currency'], 'referral_id' => $referral->id]);
+            }
+            // A just-created model does not carry the database default status yet.
+            if (($reward->refresh()->status) !== 'pending') { $results[$kind] = 'skipped'; continue; }
+            try {
+                $this->fulfil($reward, $actor, '');
+                $results[$kind] = 'paid';
+            } catch (ValidationException|\Symfony\Component\HttpKernel\Exception\HttpException) {
+                // e.g. wallet currency mismatch: the award stays pending for manual follow-up.
+                $results[$kind] = 'pending';
+            }
+        }
+        return $results;
+    }
+
     /** Remembers a valid referral; invalid or inactive codes are ignored silently. */
     public function captureReferral(Request $request, string $code): bool
     {
@@ -158,8 +219,8 @@ class AmbassadorService
             abort_unless($locked->status === 'approved', 409, 'Only approved ambassadors can receive new awards.');
             $reward = $locked->rewards()->firstOrCreate(['award_key' => $data['award_key']], $data + ['issued_by' => $actor->id]);
             if ($reward->wasRecentlyCreated) {
-                if ($reward->kind === 'performance_bonus' || $reward->referral_id) {
-                    app(AmbassadorQualificationService::class)->assertRewardEligible($locked->id, $reward->referral_id, $reward->id);
+                if (in_array($reward->kind, AmbassadorReward::REFERRAL_KINDS, true) || $reward->referral_id) {
+                    app(AmbassadorQualificationService::class)->assertRewardEligible($locked->id, $reward->referral_id, $reward->id, $reward->kind);
                 }
                 AuditLog::log('ambassador.reward.awarded', $actor->id, AmbassadorReward::class, $reward->id, null, $data);
             } else {
@@ -183,17 +244,20 @@ class AmbassadorService
             abort_unless($locked->status === 'pending' && $application->status === 'approved', 409, 'This award cannot be fulfilled in its current state.');
             $recipient = User::withoutGlobalScopes()->findOrFail($application->user_id);
             abort_unless($recipient->is_active, 409, 'The recipient account is inactive.');
-            if ($locked->kind === 'performance_bonus' || $locked->referral_id) {
-                app(AmbassadorQualificationService::class)->assertRewardEligible($application->id, $locked->referral_id, $locked->id);
+            if (in_array($locked->kind, AmbassadorReward::REFERRAL_KINDS, true) || $locked->referral_id) {
+                app(AmbassadorQualificationService::class)->assertRewardEligible($application->id, $locked->referral_id, $locked->id, $locked->kind);
             }
-            if ($locked->kind === 'wallet_credit') {
+            if (in_array($locked->kind, ['wallet_credit', 'referral_cash'], true)) {
                 $wallets = app(WalletService::class);
                 $wallet = $wallets->account($recipient);
                 if ($wallet->currency !== $locked->currency) {
                     throw ValidationException::withMessages(['currency' => 'The award currency must match the recipient wallet. Cancel this award and issue one in the correct currency.']);
                 }
-                $entry = $wallets->creditSpending($recipient, $locked->amount_minor, 'ambassador_reward', reference: $locked,
-                    description: $locked->title, metadata: ['issued_by' => $locked->issued_by, 'fulfilled_by' => $actor->id]);
+                $meta = ['issued_by' => $locked->issued_by, 'fulfilled_by' => $actor->id];
+                // Study credit is spendable only; referral cash lands in the withdrawable earnings balance.
+                $entry = $locked->kind === 'referral_cash'
+                    ? $wallets->creditAvailableEarnings($recipient, $locked->amount_minor, 'ambassador_reward', reference: $locked, description: $locked->title, metadata: $meta)
+                    : $wallets->creditSpending($recipient, $locked->amount_minor, 'ambassador_reward', reference: $locked, description: $locked->title, metadata: $meta);
                 $reference = 'wallet-entry:'.$entry->id;
             } elseif (trim($reference) === '') {
                 throw ValidationException::withMessages(['fulfilment_reference' => 'Record the payment or delivery reference before marking this award fulfilled.']);

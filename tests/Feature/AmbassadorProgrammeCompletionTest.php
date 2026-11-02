@@ -68,7 +68,8 @@ class AmbassadorProgrammeCompletionTest extends TestCase
         }
         $page->assertSee('"@type":"FAQPage"', false)->assertSee('property="og:title"', false);
         // No unsupported promises.
-        $page->assertDontSee('guaranteed commission')->assertSee('There is no fixed commission');
+        // The default automatic rule is shown with its real amounts and conditions.
+        $page->assertSee('₦200 cash you can withdraw')->assertSee('₦300 study wallet credit')->assertSee('passes review')->assertDontSee('guaranteed commission');
     }
 
     public function test_programme_links_disappear_when_the_feature_is_disabled(): void

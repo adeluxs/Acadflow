@@ -68,6 +68,17 @@ These controls raise the cost of account farming; they do **not** prove a unique
 
 ## Rewards
 
+### Automatic referral reward (default ₦200 cash + ₦300 study credit)
+
+When a Super Admin clicks **Qualify referral**, the referring ambassador is paid automatically, inside the same database transaction as the qualification:
+
+- **Referral cash (withdrawable):** credited to the wallet's *available earnings* balance, which the existing withdrawal flow pays out to a verified payout account (wallet minimum and fee apply).
+- **Study wallet credit:** credited to the *spending* balance; it can be spent on AcadSyntra but never withdrawn.
+
+Both use the `ambassador_reward` ledger entry type (counter-account `ambassador_marketing_expense`). Award keys are fixed per referral (`referral-{id}-cash`, `referral-{id}-credit`), so disqualifying and re-qualifying never pays twice and a cancelled part is not recreated. A referral can back at most one pending or fulfilled reward of each type. If a part cannot be paid (for example a wallet in another currency) it stays pending in the Rewards list. Settings: `ambassador_referral_rewards_enabled` (default on), `ambassador_referral_cash_reward` (default 200), `ambassador_referral_credit_reward` (default 300), edited on the Campus Ambassadors admin page and recorded in the audit log; changes apply to referrals qualified afterwards. Public pages show the live amounts; when the rule is off they fall back to the discretionary wording.
+
+### Manual awards
+
 There is no automatic commission rate or promise of payment. Super Admin records a reward with an amount, currency, reason and repeatable award reference (for example `october-2026-demo-1`). Award references are unique per ambassador. Replaying an identical award returns the existing record; changing its details under the same reference is rejected.
 
 - **Study wallet credit:** a pending award is fulfilled through the existing spending-wallet service. Currency must match the recipient wallet. The ledger records a marketing expense against the spending-wallet liability. This is spendable platform credit, not a cash withdrawal.

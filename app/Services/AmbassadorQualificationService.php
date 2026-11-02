@@ -113,10 +113,11 @@ class AmbassadorQualificationService
             'review_current' => $referral->review_signature && hash_equals($referral->review_signature, $signature)];
     }
 
-    public function review(AmbassadorReferral $referral, User $actor, string $status, string $note, bool $acknowledgeRisks, string $evidenceSignature): void
+    /** @return array<string,string> automatic reward results (kind => paid|pending|skipped) */
+    public function review(AmbassadorReferral $referral, User $actor, string $status, string $note, bool $acknowledgeRisks, string $evidenceSignature): array
     {
         abort_unless($actor->isSuperAdmin(), 403);
-        DB::transaction(function () use ($referral, $actor, $status, $note, $acknowledgeRisks, $evidenceSignature) {
+        return DB::transaction(function () use ($referral, $actor, $status, $note, $acknowledgeRisks, $evidenceSignature) {
             $application = AmbassadorApplication::whereKey($referral->ambassador_application_id)->lockForUpdate()->firstOrFail();
             $locked = AmbassadorReferral::whereKey($referral->id)->lockForUpdate()->firstOrFail();
             abort_if(in_array($actor->id, [$application->user_id, $locked->user_id], true), 403);
@@ -139,21 +140,26 @@ class AmbassadorQualificationService
                 'review_note' => $note, 'review_signature' => $status === 'qualified' ? $check['signature'] : null]);
             AuditLog::log('ambassador.referral.'.$status, $actor->id, AmbassadorReferral::class, $locked->id, $previous,
                 ['status' => $status, 'note' => $note, 'risk_flags' => $check['flags'], 'acknowledged' => $acknowledgeRisks]);
+            // Same transaction: a qualification and its automatic rewards commit together.
+            return $status === 'qualified' ? app(AmbassadorService::class)->issueReferralRewards($locked->fresh(), $actor) : [];
         }, 3);
     }
 
     /** Caller holds the application lock, serializing rewards and referral reviews. */
-    public function assertRewardEligible(int $applicationId, ?int $referralId, ?int $rewardId = null): void
+    public function assertRewardEligible(int $applicationId, ?int $referralId, ?int $rewardId = null, ?string $kind = null): void
     {
-        if (! $referralId) throw ValidationException::withMessages(['referral_id' => 'Performance bonuses require a reviewed, qualified referral.']);
+        if (! $referralId) throw ValidationException::withMessages(['referral_id' => 'Performance bonuses and referral cash require a reviewed, qualified referral.']);
         $referral = $this->evidence(AmbassadorReferral::whereKey($referralId)->where('ambassador_application_id', $applicationId))->first();
         $check = $referral ? $this->assessment($referral) : null;
         if (! $referral || $referral->qualification_status !== 'qualified' || ! $check['eligible'] || ! $check['review_current']) {
             throw ValidationException::withMessages(['referral_id' => 'This referral needs qualification or a fresh review before a reward can be issued or fulfilled.']);
         }
+        // One pending or fulfilled reward of each kind per referral (the automatic
+        // rule pays one referral-cash and one study-credit reward).
         if (AmbassadorReward::where('referral_id', $referralId)->whereIn('status', ['pending', 'fulfilled'])
+            ->when($kind, fn ($q) => $q->where('kind', $kind))
             ->when($rewardId, fn ($q) => $q->where('id', '!=', $rewardId))->exists()) {
-            throw ValidationException::withMessages(['referral_id' => 'This referral already backs a pending or fulfilled reward.']);
+            throw ValidationException::withMessages(['referral_id' => 'This referral already backs a pending or fulfilled reward of this type.']);
         }
     }
 }

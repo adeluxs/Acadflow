@@ -16,6 +16,7 @@ Route::get('/ambassador/reports/{report}/evidence', [AmbassadorController::class
 
 Route::prefix('admin/ambassadors')->name('admin.ambassadors.')->middleware('role:super_admin')->group(function (): void {
     Route::get('/', [AmbassadorManagementController::class, 'index'])->name('index');
+    Route::patch('/reward-rule', [AmbassadorManagementController::class, 'updateRewardRule'])->middleware('throttle:30,1')->name('reward-rule.update');
     Route::get('/activities', [AmbassadorManagementController::class, 'tasks'])->name('tasks.index');
     Route::post('/activities', [AmbassadorManagementController::class, 'storeTask'])->middleware('throttle:30,1')->name('tasks.store');
     Route::patch('/activities/{activity}', [AmbassadorManagementController::class, 'updateTask'])->middleware('throttle:30,1')->name('tasks.update');
