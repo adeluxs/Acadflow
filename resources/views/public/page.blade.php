@@ -1,0 +1,6 @@
+@extends('layouts.public')
+@section('content')
+@include('public.partials.page-heading', ['eyebrow' => in_array($slug, ['privacy','terms','cookies','disclaimer']) ? 'POLICIES & RESPONSIBILITIES' : 'ABOUT THE PLATFORM'])
+<section class="section section-topless"><div class="site-container article-grid"><nav class="article-navigation" aria-label="On this page"><h2>On this page</h2>@foreach($page['sections'] as [$heading, $body])<a href="#section-{{ $loop->iteration }}">{{ $heading }}</a>@endforeach</nav><div class="article-content">@if(isset($page['review']))<aside class="legal-review" role="note"><strong>Deployment details to confirm</strong><p>{{ $page['review'] }}</p></aside>@endif @foreach($page['sections'] as [$heading,$body])<section id="section-{{ $loop->iteration }}" data-reveal><span class="article-number">{{ str_pad((string)$loop->iteration, 2, '0', STR_PAD_LEFT) }}</span><h2>{{ $heading }}</h2><p>{{ $body }}</p></section>@endforeach<div class="article-help"><h2>A question about what this means for you?</h2><p>The platform team can clarify the arrangements for this installation and your institution.</p><a class="text-link" href="{{ route('public.contact') }}">Get in touch ↗</a></div></div></div></section>
+@if($slug === 'about')@include('public.partials.cta')@endif
+@endsection

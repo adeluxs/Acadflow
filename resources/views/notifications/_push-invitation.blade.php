@@ -1,0 +1,6 @@
+@if(auth()->check() && !request()->routeIs('notifications.settings') && app(\App\Services\PushNotificationService::class)->shouldInvite(auth()->user()))
+<aside data-browser-push data-push-invitation hidden aria-label="Enable useful academic alerts" class="fixed bottom-4 right-4 z-40 max-w-sm rounded-2xl border border-indigo-100 bg-white p-5 shadow-xl" style="max-width:min(24rem,calc(100vw - 2rem))">
+    <p class="text-sm font-bold text-slate-900">Keep up with your academic workspace</p><p class="mt-2 text-sm text-slate-600">Get assignment, research and membership alerts when you are away. You choose the categories and quiet hours.</p><p data-push-status role="status" aria-live="polite" class="mt-2 text-xs text-slate-500">Notifications are optional. Your browser will ask permission only after you enable them.</p>
+    <div class="mt-4 flex flex-wrap gap-3"><button type="button" data-push-enable disabled class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Enable Notifications</button><button type="button" data-push-later class="rounded-xl border px-4 py-2 text-sm font-semibold">Not Now</button></div><a href="{{ route('notifications.settings') }}" class="mt-3 inline-block text-xs font-semibold text-indigo-600">Notification preferences</a>
+</aside>
+@endif

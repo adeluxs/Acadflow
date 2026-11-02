@@ -1,0 +1,1409 @@
+You are a senior Laravel architect, EdTech product designer, software architect, AI systems engineer, knowledge management expert, and UI/UX engineer.
+
+Your task is to design and implement a production-ready **AcadFlow Knowledge Hub**.
+
+IMPORTANT
+
+Before writing any code:
+
+- Thoroughly inspect the existing AcadFlow codebase.
+- Identify features that already exist.
+- Reuse existing models, controllers, services, repositories, policies, jobs, notifications, media library, AI services, payment services, subscriptions, wallets, discussions, comments, user profiles, permissions, search, categories, tags, and analytics.
+- Do NOT duplicate functionality.
+- Do NOT create duplicate routes, controllers, models, migrations, settings, APIs, or services.
+- Extend the current architecture wherever possible.
+- Ensure every feature integrates seamlessly with the existing AcadFlow ecosystem.
+
+=========================================================
+PROJECT VISION
+=========================================================
+
+AcadFlow Knowledge Hub is NOT a blog.
+
+It is a professional academic publishing and knowledge-sharing platform where:
+
+- Students share knowledge
+- Lecturers publish expertise
+- Researchers publish insights
+- Departments publish updates
+- Universities showcase research
+- Educational resources become discoverable
+- Creators build academic reputation
+- Users can monetize quality educational content
+
+The vision is:
+
+"Learn. Share. Build Reputation. Earn."
+
+=========================================================
+PHASE 1 — SYSTEM AUDIT
+=========================================================
+
+Before implementation:
+
+Inspect whether the following already exist:
+
+- Comments
+- Discussions
+- Categories
+- Tags
+- Search
+- AI services
+- Rich text editor
+- Media uploads
+- PDF storage
+- File management
+- User profiles
+- Wallet
+- Payments
+- Subscription system
+- Notifications
+- Followers
+- Likes
+- Analytics
+- Reports
+- Moderation tools
+- Roles & permissions
+
+Reuse every existing component possible.
+
+=========================================================
+PHASE 2 — KNOWLEDGE HUB CORE
+=========================================================
+
+Create a centralized Knowledge Hub.
+
+Supported content:
+
+Academic Articles
+
+Research Insights
+
+Study Guides
+
+Tutorials
+
+Programming Tutorials
+
+Healthcare Articles
+
+Engineering Articles
+
+Agriculture
+
+Business
+
+Law
+
+Medicine
+
+Nutrition
+
+Campus Guides
+
+Career Advice
+
+Academic Tips
+
+Exam Preparation
+
+SIWES Experiences
+
+Internship Experiences
+
+Project Experiences
+
+Research Summaries
+
+Technology
+
+Artificial Intelligence
+
+Educational Videos
+
+Presentations
+
+Reference Materials
+
+Future expandable content types.
+
+=========================================================
+PHASE 3 — ARTICLE MANAGEMENT
+=========================================================
+
+Creators should be able to:
+
+Create article
+
+Save draft
+
+Auto-save
+
+Preview
+
+Publish
+
+Schedule publication
+
+Archive
+
+Unpublish
+
+Duplicate article
+
+Version history
+
+Restore previous versions
+
+Pin articles
+
+Feature articles
+
+Delete
+
+Soft delete
+
+Permanent delete (authorized users only)
+
+=========================================================
+PHASE 4 — RICH CONTENT EDITOR
+=========================================================
+
+Support:
+
+Rich text
+
+Markdown
+
+Code blocks
+
+Mathematical equations
+
+Tables
+
+Images
+
+Videos
+
+Audio
+
+PDF embedding
+
+Word document embedding
+
+PowerPoint previews
+
+References
+
+Footnotes
+
+Callouts
+
+Academic citations
+
+Syntax highlighting
+
+Drag & drop uploads
+
+Auto-save
+
+=========================================================
+PHASE 5 — KNOWLEDGE CATEGORIES
+=========================================================
+
+Support unlimited categories.
+
+Examples:
+
+Technology
+
+Programming
+
+Medicine
+
+Nutrition
+
+Engineering
+
+Business
+
+Law
+
+Agriculture
+
+Education
+
+Research
+
+Academic Writing
+
+Career
+
+Scholarships
+
+Campus Life
+
+Projects
+
+SIWES
+
+Artificial Intelligence
+
+Cybersecurity
+
+Data Science
+
+Machine Learning
+
+Software Engineering
+
+Departments should also be able to create institution-specific categories.
+
+=========================================================
+PHASE 6 — TAGGING SYSTEM
+=========================================================
+
+Support unlimited tags.
+
+Examples:
+
+Laravel
+
+React
+
+Nutrition
+
+Clinical
+
+Food Science
+
+Project
+
+Machine Learning
+
+PHP
+
+Research
+
+Academic Writing
+
+Exam Tips
+
+SIWES
+
+Tags should power intelligent recommendations.
+
+=========================================================
+PHASE 7 — CREATOR PROFILES
+=========================================================
+
+Every creator should have a public profile showing:
+
+Biography
+
+Institution
+
+Department
+
+Faculty
+
+Position
+
+Areas of expertise
+
+Published content
+
+Followers
+
+Knowledge Score
+
+Academic Reputation
+
+Total Reads
+
+Downloads
+
+Shares
+
+Bookmarks
+
+Comments
+
+Revenue
+
+Badges
+
+Achievements
+
+=========================================================
+PHASE 8 — AI WRITING ASSISTANT
+=========================================================
+
+Integrate with the existing AI Academic Assistant.
+
+Provide:
+
+Grammar improvements
+
+Academic tone
+
+Sentence clarity
+
+Readability
+
+Structure suggestions
+
+Headline suggestions
+
+Summary generation
+
+Keywords
+
+SEO suggestions
+
+Citation validation
+
+Reference validation
+
+Fact-check reminders
+
+Writing quality score
+
+The AI should suggest improvements, not silently rewrite content.
+
+=========================================================
+PHASE 9 — PLAGIARISM CHECK
+=========================================================
+
+Before publishing:
+
+Automatically check:
+
+Internet
+
+Internal repository
+
+Existing articles
+
+Research papers
+
+Assignments
+
+Projects
+
+SIWES reports
+
+Display:
+
+Similarity score
+
+Matched sources
+
+Highlighted sections
+
+Citation issues
+
+Duplicate content warnings
+
+=========================================================
+PHASE 10 — DISCUSSIONS & ENGAGEMENT
+=========================================================
+
+Every publication should support:
+
+Comments
+
+Replies
+
+Nested discussions
+
+Likes
+
+Reactions
+
+Bookmarks
+
+Sharing
+
+Reporting inappropriate content
+
+Mention users
+
+Follow discussions
+
+Pin lecturer responses
+
+Mark answers as verified
+
+Enable AI-generated summaries of long discussions.
+
+=========================================================
+PHASE 11 — FOLLOW SYSTEM
+=========================================================
+
+Users should follow:
+
+Students
+
+Lecturers
+
+Researchers
+
+Departments
+
+Universities
+
+Topics
+
+Categories
+
+Tags
+
+Receive notifications when new content is published.
+
+=========================================================
+PHASE 12 — KNOWLEDGE REPUTATION
+=========================================================
+
+Instead of social media popularity, build an academic reputation system.
+
+Metrics include:
+
+Knowledge Score
+
+Contribution Score
+
+Research Impact
+
+Educational Impact
+
+Reader Satisfaction
+
+Consistency
+
+Publication Quality
+
+Community Engagement
+
+Verified Expertise
+
+Top Author Rankings
+
+Department Rankings
+
+Faculty Rankings
+
+University Rankings
+
+Award badges for milestones and expertise.
+
+=========================================================
+PHASE 13 — MONETIZATION
+=========================================================
+
+Enable creators to earn through multiple channels.
+
+Supported monetization:
+
+Premium articles
+
+Premium study guides
+
+Premium notes
+
+Question banks
+
+Mock exams
+
+Templates
+
+E-books
+
+Video courses
+
+Digital downloads
+
+Institution-sponsored content
+
+Featured content
+
+Revenue sharing
+
+Creator subscriptions (optional)
+
+Platform commission should be configurable via system settings.
+
+Integrate with:
+
+Wallet
+
+Payment gateways
+
+Revenue reports
+
+Withdrawals
+
+Transactions
+
+Subscription system
+
+=========================================================
+PHASE 14 — DIGITAL RESOURCE MARKETPLACE
+=========================================================
+
+Allow creators to sell:
+
+Lecture notes
+
+Slides
+
+Practice questions
+
+Assignments (where institution policy permits)
+
+Research templates
+
+Proposal templates
+
+Lab manuals
+
+Flashcards
+
+Revision materials
+
+E-books
+
+Course packs
+
+Educational assets
+
+Support secure file delivery after purchase.
+
+=========================================================
+PHASE 15 — RECOMMENDATION ENGINE
+=========================================================
+
+Recommend content using:
+
+AI
+
+Course enrollment
+
+Department
+
+Faculty
+
+Institution
+
+Level
+
+Reading history
+
+Bookmarks
+
+Search history
+
+Current assignments
+
+Current projects
+
+Current SIWES reports
+
+Current discussions
+
+Personalized feeds should improve over time.
+
+=========================================================
+PHASE 16 — SEARCH
+=========================================================
+
+Implement intelligent search.
+
+Support searching by:
+
+Title
+
+Author
+
+Topic
+
+Category
+
+Tag
+
+Institution
+
+Department
+
+Course
+
+Content
+
+Keywords
+
+Semantic meaning
+
+AI-powered search suggestions
+
+Filters should include:
+
+Date
+
+Popularity
+
+Reading time
+
+Premium/Free
+
+Department
+
+Faculty
+
+University
+
+=========================================================
+PHASE 17 — ANALYTICS
+=========================================================
+
+Creators should have dashboards showing:
+
+Views
+
+Unique readers
+
+Reading time
+
+Completion rate
+
+Shares
+
+Bookmarks
+
+Comments
+
+Downloads
+
+Revenue
+
+Followers
+
+Popular content
+
+Traffic sources
+
+Institution breakdown
+
+Department breakdown
+
+Country analytics
+
+Monthly growth
+
+=========================================================
+PHASE 18 — MODERATION
+=========================================================
+
+Provide moderation tools for administrators.
+
+Support:
+
+Approve publications
+
+Reject
+
+Request edits
+
+Hide
+
+Feature
+
+Suspend creators
+
+Content reports
+
+Spam detection
+
+AI-assisted moderation
+
+Audit logs
+
+=========================================================
+PHASE 19 — NOTIFICATIONS
+=========================================================
+
+Integrate with the notification system.
+
+Notify users for:
+
+New followers
+
+New comments
+
+Replies
+
+Mentions
+
+Likes
+
+Bookmarks
+
+Publication approvals
+
+Revenue received
+
+Sales
+
+Milestones
+
+Trending articles
+
+All notifications should use Laravel queues for asynchronous processing.
+
+=========================================================
+PHASE 20 — SETTINGS
+=========================================================
+
+Integrate fully with the centralized system settings.
+
+Administrators should configure:
+
+Enable Knowledge Hub
+
+Enable monetization
+
+Revenue sharing percentages
+
+Platform commission
+
+Supported file types
+
+Maximum upload size
+
+AI features
+
+Plagiarism threshold
+
+Comment permissions
+
+Moderation workflow
+
+Premium content
+
+Creator verification
+
+Badges
+
+Ranking rules
+
+Never duplicate settings already present in the system.
+
+=========================================================
+PHASE 21 — SECURITY
+=========================================================
+
+Respect all existing roles and permissions.
+
+Students
+
+Lecturers
+
+Researchers
+
+Department Admins
+
+University Admins
+
+Super Admins
+
+Only authorized users should perform privileged actions.
+
+=========================================================
+PHASE 22 — PERFORMANCE & SCALABILITY
+=========================================================
+
+Design for large-scale deployments.
+
+Use:
+
+Laravel Queues
+
+Events
+
+Listeners
+
+Caching
+
+Lazy loading
+
+Eager loading where appropriate
+
+Pagination
+
+Infinite scrolling
+
+Search indexing
+
+Background processing
+
+Optimize database queries to support millions of articles and users.
+
+
+PHASE 23 — VERIFIED ACADEMIC IDENTITIES
+
+Implement a comprehensive verification system to establish trust and credibility across the Knowledge Hub.
+
+Supported verification types:
+
+Verified Lecturer
+Verified Professor
+Verified Researcher
+Verified Student Ambassador
+Verified Department
+Verified Faculty
+Verified University
+Verified Organization
+Verified Institution Partner
+
+Verification should include:
+
+Verification badges
+Institution validation
+Academic qualification verification (where applicable)
+Employment verification
+Department affiliation
+Profile verification status
+Public trust indicators
+
+Administrators should be able to:
+
+Approve
+Reject
+Suspend
+Revoke
+Review verification requests
+
+Verified profiles should receive increased visibility throughout the platform.
+
+
+PHASE 24 — RESEARCH COLLABORATION
+
+Allow researchers and students to collaborate academically.
+
+Features include:
+
+Create Research Groups
+
+Join Research Groups
+
+Invite Collaborators
+
+Request Collaboration
+
+Find Co-authors
+
+Find Supervisors
+
+Find Mentors
+
+Find Research Assistants
+
+Dataset Sharing
+
+Reference Sharing
+
+Version Control
+
+Collaborative Writing
+
+Research Milestones
+
+Task Assignment
+
+Progress Tracking
+
+Research Discussions
+
+Private Collaboration Spaces
+
+Permission Management
+
+Notification Integration
+
+
+
+PHASE 25 — ACADEMIC COMMUNITIES
+
+Allow users to build communities around academic interests.
+
+Communities can be created for:
+
+Departments
+
+Faculties
+
+Courses
+
+Programming Languages
+
+Research Areas
+
+Professional Disciplines
+
+Healthcare
+
+Nutrition
+
+Engineering
+
+Medicine
+
+Agriculture
+
+Artificial Intelligence
+
+Cybersecurity
+
+Machine Learning
+
+Law
+
+Business
+
+Education
+
+Communities should support:
+
+Posts
+
+Discussions
+
+Events
+
+Announcements
+
+Polls
+
+Resource Sharing
+
+Pinned Resources
+
+Moderation
+
+Roles
+
+Membership Approval
+
+Private Communities
+
+Public Communities
+
+Community Analytics
+
+
+PHASE 26 — LEARNING PATHS
+
+Allow creators to build structured learning journeys.
+
+A Learning Path should include:
+
+Articles
+
+Videos
+
+Assignments
+
+Quizzes
+
+Slides
+
+PDFs
+
+External References
+
+Practice Tasks
+
+Projects
+
+Assessments
+
+Completion Tracking
+
+Progress Analytics
+
+Certificates (optional)
+
+Bookmarks
+
+AI Recommendations
+
+Students should be able to:
+
+Enroll
+
+Resume
+
+Track Progress
+
+Complete Modules
+
+Receive Recommendations
+
+
+
+PHASE 27 — READING LISTS
+
+Allow users to organize educational resources.
+
+Support:
+
+Private Reading Lists
+
+Public Reading Lists
+
+Course Reading Lists
+
+Research Reading Lists
+
+Department Reading Lists
+
+Bookmarks
+
+Collections
+
+Favorites
+
+Reading Progress
+
+Share Lists
+
+Collaborative Lists
+
+Export Lists
+
+Import References
+
+
+
+PHASE 28 — ACADEMIC CITATION NETWORK
+
+Build relationships between academic publications.
+
+When one publication references another:
+
+Automatically create citation relationships.
+
+Support:
+
+Citation Graphs
+
+Most Cited Publications
+
+Most Influential Authors
+
+Citation Timeline
+
+Related Research
+
+Reference Recommendations
+
+Cross References
+
+Citation Analytics
+
+Department Citation Rankings
+
+University Citation Rankings
+
+Research Impact Score
+
+Visual citation graphs should be supported.
+
+
+
+PHASE 29 — INTELLIGENT RECOMMENDATION ENGINE
+
+Implement AI-powered recommendations.
+
+Recommendations should consider:
+
+Courses
+
+Departments
+
+Faculty
+
+Institution
+
+Semester
+
+Research Interests
+
+Reading History
+
+Bookmarks
+
+Current Assignments
+
+Current Projects
+
+Current SIWES Reports
+
+Current Discussions
+
+Learning Paths
+
+Communities
+
+Followed Authors
+
+Knowledge Level
+
+Recommendations should improve continuously based on user behavior.
+
+
+
+PHASE 30 — ACADEMIC EVENTS
+
+Allow academic organizations to organize events.
+
+Supported events:
+
+Seminars
+
+Conferences
+
+Guest Lectures
+
+Research Presentations
+
+Project Defenses
+
+SIWES Orientation
+
+Department Meetings
+
+Workshops
+
+Hackathons
+
+Competitions
+
+Training Sessions
+
+Support:
+
+Registration
+
+Attendance
+
+RSVP
+
+Certificates
+
+Event Materials
+
+Recordings
+
+Notifications
+
+Event Analytics
+
+Calendar Integration
+
+
+
+PHASE 31 — CREATOR REPUTATION & LEVELS
+
+Implement a creator ranking system.
+
+Possible levels:
+
+New Contributor
+
+Campus Contributor
+
+Department Expert
+
+Faculty Expert
+
+University Scholar
+
+National Contributor
+
+Research Fellow
+
+Distinguished Researcher
+
+Professor Circle
+
+Hall of Knowledge
+
+Ranking factors:
+
+Publication Quality
+
+Consistency
+
+Engagement
+
+Citations
+
+Reader Satisfaction
+
+Contribution Score
+
+Knowledge Score
+
+Community Impact
+
+Research Impact
+
+Academic Reputation
+
+Badges
+
+Achievements
+
+Milestones
+
+
+
+PHASE 32 — KNOWLEDGE CHALLENGES
+
+Introduce academic competitions.
+
+Examples:
+
+Weekly Writing Challenge
+
+Research Challenge
+
+Innovation Challenge
+
+Tutorial Challenge
+
+Best SIWES Report
+
+Best Project Documentation
+
+Best Technical Article
+
+Best Programming Tutorial
+
+Best Academic Publication
+
+Features:
+
+Leaderboard
+
+Rewards
+
+Badges
+
+Certificates
+
+Voting
+
+Judging
+
+AI Evaluation Assistance
+
+Department Competitions
+
+University Competitions
+
+
+
+PHASE 33 — AI KNOWLEDGE COMPANION
+
+Extend the AI Academic Assistant to interact with every Knowledge Hub publication.
+
+Users should be able to:
+
+Ask questions about an article.
+
+Explain difficult sections.
+
+Summarize publications.
+
+Compare two publications.
+
+Generate flashcards.
+
+Generate quizzes.
+
+Generate practice questions.
+
+Translate academic content.
+
+Recommend related publications.
+
+Generate revision notes.
+
+Highlight key concepts.
+
+Explain equations.
+
+Explain code examples.
+
+Provide simplified explanations.
+
+Generate discussion questions.
+
+Generate teaching notes.
+
+Suggest additional references.
+
+The AI should always reference the original publication and never fabricate academic facts.
+
+
+
+PHASE 34 — FUTURE-READY ARCHITECTURE
+
+Ensure the Knowledge Hub is designed for long-term expansion.
+
+The architecture should support future modules without major refactoring, including:
+
+Academic podcasts.
+Live classes.
+Live streaming.
+MOOCs.
+Peer review journals.
+Institutional repositories.
+Open educational resources (OER).
+Research funding opportunities.
+Grant management.
+Academic mentoring.
+Career services.
+Alumni knowledge network.
+Professional certification courses.
+AI tutors.
+AR/VR learning experiences.
+External research database integrations.
+University library integrations.
+ORCID, Google Scholar, Crossref, and DOI integration.
+APIs for third-party educational tools.
+
+
+=========================================================
+FINAL DELIVERABLE
+=========================================================
+
+At completion, provide:
+
+1. Existing components discovered.
+2. Components reused.
+3. New components created.
+4. Duplicate logic removed or merged.
+5. Integration points with the rest of AcadFlow.
+6. Database changes.
+7. Routes created.
+8. APIs created.
+9. Background jobs added.
+10. AI integrations.
+11. Monetization architecture.
+12. Security implementation.
+13. Scalability considerations.
+14. Future enhancement recommendations.
+
+The final result should be a unified, scalable, production-ready Knowledge Hub that transforms AcadFlow into not only an academic workflow platform but also a trusted academic publishing, learning, collaboration, and creator ecosystem where students, lecturers, researchers, and institutions can build reputation, share knowledge, and generate sustainable income.

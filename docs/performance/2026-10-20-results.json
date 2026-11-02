@@ -1,0 +1,213 @@
+{
+  "date": "2026-10-20",
+  "environment": {
+    "php": "8.5.2",
+    "browser": "local Chrome via Playwright",
+    "database": "isolated SQLite",
+    "browser_network": "unthrottled localhost; service workers blocked",
+    "load_worker_setting": "PHP_CLI_SERVER_WORKERS=4",
+    "load_stage_limitations": "Sequential short stages with 3-second cooldown, 10-second ramp, 5-second hold and 10-second think time; 1000-user stage can be affected by backlog from 500 users. Not production capacity certification."
+  },
+  "browser_before": {
+    "/research-studio/create": {
+      "samples": 5,
+      "html_bytes": 83320,
+      "median_ttfb_ms": 288.2,
+      "median_dom_ms": 364.5,
+      "median_lcp_ms": 360,
+      "max_lcp_ms": 568,
+      "max_cls": 0.012818115234375
+    },
+    "/research-studio/create?studio_mode=final_year": {
+      "samples": 5,
+      "html_bytes": 83328,
+      "median_ttfb_ms": 155.8,
+      "median_dom_ms": 216.4,
+      "median_lcp_ms": 216,
+      "max_lcp_ms": 260,
+      "max_cls": 0.012818115234375
+    }
+  },
+  "browser_after": {
+    "/research-studio/create": {
+      "samples": 5,
+      "html_bytes": 48556,
+      "median_ttfb_ms": 137.7,
+      "median_dom_ms": 202.7,
+      "median_lcp_ms": 212,
+      "max_lcp_ms": 504,
+      "max_cls": 0.012818115234375
+    },
+    "/research-studio/create?studio_mode=final_year": {
+      "samples": 5,
+      "html_bytes": 48564,
+      "median_ttfb_ms": 120.6,
+      "median_dom_ms": 175.7,
+      "median_lcp_ms": 184,
+      "max_lcp_ms": 208,
+      "max_cls": 0.012818115234375
+    }
+  },
+  "admin_before": {
+    "completed": false,
+    "watchdog_ms": 12000,
+    "elapsed_ms": 12002.48,
+    "buffered_bytes": 13535923,
+    "peak_mb": 46.921875
+  },
+  "admin_after": {
+    "route": "/research-studio/configuration",
+    "bootstrap_ms": 630.75,
+    "p50_ms": 401,
+    "p95_ms": 884.66,
+    "peak_mb": 20,
+    "samples": [
+      {
+        "ms": 884.66,
+        "status": 200,
+        "bytes": 523476,
+        "queries": 13,
+        "sql_ms": 33.879999999999995
+      },
+      {
+        "ms": 395.83,
+        "status": 200,
+        "bytes": 523476,
+        "queries": 7,
+        "sql_ms": 6.07
+      },
+      {
+        "ms": 402.36,
+        "status": 200,
+        "bytes": 523476,
+        "queries": 7,
+        "sql_ms": 6.369999999999999
+      },
+      {
+        "ms": 394.87,
+        "status": 200,
+        "bytes": 523476,
+        "queries": 7,
+        "sql_ms": 6.1
+      },
+      {
+        "ms": 401,
+        "status": 200,
+        "bytes": 523476,
+        "queries": 7,
+        "sql_ms": 6.32
+      }
+    ]
+  },
+  "bundle_after": {
+    "entry_bytes": 16667,
+    "gzip_bytes": 5825
+  },
+  "load_stages": [
+    {
+      "users": 100,
+      "ramp_ms": 10000,
+      "hold_ms": 5000,
+      "elapsed_s": 25.132196939,
+      "requests": 145,
+      "successful": 145,
+      "errors": 0,
+      "error_rate": 0,
+      "peak_in_flight": 8,
+      "throughput": 5.769491634652513,
+      "successful_p50_ms": 151.3926250000004,
+      "successful_p95_ms": 506.88426100000106,
+      "all_p95_ms": 506.88426100000106,
+      "statuses": {
+        "200": 145
+      },
+      "median_successful_server_app_ms": 59.71
+    },
+    {
+      "users": 500,
+      "ramp_ms": 10000,
+      "hold_ms": 5000,
+      "elapsed_s": 25.106085345,
+      "requests": 592,
+      "successful": 20,
+      "errors": 572,
+      "error_rate": 0.9662162162162162,
+      "peak_in_flight": 160,
+      "throughput": 0.7966196133394049,
+      "successful_p50_ms": 2093.191573,
+      "successful_p95_ms": 2759.5588400000015,
+      "all_p95_ms": 3022.950409000001,
+      "statuses": {
+        "0": 572,
+        "200": 20
+      },
+      "median_successful_server_app_ms": 264.15999999999997
+    },
+    {
+      "users": 1000,
+      "ramp_ms": 10000,
+      "hold_ms": 5000,
+      "elapsed_s": 24.816503283,
+      "requests": 1130,
+      "successful": 10,
+      "errors": 1120,
+      "error_rate": 0.9911504424778761,
+      "peak_in_flight": 393,
+      "throughput": 0.4029576562807009,
+      "successful_p50_ms": 1404.7398179999946,
+      "successful_p95_ms": 2869.7443520000015,
+      "all_p95_ms": 3503.473548999995,
+      "statuses": {
+        "0": 1120,
+        "200": 10
+      },
+      "median_successful_server_app_ms": 586.5799999999999
+    }
+  ],
+  "validation": {
+    "full_php_suite": {
+      "tests": 431,
+      "assertions": 2457,
+      "passed": true
+    },
+    "final_focused_suite": {
+      "tests": 47,
+      "assertions": 698,
+      "passed": true
+    },
+    "browser_workflows": {
+      "tests": 5,
+      "passed": true
+    },
+    "browser_performance_budgets": {
+      "tests": 1,
+      "passed": true
+    },
+    "bundle_budgets": true,
+    "mysql_identifier_check": true,
+    "isolated_index_migration": true,
+    "load_harness_regression_tests": {
+      "tests": 2,
+      "passed": true
+    }
+  },
+  "excluded_results": "Wrong-document-root server runs returned HTTP-200 PHP error documents. Those runs were discarded and the harness now validates real page content and performs an authenticated preflight.",
+  "database_plans": {
+    "before": [
+      "MULTI-INDEX OR",
+      "INDEX 1",
+      "SEARCH research_types USING INDEX research_types_university_id_slug_unique (university_id=?)",
+      "INDEX 2",
+      "SEARCH research_types USING INDEX research_types_university_id_slug_unique (university_id=?)",
+      "USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "after": [
+      "MULTI-INDEX OR",
+      "INDEX 1",
+      "SEARCH research_types USING COVERING INDEX research_type_options_idx (university_id=? AND is_active=?)",
+      "INDEX 2",
+      "SEARCH research_types USING COVERING INDEX research_type_options_idx (university_id=? AND is_active=?)",
+      "USE TEMP B-TREE FOR ORDER BY"
+    ]
+  }
+}

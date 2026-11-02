@@ -1,0 +1,304 @@
+{
+  "fixture": {
+    "faculties": 120,
+    "departments": 360,
+    "lecturers": 250,
+    "commercial_accounts": 60,
+    "audit_logs": 250
+  },
+  "method": "Three warm sequential full HTTP feature-test renders per page; SQLite in memory, fake Vite. Not a production load test.",
+  "before": {
+    "admin.users": [
+      {
+        "ms": 62.4,
+        "queries": 6,
+        "bytes": 126682,
+        "hydrated": {
+          "User": 20,
+          "Department": 360
+        }
+      },
+      {
+        "ms": 62.83,
+        "queries": 6,
+        "bytes": 126682,
+        "hydrated": {
+          "User": 20,
+          "Department": 360
+        }
+      },
+      {
+        "ms": 65.85,
+        "queries": 6,
+        "bytes": 126682,
+        "hydrated": {
+          "User": 20,
+          "Department": 360
+        }
+      }
+    ],
+    "admin.faculties": [
+      {
+        "ms": 103.66,
+        "queries": 8,
+        "bytes": 141963,
+        "hydrated": {
+          "Faculty": 120,
+          "Department": 360,
+          "University": 62,
+          "User": 250
+        }
+      },
+      {
+        "ms": 106.27,
+        "queries": 8,
+        "bytes": 141963,
+        "hydrated": {
+          "Faculty": 120,
+          "Department": 360,
+          "University": 62,
+          "User": 250
+        }
+      },
+      {
+        "ms": 106.33,
+        "queries": 8,
+        "bytes": 141963,
+        "hydrated": {
+          "Faculty": 120,
+          "Department": 360,
+          "University": 62,
+          "User": 250
+        }
+      }
+    ],
+    "admin.universities": [
+      {
+        "ms": 30.98,
+        "queries": 5,
+        "bytes": 61076,
+        "hydrated": {
+          "University": 20
+        }
+      },
+      {
+        "ms": 32.71,
+        "queries": 5,
+        "bytes": 61076,
+        "hydrated": {
+          "University": 20
+        }
+      },
+      {
+        "ms": 51.74,
+        "queries": 5,
+        "bytes": 61076,
+        "hydrated": {
+          "University": 20
+        }
+      }
+    ],
+    "admin.settings.audit-logs": [
+      {
+        "ms": 80.47,
+        "queries": 9,
+        "bytes": 135247,
+        "hydrated": {
+          "AuditLog": 50,
+          "User": 300
+        }
+      },
+      {
+        "ms": 78.69,
+        "queries": 9,
+        "bytes": 135247,
+        "hydrated": {
+          "AuditLog": 50,
+          "User": 300
+        }
+      },
+      {
+        "ms": 80.99,
+        "queries": 9,
+        "bytes": 135247,
+        "hydrated": {
+          "AuditLog": 50,
+          "User": 300
+        }
+      }
+    ],
+    "admin.monetization": [
+      {
+        "ms": 156.6,
+        "queries": 18,
+        "bytes": 116419,
+        "hydrated": {
+          "CommercialAccount": 60,
+          "University": 121
+        }
+      },
+      {
+        "ms": 106.19,
+        "queries": 18,
+        "bytes": 116419,
+        "hydrated": {
+          "CommercialAccount": 60,
+          "University": 121
+        }
+      },
+      {
+        "ms": 107.25,
+        "queries": 18,
+        "bytes": 116419,
+        "hydrated": {
+          "CommercialAccount": 60,
+          "University": 121
+        }
+      }
+    ]
+  },
+  "after": {
+    "admin.users": [
+      {
+        "ms": 33.24,
+        "queries": 4,
+        "bytes": 70218,
+        "hydrated": {
+          "User": 20
+        }
+      },
+      {
+        "ms": 36.31,
+        "queries": 4,
+        "bytes": 70218,
+        "hydrated": {
+          "User": 20
+        }
+      },
+      {
+        "ms": 36.72,
+        "queries": 4,
+        "bytes": 70218,
+        "hydrated": {
+          "User": 20
+        }
+      }
+    ],
+    "admin.faculties": [
+      {
+        "ms": 40.18,
+        "queries": 5,
+        "bytes": 64083,
+        "hydrated": {
+          "Faculty": 25,
+          "University": 1
+        }
+      },
+      {
+        "ms": 39.89,
+        "queries": 5,
+        "bytes": 64083,
+        "hydrated": {
+          "Faculty": 25,
+          "University": 1
+        }
+      },
+      {
+        "ms": 32.96,
+        "queries": 5,
+        "bytes": 64083,
+        "hydrated": {
+          "Faculty": 25,
+          "University": 1
+        }
+      }
+    ],
+    "admin.universities": [
+      {
+        "ms": 29.28,
+        "queries": 4,
+        "bytes": 61717,
+        "hydrated": {
+          "University": 20
+        }
+      },
+      {
+        "ms": 34.91,
+        "queries": 4,
+        "bytes": 61717,
+        "hydrated": {
+          "University": 20
+        }
+      },
+      {
+        "ms": 46.6,
+        "queries": 4,
+        "bytes": 61717,
+        "hydrated": {
+          "University": 20
+        }
+      }
+    ],
+    "admin.settings.audit-logs": [
+      {
+        "ms": 43.96,
+        "queries": 4,
+        "bytes": 91529,
+        "hydrated": {
+          "AuditLog": 51,
+          "User": 51
+        }
+      },
+      {
+        "ms": 43.2,
+        "queries": 4,
+        "bytes": 91529,
+        "hydrated": {
+          "AuditLog": 51,
+          "User": 51
+        }
+      },
+      {
+        "ms": 41.78,
+        "queries": 4,
+        "bytes": 91529,
+        "hydrated": {
+          "AuditLog": 51,
+          "User": 51
+        }
+      }
+    ],
+    "admin.monetization": [
+      {
+        "ms": 44.75,
+        "queries": 16,
+        "bytes": 88857,
+        "hydrated": {
+          "CommercialAccount": 20,
+          "University": 20,
+          "AiUsageCharge": 1
+        }
+      },
+      {
+        "ms": 45.67,
+        "queries": 16,
+        "bytes": 88857,
+        "hydrated": {
+          "CommercialAccount": 20,
+          "University": 20,
+          "AiUsageCharge": 1
+        }
+      },
+      {
+        "ms": 45.99,
+        "queries": 16,
+        "bytes": 88857,
+        "hydrated": {
+          "CommercialAccount": 20,
+          "University": 20,
+          "AiUsageCharge": 1
+        }
+      }
+    ]
+  }
+}

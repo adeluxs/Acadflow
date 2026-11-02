@@ -1,0 +1,323 @@
+{
+  "date": "2026-10-23",
+  "method": "Full HTTP kernel renders in isolated SQLite testing databases, compiled Vite assets, array sessions, nine sequential requests per case; first sample excluded from warm summary. Local workstation timings, not production capacity.",
+  "baseline": "Committed DashboardController before this change, renamed in a temporary test-only file and bound to the same HTTP route, with the Today partial disabled. Sidebar and other shared current layout remain identical.",
+  "fixture": {
+    "small": {
+      "source_sessions": 1,
+      "ready_quizzes": 1
+    },
+    "large": {
+      "additional_private_notes": 40,
+      "additional_sessions": 40,
+      "additional_ready_quizzes": 40,
+      "browser_note_and_attempt": true
+    }
+  },
+  "cases": {
+    "dashboard-before": {
+      "route": "/dashboard",
+      "summary": {
+        "warm_median_ms": 56.4,
+        "warm_median_sql_ms": 4.13,
+        "warm_queries": [
+          13
+        ],
+        "response_bytes": 36026
+      },
+      "samples": [
+        {
+          "ms": 822.3,
+          "status": 200,
+          "bytes": 36026,
+          "queries": 19,
+          "sql_ms": 27.160000000000004
+        },
+        {
+          "ms": 73.07,
+          "status": 200,
+          "bytes": 36026,
+          "queries": 13,
+          "sql_ms": 7.28
+        },
+        {
+          "ms": 47.66,
+          "status": 200,
+          "bytes": 36026,
+          "queries": 13,
+          "sql_ms": 4.19
+        },
+        {
+          "ms": 49.4,
+          "status": 200,
+          "bytes": 36026,
+          "queries": 13,
+          "sql_ms": 3.98
+        },
+        {
+          "ms": 48.89,
+          "status": 200,
+          "bytes": 36026,
+          "queries": 13,
+          "sql_ms": 3.73
+        },
+        {
+          "ms": 53.24,
+          "status": 200,
+          "bytes": 36026,
+          "queries": 13,
+          "sql_ms": 4.13
+        },
+        {
+          "ms": 59.56,
+          "status": 200,
+          "bytes": 36026,
+          "queries": 13,
+          "sql_ms": 3.9899999999999998
+        },
+        {
+          "ms": 62.09,
+          "status": 200,
+          "bytes": 36026,
+          "queries": 13,
+          "sql_ms": 4.13
+        },
+        {
+          "ms": 61.2,
+          "status": 200,
+          "bytes": 36026,
+          "queries": 13,
+          "sql_ms": 4.840000000000001
+        }
+      ]
+    },
+    "dashboard-after": {
+      "route": "/dashboard",
+      "summary": {
+        "warm_median_ms": 89.14,
+        "warm_median_sql_ms": 9.12,
+        "warm_queries": [
+          19
+        ],
+        "response_bytes": 40680
+      },
+      "samples": [
+        {
+          "ms": 371.53,
+          "status": 200,
+          "bytes": 40680,
+          "queries": 25,
+          "sql_ms": 26.390000000000004
+        },
+        {
+          "ms": 164.91,
+          "status": 200,
+          "bytes": 40680,
+          "queries": 19,
+          "sql_ms": 11.54
+        },
+        {
+          "ms": 248.8,
+          "status": 200,
+          "bytes": 40680,
+          "queries": 19,
+          "sql_ms": 12.67
+        },
+        {
+          "ms": 114.62,
+          "status": 200,
+          "bytes": 40680,
+          "queries": 19,
+          "sql_ms": 11.200000000000001
+        },
+        {
+          "ms": 90.97,
+          "status": 200,
+          "bytes": 40680,
+          "queries": 19,
+          "sql_ms": 9.13
+        },
+        {
+          "ms": 87.32,
+          "status": 200,
+          "bytes": 40680,
+          "queries": 19,
+          "sql_ms": 9.100000000000001
+        },
+        {
+          "ms": 82.59,
+          "status": 200,
+          "bytes": 40680,
+          "queries": 19,
+          "sql_ms": 7.83
+        },
+        {
+          "ms": 77.97,
+          "status": 200,
+          "bytes": 40680,
+          "queries": 19,
+          "sql_ms": 7.159999999999999
+        },
+        {
+          "ms": 81.06,
+          "status": 200,
+          "bytes": 40680,
+          "queries": 19,
+          "sql_ms": 7.5
+        }
+      ]
+    },
+    "study-small": {
+      "route": "/study",
+      "summary": {
+        "warm_median_ms": 75.06,
+        "warm_median_sql_ms": 6.48,
+        "warm_queries": [
+          13
+        ],
+        "response_bytes": 36749
+      },
+      "samples": [
+        {
+          "ms": 410.32,
+          "status": 200,
+          "bytes": 36749,
+          "queries": 17,
+          "sql_ms": 21.28
+        },
+        {
+          "ms": 110.74,
+          "status": 200,
+          "bytes": 36749,
+          "queries": 13,
+          "sql_ms": 39.19
+        },
+        {
+          "ms": 75.25,
+          "status": 200,
+          "bytes": 36749,
+          "queries": 13,
+          "sql_ms": 6.48
+        },
+        {
+          "ms": 74.88,
+          "status": 200,
+          "bytes": 36749,
+          "queries": 13,
+          "sql_ms": 6.319999999999999
+        },
+        {
+          "ms": 72.61,
+          "status": 200,
+          "bytes": 36749,
+          "queries": 13,
+          "sql_ms": 6.430000000000001
+        },
+        {
+          "ms": 68.17,
+          "status": 200,
+          "bytes": 36749,
+          "queries": 13,
+          "sql_ms": 6.48
+        },
+        {
+          "ms": 67.02,
+          "status": 200,
+          "bytes": 36749,
+          "queries": 13,
+          "sql_ms": 5.970000000000001
+        },
+        {
+          "ms": 99.36,
+          "status": 200,
+          "bytes": 36749,
+          "queries": 13,
+          "sql_ms": 6.5600000000000005
+        },
+        {
+          "ms": 100.52,
+          "status": 200,
+          "bytes": 36749,
+          "queries": 13,
+          "sql_ms": 6.609999999999999
+        }
+      ]
+    },
+    "study-large": {
+      "route": "/study",
+      "summary": {
+        "warm_median_ms": 107.51,
+        "warm_median_sql_ms": 9.0,
+        "warm_queries": [
+          14
+        ],
+        "response_bytes": 42503
+      },
+      "samples": [
+        {
+          "ms": 401.17,
+          "status": 200,
+          "bytes": 42503,
+          "queries": 18,
+          "sql_ms": 11.379999999999999
+        },
+        {
+          "ms": 157.74,
+          "status": 200,
+          "bytes": 42503,
+          "queries": 14,
+          "sql_ms": 21.1
+        },
+        {
+          "ms": 191.25,
+          "status": 200,
+          "bytes": 42503,
+          "queries": 14,
+          "sql_ms": 8.83
+        },
+        {
+          "ms": 92.08,
+          "status": 200,
+          "bytes": 42503,
+          "queries": 14,
+          "sql_ms": 7.11
+        },
+        {
+          "ms": 80.53,
+          "status": 200,
+          "bytes": 42503,
+          "queries": 14,
+          "sql_ms": 8
+        },
+        {
+          "ms": 106.44,
+          "status": 200,
+          "bytes": 42503,
+          "queries": 14,
+          "sql_ms": 10.980000000000002
+        },
+        {
+          "ms": 139.33,
+          "status": 200,
+          "bytes": 42503,
+          "queries": 14,
+          "sql_ms": 9.17
+        },
+        {
+          "ms": 108.58,
+          "status": 200,
+          "bytes": 42503,
+          "queries": 14,
+          "sql_ms": 10.359999999999998
+        },
+        {
+          "ms": 92.94,
+          "status": 200,
+          "bytes": 42503,
+          "queries": 14,
+          "sql_ms": 7.6000000000000005
+        }
+      ]
+    }
+  }
+}

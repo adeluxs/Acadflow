@@ -1,0 +1,56 @@
+Files that differ from the acadflow-web_1.zip you uploaded on 31 Oct 2026
+(vendor, node_modules, storage, bootstrap/cache and public/build are not listed; public/build was rebuilt)
+
+ADDED (10):
+app/Models/AmbassadorTask.php
+database/migrations/2026_10_31_150000_add_ambassador_activities_and_institution_links.php
+docs/IMPLEMENTATION_REPORT_2026-10-31.md
+resources/views/admin/ambassadors/tasks.blade.php
+resources/views/ambassadors/_how-rewards-work.blade.php
+resources/views/public/refresh-app.blade.php
+tests/Browser/navigation-update.test.mjs
+tests/Feature/AmbassadorProgrammeCompletionTest.php
+tests/Feature/AmbassadorReferralRewardTest.php
+tests/Feature/AppRefreshTest.php
+
+CHANGED (37):
+CHANGELOG.md
+app/Http/Controllers/Admin/AmbassadorManagementController.php
+app/Http/Controllers/AmbassadorController.php
+app/Http/Controllers/PublicPageController.php
+app/Http/Middleware/RequestCorrelationId.php
+app/Models/AmbassadorApplication.php
+app/Models/AmbassadorReport.php
+app/Models/AmbassadorReward.php
+app/Services/AmbassadorQualificationService.php
+app/Services/AmbassadorService.php
+app/Services/PublicWebsite.php
+config/public_website.php
+database/migrations/2026_10_27_120000_create_campus_ambassador_programme.php
+database/migrations/2026_10_31_120000_add_ambassador_referral_review.php
+docs/CAMPUS_AMBASSADORS.md
+docs/DEVELOPER_GUIDE.md
+public/css/ambassadors.css
+public/serviceworker.js
+resources/css/public.css
+resources/js/browser-push.js
+resources/js/global-loader.js
+resources/js/performance.js
+resources/views/admin/ambassadors/_referrals.blade.php
+resources/views/admin/ambassadors/index.blade.php
+resources/views/admin/ambassadors/show.blade.php
+resources/views/ambassadors/_application-form.blade.php
+resources/views/ambassadors/_reports.blade.php
+resources/views/ambassadors/_rewards.blade.php
+resources/views/ambassadors/index.blade.php
+resources/views/landing.blade.php
+resources/views/layouts/app.blade.php
+resources/views/layouts/public.blade.php
+resources/views/public/ambassadors.blade.php
+routes/ambassadors.php
+routes/web.php
+tests/Feature/AmbassadorAntiFraudTest.php
+tests/Feature/AmbassadorProgrammeTest.php
+
+REMOVED (0):
+(none)

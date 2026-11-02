@@ -1,0 +1,97 @@
+# AcadSyntra Security Architecture
+
+**Current source snapshot:** 2026-08-15  
+**Canonical engineering guide:** `DEVELOPER_GUIDE.md`
+
+## Authentication
+
+- Laravel web auth and Sanctum API auth
+- email verification before protected application routes
+- password reset flow
+- optional/required two-factor authentication through account security/challenge middleware
+- session timeout and concurrent-session middleware
+- CSRF protection on web routes, with explicit verified webhook exclusions
+
+Current named rate limits include:
+
+- login: 10/minute by email+IP
+- registration: 5/hour by IP
+- password reset: 5/minute by email+IP
+- verification: 6/minute by user/IP
+- two-factor: 5/minute by user/IP
+- AI: runtime-configurable per-minute limit
+- challenge votes: 20/minute
+- secure downloads: 30/minute
+- commerce webhooks: 120/minute by IP
+
+## Authorization
+
+AcadSyntra uses layered authorization:
+
+1. role middleware;
+2. permission enum mapping;
+3. model policies;
+4. tenant/department/course membership queries;
+5. feature/module availability;
+6. subscription feature gates;
+7. AI feature gates.
+
+Never use UI visibility as the only authorization control.
+
+## Tenant isolation
+
+Institutional data is scoped by university and often department/course. AI context, research records, student submissions, settings/credentials and Knowledge permissions must preserve tenant boundaries.
+
+## Feature management
+
+Feature status is centrally enforced for web/API. Admins can preview restricted features; normal users cannot. API unavailable responses include controlled feature status codes.
+
+## AI security
+
+- provider credentials are centralized and must be masked/encrypted where stored;
+- provider secrets must never be logged or returned to clients;
+- retrieved documents are treated as untrusted data;
+- prompt injection patterns are sanitized/guarded;
+- Grounded Companion requires evidence/source validation;
+- contextual assistants authorize the model before building context;
+- gibberish can be rejected before provider calls;
+- Provider AI mode cannot silently pretend Rule Engine output came from the selected provider.
+
+## File/media security
+
+- secure media services and expiring tokens
+- configurable malware scanning
+- server-side MIME/size validation
+- private academic files should not be exposed by raw public URLs
+- safe streaming/missing-file handling
+
+## Webhooks/payments
+
+Payment/commerce webhooks are intentionally outside signed-in browser auth and use webhook verification middleware. Keep them CSRF-exempt only where verified by gateway signature logic. Paystack signatures are SHA-512 HMACs over the exact raw body using saved test/live secret keys; no separate webhook secret is used. Settlement independently checks the original transaction environment, reference, integer minor amount and currency through the provider API. An event alone never credits a wallet or grants access.
+
+Payment/refund POSTs have bounded timeouts and are never automatically retried. Unknown results retain their references for reconciliation. Provider refund acceptance does not confirm completion. Refund events trigger a read of the specific stored refund ID before any local reversal. Payment credentials are encrypted in text storage, hidden from model serialization and excluded from validation session flashes.
+
+## Database/seeding safety
+
+- production-safe migrations
+- explicit short MySQL index names
+- idempotent seeders
+- no production `migrate:fresh`
+- no truncation/reset of administrator settings/credentials during upgrades
+
+## Logging/privacy
+
+Public enquiries use the normal web CSRF protection, session-bound expiring form tokens (including a minimum fill time), a honeypot and per-IP rate limits. Stored fields are limited to reference, name, email, topic, message, status and timestamps; no separate contact IP field is collected. The platform inbox requires Super Admin authorization on both reads and status changes, escapes visitor content and sends `Cache-Control: no-store`. Alerts include no visitor message content. Queue failures retain the original enquiry. The operator must manage retention/deletion and abuse monitoring; honeypots and rate limits do not guarantee all spam will be blocked.
+
+Do not log passwords, recovery codes, API keys, access tokens or payment secrets. AI usage logs should store routing/usage metadata without leaking provider credentials. Be conservative when storing prompts/responses containing student/research content.
+
+## Reporting vulnerabilities
+
+Use the organization/platform security contact configured for the deployment. Do not use the default Laravel framework security-contact wording from old boilerplate README files.
+
+
+## Optional email verification and Web Push
+
+Only Super Admin controls the global email verification requirement. Disabled verification never manufactures `email_verified_at` values; signed verification callbacks still authenticate their target/hash. Active-account, onboarding, tenant, role and 2FA checks remain independent.
+
+Browser subscriptions use authenticated ownership checks and CSRF for session clients. Reassigning a device to another account requires matching its existing encryption keys; browser logout unsubscribes that device. Arbitrary/internal push URLs and redirects are blocked by the provider-host allowlist. Web Push encrypts notification contents and signs requests with a stable VAPID private key stored in environment configuration or encrypted database settings. Private keys are never returned by push configuration endpoints. Notification clicks are restricted to the application's origin. Module/channel/user opt-outs are enforced again at delivery, including admin retries.
