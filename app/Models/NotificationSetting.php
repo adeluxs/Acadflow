@@ -18,6 +18,7 @@ class NotificationSetting extends Model
         'in_app_enabled', 'academic_alerts', 'organisation_updates', 'onboarding_reminders', 'research_updates',
         'engagement_reminders', 'email_open_tracking', 'timezone', 'quiet_hours_start', 'quiet_hours_end',
         'push_permission', 'push_prompt_snoozed_until', 'email_suppressed_at', 'email_suppression_reason',
+        'knowledge_updates', 'knowledge_digest',
     ];
 
     protected function casts(): array
@@ -31,7 +32,7 @@ class NotificationSetting extends Model
             'billing_notifications' => 'boolean',
             'in_app_enabled' => 'boolean', 'academic_alerts' => 'boolean', 'organisation_updates' => 'boolean',
             'onboarding_reminders' => 'boolean', 'research_updates' => 'boolean', 'engagement_reminders' => 'boolean',
-            'email_open_tracking' => 'boolean', 'push_prompt_snoozed_until' => 'datetime', 'email_suppressed_at' => 'datetime',
+            'email_open_tracking' => 'boolean', 'knowledge_updates' => 'boolean', 'knowledge_digest' => 'boolean', 'push_prompt_snoozed_until' => 'datetime', 'email_suppressed_at' => 'datetime',
         ];
     }
 

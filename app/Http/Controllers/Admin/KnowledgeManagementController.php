@@ -25,12 +25,13 @@ class KnowledgeManagementController extends Controller
         $settings = SettingService::getMany(array_fill_keys(self::TOGGLES, true));
         $settings += SettingService::getMany(['knowledge_minimum_publication_price' => '100', 'knowledge_minimum_chapter_price' => '50', 'knowledge_platform_commission_percentage' => '15', 'creator_earnings_hold_days' => 3, 'minimum_withdrawal_amount' => '1000']);
         $types = KnowledgePublicationType::query()->orderBy('sort_order')->orderBy('name')->limit(100)->get();
-        $categories = KnowledgeCategory::query()->with('parent:id,name')->withCount('publications')->orderBy('sort_order')->orderBy('name')->paginate(30, ['*'], 'categories_page');
+        $categories = KnowledgeCategory::query()->with('parent:id,name')->withCount('publications')->whereNull('university_id')->whereNull('merged_into_id')->orderBy('sort_order')->orderBy('name')->paginate(30, ['*'], 'categories_page');
+        $duplicateCategories = app(\App\Services\Knowledge\KnowledgeCategoryMerger::class)->duplicateCount();
         $applications = CreatorMonetizationApplication::query()->with(['user:id,uuid,first_name,last_name,email', 'payoutAccount:id,provider,bank_name,currency,is_verified'])->latest('submitted_at')->paginate(20, ['*'], 'applications_page');
         $promotionPackages = KnowledgePromotionPackage::query()->orderBy('sort_order')->limit(50)->get();
         $promotionCampaigns = KnowledgePromotionCampaign::query()->with(['creator:id,uuid,first_name,last_name', 'publication:id,slug,title', 'package:id,name'])->latest()->paginate(20, ['*'], 'promotions_page');
 
-        return view('admin.knowledge.index', compact('settings', 'types', 'categories', 'applications', 'promotionPackages', 'promotionCampaigns'));
+        return view('admin.knowledge.index', compact('settings', 'types', 'categories', 'duplicateCategories', 'applications', 'promotionPackages', 'promotionCampaigns'));
     }
 
     public function updateSettings(Request $request): RedirectResponse
@@ -66,6 +67,13 @@ class KnowledgeManagementController extends Controller
         KnowledgeCategory::create($data + ['slug' => Str::slug($data['slug'] ?: $data['name']), 'university_id' => null]);
 
         return back()->with('success', 'Knowledge category created.');
+    }
+
+    public function mergeCategories(\App\Services\Knowledge\KnowledgeCategoryMerger $merger): RedirectResponse
+    {
+        $merged = $merger->merge();
+
+        return back()->with('success', $merged > 0 ? "Merged {$merged} duplicate categories. Their content now sits under one category each; nothing was deleted." : 'No duplicate categories found.');
     }
 
     public function updateCategory(Request $request, KnowledgeCategory $category): RedirectResponse
@@ -123,6 +131,13 @@ class KnowledgeManagementController extends Controller
     {
         $data = $request->validate(['name' => ['required', 'string', 'max:150'], 'slug' => ['nullable', 'string', 'max:120', Rule::unique('knowledge_categories', 'slug')->whereNull('university_id')->ignore($category?->id)], 'parent_id' => ['nullable', 'integer', 'exists:knowledge_categories,id'], 'description' => ['nullable', 'string', 'max:2000'], 'area' => ['required', Rule::in(['academics_research', 'campus_student_life', 'stories_creativity', 'life_personal_growth', 'skills_business_professional'])], 'icon' => ['nullable', 'string', 'max:50'], 'allowed_publication_types' => ['nullable', 'array'], 'allowed_publication_types.*' => ['integer', 'exists:knowledge_publication_types,id'], 'sort_order' => ['required', 'integer', 'min:0', 'max:10000'], 'is_active' => ['sometimes', 'boolean']]);
         abort_if($category && (int) ($data['parent_id'] ?? 0) === $category->id, 422, 'A category cannot be its own parent.');
+        // The database allows the same slug twice for platform-wide rows (NULL university), so check here.
+        $slug = Str::slug(($data['slug'] ?? '') ?: $data['name']);
+        $clash = KnowledgeCategory::query()->whereNull('university_id')->whereNull('merged_into_id')->when($category, fn ($q) => $q->whereKeyNot($category->id))
+            ->where(fn ($q) => $q->where('slug', $slug)->orWhereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower(trim($data['name']))]))->first();
+        if ($clash && (int) ($clash->parent_id ?? 0) === (int) ($data['parent_id'] ?? 0)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'A category called "'.$clash->name.'" already exists. Edit that one instead of adding it again.']);
+        }
         $data['is_active'] = $request->boolean('is_active');
 
         return $data;

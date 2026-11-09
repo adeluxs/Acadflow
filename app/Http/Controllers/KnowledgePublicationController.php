@@ -237,7 +237,7 @@ class KnowledgePublicationController extends Controller
 
     protected function validated(Request $request): array
     {
-        $data = $request->validate(['title' => ['required', 'string', 'max:255'], 'body' => ['required', 'string', 'max:1000000'], 'excerpt' => ['nullable', 'string', 'max:2000'], 'category_id' => ['nullable', 'integer', 'exists:knowledge_categories,id'], 'publication_type_id' => ['required', 'integer', 'exists:knowledge_publication_types,id'], 'series_id' => ['nullable', 'integer', 'exists:knowledge_series,id'], 'chapter_number' => ['nullable', 'integer', 'min:1', 'max:10000'], 'language' => ['nullable', 'string', 'max:10'], 'audience' => ['nullable', 'string', 'max:80'], 'content_warning' => ['nullable', 'string', 'max:1000'], 'doi' => ['nullable', 'string', 'max:255'], 'copyright' => ['nullable', 'string', 'max:255'], 'license_type' => ['nullable', 'string', 'max:80'], 'ownership_declaration' => ['nullable', 'accepted'], 'visibility' => ['required', 'in:public,institution'], 'access_type' => ['required', 'in:free,premium,institution'], 'price' => ['nullable', 'regex:/^\d+(?:\.\d{1,2})?$/'], 'tags' => ['nullable', 'string', 'max:1000']]);
+        $data = $request->validate(['title' => ['required', 'string', 'max:255'], 'body' => ['required', 'string', 'max:1000000'], 'excerpt' => ['nullable', 'string', 'max:2000'], 'category_id' => ['nullable', 'integer', 'exists:knowledge_categories,id'], 'publication_type_id' => ['required', 'integer', 'exists:knowledge_publication_types,id'], 'series_id' => ['nullable', 'integer', 'exists:knowledge_series,id'], 'chapter_number' => ['nullable', 'integer', 'min:1', 'max:10000'], 'language' => ['nullable', 'string', 'max:10'], 'audience' => ['nullable', 'string', 'max:80'], 'content_warning' => ['nullable', 'string', 'max:1000'], 'doi' => ['nullable', 'string', 'max:255'], 'copyright' => ['nullable', 'string', 'max:255'], 'license_type' => ['nullable', 'string', 'max:80'], 'ownership_declaration' => ['sometimes', 'accepted'], 'visibility' => ['required', 'in:public,institution'], 'access_type' => ['required', 'in:free,premium,institution'], 'price' => ['nullable', 'regex:/^\d+(?:\.\d{1,2})?$/'], 'tags' => ['nullable', 'string', 'max:1000']]);
         $data['body'] = app(RichTextSanitizer::class)->sanitize($data['body']);
         abort_if(trim(strip_tags($data['body'])) === '', 422, 'Publication content cannot be empty.');
         if (! empty($data['category_id'])) {
@@ -261,7 +261,7 @@ class KnowledgePublicationController extends Controller
 
     protected function categoriesFor(Request $request)
     {
-        return KnowledgeCategory::query()->with('parent:id,name')->where('is_active', true)->where(fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $request->user()->university_id))->orderBy('sort_order')->orderBy('name')->get();
+        return KnowledgeCategory::picker($request->user()->university_id, true);
     }
 
     private function formData(Request $request, KnowledgePublication $publication): array

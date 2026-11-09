@@ -25,6 +25,8 @@ class AiCapabilityMapTest extends TestCase
             'knowledge_publication_validator',
             'knowledge_moderation',
             'knowledge_companion',
+            // Writes Read & Earn question banks for published Knowledge Hub guides.
+            'knowledge_quiz_generator',
             // Student study tools added in the student-experience upgrade.
             'study_planner',
             'practice_generator',

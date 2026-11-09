@@ -41,7 +41,7 @@ class NotificationService
         if ($template) {
             // Deliberately limited placeholders. Never evaluate Blade or PHP
             // supplied by an administrator in notification templates.
-            $values = ['{first_name}' => $user->first_name, '{stage}' => (string) ($data['stage'] ?? 'setup'), '{title}' => $title];
+            $values = ['{first_name}' => $user->first_name, '{stage}' => (string) ($data['stage'] ?? 'setup'), '{title}' => $title, '{message}' => $message];
             $title = strtr($template->title, $values);
             $message = strtr($template->message, $values);
         }

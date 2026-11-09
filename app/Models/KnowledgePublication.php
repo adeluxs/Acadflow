@@ -137,6 +137,17 @@ class KnowledgePublication extends Model
         return $this->hasMany(DigitalResourceFile::class);
     }
 
+    /** Read & Earn comprehension questions written by the creator. */
+    public function quizQuestions(): HasMany
+    {
+        return $this->hasMany(KnowledgeQuizQuestion::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function readAttempts(): HasMany
+    {
+        return $this->hasMany(KnowledgeReadAttempt::class);
+    }
+
     public function externalCitations(): HasMany
     {
         return $this->hasMany(ExternalCitationRecord::class);

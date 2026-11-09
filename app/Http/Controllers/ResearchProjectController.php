@@ -291,11 +291,7 @@ class ResearchProjectController extends Controller
         }
 
         $categories = $publishingEnabled
-            ? KnowledgeCategory::query()
-                ->where('is_active', true)
-                ->where(fn ($query) => $query->whereNull('university_id')->orWhere('university_id', $research->university_id))
-                ->orderBy('name')
-                ->get()
+            ? KnowledgeCategory::picker($research->university_id)
             : collect();
 
         $sectionJourney = $writing->journey($research);

@@ -6,6 +6,7 @@ use App\Models\KnowledgeEvent;
 use App\Models\KnowledgePublication;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class KnowledgeDiscoveryService
 {
@@ -94,9 +95,39 @@ class KnowledgeDiscoveryService
         return $query->paginate(15)->withQueryString();
     }
 
-    public function recordView(KnowledgePublication $publication, ?User $user, array $metadata = []): void
+    /**
+     * Counts a read once per person: once per signed-in account, and once per browser for
+     * visitors who are not signed in. Refreshing, saving, following or coming back later
+     * does not add to the count. A visitor who later signs in is not counted a second time.
+     */
+    public function recordView(KnowledgePublication $publication, ?User $user, array $metadata = [], ?string $visitorKey = null): bool
     {
-        $publication->increment('view_count');
+        if (! $publication->isPublished() || (! $user && ! $visitorKey)) {
+            return false;
+        }
+        $visitorHash = $visitorKey ? hash('sha256', $visitorKey) : null;
+        $reads = DB::table('knowledge_publication_reads')->where('knowledge_publication_id', $publication->id);
+
+        if ($user) {
+            if ((clone $reads)->where('user_id', $user->id)->exists()) {
+                return false;
+            }
+            // Read before signing in on this browser: link that read to the account instead of counting again.
+            if ($visitorHash && (clone $reads)->whereNull('user_id')->where('visitor_key', $visitorHash)->update(['user_id' => $user->id]) > 0) {
+                return false;
+            }
+            $inserted = DB::table('knowledge_publication_reads')->insertOrIgnore(['knowledge_publication_id' => $publication->id, 'user_id' => $user->id, 'visitor_key' => null, 'created_at' => now()]);
+        } else {
+            $inserted = DB::table('knowledge_publication_reads')->insertOrIgnore(['knowledge_publication_id' => $publication->id, 'user_id' => null, 'visitor_key' => $visitorHash, 'created_at' => now()]);
+        }
+        if ($inserted < 1) {
+            return false;
+        }
+
+        // Raw increment: no model events and no updated_at change, so a read never looks like an edit.
+        DB::table('knowledge_publications')->where('id', $publication->id)->increment('view_count');
+        $publication->view_count = (int) $publication->view_count + 1;
+        $publication->syncOriginalAttribute('view_count');
         KnowledgeEvent::create([
             'knowledge_publication_id' => $publication->id,
             'user_id' => $user?->id,
@@ -104,5 +135,7 @@ class KnowledgeDiscoveryService
             'metadata' => $metadata,
             'created_at' => now(),
         ]);
+
+        return true;
     }
 }

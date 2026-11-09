@@ -111,6 +111,11 @@ class PublicationService
             ]);
             $this->syncTags($publication, $data['tags'] ?? []);
 
+            if ($publication->status === 'published') {
+                // Edited text gets fresh AI questions; unchanged text is skipped by the hash check.
+                \App\Jobs\GenerateKnowledgeQuiz::dispatch($publication->id)->afterCommit();
+            }
+
             return $publication->fresh(['document.versions', 'category', 'tags']);
         });
     }

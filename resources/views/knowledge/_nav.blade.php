@@ -7,7 +7,8 @@
         ['route' => 'knowledge.learning.index', 'pattern' => 'knowledge.learning.*', 'label' => 'Learning paths'],
         ['route' => 'knowledge.reading.index', 'pattern' => 'knowledge.reading.*', 'label' => 'Reading lists'],
         ['route' => 'knowledge.events.index', 'pattern' => 'knowledge.events.*', 'label' => 'Events'],
-        ['route' => 'knowledge.challenges.index', 'pattern' => 'knowledge.challenges.*', 'label' => 'Challenges'],
+        ['route' => 'knowledge.writing.index', 'pattern' => 'knowledge.writing.*', 'label' => '🏆 Writing Challenge', 'feature' => 'knowledge_read_to_earn'],
+        ['route' => 'knowledge.challenges.index', 'pattern' => 'knowledge.challenges.*', 'label' => 'Community challenges'],
         ['route' => 'knowledge.leaderboard', 'pattern' => 'knowledge.leaderboard', 'label' => 'Leaderboard'],
     ];
 @endphp
@@ -15,6 +16,7 @@
 <nav class="mb-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
     <div class="flex min-w-max items-center gap-1">
         @foreach($knowledgeNavigation as $item)
+            @continue(isset($item['feature']) && \App\Services\FeatureAccessService::effectiveStatus($item['feature'], auth()->user()?->university_id) !== \App\Services\FeatureAccessService::STATUS_ENABLED)
             <a
                 href="{{ route($item['route']) }}"
                 class="inline-flex items-center rounded-xl px-3.5 py-2 text-sm font-semibold transition {{ request()->routeIs($item['pattern']) ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950' }}"
@@ -25,6 +27,11 @@
 
         @auth
             <div class="mx-1 h-6 w-px bg-slate-200"></div>
+            @if(app(\App\Services\Knowledge\ReadEarnSettings::class)->moduleEnabled(auth()->user()->university_id))
+                <a href="{{ route('knowledge.rewards.index') }}" class="inline-flex items-center rounded-xl px-3.5 py-2 text-sm font-semibold transition {{ request()->routeIs('knowledge.rewards.*') ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100' : 'text-emerald-700 hover:bg-emerald-50' }}" @if(request()->routeIs('knowledge.rewards.*')) aria-current="page" @endif>
+                    Read &amp; Earn
+                </a>
+            @endif
             <a href="{{ route('knowledge.creator.edit') }}" class="inline-flex items-center rounded-xl px-3.5 py-2 text-sm font-semibold transition {{ request()->routeIs('knowledge.creator.edit') ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950' }}" @if(request()->routeIs('knowledge.creator.edit')) aria-current="page" @endif>
                 Creator profile
             </a>

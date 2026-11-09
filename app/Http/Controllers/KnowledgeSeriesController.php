@@ -116,6 +116,6 @@ class KnowledgeSeriesController extends Controller
 
     private function options(): array
     {
-        return ['types' => KnowledgePublicationType::query()->where('is_active', true)->where('supports_series', true)->orderBy('sort_order')->get(), 'categories' => KnowledgeCategory::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get()];
+        return ['types' => KnowledgePublicationType::query()->where('is_active', true)->where('supports_series', true)->orderBy('sort_order')->get(), 'categories' => KnowledgeCategory::picker(auth()->user()?->university_id)];
     }
 }

@@ -163,6 +163,7 @@ class NotificationController extends Controller
             'billing_notifications' => 'boolean',
             'in_app_enabled' => 'boolean', 'academic_alerts' => 'boolean', 'organisation_updates' => 'boolean',
             'onboarding_reminders' => 'boolean', 'research_updates' => 'boolean', 'engagement_reminders' => 'boolean', 'email_open_tracking' => 'boolean',
+            'knowledge_updates' => 'boolean', 'knowledge_digest' => 'boolean',
             'timezone' => ['sometimes', 'required', 'timezone'],
             'quiet_hours_start' => ['nullable', 'date_format:H:i'], 'quiet_hours_end' => ['nullable', 'date_format:H:i', 'required_with:quiet_hours_start'],
         ]);

@@ -141,10 +141,10 @@ class AcadFlowEcosystemSeeder extends Seeder
             }
 
             foreach (['Research Outputs','Research Insights','Study Guides','Exam Preparation','Tutorials','Programming Tutorials','Career and SIWES','Projects and Case Studies','Digital Resources','Campus and Department Guides'] as $categoryName) {
-                KnowledgeCategory::firstOrCreate(
-                    ['university_id' => $university->id, 'slug' => str($categoryName)->slug()->toString()],
-                    ['name' => $categoryName, 'is_active' => true],
-                );
+                // Platform-wide, once: a copy per university showed every name many times.
+                if (! KnowledgeCategory::query()->whereNull('university_id')->where('slug', str($categoryName)->slug()->toString())->exists()) {
+                    KnowledgeCategory::create(['university_id' => null, 'slug' => str($categoryName)->slug()->toString(), 'name' => $categoryName, 'is_active' => true]);
+                }
             }
 
             foreach ([

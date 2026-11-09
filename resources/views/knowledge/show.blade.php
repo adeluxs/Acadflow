@@ -31,6 +31,15 @@
 
             <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
                 <div>
+                    @php
+                        $challengeBadges = \App\Models\KnowledgeWritingEntry::query()->where('knowledge_publication_id', $publication->id)
+                            ->where(fn ($q) => $q->whereNotNull('award')->orWhere('status', 'finalist'))
+                            ->whereHas('challenge', fn ($q) => $q->whereNotNull('results_published_at'))
+                            ->with('challenge:id,uuid,title,theme')->limit(3)->get();
+                    @endphp
+                    @foreach($challengeBadges as $badge)
+                        <a href="{{ route('knowledge.writing.show', $badge->challenge) }}" class="mb-3 mr-2 inline-flex items-center gap-1.5 rounded-full {{ $badge->award ? 'bg-amber-100 text-amber-900 ring-amber-300' : 'bg-violet-50 text-violet-800 ring-violet-200' }} px-3 py-1 text-xs font-black ring-1">{{ $badge->award ? '🏆 '.$badge->award : '⭐ Finalist' }} · {{ $badge->challenge->theme ?: $badge->challenge->title }}</a>
+                    @endforeach
                     <h1 class="max-w-4xl text-3xl font-black tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">{{ $publication->title }}</h1>
                     @if($publication->excerpt)
                         <p class="mt-4 max-w-4xl text-base leading-8 text-slate-600 sm:text-lg">{{ $publication->excerpt }}</p>
@@ -74,9 +83,12 @@
                             @csrf
                             <button class="rounded-xl px-4 py-2 text-sm font-bold transition {{ $bookmarked ? 'bg-indigo-600 text-white' : 'border border-slate-200 text-slate-700 hover:bg-slate-50' }}">{{ $bookmarked ? 'Saved' : 'Save' }}</button>
                         </form>
+                        @if($publication->creator)
+                            @include('knowledge._follow-creator', ['creatorUser' => $publication->creator])
+                        @endif
                         <form method="POST" action="{{ route('knowledge.follow', $publication) }}">
                             @csrf
-                            <button class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50">{{ $following ? 'Following' : 'Follow' }}</button>
+                            <button class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50">{{ $following ? 'Following this guide' : 'Follow this guide' }}</button>
                         </form>
                         @can('update', $publication)
                             <a href="{{ route('knowledge.manage.edit', $publication) }}" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Edit</a>
@@ -106,22 +118,28 @@
                         <div class="mt-8 grid gap-3 border-t border-slate-100 pt-6 sm:grid-cols-2">@if($previousChapter)<a href="{{ route('knowledge.show',$previousChapter) }}" class="rounded-2xl border p-4 text-sm"><span class="text-xs font-bold text-slate-400">← Previous chapter</span><strong class="mt-1 block text-slate-900">{{ $previousChapter->title }}</strong></a>@else<div></div>@endif @if($nextChapter)<a href="{{ route('knowledge.show',$nextChapter) }}" class="rounded-2xl border p-4 text-right text-sm"><span class="text-xs font-bold text-slate-400">Next chapter →</span><strong class="mt-1 block text-slate-900">{{ $nextChapter->title }}</strong></a>@endif</div>
                         @auth<form method="POST" action="{{ route('knowledge.series.progress',[$publication->series,$publication]) }}" class="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-violet-50 p-4">@csrf @method('PUT')<label class="text-sm font-bold text-violet-950">Reading progress <select name="progress_percent" class="ml-2 rounded-xl border-violet-200 bg-white text-sm">@foreach([25,50,75,100] as $percent)<option value="{{ $percent }}">{{ $percent }}%</option>@endforeach</select></label><button class="rounded-xl bg-violet-700 px-4 py-2 text-sm font-bold text-white">Save progress</button></form>@endauth
                     @endif
+                @elseif($readerGate['locked'] ?? false)
+                    @include('knowledge.rewards._paywall')
                 @else
                     <div class="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-6">
                         <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">🔒</div>
                         <h2 class="mt-4 text-xl font-black text-amber-950">Protected academic resource</h2>
                         <p class="mt-2 max-w-2xl text-sm leading-6 text-amber-900">Purchase entitlement is required to read the full content and download protected files.</p>
                         @auth
-                            @if($publication->access_type === 'premium' && $gateways->isNotEmpty())
+                            @if($publication->access_type === 'premium' && \App\Services\FeatureAccessService::effectiveStatus('commerce_marketplace', auth()->user()->university_id) === \App\Services\FeatureAccessService::STATUS_ENABLED)
+                                {{-- Wallet purchases never need a payment gateway; the gateway choice appears only when one is active. --}}
                                 <form method="POST" action="{{ route('commerce.purchase', $publication) }}" class="mt-5 grid gap-2 sm:grid-cols-[auto_1fr_auto]">
                                     @csrf
                                     <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-                                    <select name="payment_method" class="rounded-xl border-amber-300 bg-white"><option value="wallet">Wallet balance</option><option value="gateway">Payment gateway</option></select>
-                                    <select name="gateway" class="rounded-xl border-amber-300 bg-white">
+                                    <select name="payment_method" class="rounded-xl border-amber-300 bg-white" aria-label="Payment method"><option value="wallet">Wallet balance</option>@if($gateways->isNotEmpty())<option value="gateway">Payment gateway</option>@endif</select>
+                                    @if($gateways->isNotEmpty())
+                                    <select name="gateway" class="rounded-xl border-amber-300 bg-white" aria-label="Payment gateway">
                                         @foreach($gateways as $gateway)<option value="{{ $gateway->code }}">{{ $gateway->name }}</option>@endforeach
                                     </select>
-                                    <button class="rounded-xl bg-amber-700 px-4 py-2.5 font-bold text-white">Purchase securely</button>
+                                    @endif
+                                    <button class="rounded-xl bg-amber-700 px-4 py-2.5 font-bold text-white">Unlock for {{ $publication->currency ?? 'NGN' }} {{ number_format((float) $publication->price, 2) }}</button>
                                 </form>
+                                <p class="mt-2 text-xs text-amber-900">Pay from your AcadSyntra wallet balance. <a href="{{ route('commerce.wallet') }}" class="font-bold underline">Top up your wallet</a></p>
                             @endif
                         @else
                             <a href="{{ route('login') }}" class="mt-4 inline-flex rounded-xl bg-amber-800 px-4 py-2.5 text-sm font-bold text-white">Sign in to continue</a>
@@ -185,6 +203,10 @@
                     @endauth
                 </div>
             </article>
+
+            @if($readEarn && $hasAccess)
+                @include('knowledge.rewards._quiz')
+            @endif
 
             <section class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
                 <div class="flex items-center justify-between gap-4">
@@ -314,6 +336,10 @@
         </aside>
     </div>
 </div>
+
+@if($readerGate['prompt'] ?? false)
+    @include('knowledge.rewards._prompt')
+@endif
 
 @push('scripts')
 <script>

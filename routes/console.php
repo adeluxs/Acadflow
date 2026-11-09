@@ -181,3 +181,21 @@ Schedule::job(new \App\Jobs\RunNotificationCampaign('deadlines'))->hourly()->nam
 Schedule::command('notifications:maintain')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('notifications:maintain --summary')->dailyAt('08:00')->withoutOverlapping();
 Schedule::job(new \App\Jobs\BuildNotificationAnalytics())->everyMinute()->name('notification-analytics-snapshot')->withoutOverlapping();
+
+// Weekly "New on the Knowledge Hub" roundup: checks hourly, sends once on the configured day and hour.
+Schedule::command('knowledge:weekly-digest')
+    ->hourlyAt(5)
+    ->name('knowledge-weekly-digest')
+    ->withoutOverlapping();
+
+// Safety net for community challenge prizes held in escrow.
+Schedule::command('challenges:auto-disburse-prizes')
+    ->hourlyAt(20)
+    ->name('challenge-prize-auto-disburse')
+    ->withoutOverlapping();
+
+// AI Read & Earn question banks: new guides, edited guides and retries of failed ones.
+Schedule::command('knowledge:generate-quizzes --limit=25')
+    ->hourlyAt(35)
+    ->name('knowledge-generate-quizzes')
+    ->withoutOverlapping();

@@ -302,13 +302,21 @@ class EventChallengeService
         abort_unless($actor->can('update',$challenge),403);
         $transitions=['draft'=>['pending_review','published','cancelled'],'pending_review'=>['draft','published','cancelled'],'published'=>['active','judging','cancelled'],'active'=>['judging','cancelled'],'judging'=>['completed'],'completed'=>[],'cancelled'=>['draft']];
         abort_unless(in_array($status,$transitions[$challenge->status]??[],true),422,'Invalid challenge status transition.');
+        $fund=\App\Models\ChallengePrizeFund::query()->where('academic_challenge_id',$challenge->id)->first();
+        if(in_array($status,['published','active'],true)&&$fund&&$fund->status==='unfunded'){
+            throw \Illuminate\Validation\ValidationException::withMessages(['status'=>'Fund the prizes before publishing. Use the "Fund and publish" button in the prize panel on the challenge page.']);
+        }
         $challenge->update(['status'=>$status,'published_at'=>$status==='published'?now():$challenge->published_at]);
+        if($status==='cancelled'&&$fund&&$fund->status==='funded'){
+            app(ChallengePrizeService::class)->refund($fund,$actor);
+        }
     }
 
     public function deleteChallenge(AcademicChallenge $challenge,User $actor):void
     {
         abort_unless($actor->can('delete',$challenge),403);
         abort_if($challenge->entries()->where('is_final',true)->exists(),422,'A challenge with final entries must be archived, not deleted.');
+        abort_if(\App\Models\ChallengePrizeFund::query()->where('academic_challenge_id',$challenge->id)->whereIn('status',['funded','settled'])->exists(),422,'A challenge with funded prizes cannot be deleted. Cancel it instead: unused prize money is refunded.');
         $challenge->delete();
     }
 
@@ -323,6 +331,7 @@ class EventChallengeService
         if (! empty($data['knowledge_publication_id'])) {
             $publication=KnowledgePublication::findOrFail($data['knowledge_publication_id']);
             abort_unless($user->can('view',$publication),403,'You cannot submit this publication.');
+            abort_unless($publication->creator_id===$user->id,403,'You can only enter work you created yourself.');
         }
 
         $attachmentIds=collect($data['attachment_media_ids']??[])->map(fn($id)=>(int)$id)->unique()->values();

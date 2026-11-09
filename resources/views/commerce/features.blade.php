@@ -33,7 +33,7 @@
         @forelse($featureRows->where('package', true) as $row)
             <article id="feature-{{ $row['key'] }}" class="rounded-2xl border p-5 {{ request('feature') === $row['key'] ? 'border-indigo-400 ring-2 ring-indigo-100' : '' }}">
                 @php($state = data_get($row, 'package_status.state', $row['rule'] ? 'locked' : 'free'))
-                <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-black uppercase tracking-wide text-indigo-600">{{ ($row['package_kind'] ?? 'workspace') === 'ai_addon' ? 'Optional AI package' : 'Role workspace package' }}</p><h3 class="mt-1 text-xl font-black text-slate-900">{{ $row['title'] }}</h3><p class="mt-2 text-sm leading-6 text-slate-500">{{ $row['description'] }}</p></div>
+                <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-black uppercase tracking-wide text-indigo-600">{{ match($row['package_kind'] ?? 'workspace') { 'ai_addon' => 'Optional AI package', 'reader' => 'Knowledge Hub reading', default => 'Role workspace package' } }}</p><h3 class="mt-1 text-xl font-black text-slate-900">{{ $row['title'] }}</h3><p class="mt-2 text-sm leading-6 text-slate-500">{{ $row['description'] }}</p></div>
                     @if(!$row['rule'] && ($row['catalogue_requires_price'] ?? false))<span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">Not offered yet</span>
                     @elseif(!$row['rule'])<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Free</span>
                     @elseif($row['sponsored'])<span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">Institution sponsored</span>

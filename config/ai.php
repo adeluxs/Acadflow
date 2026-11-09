@@ -86,6 +86,7 @@ return [
         'knowledge_publication_validator',
         'knowledge_moderation',
         'knowledge_companion',
+        'knowledge_quiz_generator',
         // Student study tools
         'study_planner',
         'practice_generator',
@@ -112,6 +113,7 @@ return [
         'knowledge_publication_validator',
         'knowledge_moderation',
         'knowledge_companion',
+        'knowledge_quiz_generator',
         // Student study tools
         'study_planner',
         'practice_generator',
@@ -140,6 +142,7 @@ return [
         'knowledge_publication_validator' => ['chat', 'structured_output'],
         'knowledge_moderation' => ['chat', 'structured_output'],
         'knowledge_companion' => ['chat', 'structured_output'],
+        'knowledge_quiz_generator' => ['chat', 'structured_output'],
         'study_planner' => ['chat', 'structured_output'],
         'practice_generator' => ['chat', 'structured_output'],
         'flashcard_generator' => ['chat', 'structured_output'],

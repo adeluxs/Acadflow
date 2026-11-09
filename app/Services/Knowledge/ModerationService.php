@@ -5,6 +5,7 @@ namespace App\Services\Knowledge;
 use App\Ai\AiManager;
 use App\Jobs\IndexSearchableContent;
 use App\Jobs\ModerateKnowledgePublication;
+use App\Jobs\NotifyKnowledgeFollowers;
 use App\Jobs\RecalculateReputation;
 use App\Models\EngagementSubscription;
 use App\Models\KnowledgeModerationReport;
@@ -65,11 +66,18 @@ class ModerationService
     {
         return DB::transaction(function () use ($publication, $moderator, $note) {
             $publication->loadMissing('document', 'creator');
+            $firstPublication = $publication->published_at === null;
             $publication->update(['status' => 'published', 'moderation_note' => $note, 'moderated_by' => $moderator->id, 'published_at' => $publication->published_at ?? now(), 'scheduled_at' => null]);
             $publication->document->update(['status' => 'published', 'visibility' => $publication->visibility]);
             IndexSearchableContent::dispatch($publication::class, $publication->id)->onQueue('indexing');
             RecalculateReputation::dispatch($publication->creator_id)->onQueue('analytics');
             $publicationId = $publication->id;
+            // AI writes the Read & Earn questions in the background (skipped if the text hasn't changed).
+            \App\Jobs\GenerateKnowledgeQuiz::dispatch($publicationId)->afterCommit();
+            if ($firstPublication) {
+                // Followers of the creator hear about a guide once, the first time it goes live.
+                NotifyKnowledgeFollowers::dispatch($publicationId)->afterCommit();
+            }
             DB::afterCommit(function () use ($publicationId): void {
                 $published = KnowledgePublication::query()->with(['creator:id,first_name,last_name,email,email_verified_at,is_active,university_id,department_id', 'series:id,title'])->find($publicationId);
                 if (! $published) {

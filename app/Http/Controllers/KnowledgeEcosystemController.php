@@ -167,7 +167,7 @@ class KnowledgeEcosystemController extends Controller
     public function createCommunity(Request $request): View
     {
         $this->authorize('create',KnowledgeCommunity::class);
-        $categories=KnowledgeCategory::query()->where('is_active',true)->where(fn($q)=>$q->whereNull('university_id')->when($request->user()->university_id,fn($s)=>$s->orWhere('university_id',$request->user()->university_id)))->orderBy('name')->get();
+        $categories=KnowledgeCategory::picker($request->user()->university_id);
         $tags=KnowledgeTag::query()->orderBy('name')->limit(250)->get();
         return view('knowledge.communities.form',compact('categories','tags'));
     }
@@ -201,7 +201,7 @@ class KnowledgeEcosystemController extends Controller
     public function editCommunity(Request $request, KnowledgeCommunity $community): View
     {
         $this->authorize('update',$community);
-        $categories=KnowledgeCategory::query()->where('is_active',true)->orderBy('name')->get();$tags=KnowledgeTag::query()->orderBy('name')->limit(250)->get();
+        $categories=KnowledgeCategory::picker($request->user()->university_id);$tags=KnowledgeTag::query()->orderBy('name')->limit(250)->get();
         return view('knowledge.communities.form',compact('community','categories','tags'));
     }
 
@@ -423,7 +423,7 @@ class KnowledgeEcosystemController extends Controller
 
     public function createEventForm(Request $request): View
     {
-        $this->authorize('create',AcademicEvent::class);$categories=KnowledgeCategory::where('is_active',true)->orderBy('name')->get();$tags=KnowledgeTag::orderBy('name')->limit(250)->get();$communities=KnowledgeCommunity::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$groups=Group::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$users=User::query()->when($request->user()->university_id,fn($q)=>$q->where('university_id',$request->user()->university_id))->where('id','!=',$request->user()->id)->orderBy('first_name')->limit(500)->get();
+        $this->authorize('create',AcademicEvent::class);$categories=KnowledgeCategory::picker($request->user()->university_id);$tags=KnowledgeTag::orderBy('name')->limit(250)->get();$communities=KnowledgeCommunity::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$groups=Group::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$users=User::query()->when($request->user()->university_id,fn($q)=>$q->where('university_id',$request->user()->university_id))->where('id','!=',$request->user()->id)->orderBy('first_name')->limit(500)->get();
         return view('knowledge.events.form',compact('categories','tags','communities','groups','users'));
     }
 
@@ -443,7 +443,7 @@ class KnowledgeEcosystemController extends Controller
 
     public function editEvent(Request $request, AcademicEvent $event): View
     {
-        $this->authorize('update',$event);$categories=KnowledgeCategory::where('is_active',true)->orderBy('name')->get();$tags=KnowledgeTag::orderBy('name')->limit(250)->get();$communities=KnowledgeCommunity::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$groups=Group::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$users=User::query()->when($request->user()->university_id,fn($q)=>$q->where('university_id',$request->user()->university_id))->where('id','!=',$request->user()->id)->orderBy('first_name')->limit(500)->get();return view('knowledge.events.form',compact('event','categories','tags','communities','groups','users'));
+        $this->authorize('update',$event);$categories=KnowledgeCategory::picker($request->user()->university_id);$tags=KnowledgeTag::orderBy('name')->limit(250)->get();$communities=KnowledgeCommunity::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$groups=Group::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$users=User::query()->when($request->user()->university_id,fn($q)=>$q->where('university_id',$request->user()->university_id))->where('id','!=',$request->user()->id)->orderBy('first_name')->limit(500)->get();return view('knowledge.events.form',compact('event','categories','tags','communities','groups','users'));
     }
 
     public function updateEvent(Request $request, AcademicEvent $event, EventChallengeService $service, MediaSecurityService $media): RedirectResponse
@@ -533,21 +533,21 @@ class KnowledgeEcosystemController extends Controller
     public function challenges(Request $request): View
     {
         $filters=$request->validate(['q'=>['nullable','string','max:255'],'type'=>['nullable','string','max:50'],'mode'=>['nullable','in:individual,team,both'],'status'=>['nullable','in:upcoming,active,judging,completed,mine']]);
-        $challenges=AcademicChallenge::query()->with(['organizer','community','group','category'])->withCount(['entries'=>fn($q)=>$q->where('is_final',true)])->whereIn('status',['published','active','judging','completed'])
+        $challenges=AcademicChallenge::query()->with(['organizer','community','group','category','prizeFund'])->withCount(['entries'=>fn($q)=>$q->where('is_final',true)])->whereIn('status',['published','active','judging','completed'])
             ->where(function($q)use($request){$q->where('visibility','public');if($request->user()){if($request->user()->university_id)$q->orWhere(fn($i)=>$i->where('visibility','institution')->where('university_id',$request->user()->university_id));$q->orWhere('organizer_id',$request->user()->id)->orWhereHas('entries',fn($e)=>$e->where('user_id',$request->user()->id));}})
             ->when($filters['q']??null,fn($q,$term)=>$q->where(fn($s)=>$s->where('title','like','%'.$term.'%')->orWhere('description','like','%'.$term.'%')))->when($filters['type']??null,fn($q,$type)=>$q->where('challenge_type',$type))->when($filters['mode']??null,fn($q,$mode)=>$q->where('participation_mode',$mode))
             ->when(($filters['status']??null)==='upcoming',fn($q)=>$q->where('starts_at','>',now()))->when(($filters['status']??null)==='active',fn($q)=>$q->whereIn('status',['published','active'])->where('starts_at','<=',now())->where('submission_deadline','>=',now()))->when(($filters['status']??null)==='judging',fn($q)=>$q->where('status','judging'))->when(($filters['status']??null)==='completed',fn($q)=>$q->where('status','completed'))->when(($filters['status']??null)==='mine'&&$request->user(),fn($q)=>$q->where(fn($m)=>$m->where('organizer_id',$request->user()->id)->orWhereHas('entries',fn($e)=>$e->where('user_id',$request->user()->id))))
-            ->orderBy('submission_deadline')->paginate(24)->withQueryString();return view('knowledge.challenges.index',compact('challenges','filters'));
+            ->orderBy('submission_deadline')->paginate(24)->withQueryString();$official=\App\Services\FeatureAccessService::effectiveStatus('knowledge_read_to_earn',$request->user()?->university_id)===\App\Services\FeatureAccessService::STATUS_ENABLED?\App\Models\KnowledgeWritingChallenge::query()->where('status','published')->whereNull('results_published_at')->orderBy('submission_deadline')->first():null;$guaranteedPrizes=(int)\App\Models\ChallengePrizeFund::query()->where('status','funded')->sum('total_minor');return view('knowledge.challenges.index',compact('challenges','filters','official','guaranteedPrizes'));
     }
 
     public function createChallengeForm(Request $request): View
     {
-        $this->authorize('create',AcademicChallenge::class);$categories=KnowledgeCategory::where('is_active',true)->orderBy('name')->get();$tags=KnowledgeTag::orderBy('name')->limit(250)->get();$communities=KnowledgeCommunity::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$groups=Group::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$users=User::query()->when($request->user()->university_id,fn($q)=>$q->where('university_id',$request->user()->university_id))->where('id','!=',$request->user()->id)->orderBy('first_name')->limit(500)->get();return view('knowledge.challenges.form',compact('categories','tags','communities','groups','users'));
+        $this->authorize('create',AcademicChallenge::class);$categories=KnowledgeCategory::picker($request->user()->university_id);$tags=KnowledgeTag::orderBy('name')->limit(250)->get();$communities=KnowledgeCommunity::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$groups=Group::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$users=User::query()->when($request->user()->university_id,fn($q)=>$q->where('university_id',$request->user()->university_id))->where('id','!=',$request->user()->id)->orderBy('first_name')->limit(500)->get();return view('knowledge.challenges.form',compact('categories','tags','communities','groups','users'));
     }
 
     public function storeChallenge(Request $request, EventChallengeService $service, MediaSecurityService $media): RedirectResponse
     {
-        $this->authorize('create',AcademicChallenge::class);$data=$this->validateChallenge($request);unset($data['cover_image']);$challenge=$service->createChallenge($request->user(),$data);if($request->hasFile('cover_image')){$asset=$media->store($request->file('cover_image'),$request->user(),$challenge,$challenge->visibility==='public'?'public':($challenge->visibility==='institution'?'institution':'private'),['purpose'=>'challenge_cover']);$challenge->update(['cover_media_id'=>$asset->id]);}return redirect()->route('knowledge.challenges.show',$challenge)->with('success','Academic challenge created.');
+        $this->authorize('create',AcademicChallenge::class);$data=$this->validateChallenge($request);unset($data['cover_image']);[$prizeType,$prizes]=$this->prizeInput($request);$wantsPublish=($data['status']??'draft')==='published';if($prizeType){$data['status']='draft';}[$challenge,$fund]=\Illuminate\Support\Facades\DB::transaction(function()use($service,$request,$data,$prizeType,$prizes){$challenge=$service->createChallenge($request->user(),$data);return [$challenge,app(\App\Services\Knowledge\ChallengePrizeService::class)->configure($challenge,$request->user(),$prizeType,$prizes)];});if($request->hasFile('cover_image')){$asset=$media->store($request->file('cover_image'),$request->user(),$challenge,$challenge->visibility==='public'?'public':($challenge->visibility==='institution'?'institution':'private'),['purpose'=>'challenge_cover']);$challenge->update(['cover_media_id'=>$asset->id]);}return redirect()->route('knowledge.challenges.show',$challenge)->with('success',$fund?'Challenge saved as a draft. Fund the prizes below to '.($wantsPublish?'publish it':'make it ready to publish').'.':'Academic challenge created.');
     }
 
     public function challenge(Request $request, AcademicChallenge $challenge, EngagementService $engagement): View
@@ -556,17 +556,19 @@ class KnowledgeEcosystemController extends Controller
         $challenge->load(['organizer','judges','coverMedia','community','group','category','tags','entries.user','entries.teamMembers','entries.document','entries.publication','entries.scores.judge']);
         $myEntry=$request->user()?$challenge->entries->firstWhere('user_id',$request->user()->id):null;
         $comments=$engagement->commentsFor($challenge,20);
-        return view('knowledge.challenges.show',compact('challenge','myEntry','comments'));
+        $prizeFund=\App\Models\ChallengePrizeFund::query()->with('awards.user:id,first_name,last_name')->where('academic_challenge_id',$challenge->id)->first();
+        $prizePlan=($prizeFund&&$prizeFund->status==='unfunded'&&$request->user()?->id===$challenge->organizer_id)?app(\App\Services\Knowledge\ChallengePrizeService::class)->fundingPlan($prizeFund,$request->user()):null;
+        return view('knowledge.challenges.show',compact('challenge','myEntry','comments','prizeFund','prizePlan'));
     }
 
     public function editChallenge(Request $request, AcademicChallenge $challenge): View
     {
-        $this->authorize('update',$challenge);$categories=KnowledgeCategory::where('is_active',true)->orderBy('name')->get();$tags=KnowledgeTag::orderBy('name')->limit(250)->get();$communities=KnowledgeCommunity::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$groups=Group::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$users=User::query()->when($request->user()->university_id,fn($q)=>$q->where('university_id',$request->user()->university_id))->where('id','!=',$request->user()->id)->orderBy('first_name')->limit(500)->get();return view('knowledge.challenges.form',compact('challenge','categories','tags','communities','groups','users'));
+        $this->authorize('update',$challenge);$categories=KnowledgeCategory::picker($request->user()->university_id);$tags=KnowledgeTag::orderBy('name')->limit(250)->get();$communities=KnowledgeCommunity::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$groups=Group::whereHas('members',fn($q)=>$q->where('user_id',$request->user()->id)->where('status','active'))->get();$users=User::query()->when($request->user()->university_id,fn($q)=>$q->where('university_id',$request->user()->university_id))->where('id','!=',$request->user()->id)->orderBy('first_name')->limit(500)->get();return view('knowledge.challenges.form',compact('challenge','categories','tags','communities','groups','users'));
     }
 
     public function updateChallenge(Request $request, AcademicChallenge $challenge, EventChallengeService $service, MediaSecurityService $media): RedirectResponse
     {
-        $data=$this->validateChallenge($request,false);unset($data['cover_image']);if($request->hasFile('cover_image')){$visibility=$data['visibility']??$challenge->visibility;$asset=$media->store($request->file('cover_image'),$request->user(),$challenge,$visibility==='public'?'public':($visibility==='institution'?'institution':'private'),['purpose'=>'challenge_cover']);$data['cover_media_id']=$asset->id;}$service->updateChallenge($challenge,$request->user(),$data);return redirect()->route('knowledge.challenges.show',$challenge)->with('success','Challenge updated.');
+        $data=$this->validateChallenge($request,false);unset($data['cover_image']);if($request->hasFile('cover_image')){$visibility=$data['visibility']??$challenge->visibility;$asset=$media->store($request->file('cover_image'),$request->user(),$challenge,$visibility==='public'?'public':($visibility==='institution'?'institution':'private'),['purpose'=>'challenge_cover']);$data['cover_media_id']=$asset->id;}$this->authorize('update',$challenge);[$prizeType,$prizes]=$this->prizeInput($request);if($request->has('prize_type')){app(\App\Services\Knowledge\ChallengePrizeService::class)->configure($challenge,$request->user(),$prizeType,$prizes);}$service->updateChallenge($challenge,$request->user(),$data);return redirect()->route('knowledge.challenges.show',$challenge)->with('success','Challenge updated.');
     }
 
     public function changeChallengeStatus(Request $request, AcademicChallenge $challenge, EventChallengeService $service): RedirectResponse
@@ -642,6 +644,15 @@ class KnowledgeEcosystemController extends Controller
     private function validateEvent(Request $request,bool $creating=true): array
     {
         return $request->validate(['title'=>['required','string','max:255'],'description'=>['required','string','max:10000'],'event_type'=>['required','in:seminar,conference,guest_lecture,research_presentation,project_defense,siwes_orientation,workshop,hackathon,competition,training'],'format'=>['required','in:online,physical,hybrid'],'timezone'=>['required','timezone'],'visibility'=>['required','in:public,institution,private'],'status'=>[$creating?'required':'nullable','in:draft,published'],'starts_at'=>['required','date','after:now'],'ends_at'=>['nullable','date','after:starts_at'],'registration_deadline'=>['nullable','date','before_or_equal:starts_at'],'registration_mode'=>['required','in:open,approval,invitation'],'location'=>['nullable','required_if:format,physical,hybrid','string','max:500'],'online_url'=>['nullable','required_if:format,online,hybrid','url','max:2000'],'capacity'=>['nullable','integer','min:1','max:100000'],'waitlist_enabled'=>['nullable','boolean'],'certificate_enabled'=>['nullable','boolean'],'requires_moderation'=>['nullable','boolean'],'knowledge_community_id'=>['nullable','integer','exists:knowledge_communities,id'],'group_id'=>['nullable','integer','exists:groups,id'],'category_id'=>['nullable','integer','exists:knowledge_categories,id'],'cover_media_id'=>['nullable','integer','exists:media_assets,id'],'cover_image'=>['nullable','image','mimes:jpg,jpeg,png,webp','max:8192'],'co_organizer_ids'=>['nullable','array','max:30'],'co_organizer_ids.*'=>['integer','exists:users,id'],'tag_ids'=>['nullable','array','max:20'],'tag_ids.*'=>['integer','exists:knowledge_tags,id'],'reminders'=>['nullable','array','max:10'],'reminders.*'=>['integer','min:0','max:10080']]);
+    }
+
+    /** @return array{0:?string,1:list<int>} prize type and prizes by rank in kobo */
+    private function prizeInput(Request $request): array
+    {
+        $data=$request->validate(['prize_type'=>['nullable','in:none,cash,study_credit'],'prizes_text'=>['nullable','required_if:prize_type,cash,study_credit','string','max:300','regex:/^\s*\d{1,9}(?:\s*,\s*\d{1,9})*\s*$/']]);
+        $type=in_array($data['prize_type']??null,['cash','study_credit'],true)?$data['prize_type']:null;
+        $prizes=$type?array_values(array_map(fn($a)=>\App\Support\Money::toMinor(trim($a)),array_filter(explode(',',(string)$data['prizes_text']),fn($a)=>trim($a)!==''))):[];
+        return [$type,$prizes];
     }
 
     private function validateChallenge(Request $request,bool $creating=true): array

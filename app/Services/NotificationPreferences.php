@@ -11,6 +11,7 @@ class NotificationPreferences
     public function category(string $type): string
     {
         return match (true) {
+            in_array($type, ['knowledge_new_from_followed', 'knowledge_weekly_digest', 'knowledge_challenge_announcement'], true) => 'knowledge',
             str_contains($type, 'onboarding_reminder') => 'onboarding',
             str_starts_with($type, 'inactivity_'), $type === 'weekly_summary', $type === 'profile_completion_suggestion' => 'engagement',
             str_contains($type, 'department'), str_contains($type, 'institution'), str_starts_with($type, 'academic_membership'), str_contains($type, 'commercial_account'), str_starts_with($type, 'notification_delivery_') => 'organisation',
@@ -31,7 +32,7 @@ class NotificationPreferences
 
         return ['email_enabled' => $profile['email'] ?? true, 'in_app_enabled' => $profile['in_app'] ?? true,
             'research_updates' => $profile['research_updates'] ?? true, 'academic_alerts' => $profile['event_reminders'] ?? true,
-            'push_enabled' => true, 'engagement_reminders' => false, 'email_open_tracking' => false];
+            'push_enabled' => true, 'engagement_reminders' => false, 'email_open_tracking' => false, 'knowledge_updates' => true, 'knowledge_digest' => true];
     }
 
     public function allows(?NotificationSetting $settings, string $type, string $category): bool
@@ -39,12 +40,13 @@ class NotificationPreferences
         $field = match ($category) {
             'onboarding' => 'onboarding_reminders', 'engagement' => 'engagement_reminders',
             'organisation' => 'organisation_updates', 'research' => 'research_updates',
-            'billing' => 'billing_notifications', default => 'academic_alerts',
+            'billing' => 'billing_notifications', 'knowledge' => 'knowledge_updates', default => 'academic_alerts',
         };
         if (! ($settings?->$field ?? ($category !== 'engagement'))) {
             return false;
         }
         $specific = match ($type) {
+            'knowledge_weekly_digest' => 'knowledge_digest',
             'grade_posted', 'feedback_posted' => 'grade_notifications',
             'attendance_started', 'attendance_closed' => 'attendance_notifications',
             'submission_received', 'submission_confirmation', 'correction_requested', 'approval_granted', 'overdue_submission' => 'submission_notifications',

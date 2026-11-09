@@ -231,6 +231,8 @@ class WalletService
         };
         $counter = match(true){
             $entryType === 'ambassador_reward' => 'ambassador_marketing_expense',
+            str_starts_with($entryType, 'knowledge_reward') => 'knowledge_rewards_expense',
+            str_starts_with($entryType, 'challenge_prize') => 'challenge_prize_escrow_liability',
             str_contains($entryType,'fund')=>'payment_clearing',
             str_contains($entryType,'ai_')=>'ai_revenue_clearing',
             str_contains($entryType,'feature_')=>'feature_revenue_clearing',

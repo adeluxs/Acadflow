@@ -113,6 +113,21 @@ return [
             'default_duration_days' => 30,
             'unit_label' => 'access period',
         ],
+        'knowledge_reader_pass' => [
+            'title' => 'Knowledge Hub Reader Pass',
+            'short_title' => 'Reader Pass',
+            'category' => 'Knowledge Hub',
+            'description' => 'Unlimited reading of free Knowledge Hub guides and stories after the monthly free reads, plus Read & Earn: study credit for passing each guide\'s quiz and a share of the monthly reader cash pool.',
+            'pricing_type' => 'fixed_access',
+            'unit_label' => 'access period',
+            'roles' => ['student', 'lecturer'],
+            'package' => true,
+            'package_kind' => 'reader',
+            'default_duration_days' => 30,
+            'default_semester_duration_days' => 120,
+            'default_trial_days' => 0,
+            'default_grace_days' => 0,
+        ],
     ],
 
     'ai_features' => [

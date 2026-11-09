@@ -49,6 +49,10 @@ return [
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => (int) env('DB_BUSY_TIMEOUT', 15000),
             'journal_mode' => env('DB_JOURNAL_MODE', 'WAL'),
+            // IMMEDIATE takes the write lock when a transaction starts, so a busy database waits
+            // (busy_timeout) instead of failing with "database is locked" when the queue worker
+            // or another request writes at the same time. Only used by SQLite (local development).
+            'transaction_mode' => env('DB_TRANSACTION_MODE', 'IMMEDIATE'),
             'synchronous' => null,
         ],
 

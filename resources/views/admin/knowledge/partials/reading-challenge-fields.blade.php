@@ -1,0 +1,13 @@
+@php
+    $prizeDefault = $challenge ? collect($challenge->prizes)->map(fn ($minor) => intdiv((int) $minor, 100))->implode(', ') : implode(', ', array_map(fn ($share) => (int) round($defaultPool * $share), [0.4, 0.2, 0.1, 0.06, 0.06, 0.06, 0.04, 0.04, 0.02, 0.02]));
+@endphp
+<div class="grid gap-3 md:grid-cols-2">
+    <label class="text-sm font-bold md:col-span-2">Title<input name="title" required maxlength="160" value="{{ $challenge?->title ?? 'AcadSyntra Reading Challenge' }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
+    <label class="text-sm font-bold md:col-span-2">Description<textarea name="description" rows="3" maxlength="3000" class="mt-1 w-full rounded-xl border-slate-300">{{ $challenge?->description ?? 'Read guides on the Knowledge Hub, pass their quizzes and climb the leaderboard. Top readers win cash.' }}</textarea></label>
+    <label class="text-sm font-bold">Starts<input type="datetime-local" name="starts_at" required value="{{ ($challenge?->starts_at ?? now()->startOfDay()->addDay())->format('Y-m-d\TH:i') }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
+    <label class="text-sm font-bold">Ends<input type="datetime-local" name="ends_at" required value="{{ ($challenge?->ends_at ?? now()->startOfDay()->addDays(15)->subMinute())->format('Y-m-d\TH:i') }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
+    <label class="text-sm font-bold md:col-span-2">Prizes by rank (naira, comma separated)<input name="prizes" required value="{{ $prizeDefault }}" class="mt-1 w-full rounded-xl border-slate-300"><span class="mt-1 block text-xs font-normal text-slate-500">First number is 1st place. Total = the challenge budget.</span></label>
+    <label class="text-sm font-bold">Guides a reader must pass to rank<input type="number" name="min_passed_reads" min="1" required value="{{ $challenge?->min_passed_reads ?? 5 }}" class="mt-1 w-full rounded-xl border-slate-300"></label>
+    <label class="text-sm font-bold">Status<select name="status" class="mt-1 w-full rounded-xl border-slate-300">@foreach(\App\Models\KnowledgeReadingChallenge::STATUSES as $status)<option value="{{ $status }}" @selected(($challenge?->status ?? 'active') === $status)>{{ ucfirst($status) }}</option>@endforeach</select></label>
+    <label class="text-sm font-bold md:col-span-2">Limit to one institution (optional, institution ID)<input type="number" name="university_id" min="1" value="{{ $challenge?->university_id }}" class="mt-1 w-full rounded-xl border-slate-300"><span class="mt-1 block text-xs font-normal text-slate-500">Leave empty for an all-schools challenge.</span></label>
+</div>

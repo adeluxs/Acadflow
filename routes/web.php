@@ -115,6 +115,8 @@ Route::middleware('feature.flag:knowledge_hub')->group(function () {
     Route::get('/knowledge-hub/reading-lists/{list}', [KnowledgeEcosystemController::class, 'readingList'])->name('knowledge.reading.show');
     Route::get('/knowledge-hub/events', [KnowledgeEcosystemController::class, 'events'])->name('knowledge.events.index');
     Route::get('/knowledge-hub/events/{event}', [KnowledgeEcosystemController::class, 'event'])->name('knowledge.events.show');
+    Route::get('/knowledge-hub/writing-challenges', [\App\Http\Controllers\KnowledgeWritingChallengeController::class, 'index'])->name('knowledge.writing.index');
+    Route::get('/knowledge-hub/writing-challenges/{challenge}', [\App\Http\Controllers\KnowledgeWritingChallengeController::class, 'show'])->name('knowledge.writing.show');
     Route::get('/knowledge-hub/challenges', [KnowledgeEcosystemController::class, 'challenges'])->name('knowledge.challenges.index');
     Route::get('/knowledge-hub/challenges/{challenge}', [KnowledgeEcosystemController::class, 'challenge'])->name('knowledge.challenges.show');
     Route::get('/knowledge-hub/certificates/verify/{code}', [KnowledgeEcosystemController::class, 'verifyCertificate'])->name('knowledge.certificates.verify');
@@ -180,6 +182,7 @@ Route::post('/webhook/payment/{gateway}', [CommerceController::class, 'webhook']
 Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.complete'])->group(function () {
     require __DIR__.'/academic-organisations.php';
     require __DIR__.'/ambassadors.php';
+    require __DIR__.'/knowledge-rewards.php';
     Route::post('/admin/billing/semesters/{semester}/generate-invoices', [BillingController::class, 'generateInvoices'])
         ->name('billing.generate-invoices');
 
@@ -916,6 +919,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::post('/admin/knowledge-hub/publication-types', [KnowledgeManagementController::class, 'storeType'])->name('admin.knowledge.types.store');
         Route::put('/admin/knowledge-hub/publication-types/{publicationType}', [KnowledgeManagementController::class, 'updateType'])->name('admin.knowledge.types.update');
         Route::post('/admin/knowledge-hub/categories', [KnowledgeManagementController::class, 'storeCategory'])->name('admin.knowledge.categories.store');
+        Route::post('/admin/knowledge-hub/categories/merge-duplicates', [KnowledgeManagementController::class, 'mergeCategories'])->name('admin.knowledge.categories.merge');
         Route::put('/admin/knowledge-hub/categories/{category}', [KnowledgeManagementController::class, 'updateCategory'])->name('admin.knowledge.categories.update');
         Route::patch('/admin/knowledge-hub/monetization-applications/{application}', [KnowledgeManagementController::class, 'reviewApplication'])->name('admin.knowledge.applications.review');
         Route::post('/admin/knowledge-hub/promotion-packages', [KnowledgeManagementController::class, 'storePromotionPackage'])->name('admin.knowledge.promotion-packages.store');

@@ -272,6 +272,16 @@ return [
             'depends_on' => ['knowledge_hub'],
             'impact' => 'Academic event discovery, registration and event-management actions will be unavailable to normal users.',
         ],
+        'knowledge_read_to_earn' => [
+            'title' => 'Reader Pass, Read & Earn & official challenges',
+            'category' => 'Knowledge Hub',
+            'description' => 'Monthly free reads then the Reader Pass, quiz-verified Read & Earn study credit, monthly reader and creator cash pools, and Reading Challenges. Rules and budgets are in Admin > Knowledge Hub > Read & Earn.',
+            'default_status' => 'disabled',
+            'routes' => ['knowledge.rewards.*', 'knowledge.writing.*'],
+            'paths' => [],
+            'depends_on' => ['knowledge_hub'],
+            'impact' => 'Readers stop seeing the paywall, quizzes and rewards pages. Earned credit, paid rewards and history are preserved; admin controls stay available.',
+        ],
         'academic_challenges' => [
             'title' => 'Academic Challenges',
             'category' => 'Knowledge Hub',

@@ -76,6 +76,8 @@ class AcademicChallenge extends Model
     public function organizer(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(User::class, 'organizer_id'); }
     public function judges(): \Illuminate\Database\Eloquent\Relations\BelongsToMany { return $this->belongsToMany(User::class, 'academic_challenge_judges')->withPivot(['status','invited_by','accepted_at'])->withTimestamps(); }
     public function entries(): \Illuminate\Database\Eloquent\Relations\HasMany { return $this->hasMany(AcademicChallengeEntry::class); }
+    /** Creator-funded prize money held by AcadSyntra (community challenges). */
+    public function prizeFund(): \Illuminate\Database\Eloquent\Relations\HasOne { return $this->hasOne(ChallengePrizeFund::class); }
 
     public function getRouteKeyName(): string
     {

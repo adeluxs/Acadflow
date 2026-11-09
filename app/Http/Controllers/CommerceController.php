@@ -61,6 +61,10 @@ class CommerceController extends Controller
         $order=$commerce->createOrder($request->user(),$purchasable,['email'=>$request->user()->email],$data['idempotency_key']);
         if(($data['payment_method']??'gateway')==='wallet'){
             $commerce->purchaseWithWallet($order,$request->user(),$data['idempotency_key']);
+            // Readers land back on what they just unlocked.
+            if ($purchasable instanceof KnowledgePublication) {
+                return redirect()->route('knowledge.show',$purchasable)->with('success','Unlocked. Paid from your wallet balance; the receipt is in your orders.');
+            }
             return redirect()->route('commerce.orders')->with('success','Purchase completed from your spending balance.');
         }
         $result=$commerce->initialize($order,(string)$data['gateway']);
