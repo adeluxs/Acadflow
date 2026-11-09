@@ -34,13 +34,13 @@
                             <input name="q" value="{{ request('q') }}" class="w-full rounded-xl border-white/20 bg-white/95 py-3 pl-11 pr-4 text-sm font-medium text-slate-900 placeholder:text-slate-400" placeholder="Search title, author, topic or content">
                         </label>
                         <select name="category" class="rounded-xl border-white/20 bg-white/95 px-3 py-3 text-sm font-medium text-slate-800">
-                            <option value="">All categories</option>
+                            <option value="">All topics</option>
                             @foreach($categories as $category)
                                 <option value="{{ $category->slug }}" @selected(request('category') === $category->slug)>{{ $category->name }}</option>
                             @endforeach
                         </select>
                         <select name="type" class="rounded-xl border-white/20 bg-white/95 px-3 py-3 text-sm font-medium text-slate-800">
-                            <option value="">All resource types</option>
+                            <option value="">All formats</option>
                             @foreach($publicationTypes as $type)
                                 <option value="{{ $type->slug }}" @selected(request('type') === $type->slug)>{{ $type->name }}</option>
                             @endforeach

@@ -135,6 +135,12 @@ class KnowledgeManagementController extends Controller
         $slug = Str::slug(($data['slug'] ?? '') ?: $data['name']);
         $clash = KnowledgeCategory::query()->whereNull('university_id')->whereNull('merged_into_id')->when($category, fn ($q) => $q->whereKeyNot($category->id))
             ->where(fn ($q) => $q->where('slug', $slug)->orWhereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower(trim($data['name']))]))->first();
+        // Topics must not repeat a format name ("Study guide" is a publication type), or creators see the same choice twice.
+        $singular = fn (string $name) => rtrim(mb_strtolower(trim($name)), 's');
+        $format = \App\Models\KnowledgePublicationType::query()->pluck('name')->first(fn ($type) => $singular($type) === $singular($data['name']));
+        if ($format) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['name' => '"'.$format.'" is already a publication type (format). Name the category as a topic instead, e.g. "Exams & Assessments" rather than "Exam preparation".']);
+        }
         if ($clash && (int) ($clash->parent_id ?? 0) === (int) ($data['parent_id'] ?? 0)) {
             throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'A category called "'.$clash->name.'" already exists. Edit that one instead of adding it again.']);
         }

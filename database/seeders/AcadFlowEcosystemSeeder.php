@@ -140,10 +140,16 @@ class AcadFlowEcosystemSeeder extends Seeder
                 );
             }
 
-            foreach (['Research Outputs','Research Insights','Study Guides','Exam Preparation','Tutorials','Programming Tutorials','Career and SIWES','Projects and Case Studies','Digital Resources','Campus and Department Guides'] as $categoryName) {
+            // Topics (what a guide is about), named so they don't repeat the publication types (formats).
+            // Slugs are the original ones so existing links keep working.
+            $topics = ['research-outputs' => 'Research & Publications', 'research-insights' => 'Research Explained', 'study-guides' => 'Courses & Study Skills',
+                'exam-preparation' => 'Exams & Assessments', 'tutorials' => 'Practical Skills', 'programming-tutorials' => 'Programming & Technology',
+                'career-and-siwes' => 'Careers, Internships & SIWES', 'projects-and-case-studies' => 'Final Year & Group Projects',
+                'digital-resources' => 'Tools & Learning Resources', 'campus-and-department-guides' => 'Campus & Departments'];
+            foreach ($topics as $slug => $categoryName) {
                 // Platform-wide, once: a copy per university showed every name many times.
-                if (! KnowledgeCategory::query()->whereNull('university_id')->where('slug', str($categoryName)->slug()->toString())->exists()) {
-                    KnowledgeCategory::create(['university_id' => null, 'slug' => str($categoryName)->slug()->toString(), 'name' => $categoryName, 'is_active' => true]);
+                if (! KnowledgeCategory::query()->whereNull('university_id')->where('slug', $slug)->exists()) {
+                    KnowledgeCategory::create(['university_id' => null, 'slug' => $slug, 'name' => $categoryName, 'is_active' => true]);
                 }
             }
 

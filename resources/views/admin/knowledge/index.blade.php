@@ -12,8 +12,8 @@
 
 <section class="grid gap-6 xl:grid-cols-2">
     <div class="rounded-3xl border bg-white p-6 shadow-sm">
-        <h2 class="text-xl font-black">Publication types</h2>
-        <p class="mt-1 text-sm text-slate-500">Formats are separate from subject categories.</p>
+        <h2 class="text-xl font-black">Publication types (formats)</h2>
+        <p class="mt-1 text-sm text-slate-500">What kind of piece it is: study guide, tutorial, story, poem, research paper… Creators see these as "Format". Keep them separate from topics.</p>
         <details class="mt-4 rounded-2xl border p-4">
             <summary class="cursor-pointer font-bold">Add publication type</summary>
             <form method="POST" action="{{ route('admin.knowledge.types.store') }}" class="mt-4 grid gap-3 sm:grid-cols-2">
@@ -37,8 +37,8 @@
         </div>
     </div>
     <div class="rounded-3xl border bg-white p-6 shadow-sm">
-        <h2 class="text-xl font-black">Subject categories</h2>
-        <p class="mt-1 text-sm text-slate-500">Existing IDs and slugs remain stable when categories are disabled or reordered.</p>
+        <h2 class="text-xl font-black">Subject categories (topics)</h2>
+        <p class="mt-1 text-sm text-slate-500">What a piece is about: exams, careers, campus life… Creators see these as "Topic"; they drive the topic filter, related guides and Writing Challenge tracks. Name them as subjects, not formats (avoid names like "Study guide" that are already a format). IDs and slugs stay stable when you rename, disable or reorder.</p>
         @if($duplicateCategories > 0)
             <div class="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <p class="text-sm text-amber-900"><strong>{{ $duplicateCategories }} duplicate {{ $duplicateCategories === 1 ? 'copy' : 'copies' }} found</strong> (the same category stored more than once, e.g. one per university). Merging keeps one of each, moves any content onto it and switches the copies off. Nothing is deleted.</p>

@@ -75,4 +75,24 @@ class KnowledgeCategoryDuplicatesTest extends TestCase
         $this->actingAs(User::factory()->create())->get(route('knowledge.index'))->assertOk();
         $this->assertSame(1, substr_count($this->get(route('knowledge.index'))->getContent(), '>Academics &amp; Research</option>'));
     }
+
+    public function test_topics_are_renamed_so_they_do_not_repeat_formats(): void
+    {
+        $old = KnowledgeCategory::create(['university_id' => null, 'name' => 'Exam Preparation', 'slug' => 'exam-preparation', 'is_active' => true]);
+        $custom = KnowledgeCategory::create(['university_id' => null, 'name' => 'My Own Topic', 'slug' => 'tutorials', 'is_active' => true]);
+        $migration = require database_path('migrations/2026_11_09_100000_rename_overlapping_knowledge_categories.php');
+        $migration->up();
+        $this->assertSame(['Exams & Assessments', 'exam-preparation'], [$old->fresh()->name, $old->fresh()->slug]);
+        $this->assertSame('My Own Topic', $custom->fresh()->name);
+        $migration->down();
+        $this->assertSame('Exam Preparation', $old->fresh()->name);
+
+        $user = User::factory()->create();
+        $this->actingAs($user)->get(route('knowledge.manage.create'))->assertOk()->assertSee('what are you sharing?')->assertSee('what is it about?');
+        $this->get(route('knowledge.index'))->assertSee('All topics')->assertSee('All formats');
+
+        $admin = User::factory()->create(['role' => 'super_admin']);
+        $this->actingAs($admin)->post(route('admin.knowledge.categories.store'), ['name' => 'Study guides', 'area' => 'academics_research', 'sort_order' => 1])->assertSessionHasErrors('name');
+        $this->post(route('admin.knowledge.categories.store'), ['name' => 'Exams & Assessments', 'area' => 'academics_research', 'sort_order' => 1])->assertSessionHasNoErrors();
+    }
 }
