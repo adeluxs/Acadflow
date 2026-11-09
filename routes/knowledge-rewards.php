@@ -17,6 +17,11 @@ Route::middleware('feature.flag:knowledge_hub')->group(function (): void {
     Route::post('/knowledge-hub/challenges/{challenge}/prizes/fund', [\App\Http\Controllers\CommunityChallengePrizeController::class, 'fund'])->middleware('throttle:10,1')->name('knowledge.challenges.prizes.fund');
     Route::post('/knowledge-hub/challenges/{challenge}/prizes/pay', [\App\Http\Controllers\CommunityChallengePrizeController::class, 'pay'])->middleware('throttle:10,1')->name('knowledge.challenges.prizes.pay');
     Route::get('/knowledge-hub/rewards', [KnowledgeReadEarnController::class, 'index'])->name('knowledge.rewards.index');
+    Route::post('/knowledge-hub/challenge-popup/seen', function (\Illuminate\Http\Request $request, \App\Services\Knowledge\ChallengePopupService $popup) {
+        $popup->markSeen($request);
+
+        return response()->noContent();
+    })->middleware('throttle:30,1')->name('knowledge.challenge-popup.seen');
     Route::get('/knowledge-hub/reading-challenges/{challenge}', [KnowledgeReadEarnController::class, 'challenge'])->name('knowledge.rewards.challenges.show');
     Route::post('/knowledge-hub/{publication}/read-earn', [KnowledgeReadEarnController::class, 'submitQuiz'])->middleware('throttle:20,1')->name('knowledge.rewards.quiz.submit');
     Route::post('/knowledge-hub/read-earn/questions/{question}/report', [KnowledgeReadEarnController::class, 'reportQuestion'])->middleware('throttle:20,1')->name('knowledge.rewards.quiz.report');

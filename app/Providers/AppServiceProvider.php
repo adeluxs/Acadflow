@@ -58,6 +58,12 @@ class AppServiceProvider extends ServiceProvider
         };
         $this->app->terminating($flushLocalRuntimeCaches);
         Event::listen(JobProcessed::class, static fn () => $flushLocalRuntimeCaches());
+        // A fresh login shows the "challenges are live" pop-up again.
+        Event::listen(\Illuminate\Auth\Events\Login::class, static function (): void {
+            if (app()->bound('session.store') && request()->hasSession()) {
+                request()->session()->forget(\App\Services\Knowledge\ChallengePopupService::SESSION_KEY);
+            }
+        });
         Event::listen(JobExceptionOccurred::class, static fn () => $flushLocalRuntimeCaches());
 
         if ($this->app->runningInConsole()) {

@@ -74,6 +74,10 @@ class ModerationService
             $publicationId = $publication->id;
             // AI writes the Read & Earn questions in the background (skipped if the text hasn't changed).
             \App\Jobs\GenerateKnowledgeQuiz::dispatch($publicationId)->afterCommit();
+            // Let search engines know straight away (public guides only; production only).
+            if ($publication->visibility === 'public' && in_array($publication->access_type, ['free', 'premium'], true)) {
+                \App\Jobs\PingIndexNow::dispatch([route('knowledge.show', $publication)])->afterCommit();
+            }
             if ($firstPublication) {
                 // Followers of the creator hear about a guide once, the first time it goes live.
                 NotifyKnowledgeFollowers::dispatch($publicationId)->afterCommit();

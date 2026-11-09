@@ -2,6 +2,14 @@
 @section('title', 'AcadSyntra Writing Challenge')
 @section('page-title', 'AcadSyntra Writing Challenge')
 @section('page-subtitle', 'Write. Get read. Win.')
+@push('seo')
+    @include('partials.seo', ['seo' => [
+        'title' => 'AcadSyntra Writing Challenge: write the guide you wish you had and win cash',
+        'description' => 'Official AcadSyntra writing challenges for Nigerian students: publish a study guide or story on the Knowledge Hub, get judged and read, and win cash prizes and a permanent winner badge.',
+        'canonical' => route('knowledge.writing.index'), 'image' => app(\App\Services\Seo\KnowledgeSeo::class)->defaultImage(), 'type' => 'website', 'robots' => 'index, follow',
+        'schema' => [['@type' => 'CollectionPage', 'name' => 'AcadSyntra Writing Challenges', 'url' => route('knowledge.writing.index'), 'publisher' => app(\App\Services\Seo\KnowledgeSeo::class)->organization()]],
+    ]])
+@endpush
 @section('content')
 @include('knowledge._nav')
 @php($naira = fn ($minor) => '₦'.number_format(intdiv((int) $minor, 100)))

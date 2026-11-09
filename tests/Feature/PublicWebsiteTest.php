@@ -45,7 +45,10 @@ class PublicWebsiteTest extends TestCase
     public function test_canonical_and_sitemap_use_working_public_urls(): void
     {
         $this->get('/information/about')->assertSee('href="'.route('public.about').'"', false);
-        $xml = $this->get('/sitemap.xml')->assertOk()->assertHeader('Content-Type', 'application/xml; charset=UTF-8')->getContent();
+        $index = $this->get('/sitemap.xml')->assertOk()->assertHeader('Content-Type', 'application/xml; charset=UTF-8')->getContent();
+        $this->assertStringContainsString('<sitemapindex', $index);
+        // sitemap.xml is an index; the marketing pages live in the "pages" part.
+        $xml = $this->get(route('sitemap.part', 'pages'))->assertOk()->assertHeader('Content-Type', 'application/xml; charset=UTF-8')->getContent();
         $document = simplexml_load_string($xml);
         $this->assertNotFalse($document);
         $urls = array_map('strval', iterator_to_array($document->xpath('//*[local-name()="loc"]')));

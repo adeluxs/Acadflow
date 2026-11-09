@@ -92,8 +92,11 @@ foreach (PublicWebsite::PATHS as $slug => $path) {
 Route::post('/contact', [PublicContactController::class, 'store'])->middleware('throttle:public-contact')->name('public.contact.store');
 Route::get('/r/{code}', [\App\Http\Controllers\AmbassadorController::class, 'referral'])->where('code', '[a-z0-9]{16}')->middleware('throttle:60,1')->name('ambassadors.referral');
 Route::get('/ambassadors/join', [\App\Http\Controllers\AmbassadorController::class, 'join'])->middleware('throttle:30,1')->name('ambassadors.join');
-Route::get('/sitemap.xml', [PublicPageController::class, 'sitemap'])->name('public.sitemap');
-Route::get('/robots.txt', [PublicPageController::class, 'robots'])->name('public.robots');
+Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'index'])->name('public.sitemap');
+Route::get('/sitemaps/{name}.xml', [\App\Http\Controllers\SitemapController::class, 'part'])->where('name', '[a-z0-9-]+')->name('sitemap.part');
+Route::get('/robots.txt', [\App\Http\Controllers\AiDiscoveryController::class, 'robots'])->name('public.robots');
+Route::get('/llms.txt', [\App\Http\Controllers\AiDiscoveryController::class, 'llms'])->name('public.llms');
+Route::get('/{key}.txt', [\App\Http\Controllers\AiDiscoveryController::class, 'indexNowKeyFile'])->where('key', '[a-f0-9]{32}')->name('public.indexnow-key');
 // Self-service recovery for a browser stuck on an old cached version: clears this
 // site's caches, storage and service workers in the browser, keeps sign-in cookies.
 Route::get('/refresh-app', [PublicPageController::class, 'refreshApp'])->middleware('throttle:10,1')->name('app.refresh');

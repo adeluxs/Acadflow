@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Workspace') · {{ $siteName }}</title>
+    @php
+        $seoHead = trim($__env->yieldPushContent('seo'));
+    @endphp
+    @if($seoHead !== ''){!! $seoHead !!}@else
+    {{-- App pages are private workspaces: keep them out of search results. --}}
+    <meta name="robots" content="noindex, nofollow">
+    @endif
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -592,6 +599,7 @@
     </script>
 
     @stack('scripts')
+@auth @include('knowledge.partials._challenge-popup') @endauth
 @include('notifications._push-invitation')
 @include('partials.whatsapp-support')
 </body>

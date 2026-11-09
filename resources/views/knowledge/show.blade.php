@@ -3,6 +3,9 @@
 @section('page-title', $publication->title)
 @section('page-subtitle', ucwords(str_replace('_', ' ', $publication->content_type)).' · '.($publication->creator?->full_name ?: 'Academic contributor'))
 
+@push('seo')
+    @include('partials.seo', ['seo' => app(\App\Services\Seo\KnowledgeSeo::class)->publication($publication, $hasAccess)])
+@endpush
 @section('content')
 @if($publication->series)
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50 px-5 py-4 text-sm"><div><p class="text-xs font-black uppercase tracking-wider text-violet-700">{{ $publication->series->title }}</p><p class="mt-1 font-bold text-violet-950">Chapter {{ $publication->chapter_number }}</p></div><a href="{{ route('knowledge.series.show',$publication->series) }}" class="font-black text-violet-700">Table of contents →</a></div>

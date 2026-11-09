@@ -3,6 +3,9 @@
 @section('page-title', 'Knowledge Hub')
 @section('page-subtitle', 'Learn from research, campus experience, stories and practical knowledge.')
 
+@push('seo')
+    @include('partials.seo', ['seo' => app(\App\Services\Seo\KnowledgeSeo::class)->hub(request()->hasAny(['q', 'category', 'type', 'access', 'area', 'feed', 'recency', 'sort', 'page']))])
+@endpush
 @section('content')
 @include('knowledge._nav')
 

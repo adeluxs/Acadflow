@@ -2,6 +2,9 @@
 @section('title',$series->title)
 @section('page-title',$series->title)
 @section('page-subtitle','A serialized publication by '.($series->creator?->full_name ?? 'AcadSyntra creator'))
+@push('seo')
+    @include('partials.seo', ['seo' => app(\App\Services\Seo\KnowledgeSeo::class)->series($series)])
+@endpush
 @section('content')
 <div class="mx-auto max-w-6xl space-y-6">
 <header class="rounded-[2rem] bg-gradient-to-br from-slate-950 via-violet-950 to-fuchsia-900 p-7 text-white shadow-xl sm:p-10"><div class="flex flex-wrap gap-2"><span class="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">{{ $series->publicationType?->name }}</span><span class="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">{{ str($series->completion_status)->headline() }}</span><span class="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">{{ $series->chapters->count() }} chapters</span></div><h1 class="mt-5 text-3xl font-black sm:text-5xl">{{ $series->title }}</h1><p class="mt-4 max-w-3xl text-sm leading-7 text-violet-100">{{ $series->description }}</p><div class="mt-6 flex flex-wrap gap-3">@auth<form method="POST" action="{{ route('knowledge.series.follow',$series) }}">@csrf<button class="rounded-xl bg-white px-4 py-2.5 text-sm font-black text-violet-950">{{ $following ? 'Following' : 'Follow new chapters' }}</button></form>@endauth @if($owner)<a href="{{ route('knowledge.series.edit',$series) }}" class="rounded-xl border border-white/25 px-4 py-2.5 text-sm font-bold">Manage series</a>@endif</div>@if($progress)<div class="mt-6 max-w-xl"><div class="flex justify-between text-xs font-bold text-violet-100"><span>Reading progress</span><span>{{ $progress->progress_percent }}%</span></div><div class="mt-2 h-2 overflow-hidden rounded-full bg-white/15"><div class="h-full rounded-full bg-fuchsia-300" style="width:{{ $progress->progress_percent }}%"></div></div></div>@endif</header>

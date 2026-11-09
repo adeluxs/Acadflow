@@ -2,6 +2,9 @@
 @section('title', $challenge->title)
 @section('page-title', 'AcadSyntra Writing Challenge')
 @section('page-subtitle', $challenge->theme ?: $challenge->title)
+@push('seo')
+    @include('partials.seo', ['seo' => app(\App\Services\Seo\KnowledgeSeo::class)->writingChallenge($challenge)])
+@endpush
 @section('content')
 @include('knowledge._nav')
 @php

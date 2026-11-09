@@ -1,33 +1,36 @@
-# Format vs Topic: clearer publication types and categories (9 November 2026)
+# SEO + GEO for the Knowledge Hub (9 November 2026)
 
-Apply on top of the full project from 8 November.
+Apply on top of the full project from 9 November (after the challenge pop-up update).
 
-    rsync -av ~/Downloads/acadsyntra-format-vs-topic/ ~/Projects/acadsyntra/ --exclude README.md
-    php artisan migrate --force
+    rsync -av ~/Downloads/acadsyntra-seo-geo/ ~/Projects/acadsyntra/ --exclude README.md
     php artisan optimize:clear
 
-## What changed
+No migration. IMPORTANT: if your server has a physical file `public/robots.txt` or `public/sitemap.xml`,
+delete it, or the web server will serve the old file instead of the new generated one.
 
-- On the publish form: "Publication type" is now **Format · what are you sharing?** and
-  "Subject category" is now **Topic · what is it about?**, each with a one-line example.
-- Knowledge Hub filters read "All topics" and "All formats".
-- Categories that had the same name as a format were renamed to topics (display name only;
-  IDs and slugs unchanged, so links, filters, guides and Writing Challenge tracks keep working):
+## What's new
 
-  | Old name | New name |
-  |---|---|
-  | Research Outputs | Research & Publications |
-  | Research Insights | Research Explained |
-  | Study Guides | Courses & Study Skills |
-  | Exam Preparation | Exams & Assessments |
-  | Tutorials | Practical Skills |
-  | Programming Tutorials | Programming & Technology |
-  | Career and SIWES | Careers, Internships & SIWES |
-  | Projects and Case Studies | Final Year & Group Projects |
-  | Digital Resources | Tools & Learning Resources |
-  | Campus and Department Guides | Campus & Departments |
+- `/sitemap.xml` is now a sitemap index: marketing pages, every public guide (5,000 per file,
+  with last-updated dates), writing challenges, series and creator pages. Drafts, institution-only
+  and deleted guides are never listed. Cached for an hour.
+- Every guide page: real title, meta description (from the excerpt; never from paid/locked text),
+  canonical URL, Open Graph + Twitter cards (link previews on WhatsApp, X, LinkedIn, Facebook),
+  article dates/author/section, and schema.org JSON-LD: Article (ScholarlyArticle for research),
+  author with university, publisher, BreadcrumbList and isAccessibleForFree (paywall markup).
+- Knowledge Hub, writing-challenge (as an Event), challenge list and series pages also get metadata.
+- Search results and filtered hub lists are `noindex, follow`; private app pages (dashboard etc.)
+  are `noindex, nofollow`.
+- `/robots.txt`: public pages allowed; admin, dashboard, API, login, authoring, rewards and search blocked;
+  AI assistants (GPTBot, ClaudeBot, PerplexityBot, Google-Extended…) allowed on public pages.
+  Switch: Admin > Knowledge Hub > Read & Earn > "Search engines and AI assistants".
+- `/llms.txt`: a plain-text map of AcadSyntra and its top 100 free guides for AI engines.
+- IndexNow: when a public guide is published, Bing/Yandex are notified at once (production only,
+  key served at /<key>.txt automatically).
 
-  A category you already renamed yourself is left alone. Rename any of these again in
-  Admin > Knowledge Hub > Subject categories if you prefer other words.
-- Admin can't create a category whose name is already a format (e.g. "Study guides").
-- New installs create the topic names directly.
+## You need to do (once)
+
+1. Google Search Console: add the domain property acadsyntra.com, verify via DNS, then
+   Sitemaps > submit https://acadsyntra.com/sitemap.xml
+2. Bing Webmaster Tools: "Import from Google Search Console" (fastest), or add the site and submit the sitemap.
+3. Check a guide with Google's Rich Results Test (search.google.com/test/rich-results) and a link preview
+   by pasting a guide link into WhatsApp.

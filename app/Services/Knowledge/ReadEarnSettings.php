@@ -67,10 +67,15 @@ class ReadEarnSettings
 
         // Challenges.
         'knowledge_challenge_default_prize_pool' => ['money', '50000', 'Default prize pool for a new challenge (NGN)', 'Each challenge can still set its own prizes.', 'challenges'],
+        'knowledge_challenge_popup_enabled' => ['boolean', true, 'Show the "challenges are live" pop-up', 'Shown once after login and then every so often (below) while a Reading or Writing Challenge is open or starting within 14 days. Never shown while someone is reading or writing a publication.', 'challenges'],
+        'knowledge_challenge_popup_minutes' => ['integer', 60, 'Show the pop-up again after (minutes)', '', 'challenges'],
         'knowledge_challenge_prizes_enabled' => ['boolean', true, 'Let community challenge creators offer funded prizes', 'Creators pay the prize upfront; AcadSyntra holds it until winners are paid.', 'challenges'],
         'knowledge_challenge_prize_fee_percent' => ['integer', 5, 'Fee on community challenge prizes (%)', 'Added on top of the prize when the creator funds it. Kept if unused prizes are refunded.', 'challenges'],
         'knowledge_challenge_prize_min' => ['money', '1000', 'Smallest prize a creator can offer (NGN)', '', 'challenges'],
         'knowledge_challenge_prize_auto_days' => ['integer', 7, 'Pay winners automatically this many days after results', 'Protects winners if a creator never presses "Pay winners". 0 turns this off.', 'challenges'],
+
+        // Search engines and AI assistants.
+        'seo_allow_ai_crawlers' => ['boolean', true, 'Let AI assistants read free guides', 'ChatGPT, Claude, Perplexity, Google AI and others may read and cite public free guides (and see /llms.txt). Premium guide text is never shown to anyone without access. Turn off to block AI crawlers in robots.txt.', 'seo'],
 
         // Knowledge Hub notifications (in-app, email and push; users can mute each in their notification settings).
         'knowledge_notify_followers_enabled' => ['boolean', true, 'Tell followers when a creator publishes', 'Sent once per new publication, in-app plus email and push. Email/push channels can be switched off per message type in Admin > Notifications (event "knowledge_new_from_followed").', 'notifications'],
@@ -86,6 +91,7 @@ class ReadEarnSettings
         'knowledge_digest_day' => [1, 7],
         'knowledge_read_earn_hold_days' => [0, 90],
         'knowledge_quiz_bank_size' => [3, 30],
+        'knowledge_challenge_popup_minutes' => [5, 1440],
         'knowledge_quiz_per_reader' => [1, 15],
         'knowledge_quiz_report_limit' => [1, 50],
         'knowledge_digest_hour' => [0, 23],
@@ -106,6 +112,7 @@ class ReadEarnSettings
         'creator_pool' => 'Monthly creator cash pool',
         'challenges' => 'Challenges',
         'notifications' => 'Knowledge Hub notifications',
+        'seo' => 'Search engines and AI assistants',
     ];
 
     /** @var array<string,mixed>|null */
