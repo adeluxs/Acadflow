@@ -322,6 +322,7 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
     Route::prefix('knowledge/manage')->name('knowledge.manage')->middleware('feature.flag:knowledge_hub')->group(function () {
         Route::get('/', [KnowledgePublicationController::class, 'manage'])->name('');
         Route::get('/create', [KnowledgePublicationController::class, 'create'])->name('.create');
+        Route::get('/{publication}/readers', [\App\Http\Controllers\KnowledgeReaderAnalyticsController::class, 'creator'])->name('.readers');
         Route::post('/', [KnowledgePublicationController::class, 'store'])->name('.store');
         Route::get('/{publication}/edit', [KnowledgePublicationController::class, 'edit'])->name('.edit');
         Route::get('/{publication}', [KnowledgePublicationController::class, 'showManage'])->name('.show');
@@ -918,6 +919,8 @@ Route::middleware(['auth', 'verified', 'two-factor.authenticated', 'onboarding.c
         Route::post('/admin/monetization/commercial-requests/{commercialRequest}/reject', [MonetizationController::class, 'rejectCommercialAccountRequest'])
             ->name('admin.monetization.commercial-requests.reject');
         Route::get('/admin/knowledge-hub', [KnowledgeManagementController::class, 'index'])->name('admin.knowledge.index');
+        Route::get('/admin/knowledge-hub/readers', [\App\Http\Controllers\KnowledgeReaderAnalyticsController::class, 'adminIndex'])->name('admin.knowledge.readers.index');
+        Route::get('/admin/knowledge-hub/readers/{publication}', [\App\Http\Controllers\KnowledgeReaderAnalyticsController::class, 'admin'])->name('admin.knowledge.readers');
         Route::put('/admin/knowledge-hub/settings', [KnowledgeManagementController::class, 'updateSettings'])->name('admin.knowledge.settings');
         Route::post('/admin/knowledge-hub/publication-types', [KnowledgeManagementController::class, 'storeType'])->name('admin.knowledge.types.store');
         Route::put('/admin/knowledge-hub/publication-types/{publicationType}', [KnowledgeManagementController::class, 'updateType'])->name('admin.knowledge.types.update');

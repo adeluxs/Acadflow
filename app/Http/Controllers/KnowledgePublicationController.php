@@ -41,7 +41,7 @@ class KnowledgePublicationController extends Controller
         $creatorBase = KnowledgePublication::query()->where('creator_id', $user->id);
         $statusCounts = (clone $creatorBase)->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
         $accessCounts = (clone $creatorBase)->selectRaw('access_type, COUNT(*) AS total')->groupBy('access_type')->pluck('total', 'access_type');
-        $engagement = (clone $creatorBase)->selectRaw('COALESCE(SUM(view_count),0) AS reads, COALESCE(SUM(bookmark_count),0) AS saves, COALESCE(SUM(comment_count),0) AS comments')->first();
+        $engagement = (clone $creatorBase)->selectRaw('COALESCE(SUM(view_count),0) AS total_reads, COALESCE(SUM(bookmark_count),0) AS saves, COALESCE(SUM(comment_count),0) AS comments')->first();
         $seriesCount = KnowledgeSeries::query()->where('creator_id', $user->id)->count();
         $campaignSummary = KnowledgePromotionCampaign::query()->where('creator_id', $user->id)->selectRaw('COUNT(*) AS total, COALESCE(SUM(impressions),0) AS impressions, COALESCE(SUM(clicks),0) AS clicks')->first();
         $sales = CommerceRevenueAllocation::query()->where('beneficiary_user_id', $user->id)->selectRaw('COUNT(*) AS total_sales, COALESCE(SUM(amount_minor),0) AS net_earnings_minor')->first();

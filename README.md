@@ -1,36 +1,21 @@
-# SEO + GEO for the Knowledge Hub (9 November 2026)
+# Reader analytics: admins see who read, creators see totals (9 November 2026)
 
-Apply on top of the full project from 9 November (after the challenge pop-up update).
+Apply on top of the full project from 9 November (after the dashboard SQL fix).
 
-    rsync -av ~/Downloads/acadsyntra-seo-geo/ ~/Projects/acadsyntra/ --exclude README.md
+    rsync -av ~/Downloads/acadsyntra-reader-analytics/ ~/Projects/acadsyntra/ --exclude README.md
     php artisan optimize:clear
 
-No migration. IMPORTANT: if your server has a physical file `public/robots.txt` or `public/sitemap.xml`,
-delete it, or the web server will serve the old file instead of the new generated one.
+No migration. Upload `public/build` too (styles rebuilt).
 
-## What's new
+## Admins: Knowledge Admin > "📊 Readers"
+- List of published guides, most-read first, with title search.
+- Per guide: totals, then every signed-in reader (name, email, university, department, when they read,
+  quiz score, passed/failed, why a read didn't count, points, time spent reading, account age),
+  searchable by name or email, 50 per page. Plus readers by university and per-question results.
 
-- `/sitemap.xml` is now a sitemap index: marketing pages, every public guide (5,000 per file,
-  with last-updated dates), writing challenges, series and creator pages. Drafts, institution-only
-  and deleted guides are never listed. Cached for an hour.
-- Every guide page: real title, meta description (from the excerpt; never from paid/locked text),
-  canonical URL, Open Graph + Twitter cards (link previews on WhatsApp, X, LinkedIn, Facebook),
-  article dates/author/section, and schema.org JSON-LD: Article (ScholarlyArticle for research),
-  author with university, publisher, BreadcrumbList and isAccessibleForFree (paywall markup).
-- Knowledge Hub, writing-challenge (as an Event), challenge list and series pages also get metadata.
-- Search results and filtered hub lists are `noindex, follow`; private app pages (dashboard etc.)
-  are `noindex, nofollow`.
-- `/robots.txt`: public pages allowed; admin, dashboard, API, login, authoring, rewards and search blocked;
-  AI assistants (GPTBot, ClaudeBot, PerplexityBot, Google-Extended…) allowed on public pages.
-  Switch: Admin > Knowledge Hub > Read & Earn > "Search engines and AI assistants".
-- `/llms.txt`: a plain-text map of AcadSyntra and its top 100 free guides for AI engines.
-- IndexNow: when a public guide is published, Bing/Yandex are notified at once (production only,
-  key served at /<key>.txt automatically).
-
-## You need to do (once)
-
-1. Google Search Console: add the domain property acadsyntra.com, verify via DNS, then
-   Sitemaps > submit https://acadsyntra.com/sitemap.xml
-2. Bing Webmaster Tools: "Import from Google Search Console" (fastest), or add the site and submit the sitemap.
-3. Check a guide with Google's Rich Results Test (search.google.com/test/rich-results) and a link preview
-   by pasting a guide link into WhatsApp.
+## Creators: Creator dashboard > "See readers" (also "📊 See your readers" on their guide page)
+- Total reads (signed in vs visitors), new readers in the last 7 days, verified reads, quiz pass rate
+  and average score, a 30-day chart, readers by university and by department, and which questions
+  readers get wrong most.
+- No names or emails. Universities/departments with fewer than 3 readers are grouped as "Other",
+  so one reader can't be identified.

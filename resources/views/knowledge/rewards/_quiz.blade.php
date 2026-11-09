@@ -17,6 +17,7 @@
         </h2>
         <p class="mt-2 text-sm leading-6 text-slate-600">@if($readEarn['ai_questions'] ?? false)AcadSyntra writes the questions from your guide for you. @endif Each reader gets a different random set with shuffled answers, so answers can't be shared. You can edit, remove or add questions any time. Readers who pass count as verified reads for the monthly creator pool.</p>
         <a href="{{ route('knowledge.rewards.questions.edit', $publication) }}" class="mt-4 inline-flex rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black text-white">{{ $quizState === 'awaiting_approval' ? 'Review and approve questions' : 'Review Read & Earn questions' }}</a>
+        <a href="{{ route('knowledge.manage.readers', $publication) }}" class="mt-4 ml-2 inline-flex rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-black text-emerald-800">📊 See your readers</a>
     </section>
 @elseif($quizAttempt)
     <section id="read-earn" class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">

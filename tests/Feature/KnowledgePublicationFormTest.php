@@ -59,4 +59,13 @@ class KnowledgePublicationFormTest extends TestCase
         $this->post($action, ['ownership_declaration' => '0'] + $base)->assertSessionHasErrors('ownership_declaration');
         $this->assertFalse(KnowledgePublication::withoutGlobalScopes()->where('title', 'Premium guide')->exists());
     }
+
+    public function test_creator_dashboard_shows_engagement_totals(): void
+    {
+        $user = User::factory()->create();
+        [$action, $data] = $this->formData($this->actingAs($user)->get(route('knowledge.manage.create'))->getContent());
+        $this->post($action, ['title' => 'Counted guide', 'body' => '<p>Body.</p>', 'access_type' => 'free'] + $data)->assertSessionHasNoErrors();
+        KnowledgePublication::withoutGlobalScopes()->where('title', 'Counted guide')->update(['view_count' => 42, 'bookmark_count' => 5]);
+        $this->get(route('knowledge.manage'))->assertOk()->assertSee('42');
+    }
 }
